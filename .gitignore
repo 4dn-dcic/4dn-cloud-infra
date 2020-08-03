@@ -1,0 +1,4 @@
+# Virtual environments
+# Conventions vary, including env, venv, or longer names like cgap_env,
+# but typically they end in "env".
+*env/
