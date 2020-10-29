@@ -8,3 +8,4 @@ __pycache__/
 *swp
 latest_run_results.csv
 latest_run_for_versioned_bucket*.csv
+input_tags_needing_updating.csv

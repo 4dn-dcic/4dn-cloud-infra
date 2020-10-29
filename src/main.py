@@ -149,7 +149,7 @@ def generate_csv_of_all_versioned_files_for_bucket(bucket='elasticbeanstalk-four
             version['Owner']['DisplayName'],
             version['IsLatest'],
             str(version['LastModified'])
-            ])
+        ])
     for marker in response['DeleteMarkers']:
         rows.append([
             bucket,
@@ -160,19 +160,92 @@ def generate_csv_of_all_versioned_files_for_bucket(bucket='elasticbeanstalk-four
             marker['VersionId'],
             marker['IsLatest'],
             str(marker['LastModified'])
-            ])
+        ])
     with open(filename, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
         for r in rows:
             writer.writerow(r)
 
 
-def get_s3_buckets_names_tags():
-    """Returns (name, tags) tuple for each bucket
-    Tags are converted from format [{'Key': ..., 'Value': ...}, ...]
+def update_tags_from_input_csv(dry_run=True):
+    filename = 'input_tags_needing_updating.csv'
+    rows = []
+
+    # Validate data, load relevant columns into a list of dicts
+    with open(filename, newline='') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',', quotechar='|')
+
+        for idx, row in enumerate(reader):
+            if row[0] == 'Identifier':
+                assert row[:7] == [
+                    'Identifier', 'Service', 'Type', 'Region', 'Tag: env', 'Tag: project', 'Tag: owner']
+            elif row[0] != '':  # ignore empty rows w/ no identifier
+                assert row[1] == 'S3', 'row {} has {} as service'.format(idx, row[1])
+                assert row[2] == 'Bucket', 'row {} has {} as type'.format(idx, row[2])
+                rows.append({
+                    'bucket_name': row[0],
+                    'region': row[3],
+                    'env': row[4],
+                    'project': row[5],
+                    'owner': row[6]
+                })
+            else:
+                pass  # empty row
+
+    # Open a BucketTagging resource for each bucket, assemble a list of needed updates
+    resource = get_s3_resource()
+    for idx, bucket in enumerate(rows):
+        bucket_tagging_resource = resource.BucketTagging(bucket['bucket_name'])
+        # Needed to put updates later
+        bucket['bucket_tagging_resource'] = bucket_tagging_resource
+        # Fetch and flatten current tag set
+        bucket['current_flat_tag_set'] = flatten_tag_set(bucket_tagging_resource.tag_set)
+        # Fix case where owner = '-' which should be None
+        if bucket.get('owner', None) == '-':
+            bucket['owner'] = None
+        # Find needed updates
+        for tag in ('env', 'project', 'owner'):
+            bucket['updates'] = []
+            if bucket.get(tag, None) != bucket['current_flat_tag_set'].get(tag, None):
+                bucket['updates'].append(tag)
+        bucket['updates_needed'] = True if len(bucket['updates']) > 0 else False
+
+    # build request object
+    to_update = [x for x in rows if x['updates_needed'] is True]
+    for tu in to_update:
+        tag_set = []
+        for i in tu['updates']:
+            tag_set.append({'Key': i, 'Value': tu[i]})
+        tu['tagging'] = {
+            'TagSet': tag_set
+        }
+
+    # Return the to_update obj if dry_run, run otherwise
+    if dry_run:
+        for i in to_update:
+            # I know this isn't generalized...TODO
+            print('Update owner from {} to {} for bucket {}'.format(
+                i['current_flat_tag_set'].get('owner', None), i['owner'], i['bucket_name']))
+            assert len(i['tagging']['TagSet']) == 1
+            assert i['tagging']['TagSet'][0]['Key'] == 'owner'
+            assert i['tagging']['TagSet'][0]['Value'] == i['owner']
+    else:
+        for i in to_update:
+            # TODO logging output
+            print('Updating tags for bucket {} with tagging object {}'.format(i['bucket_name'], i['tagging']))
+            i['bucket_tagging_resource'].put(Tagging=i['tagging'])  # Returns None
+
+
+def flatten_tag_set(tag_set):
+    """Tags are converted from format [{'Key': ..., 'Value': ...}, ...]
     to format { 'env': value or '-',
                 'project': value or '-',
-                'owner': value or '-' }
+                'owner': value or '-' }"""
+    return {ts['Key']: ts['Value'] for ts in tag_set}
+
+
+def get_s3_buckets_names_tags():
+    """Returns (name, tags) tuple for each bucket
     """
     buckets_names_tags = []
     resource = get_s3_resource()
@@ -181,7 +254,7 @@ def get_s3_buckets_names_tags():
         converted_tags = {}
         # Flatten tag_set, then build tag dict w/ a default value for missing required keys
         tag_set = r.Tagging().tag_set
-        tag_set_flat = {ts['Key']: ts['Value'] for ts in tag_set}
+        tag_set_flat = flatten_tag_set(tag_set)
         for i in ('env', 'project', 'owner'):
             converted_tags[i] = tag_set_flat.get(i, '-')
         buckets_names_tags.append((name, converted_tags))
@@ -208,7 +281,7 @@ def get_s3_size_metrics_query(buckets_names_tags):
         query = {}
         query['Id'] = 'bucket_num_{}'.format(idx)
         query['MetricStat'] = {
-            'Period': 60*60*24,  # 1 Day
+            'Period': 60 * 60 * 24,  # 1 Day
             'Stat': 'Average',
             'Metric': {
                 'Namespace': 'AWS/S3',
