@@ -1,5 +1,11 @@
+boto3==1.15.16
+botocore==1.18.16
 cfn-flip==1.2.3
 click==7.1.2
+jmespath==0.10.0
+python-dateutil==2.8.1
 PyYAML==5.3.1
+s3transfer==0.3.3
 six==1.15.0
 troposphere==2.6.2
+urllib3==1.25.10
