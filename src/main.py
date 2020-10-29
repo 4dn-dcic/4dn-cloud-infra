@@ -104,6 +104,69 @@ def generate_csv_of_current_s3_bucket_size_and_metadata():
             writer.writerow(r)
 
 
+def make_list_object_versions_request(client, bucket, follow_up_request=False,
+                                      next_key_marker=None, next_version_id_marker=None):
+    assert follow_up_request is True and next_key_marker and next_version_id_marker \
+           or follow_up_request is False and next_key_marker is None and next_version_id_marker is None
+    if follow_up_request:
+        response = client.list_object_versions(
+            Bucket=bucket,
+            KeyMarker=next_key_marker,
+            VersionIdMarker=next_version_id_marker)
+        return response
+    else:
+        response = client.list_object_versions(Bucket=bucket)
+        return response
+
+
+def generate_csv_of_all_versioned_files_for_bucket(bucket='elasticbeanstalk-fourfront-webprod-wfoutput'):
+    """Takes a versioned bucket name, and writes a csv for all versions of the bucket
+    (TBD: truncation support)"""
+    rows = [[
+        'bucket name',  # str
+        'entity tag or delete marker',  # ETag of version or 'delete marker' str for all delete markers
+        'size in bytes',  # int
+        'storage class',  # 'STANDARD'
+        'object key',  # str of path to object
+        'object version id',  # str
+        'owner display name',  # str
+        'is latest',  # bool
+        'last modified'  # str(datetime obj)
+    ]]
+    client = get_s3_client()
+    filename = 'latest_run_for_versioned_bucket_{}.csv'.format(bucket)
+    # TODO handle truncation with multiple requests
+    # TODO verify the spreadsheet format before handling truncation (~55k requests)
+    response = make_list_object_versions_request(client, bucket)
+    for version in response['Versions']:
+        rows.append([
+            bucket,
+            version['ETag'],
+            version['Size'],
+            version['StorageClass'],
+            version['Key'],
+            version['VersionId'],
+            version['Owner']['DisplayName'],
+            version['IsLatest'],
+            str(version['LastModified'])
+            ])
+    for marker in response['DeleteMarkers']:
+        rows.append([
+            bucket,
+            'delete marker',
+            'N/A',
+            'N/A',
+            marker['Key'],
+            marker['VersionId'],
+            marker['IsLatest'],
+            str(marker['LastModified'])
+            ])
+    with open(filename, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+        for r in rows:
+            writer.writerow(r)
+
+
 def get_s3_buckets_names_tags():
     """Returns (name, tags) tuple for each bucket
     Tags are converted from format [{'Key': ..., 'Value': ...}, ...]
