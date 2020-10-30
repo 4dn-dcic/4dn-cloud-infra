@@ -119,47 +119,139 @@ def make_list_object_versions_request(client, bucket, follow_up_request=False,
         return response
 
 
-def generate_csv_of_all_versioned_files_for_bucket(bucket='elasticbeanstalk-fourfront-webprod-wfoutput'):
+def generate_csvs_for_all_versioned_buckets():
+    # TODO query for this list
+    versioned_buckets = [
+        'elasticbeanstalk-fourfront-staging-blobs',
+        'elasticbeanstalk-fourfront-staging-files',
+        'elasticbeanstalk-fourfront-staging-system',
+        'elasticbeanstalk-fourfront-staging-wfoutput',
+        'elasticbeanstalk-fourfront-webdev-essentials-pack',
+        'elasticbeanstalk-fourfront-webdev-files',
+        'elasticbeanstalk-fourfront-webprod-blobs',
+        'elasticbeanstalk-fourfront-webprod-files',
+        'elasticbeanstalk-fourfront-webprod-system',
+        'elasticbeanstalk-fourfront-webprod-wfoutput',
+        'elasticbeanstalk-us-east-1-643366669028',
+        'foursight-envs',
+        'jupyterhub-fourfront-notebooks',
+        'jupyterhub-fourfront-templates'
+    ]
+    for v in versioned_buckets:
+        # TODO logging
+        print('Generated csv for {}'.format(v))
+        generate_csv_of_all_versioned_files_for_bucket(bucket=v)
+    print('Generated all csvs.')
+
+
+def make_version_responses_actionable(total_response):
+    """Take a list of responses and turn it into actionable data"""
+    data = {}
+    for response in total_response:
+        if 'Versions' in response:
+            for v in response['Versions']:
+                if v['IsLatest']:
+                    latest = True
+                else:
+                    latest = False
+                key = v.get('Key', 'no-key')
+                if key in data:
+                    if latest:
+                        data[key]['versions'].append(v)
+                        data[key]['latest'] = v['ETag']
+                    else:
+                        data[key]['versions'].append(v)
+                else:
+                    data[key] = {'versions': [v], 'delete_marker': None}
+        if 'DeleteMarkers' in response:
+            for d in response['DeleteMarkers']:
+                key = d.get('Key', 'no-key')
+                if key in data:
+                    if data[key]['delete_marker'] is None:
+                        data[key]['delete_marker'] = [d]
+                    else:
+                        data[key]['delete_marker'].append(d)
+                else:
+                    data[key] = {'versions': [], 'delete_marker': [d]}
+    actionable_data = {}
+    unactionable_data = {}
+    for k in data.keys():
+        versions = data[k]['versions']
+        delete_marker = data[k]['delete_marker']
+        if delete_marker:
+            actionable_data[k] = data[k]
+        elif len(versions) > 1:
+            actionable_data[k] = data[k]
+        else:
+            unactionable_data[k] = data[k]
+    assert len(unactionable_data) == sum([len(unactionable_data[i]['versions']) for i in unactionable_data.keys()])
+
+    # TODO messy, needs refactoring
+    for k in actionable_data.keys():
+        v = actionable_data[k]
+        total_size = sum([int(i['Size']) for i in v['versions']])
+        if v['delete_marker']:
+            latest = v['delete_marker'][0]['LastModified']
+            size = 'N/A (deleted)'
+        else:
+            latest = [i for i in v['versions'] if i['IsLatest'] is True][0]['LastModified']
+            size = [i for i in v['versions'] if i['IsLatest'] is True][0]['Size']
+            # TODO remove latest from actionable object gen
+        good_data = {
+            'name': k,
+            'size': size,
+            'version_num': len(v['versions']),
+            'total_size': total_size,
+            'deleted': True if v['delete_marker'] else False,
+            'last_mod': latest
+        }
+        actionable_data[k] = good_data
+    return actionable_data
+
+
+def generate_csv_of_all_versioned_files_for_bucket(bucket='elasticbeanstalk-fourfront-webprod-wfoutput',
+                                                   complete_run=False):
     """Takes a versioned bucket name, and writes a csv for all versions of the bucket
-    (TBD: truncation support)"""
-    rows = [[
-        'bucket name',  # str
-        'entity tag or delete marker',  # ETag of version or 'delete marker' str for all delete markers
-        'size in bytes',  # int
-        'storage class',  # 'STANDARD'
-        'object key',  # str of path to object
-        'object version id',  # str
-        'owner display name',  # str
-        'is latest',  # bool
-        'last modified'  # str(datetime obj)
-    ]]
+    complete_run will run the full bucket, otherwise it'll only run for the first ~1000 versions."""
+
     client = get_s3_client()
     filename = 'latest_run_for_versioned_bucket_{}.csv'.format(bucket)
-    # TODO handle truncation with multiple requests
-    # TODO verify the spreadsheet format before handling truncation (~55k requests)
-    response = make_list_object_versions_request(client, bucket)
-    for version in response['Versions']:
+
+    print('Generating CSV for {}'.format(bucket))
+    print('{} : Retrieving data from AWS...'.format(datetime.now()))
+    first_response = make_list_object_versions_request(client, bucket)
+    total_response = [first_response]
+
+    if complete_run:
+        return total_response
+        assert True is False, "don't run this yet"
+        while total_response[-1]['IsTruncated']:
+            next_key_marker = total_response[-1]['NextKeyMarker']
+            next_version_id_marker = total_response[-1]['NextVersionIdMarker']
+            next_response = make_list_object_versions_request(client, bucket, True,
+                                                              next_key_marker=next_key_marker,
+                                                              next_version_id_marker=next_version_id_marker
+                                                              )
+            total_response.append(next_response)
+
+    print('{} : Data retrieved from AWS. Making actionable...'.format(datetime.now()))
+    actionable_data = make_version_responses_actionable(total_response)
+    rows = [[
+        'object name',
+        'latest version size',
+        'number of past versions',
+        'total size of all versions',
+        'is it deleted',
+        'last modified'
+    ]]
+    for i in actionable_data:
         rows.append([
-            bucket,
-            version['ETag'],
-            version['Size'],
-            version['StorageClass'],
-            version['Key'],
-            version['VersionId'],
-            version['Owner']['DisplayName'],
-            version['IsLatest'],
-            str(version['LastModified'])
-        ])
-    for marker in response['DeleteMarkers']:
-        rows.append([
-            bucket,
-            'delete marker',
-            'N/A',
-            'N/A',
-            marker['Key'],
-            marker['VersionId'],
-            marker['IsLatest'],
-            str(marker['LastModified'])
+            actionable_data[i]['name'],
+            actionable_data[i]['size'],
+            actionable_data[i]['version_num'],
+            actionable_data[i]['total_size'],
+            actionable_data[i]['deleted'],
+            actionable_data[i]['last_mod']
         ])
     with open(filename, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
