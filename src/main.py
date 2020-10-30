@@ -168,6 +168,8 @@ def generate_csv_of_all_versioned_files_for_bucket(bucket='elasticbeanstalk-four
 
 
 def update_tags_from_input_csv(dry_run=True):
+    """ When dry_true = False, this replaces all tags for all S3 Buckets with
+    three defined in the spreadsheet: env, project, and owner. All other tags will be removed."""
     filename = 'input_tags_needing_updating.csv'
     rows = []
 
@@ -192,45 +194,30 @@ def update_tags_from_input_csv(dry_run=True):
             else:
                 pass  # empty row
 
-    # Open a BucketTagging resource for each bucket, assemble a list of needed updates
+    # Open a BucketTagging resource for each bucket
+    # construct tagging objects, return them if dry_run, else execute
     resource = get_s3_resource()
     for idx, bucket in enumerate(rows):
         bucket_tagging_resource = resource.BucketTagging(bucket['bucket_name'])
-        # Needed to put updates later
         bucket['bucket_tagging_resource'] = bucket_tagging_resource
-        # Fetch and flatten current tag set
-        bucket['current_flat_tag_set'] = flatten_tag_set(bucket_tagging_resource.tag_set)
         # Fix case where owner = '-' which should be None
         if bucket.get('owner', None) == '-':
             bucket['owner'] = None
-        # Find needed updates
-        for tag in ('env', 'project', 'owner'):
-            bucket['updates'] = []
-            if bucket.get(tag, None) != bucket['current_flat_tag_set'].get(tag, None):
-                bucket['updates'].append(tag)
-        bucket['updates_needed'] = True if len(bucket['updates']) > 0 else False
-
-    # build request object
-    to_update = [x for x in rows if x['updates_needed'] is True]
-    for tu in to_update:
+        # Build request object
         tag_set = []
-        for i in tu['updates']:
-            tag_set.append({'Key': i, 'Value': tu[i]})
-        tu['tagging'] = {
+        for tag in ('env', 'project', 'owner'):
+            if bucket[tag]:
+                tag_set.append({'Key': tag, 'Value': bucket[tag]})
+        bucket['tagging'] = {
             'TagSet': tag_set
         }
 
     # Return the to_update obj if dry_run, run otherwise
     if dry_run:
-        for i in to_update:
-            # I know this isn't generalized...TODO
-            print('Update owner from {} to {} for bucket {}'.format(
-                i['current_flat_tag_set'].get('owner', None), i['owner'], i['bucket_name']))
-            assert len(i['tagging']['TagSet']) == 1
-            assert i['tagging']['TagSet'][0]['Key'] == 'owner'
-            assert i['tagging']['TagSet'][0]['Value'] == i['owner']
+        return rows  # verify [i['tagging'] for i in rows ]
+
     else:
-        for i in to_update:
+        for i in rows:
             # TODO logging output
             print('Updating tags for bucket {} with tagging object {}'.format(i['bucket_name'], i['tagging']))
             i['bucket_tagging_resource'].put(Tagging=i['tagging'])  # Returns None

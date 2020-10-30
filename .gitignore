@@ -3,9 +3,11 @@
 # but typically they end in "env".
 *env/
 
+.DS_Store
 __pycache__/
 .idea/
 *swp
 latest_run_results.csv
 latest_run_for_versioned_bucket*.csv
 input_tags_needing_updating.csv
+last_run_results.csv
