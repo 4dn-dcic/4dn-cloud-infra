@@ -1,6 +1,9 @@
 import argparse
 import boto3
 import csv
+import logging
+
+import concurrent.futures
 
 from datetime import datetime, timedelta
 
@@ -137,10 +140,8 @@ def generate_csvs_for_all_versioned_buckets():
         'jupyterhub-fourfront-notebooks',
         'jupyterhub-fourfront-templates'
     ]
-    for v in versioned_buckets:
-        # TODO logging
-        print('Generated csv for {}'.format(v))
-        generate_csv_of_all_versioned_files_for_bucket(bucket=v)
+    with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
+        executor.map(generate_csv_of_all_versioned_files_for_bucket, versioned_buckets, chunksize=4)
     print('Generated all csvs.')
 
 
@@ -210,21 +211,27 @@ def make_version_responses_actionable(total_response):
 
 
 def generate_csv_of_all_versioned_files_for_bucket(bucket='elasticbeanstalk-fourfront-webprod-wfoutput',
-                                                   complete_run=False):
+                                                   complete_run=True):
     """Takes a versioned bucket name, and writes a csv for all versions of the bucket
-    complete_run will run the full bucket, otherwise it'll only run for the first ~1000 versions."""
+    complete_run will run the full bucket, otherwise it'll only run for the first ~1000 versions.
+    # TODO perhaps make complete_run configurable elsewhere
+    """
+
+    logging.basicConfig(level=logging.INFO, filename='log/{}.log'.format(bucket), filemode='a+',
+                        format='%(asctime)-15s %(levelname)-8s %(message)s')
+    logging.info('Starting run for {}'.format(bucket))
 
     client = get_s3_client()
-    filename = 'latest_run_for_versioned_bucket_{}.csv'.format(bucket)
+    filename = 'out/latest_run_for_versioned_bucket_{}.tsv'.format(bucket)
+    # Excel cares about the filename for import, GSheets doesn't care
 
-    print('Generating CSV for {}'.format(bucket))
-    print('{} : Retrieving data from AWS...'.format(datetime.now()))
+    logging.info('Generating csv for {}'.format(bucket))
+    logging.info('Retrieving data from AWS...')
     first_response = make_list_object_versions_request(client, bucket)
     total_response = [first_response]
 
     if complete_run:
-        return total_response
-        assert True is False, "don't run this yet"
+        logging.info('Retrieving data chunks in a loop..')
         while total_response[-1]['IsTruncated']:
             next_key_marker = total_response[-1]['NextKeyMarker']
             next_version_id_marker = total_response[-1]['NextVersionIdMarker']
@@ -234,7 +241,7 @@ def generate_csv_of_all_versioned_files_for_bucket(bucket='elasticbeanstalk-four
                                                               )
             total_response.append(next_response)
 
-    print('{} : Data retrieved from AWS. Making actionable...'.format(datetime.now()))
+    logging.info('Data retrieved from AWS. Making actionable...')
     actionable_data = make_version_responses_actionable(total_response)
     rows = [[
         'object name',
@@ -253,11 +260,12 @@ def generate_csv_of_all_versioned_files_for_bucket(bucket='elasticbeanstalk-four
             actionable_data[i]['deleted'],
             actionable_data[i]['last_mod']
         ])
+    logging.info('Writing spreadsheet')
     with open(filename, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
         for r in rows:
             writer.writerow(r)
-
+    logging.info('wrote {}'.format(filename))
 
 def update_tags_from_input_csv(dry_run=True):
     """ When dry_true = False, this replaces all tags for all S3 Buckets with
