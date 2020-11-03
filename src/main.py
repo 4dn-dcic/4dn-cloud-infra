@@ -7,73 +7,10 @@ import concurrent.futures
 
 from datetime import datetime, timedelta
 
-MAIN_ACCOUNT_ID = "643366669028"
 
 def generate_template(args):
     print('TBD')
 
-
-def get_cloudwatch_client():
-    return boto3.client('cloudwatch')
-
-
-def get_s3_resource():
-    return boto3.resource('s3')
-
-
-def get_s3_client():
-    return boto3.client('s3')
-
-
-def exchange_for_full_tier_1_use(size_bytes, size_price):
-    size_bytes = size_bytes - 54_975_581_388_800.0  # standard_tier_1['size'] * tib
-    size_price = size_price + 1177.6  # standard_tier_1['size'] * tib / gib * standard_tier_1['cost']
-    return size_bytes, size_price
-
-
-def exchange_for_full_tier_2_use(size_bytes, size_price):
-    size_bytes = size_bytes - 494_780_232_499_200.0  # standard_tier_2['size'] * tib
-    size_price = size_price + 10_137.599999999999  # standard_tier_2['size'] * tib / gib * standard_tier_2['cost']
-    return size_bytes, size_price
-
-
-def convert_size_bytes_to_price(size_bytes):
-    size_price = 0  # In USD, to be converted to price format at end
-    # Using gib and tib as GiB and TiB, given that:
-    # 1 KiB = 1024 Bytes = 2**10
-    # 1 MiB = 1048576 Bytes = 2**20
-    gib = 1_073_741_824.0  # float(2**30)
-    tib = 1_099_511_627_776.0  # float(2**40)
-    # Tier Pricing: size in TiB, cost in GiB
-    standard_tier_1 = {'size': 50.0, 'cost': 0.023}
-    standard_tier_2 = {'size': 450.0, 'cost': 0.022}
-    standard_tier_3 = {'size': 500.0, 'cost': 0.021}
-    if size_bytes <= standard_tier_1['size'] * tib:
-        size_price = (size_bytes / gib) * standard_tier_1['cost']
-    elif size_bytes <= standard_tier_2['size'] * tib:
-        size_bytes, size_price = exchange_for_full_tier_1_use(size_bytes, size_price)
-        size_price += (size_bytes / gib) * standard_tier_2['cost']
-    elif size_bytes > standard_tier_3['size'] * tib:
-        size_bytes, size_price = exchange_for_full_tier_1_use(size_bytes, size_price)
-        size_bytes, size_price = exchange_for_full_tier_2_use(size_bytes, size_price)
-        size_price += (size_bytes / gib) * standard_tier_3['cost']
-    else:
-        raise Exception()
-    return '${:,.2f}'.format(size_price)
-
-
-def convert_size_bytes_to_readable(size_bytes):
-    if size_bytes >= 1_000_000_000_000.0:
-        size_readable = '{} TB'.format(round(size_bytes / 1_000_000_000_000.0, 2))
-    elif size_bytes >= 1_000_000_000.0:
-        size_readable = '{} GB'.format(round(size_bytes / 1_000_000_000.0, 2))
-    elif size_bytes >= 1_000_000.0:
-        size_readable = '{} MB'.format(round(size_bytes / 1_000_000.0, 2))
-    elif size_bytes >= 1_000.0:
-        size_readable = '{} KB'.format(round(size_bytes / 1_000.0, 2))
-    else:
-        size_readable = '{} Bytes'.format(round(size_bytes, 2))
-    return size_readable
 
 
 def generate_csv_of_current_s3_bucket_size_and_metadata():
