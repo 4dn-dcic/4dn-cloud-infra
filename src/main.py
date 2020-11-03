@@ -7,6 +7,7 @@ import concurrent.futures
 
 from datetime import datetime, timedelta
 
+MAIN_ACCOUNT_ID = "643366669028"
 
 def generate_template(args):
     print('TBD')
@@ -377,6 +378,27 @@ def get_bucket_lifecycle_configurations():
         bucket_lifecycle_configurations[b] = {'Rules': []}
         bucket_lifecycle_configurations[b]['Rules'].append(get_incomplete_upload_rule())
     return bucket_lifecycle_configurations
+
+
+def update_bucket_lifecycle_configurations(dry_run=True):
+    client = get_s3_client()
+    configs = get_bucket_lifecycle_configurations()
+    request_kwargs = []
+    for k in configs:
+        kwarg = {
+            'AccountId': MAIN_ACCOUNT_ID,
+            'Bucket': k,
+            'LifecycleConfiguration': configs[k]
+        }
+        request_kwargs.append(kwarg)
+    if not dry_run:
+        assert True is False, 'do not run lifecycle updates for real yet'
+        [client.put_bucket_lifecycle_configuration(**r) for r in request_kwargs]
+    else:
+        print('dry_run: [client.put_bucket_lifecycle_configuration(**r) for r in request_kwargs]')
+        print('dry_run: returning request_kwargs')
+        return request_kwargs
+
 
 def get_s3_size_metric_data(buckets_names_tags):
     date_start = datetime.today() - timedelta(days=3)
