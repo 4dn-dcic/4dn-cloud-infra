@@ -331,6 +331,12 @@ def flatten_tag_set(tag_set):
     return {ts['Key']: ts['Value'] for ts in tag_set}
 
 
+def get_s3_buckets_names():
+    """Returns list of bucket names"""
+    resource = get_s3_resource()
+    return [r.name for r in resource.buckets.all()]
+
+
 def get_s3_buckets_names_tags():
     """Returns (name, tags) tuple for each bucket
     """
@@ -347,6 +353,30 @@ def get_s3_buckets_names_tags():
         buckets_names_tags.append((name, converted_tags))
     return buckets_names_tags
 
+
+def get_incomplete_upload_rule():
+    """returns a lifecycle rule to abort incomplete multipart uploads after two weeks
+    See: https://docs.aws.amazon.com/AmazonS3/latest/dev/mpuoverview.html#mpu-stop-incomplete-mpu-lifecycle-config
+    and boto3 => S3Control.Client.put_bucket_lifecycle_configuration"""
+    return {
+        'ID': 'incomplete-upload-rule',
+        'AbortIncompleteMultipartUpload': {
+            'DaysAfterInitiation': 14
+        }
+    }
+
+
+def get_bucket_lifecycle_configurations():
+    """
+    Get bucket lifecycle configurations for each bucket.
+    TODO: read from an input GSheet containing the lifecycles
+    TODO: use these configs to update bucket lifecycle policies
+    """
+    bucket_lifecycle_configurations = {}
+    for b in get_s3_buckets_names():
+        bucket_lifecycle_configurations[b] = {'Rules': []}
+        bucket_lifecycle_configurations[b]['Rules'].append(get_incomplete_upload_rule())
+    return bucket_lifecycle_configurations
 
 def get_s3_size_metric_data(buckets_names_tags):
     date_start = datetime.today() - timedelta(days=3)
