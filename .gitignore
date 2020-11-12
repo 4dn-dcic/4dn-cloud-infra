@@ -2,3 +2,12 @@
 # Conventions vary, including env, venv, or longer names like cgap_env,
 # but typically they end in "env".
 *env/
+
+.DS_Store
+credentials.json
+token.pickle
+__pycache__/
+.idea/
+*swp
+log/
+out/
