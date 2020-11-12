@@ -17,6 +17,30 @@ class AWSUtil(object):
         self.BUCKET_SUMMARY_HEADER = [
             'name', 'project tag', 'env tag', 'owner tag', 'size in bytes', 'readable size', 'estimated monthly cost']
 
+        self.VERSION_SUMMARY_FILENAME_FORMAT = 'out/latest_run_for_versioned_bucket_{}.tsv'
+        self.VERSION_SUMMARY_HEADER = [
+            'object name',
+            'latest version size',
+            'number of past versions',
+            'total size of all versions',
+            'is it deleted',
+            'last modified'
+        ]
+        # https://docs.aws.amazon.com/AmazonS3/latest/dev/mpuoverview.html#mpu-stop-incomplete-mpu-lifecycle-config
+        # boto3 => S3Control.Client.put_bucket_lifecycle_configuration
+        self.INCOMPLETE_UPLOAD_RULE = {
+                'ID': 'incomplete-upload-rule',
+                'AbortIncompleteMultipartUpload': {
+                    'DaysAfterInitiation': 14
+                }
+        }
+
+        # The string to be printed in a tsv when describing the non-existent size of a deleted file
+        self.SIZE_STRING_FOR_DELETED_FILE = 'N/A (deleted)'
+
+        # The string to be printed in a tsv when describing the value of a tag that has not been assigned for a resource
+        self.TAG_STRING_FOR_UNASSIGNED_TAG = '-'
+
     @property
     def cloudwatch_client(self):
         """ Return an open cloudwatch resource, authenticated with boto3+local creds"""
@@ -32,6 +56,10 @@ class AWSUtil(object):
         """ Return an open s3 client, authenticated with boto3+local creds"""
         return boto3.client('s3')
 
+    def get_tag_optional(self, tags, t):
+        """ Returns the tag t in the dictionary tag_set with an default value if missing"""
+        return tags.get(t, self.TAG_STRING_FOR_UNASSIGNED_TAG)
+
     def generate_s3_bucket_summary_tsv(self, dry_run=True, upload=False):
         """ Generates a summary tsv of the S3 Buckets used by CGAP/4DN."""
 
@@ -40,17 +68,22 @@ class AWSUtil(object):
             writer = csv.writer(tsvfile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
             writer.writerow(self.BUCKET_SUMMARY_HEADER)
 
-            buckets_names_tags = self.get_s3_buckets_names_tags()
-            response = self.get_s3_size_metric_data(buckets_names_tags)
+            # Get all buckets + their tags
+            bucket_tags = self.get_bucket_tags()
+
+            # Construct and execute a CloudWatch query, for all bucket sizes in bytes
+            bytes_query = self.cloudwatch_bucket_bytes_query(bucket_tags.keys())
+            response = self.request_cloudwatch_bucket_metric_data(bytes_query)
+
             # Associate the response results with a bucket tags to build the column
             for idx, result in enumerate(response['MetricDataResults']):
-                name, tags = buckets_names_tags[idx]
-                assert name == result['Label']
+                name = result['Label']
+                tags = bucket_tags[name]
                 assert len(result['Timestamps']) == len(result['Values'])
                 assert len(result['Values']) == 1 or len(result['Values']) == 0
-                project_tag = tags['project']
-                env_tag = tags['env']
-                owner_tag = tags['owner']
+                project_tag = self.get_tag_optional(tags, 'project')
+                env_tag = self.get_tag_optional(tags, 'env')
+                owner_tag = self.get_tag_optional(tags, 'owner')
                 if len(result['Values']) == 0:  # Case of an empty bucket (or a broken time range in the query)
                     size_bytes = float(0)
                     size_readable = '0'
@@ -80,8 +113,9 @@ class AWSUtil(object):
             return response
 
     def generate_versioned_files_summary_tsvs(self):
-        """ Generates spreadsheets of potentially useful data TODO"""
-        # TODO query for this list
+        """ Generates summary spreadsheets for 1) deleted objects and 2) multi-versioned objects
+            in S3 buckets with versioning enabled."""
+        # TODO query for this list instead
         versioned_buckets = [
             'elasticbeanstalk-fourfront-staging-blobs',
             'elasticbeanstalk-fourfront-staging-files',
@@ -100,11 +134,16 @@ class AWSUtil(object):
         ]
         with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
             executor.map(self.generate_versioned_files_summary_tsv_for_bucket, versioned_buckets, chunksize=4)
-        print('Generated all csvs.')
+        print('Generated all tsvs.')
 
-    @staticmethod
-    def make_version_responses_actionable(total_response):
-        """ Take a list of responses and turn it into actionable data TODO more description"""
+    def aggregate_version_data(self, total_response):
+        """ Takes a list of response dictionaries as input, as described here:
+            boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.list_object_versions
+
+            Joins the truncated responses together, filters for multi-versioned and deleted files,
+            and returns aggregate information on each multi-versioned or deleted file. Ignores files with only
+            one version.
+            """
         data = {}
         for response in total_response:
             if 'Versions' in response:
@@ -151,7 +190,7 @@ class AWSUtil(object):
             total_size = sum([int(i['Size']) for i in v['versions']])
             if v['delete_marker']:
                 latest = v['delete_marker'][0]['LastModified']
-                size = 'N/A (deleted)'
+                size = self.SIZE_STRING_FOR_DELETED_FILE
             else:
                 latest = [i for i in v['versions'] if i['IsLatest'] is True][0]['LastModified']
                 size = [i for i in v['versions'] if i['IsLatest'] is True][0]['Size']
@@ -169,7 +208,7 @@ class AWSUtil(object):
 
     def generate_versioned_files_summary_tsv_for_bucket(self, bucket='elasticbeanstalk-fourfront-webprod-wfoutput',
                                                         complete_run=True):
-        """ Takes a versioned bucket name, and writes a csv for all versions of the bucket
+        """ Takes a versioned bucket name, and writes a tsv for all versions of the bucket
             complete_run will run the full bucket, otherwise it'll only run for the first ~1000 versions.
 
             TODO perhaps make complete_run configurable elsewhere
@@ -179,8 +218,8 @@ class AWSUtil(object):
                             format='%(asctime)-15s %(levelname)-8s %(message)s')
         logging.info('Starting run for {}'.format(bucket))
 
-        client = self.s3_client()
-        filename = 'out/latest_run_for_versioned_bucket_{}.tsv'.format(bucket)
+        client = self.s3_client
+        filename = self.VERSION_SUMMARY_FILENAME_FORMAT.format(bucket)
         # Excel cares about the filename for import, GSheets doesn't care
 
         logging.info('Generating csv for {}'.format(bucket))
@@ -199,30 +238,22 @@ class AWSUtil(object):
                     next_version_id_marker=next_version_id_marker)
                 total_response.append(next_response)
 
-        logging.info('Data retrieved from AWS. Making actionable...')
-        actionable_data = self.make_version_responses_actionable(total_response)
-        rows = [[
-            'object name',
-            'latest version size',
-            'number of past versions',
-            'total size of all versions',
-            'is it deleted',
-            'last modified'
-        ]]
-        for i in actionable_data:
-            rows.append([
-                actionable_data[i]['name'],
-                actionable_data[i]['size'],
-                actionable_data[i]['version_num'],
-                actionable_data[i]['total_size'],
-                actionable_data[i]['deleted'],
-                actionable_data[i]['last_mod']
-            ])
-        logging.info('Writing spreadsheet')
+        logging.info('Data retrieved from AWS. Aggregating...')
+        actionable_data = self.aggregate_version_data(total_response)
+        logging.info('Generating spreadsheet...')
         with open(filename, 'w', newline='') as tsvfile:
             writer = csv.writer(tsvfile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-            for r in rows:
-                writer.writerow(r)
+            writer.writerow(self.VERSION_SUMMARY_HEADER)
+            for i in actionable_data:
+                writer.writerow([
+                    actionable_data[i]['name'],
+                    actionable_data[i]['size'],
+                    actionable_data[i]['version_num'],
+                    actionable_data[i]['total_size'],
+                    actionable_data[i]['deleted'],
+                    actionable_data[i]['last_mod']
+                ])
+
         logging.info('wrote {}'.format(filename))
 
     def update_tags_from_input_csv(self, dry_run=True):
@@ -254,7 +285,7 @@ class AWSUtil(object):
 
         # Open a BucketTagging resource for each bucket
         # construct tagging objects, return them if dry_run, else execute
-        resource = self.s3_resource()
+        resource = self.s3_resource
         for idx, bucket in enumerate(rows):
             bucket_tagging_resource = resource.BucketTagging(bucket['bucket_name'])
             bucket['bucket_tagging_resource'] = bucket_tagging_resource
@@ -281,44 +312,21 @@ class AWSUtil(object):
                 i['bucket_tagging_resource'].put(Tagging=i['tagging'])  # Returns None
 
     @staticmethod
-    def flatten_tag_set(self, tag_set):
-        """ TODO better doctag
-            Tags are converted from format [{'Key': ..., 'Value': ...}, ...]
-            to format { 'env': value or '-',
-                        'project': value or '-',
-                        'owner': value or '-' }"""
+    def flatten_tag_set(tag_set):
+        """ Flattens the more verbose tag set result from AWS into a simpler dictionary, removing the 'Key' and 'Value'
+            keys in favor of making the 'Key' value the key and the 'Value' key the value"""
         return {ts['Key']: ts['Value'] for ts in tag_set}
 
-    def get_s3_buckets_names(self):
-        """Returns list of bucket names"""
-        return [r.name for r in self.s3_resource().buckets.all()]
+    def get_bucket_names(self):
+        """ Returns list of s3 bucket names as queried from AWS"""
+        return [r.name for r in self.s3_resource.buckets.all()]
 
-    def get_s3_buckets_names_tags(self):
-        """Returns (name, tags) tuple for each bucket
+    def get_bucket_tags(self):
+        """ Returns a dictionary of bucket names and flattened tag sets, as queried from AWS
         """
-        buckets_names_tags = []
-        for r in self.s3_resource().buckets.all():
-            name = r.name
-            converted_tags = {}
-            # Flatten tag_set, then build tag dict w/ a default value for missing required keys
-            tag_set = r.Tagging().tag_set
-            tag_set_flat = self.flatten_tag_set(tag_set)
-            for i in ('env', 'project', 'owner'):
-                converted_tags[i] = tag_set_flat.get(i, '-')
-            buckets_names_tags.append((name, converted_tags))
-        return buckets_names_tags
-
-    @staticmethod
-    def get_incomplete_upload_rule(self):
-        """ Returns a lifecycle rule to abort incomplete multipart uploads after two weeks. See:
-            https://docs.aws.amazon.com/AmazonS3/latest/dev/mpuoverview.html#mpu-stop-incomplete-mpu-lifecycle-config
-            and boto3 => S3Control.Client.put_bucket_lifecycle_configuration"""
-        return {
-            'ID': 'incomplete-upload-rule',
-            'AbortIncompleteMultipartUpload': {
-                'DaysAfterInitiation': 14
-            }
-        }
+        resource = self.s3_resource
+        bucket_tags = {r.name: r.Tagging().tag_set for r in resource.buckets.all()}
+        return {k: self.flatten_tag_set(v) for k, v in bucket_tags.items()}
 
     def get_bucket_lifecycle_configurations(self):
         """
@@ -327,13 +335,14 @@ class AWSUtil(object):
         TODO: use these configs to update bucket lifecycle policies
         """
         bucket_lifecycle_configurations = {}
-        for b in self.get_s3_buckets_names():
+        for b in self.get_bucket_names():
             bucket_lifecycle_configurations[b] = {'Rules': []}
-            bucket_lifecycle_configurations[b]['Rules'].append(self.get_incomplete_upload_rule())
+            bucket_lifecycle_configurations[b]['Rules'].append(self.INCOMPLETE_UPLOAD_RULE)
         return bucket_lifecycle_configurations
 
     def update_bucket_lifecycle_configurations(self, dry_run=True):
-        client = self.s3_client()
+        """ TODO docstring"""
+        client = self.s3_client
         configs = self.get_bucket_lifecycle_configurations()
         request_kwargs = []
         for k in configs:
@@ -351,11 +360,12 @@ class AWSUtil(object):
             print('dry_run: returning request_kwargs')
             return request_kwargs
 
-    def get_s3_size_metric_data(self, buckets_names_tags):
+    def request_cloudwatch_bucket_metric_data(self, metrics_data_queries):
+        """ Request CloudWatch S3 Bucket metric data, given that CloudWatch only has S3 data that is 48 hours stale.
+            Requires as input a valid metrics data query"""
         date_start = datetime.today() - timedelta(days=3)
         date_end = datetime.today() - timedelta(days=2)
-        client = self.cloudwatch_client()
-        metrics_data_queries = self.get_s3_size_metrics_query(buckets_names_tags)
+        client = self.cloudwatch_client
         response = client.get_metric_data(
             MetricDataQueries=metrics_data_queries,
             StartTime=date_start,
@@ -364,10 +374,10 @@ class AWSUtil(object):
         return response
 
     @staticmethod
-    def get_s3_size_metrics_query(buckets_names_tags):
-        """ Constructs the metrics query for each bucket."""
+    def cloudwatch_bucket_bytes_query(buckets):
+        """ Takes in a list of S3 buckets and returns a CloudWatch query request for their size in bytes"""
         metrics_data_queries = []
-        for idx, (name, tags) in enumerate(buckets_names_tags):
+        for idx, name in enumerate(buckets):
             metrics_data_queries.append({
                 'Id': 'bucket_num_{}'.format(idx),
                 'MetricStat': {
@@ -390,18 +400,18 @@ class AWSUtil(object):
                 }})
         return metrics_data_queries
 
-    def get_cgap_notcgap_buckets(self):
-        """ Returns a tuple: a list of cgap bucket names, and a list of non-cgap bucket names.
+    def categorize_buckets(self):
+        """ Returns a tuple: a list of cgap s3 bucket names, and a list of non-cgap bucket names.
             Makes a s3 API call to retrieve the buckets in the account.
             Assumptions: s3 creds are already configured for the correct account."""
-        client = self.s3_client()
+        client = self.s3_client
         response = client.list_buckets()
         cgap_buckets = [i['Name'] for i in response['Buckets'] if 'cgap' in i['Name']]
         not_cgap_buckets = [i['Name'] for i in response['Buckets'] if 'cgap' not in i['Name']]
         return cgap_buckets, not_cgap_buckets
 
-    def update_tags_cgap_notcgap_buckets(self):
-        """" Todo """
-        cgap_buckets, not_cgap_buckets = self.get_cgap_notcgap_buckets()
-        s3_resource = boto3.resouce('s3')
-        bucket_tagging_example = s3_resource.BucketTagging(cgap_buckets[0])
+    def update_bucket_tags(self):
+        """" TODO """
+        cgap_buckets, not_cgap_buckets = self.categorize_buckets()
+        resource = self.s3_resource
+        bucket_tagging_example = resource.BucketTagging(cgap_buckets[0])

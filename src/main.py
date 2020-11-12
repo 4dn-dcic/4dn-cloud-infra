@@ -13,10 +13,11 @@ def generate_template(args):
 def costs(args):
     aws_util = AWSUtil()
     if args.upload and args.versioned:
+        # TODO add GSheet functionality as a src util
         logging.info('Use ./bin/upload_vspreadsheets.py to upload versioned s3 spreadsheets')
     if args.versioned:
         logging.info('Generating versioned s3 buckets summary tsv...')
-        aws_util.generate_versioned_files_summary_tsvs(dry_run=False)
+        aws_util.generate_versioned_files_summary_tsvs()
     if args.s3:
         logging.info('Generating s3 buckets cost summary tsv at {}...'.format(aws_util.BUCKET_SUMMARY_FILENAME))
         aws_util.generate_s3_bucket_summary_tsv(dry_run=False)
