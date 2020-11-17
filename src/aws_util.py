@@ -4,6 +4,7 @@ import logging
 import sys
 
 import concurrent.futures
+from botocore.exceptions import ClientError
 from datetime import datetime, timedelta
 
 from src.pricing_calculator import PricingCalculator
@@ -28,8 +29,13 @@ class AWSUtil(object):
         ]
         # https://docs.aws.amazon.com/AmazonS3/latest/dev/mpuoverview.html#mpu-stop-incomplete-mpu-lifecycle-config
         # boto3 => S3Control.Client.put_bucket_lifecycle_configuration
+        self.INCOMPLETE_UPLOAD_ID = 'incomplete-upload-rule'
         self.INCOMPLETE_UPLOAD_RULE = {
-                'ID': 'incomplete-upload-rule',
+                'ID': self.INCOMPLETE_UPLOAD_ID,
+                'Status': 'Enabled',
+                'Filter': {
+                    'Prefix': ''
+                },
                 'AbortIncompleteMultipartUpload': {
                     'DaysAfterInitiation': 14
                 }
@@ -322,43 +328,56 @@ class AWSUtil(object):
         return [r.name for r in self.s3_resource.buckets.all()]
 
     def get_bucket_tags(self):
-        """ Returns a dictionary of bucket names and flattened tag sets, as queried from AWS
-        """
+        """ Returns a dictionary of bucket names and flattened tag sets, as queried from AWS"""
         resource = self.s3_resource
         bucket_tags = {r.name: r.Tagging().tag_set for r in resource.buckets.all()}
         return {k: self.flatten_tag_set(v) for k, v in bucket_tags.items()}
 
-    def get_bucket_lifecycle_configurations(self):
-        """
-        Get bucket lifecycle configurations for each bucket.
-        TODO: read from an input GSheet containing the lifecycles
-        TODO: use these configs to update bucket lifecycle policies
-        """
-        bucket_lifecycle_configurations = {}
-        for b in self.get_bucket_names():
-            bucket_lifecycle_configurations[b] = {'Rules': []}
-            bucket_lifecycle_configurations[b]['Rules'].append(self.INCOMPLETE_UPLOAD_RULE)
-        return bucket_lifecycle_configurations
+    def get_bucket_lifecycle(self, bucket):
+        """ Get the lifecycle configurations for the bucket. See:
+            https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html"""
+        resource = self.s3_resource
+        return resource.BucketLifecycleConfiguration(bucket)
 
-    def update_bucket_lifecycle_configurations(self, dry_run=True):
-        """ TODO docstring"""
-        client = self.s3_client
-        configs = self.get_bucket_lifecycle_configurations()
-        request_kwargs = []
-        for k in configs:
-            kwarg = {
-                'AccountId': self.MAIN_ACCOUNT_ID,
-                'Bucket': k,
-                'LifecycleConfiguration': configs[k]
-            }
-            request_kwargs.append(kwarg)
-        if not dry_run:
-            assert True is False, 'do not run lifecycle updates for real yet'
-            [client.put_bucket_lifecycle_configuration(**r) for r in request_kwargs]
+    def append_upload_cancellation_to_buckets(self, test=True, dry_run=True):
+        """ Fetches the lifecycle configuration for S3 buckets, appends the multi-upload cancellation policy, and
+        uploads to S3. If test is True, only does this for 'gem-upload-bucket'.
+        TODO: logging decorator
+        TODO: this should be ported to CloudFormation/troposphere"""
+        logging.basicConfig(level=logging.INFO, format='%(asctime)-15s %(levelname)-8s %(message)s')
+        if test:
+            buckets = ['gem-upload-bucket']
+            logging.info('Uploading multi-upload cancellation to "gem-upload-bucket" only..')
         else:
-            print('dry_run: [client.put_bucket_lifecycle_configuration(**r) for r in request_kwargs]')
-            print('dry_run: returning request_kwargs')
-            return request_kwargs
+            buckets = self.get_bucket_names()
+            logging.info('Uploading multi-upload cancellation to all buckets..')
+        for b in buckets:
+            lifecycle_resource = self.get_bucket_lifecycle(b)
+            try:
+                rules = lifecycle_resource.rules
+            except ClientError as ex:
+                if 'NoSuchLifecycleConfiguration' in str(ex):
+                    rules = []
+                else:
+                    raise ex
+            # Only run the update if the multi-upload rule is not currently present
+            # TODO optionally enable updates to this policy
+            if self.INCOMPLETE_UPLOAD_ID not in [r['ID'] for r in rules]:
+                logging.info('Adding incomplete upload rule for bucket {}...'.format(b))
+                rules.append(self.INCOMPLETE_UPLOAD_RULE)
+                if dry_run:
+                    logging.info('dry run: would run lifecycle resource put otherwise')
+                    logging.info('rules: {}'.format(rules))
+                else:
+                    lifecycle_resource.put(
+                        LifecycleConfiguration={
+                            'Rules': rules
+                        }
+                    )
+            else:
+                logging.info('Incomplete upload rule already present for bucket {}. Skipping...'.format(b))
+                logging.info('{}'.format(rules))
+            logging.info('Done')
 
     def request_cloudwatch_bucket_metric_data(self, metrics_data_queries):
         """ Request CloudWatch S3 Bucket metric data, given that CloudWatch only has S3 data that is 48 hours stale.
@@ -415,3 +434,9 @@ class AWSUtil(object):
         cgap_buckets, not_cgap_buckets = self.categorize_buckets()
         resource = self.s3_resource
         bucket_tagging_example = resource.BucketTagging(cgap_buckets[0])
+
+    def delete_specific_versions(self, filename):
+        """ Opens the specified filename and reads in a tsv of key,version_id pairs. Attempts to delete each version,
+            and creates an output tsv with the result of each delete attempt, or raises an exception if a general
+            credentials issue is found."""
+        pass
