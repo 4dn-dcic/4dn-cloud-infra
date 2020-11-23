@@ -10,42 +10,40 @@ from datetime import datetime, timedelta
 from src.pricing_calculator import PricingCalculator
 
 
-class AWSUtil(object):
-    def __init__(self):
-        """ Define the constants used by util methods."""
-        self.MAIN_ACCOUNT_ID = "643366669028"
-        self.BUCKET_SUMMARY_FILENAME = 'out/{}_run_results.tsv'.format(datetime.now().date())
-        self.BUCKET_SUMMARY_HEADER = [
-            'name', 'project tag', 'env tag', 'owner tag', 'size in bytes', 'readable size', 'estimated monthly cost']
+class AWSUtil:
+    """ Define the constants used by util methods."""
+    MAIN_ACCOUNT_ID = "643366669028"
+    BUCKET_SUMMARY_FILENAME = 'out/{}_run_results.tsv'.format(datetime.now().date())
+    BUCKET_SUMMARY_HEADER = [
+        'name', 'project tag', 'env tag', 'owner tag', 'size in bytes', 'readable size', 'estimated monthly cost']
 
-        self.VERSION_SUMMARY_FILENAME_FORMAT = 'out/latest_run_for_versioned_bucket_{}.tsv'
-        self.VERSION_SUMMARY_HEADER = [
-            'object name',
-            'latest version size',
-            'number of past versions',
-            'total size of all versions',
-            'is it deleted',
-            'last modified'
-        ]
-        # https://docs.aws.amazon.com/AmazonS3/latest/dev/mpuoverview.html#mpu-stop-incomplete-mpu-lifecycle-config
-        # boto3 => S3Control.Client.put_bucket_lifecycle_configuration
-        self.INCOMPLETE_UPLOAD_ID = 'incomplete-upload-rule'
-        self.INCOMPLETE_UPLOAD_RULE = {
-                'ID': self.INCOMPLETE_UPLOAD_ID,
-                'Status': 'Enabled',
-                'Filter': {
-                    'Prefix': ''
-                },
-                'AbortIncompleteMultipartUpload': {
-                    'DaysAfterInitiation': 14
-                }
+    VERSION_SUMMARY_FILENAME_FORMAT = 'out/latest_run_for_versioned_bucket_{}.tsv'
+    VERSION_SUMMARY_HEADER = [
+        'object name',
+        'latest version size',
+        'number of past versions',
+        'total size of all versions',
+        'is it deleted',
+        'last modified'
+    ]
+    # https://docs.aws.amazon.com/AmazonS3/latest/dev/mpuoverview.html#mpu-stop-incomplete-mpu-lifecycle-config
+    # boto3 => S3Control.Client.put_bucket_lifecycle_configuration
+    INCOMPLETE_UPLOAD_ID = 'incomplete-upload-rule'
+    INCOMPLETE_UPLOAD_RULE = {
+        'ID': INCOMPLETE_UPLOAD_ID,
+        'Status': 'Enabled',
+        'Filter': {
+            'Prefix': ''
+        },
+        'AbortIncompleteMultipartUpload': {
+            'DaysAfterInitiation': 14
         }
+    }
+    # The string to be printed in a tsv when describing the non-existent size of a deleted file
+    SIZE_STRING_FOR_DELETED_FILE = 'N/A (deleted)'
 
-        # The string to be printed in a tsv when describing the non-existent size of a deleted file
-        self.SIZE_STRING_FOR_DELETED_FILE = 'N/A (deleted)'
-
-        # The string to be printed in a tsv when describing the value of a tag that has not been assigned for a resource
-        self.TAG_STRING_FOR_UNASSIGNED_TAG = '-'
+    # The string to be printed in a tsv when describing the value of a tag that has not been assigned for a resource
+    TAG_STRING_FOR_UNASSIGNED_TAG = '-'
 
     @property
     def cloudwatch_client(self):
