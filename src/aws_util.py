@@ -434,14 +434,15 @@ class AWSUtil:
         bucket_tagging_example = resource.BucketTagging(cgap_buckets[0])
 
     def delete_previous_versions(self, bucket, filename, dry_run=True):
-        """ Opens the specified filename and reads in a tsv of key,version_id pairs. Attempts to delete each version,
-            and creates an output tsv with the result of each delete attempt, or raises an exception if a general
-            credentials issue is found.
+        """ Opens the specified filename and reads in a tsv of keys. All old versions or delete-marked versions will be
+            deleted. Creates a spreadsheet of the results, of what would be deleted if dry_run is True, or the delete
+            calls and results if running for real, with dry_run as False.
 
-            delete_previous_versions(
-                'elasticbeanstalk-fourfront-webprod-files', 'in/elasticbeanstalk-fourfront-webprod-files.tsv')
-            delete_previous_ver'elasticbeanstalk-fourfront-webprod-files', 'in/elasticbeanstalk-fourfront-webprod-files.tsv')sions(
-                'elasticbeanstalk-fourfront-webprod-wfoutput', 'in/elasticbeanstalk-fourfront-webprod-wfoutput.tsv')
+            e.g.
+            >>> delete_previous_versions(
+            >>>     'elasticbeanstalk-fourfront-webprod-files', 'in/elasticbeanstalk-fourfront-webprod-files.tsv')
+            >>> delete_previous_versions(
+            >>>     'elasticbeanstalk-fourfront-webprod-wfoutput', 'in/elasticbeanstalk-fourfront-webprod-wfoutput.tsv')
         """
         outfile = 'out/dry_run_{}.tsv'.format(bucket) if dry_run else 'out/results_{}.tsv'.format(bucket)
         print('writing output to {}'.format(outfile))
@@ -473,7 +474,6 @@ class AWSUtil:
                 else:
                     for version in ids_to_delete:
                         pass  # TODO next: client.delete_object(Bucket=bucket, Key=object, VersionId=version)
-                # TODO spreadsheet
                 # check is latest + delete markers
                 if reader.line_num > 100:  # TODO run for all
                     break
