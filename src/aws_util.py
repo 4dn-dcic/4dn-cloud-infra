@@ -433,8 +433,47 @@ class AWSUtil:
         resource = self.s3_resource
         bucket_tagging_example = resource.BucketTagging(cgap_buckets[0])
 
-    def delete_specific_versions(self, filename):
+    def delete_previous_versions(self, bucket, filename, dry_run=True):
         """ Opens the specified filename and reads in a tsv of key,version_id pairs. Attempts to delete each version,
             and creates an output tsv with the result of each delete attempt, or raises an exception if a general
-            credentials issue is found."""
-        pass
+            credentials issue is found.
+
+            delete_previous_versions(
+                'elasticbeanstalk-fourfront-webprod-files', 'in/elasticbeanstalk-fourfront-webprod-files.tsv')
+            delete_previous_ver'elasticbeanstalk-fourfront-webprod-files', 'in/elasticbeanstalk-fourfront-webprod-files.tsv')sions(
+                'elasticbeanstalk-fourfront-webprod-wfoutput', 'in/elasticbeanstalk-fourfront-webprod-wfoutput.tsv')
+        """
+        outfile = 'out/dry_run_{}.tsv'.format(bucket) if dry_run else 'out/results_{}.tsv'.format(bucket)
+        print('writing output to {}'.format(outfile))
+        with open(filename, newline='') as tsvfile, open(outfile, 'w', newline='') as tsvoutfile:
+            reader = csv.reader(tsvfile, delimiter='\t', quotechar='|')
+            writer = csv.writer(tsvoutfile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(['num', 'key', 'num versions to delete', 'version keys'])
+
+            for row in reader:
+                if reader.line_num == 1:
+                    continue  # skip header row while reading tsv
+                object = row[0]
+                deleted = row[5]
+                total_versions = int(row[3])
+                client = self.s3_client
+                response = client.list_object_versions(Bucket=bucket, Prefix=object)  # assuming less than 100 versions
+                assert response['IsTruncated'] is False, response
+                ids_to_delete = []
+                # important, do not delete the latest version
+                ids_to_delete += [v['VersionId'] for v in response['Versions'] if v['IsLatest'] is not True]
+                if 'DeleteMarkers' in response:
+                    ids_to_delete += [d['VersionId'] for d in response['DeleteMarkers']]
+                if deleted == 'TRUE':
+                    assert total_versions + 1 == len(ids_to_delete), (deleted, total_versions, ids_to_delete, object)
+                else:
+                    assert total_versions - 1 == len(ids_to_delete), (deleted, total_versions, ids_to_delete, object)
+                if dry_run:
+                    writer.writerow([reader.line_num, object, len(ids_to_delete), ids_to_delete])
+                else:
+                    for version in ids_to_delete:
+                        pass  # TODO next: client.delete_object(Bucket=bucket, Key=object, VersionId=version)
+                # TODO spreadsheet
+                # check is latest + delete markers
+                if reader.line_num > 100:  # TODO run for all
+                    break
