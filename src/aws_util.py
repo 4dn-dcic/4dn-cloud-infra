@@ -465,11 +465,15 @@ class AWSUtil:
                 # important, do not delete the latest version
                 dontdelete = []
                 if 'Versions' in response:
-                    dontdelete = [v['VersionId'] for v in response['Versions'] if v['IsLatest'] is True]
+                    # only get exact matches for prefix
+                    versions = [v for v in response['Versions'] if v['Key'] == object]
+                    dontdelete = [v['VersionId'] for v in versions if v['IsLatest'] is True]
                     assert len(dontdelete) == 0 or len(dontdelete) == 1, response
-                    ids_to_delete += [v['VersionId'] for v in response['Versions'] if v['IsLatest'] is not True]
+                    ids_to_delete += [v['VersionId'] for v in versions if v['IsLatest'] is not True]
                 if 'DeleteMarkers' in response:
-                    ids_to_delete += [d['VersionId'] for d in response['DeleteMarkers']]
+                    # only get exact matches for prefix
+                    delete_markers = [d for d in response['DeleteMarkers'] if d['Key'] == object]
+                    ids_to_delete += [d['VersionId'] for d in delete_markers]
                 if deleted == 'TRUE' and len(dontdelete) == 0:  # latest version is delete marked so delete all
                     current = 'delete all'
                     assert total_versions + 1 == len(ids_to_delete), (deleted, total_versions, ids_to_delete, object)
