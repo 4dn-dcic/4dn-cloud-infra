@@ -470,14 +470,14 @@ class AWSUtil:
                     ids_to_delete += [v['VersionId'] for v in response['Versions'] if v['IsLatest'] is not True]
                 if 'DeleteMarkers' in response:
                     ids_to_delete += [d['VersionId'] for d in response['DeleteMarkers']]
-                if deleted == 'TRUE':
-                    assert len(dontdelete) == 0, response
+                if deleted == 'TRUE' and len(dontdelete) == 0:  # latest version is delete marked so delete all
                     current = 'delete all'
                     assert total_versions + 1 == len(ids_to_delete), (deleted, total_versions, ids_to_delete, object)
                 else:
-                    assert len(dontdelete) == 1, response
+                    assert len(dontdelete) == 1, response  # verify there is exactly one version to keep
                     current = dontdelete[0]
                     assert current not in ids_to_delete, response  # double check we aren't deleting current
+                    # halt if there's a discrepancy between the input tsv and the file versions now
                     assert total_versions - 1 == len(ids_to_delete), (deleted, total_versions, ids_to_delete, object)
                 if dry_run:
                     writer.writerow(
