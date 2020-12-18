@@ -444,6 +444,29 @@ class AWSUtil:
             >>> delete_previous_versions(
             >>>     'elasticbeanstalk-fourfront-webprod-wfoutput', 'in/elasticbeanstalk-fourfront-webprod-wfoutput.tsv')
         """
+        SKIP_LIST = [  # TODO resolve these separately with Sarah
+            '021a3068-fdbd-4623-88a7-8070a715d3d1/4DNFIS73J2IN.txt',
+            '197fab91-5f3e-45e2-a0c9-e94f34fbe2ff/4DNFIQR3N9TA.txt',
+            '2a388f07-2b46-4b74-8293-b4aac5e23db8/4DNFIW459KK1.txt',
+            '36e54266-31cd-4562-a231-d8eb5406dd12/4DNFIPTOBCE7.txt',
+            '3c9e7392-d1f3-4bd5-9c18-ecca11edb359/4DNFIB5WDWZV.txt',
+            '423675a7-c2b5-48de-a733-c1c3515dabe6/4DNFIYMZVXWS.txt',
+            '51dccafa-90ee-441f-b086-f60bd818ed4c/4DNFI8D9NXZ8.txt',
+            '5578f583-27c0-4c41-ab15-5815219adb8c/4DNFI1OTIEGI.txt',
+            '59f10008-9dba-441f-ba95-a069cbc36cb6/4DNFIMFT4P37.txt',
+            '6d3aaa62-9b28-4fe2-8552-2559a9eb876b/4DNFIAS4NJBJ.txt',
+            '74d4e37d-9419-4917-a56c-39a2f84fa051/4DNFII7GL418.txt',
+            '75d176e3-5222-4f78-b063-c45bc80ead82/4DNFICHK2E9V.txt',
+            '896cbf19-e5a9-4870-ae74-73e3372150c3/4DNFIDL3KZKH.txt',
+            '8ba016b0-a750-4ab3-a518-cc6459081973/4DNFI2AHYD7P.txt',
+            '8fd3c45f-41d5-469b-b847-f2b66b415baa/4DNFIW3R6VWS.txt',
+            '971bfe95-9701-4799-b2df-3adbc21ccbfb/4DNFIPGLO3CN.txt',
+            'b963b513-effa-4a44-acae-e68bc91d74b4/4DNFIOKA7YNS.txt',
+            'b9a25794-b985-4789-a8b6-65db7caac673/4DNFISCJNSC7.txt',
+            'cbe2c485-39fc-4f56-9e66-872be4b20d0d/4DNFI97UHEDO.txt',
+            'e8d7969e-7a96-47c5-89b8-d61cdcafa78c/4DNFIE7CJLPU.txt',
+            'fe0ebf09-cd4c-41b9-8fb9-1d72f206b027/4DNFIDWXNM2Q.txt'
+        ]
         outfile = 'out/dry_run_{}.tsv'.format(bucket) if dry_run else 'out/results_{}.tsv'.format(bucket)
         print('writing output to {}'.format(outfile))
         with open(filename, newline='') as tsvfile, open(outfile, 'w', newline='') as tsvoutfile:
@@ -456,6 +479,8 @@ class AWSUtil:
                 if reader.line_num == 1:
                     continue  # skip header row while reading tsv
                 object = row[0]
+                if object in SKIP_LIST:
+                    continue  # skip the dataset in SKIP_LIST for now, to be handled later
                 deleted = row[5]
                 total_versions = int(row[3])
                 client = self.s3_client
