@@ -486,9 +486,14 @@ class AWSUtil:
                 else:  # run for real, deletes objects permanently
                     deleted_ids = []
                     for version in ids_to_delete:
-                        if version != 'null':  # 494 versions are 'null'...ignore these for now
+                        if version != 'null':  # 494 versions are 'null'...ignore these for now and handle below
                             del_res = client.delete_object(Bucket=bucket, Key=object, VersionId=version)
                         deleted_ids.append(version)
+                    if 'null' in ids_to_delete:
+                        null_res = client.delete_object(Bucket=bucket, Key=object)  # delete-mark 'null' version
+                        assert 'VersionId' in null_res, (null_res, ids_to_delete)
+                        res_id = null_res['VersionId']
+                        client.delete_object(Bucket=bucket, Key=object, VersionId=res_id)  # rm the delete-mark
                     writer.writerow(
                         [reader.line_num, object, current, len(ids_to_delete), ids_to_delete, deleted_ids]
                     )
