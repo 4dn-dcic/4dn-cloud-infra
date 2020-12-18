@@ -463,9 +463,11 @@ class AWSUtil:
                 assert response['IsTruncated'] is False, response
                 ids_to_delete = []
                 # important, do not delete the latest version
-                dontdelete = [v['VersionId'] for v in response['Versions'] if v['IsLatest'] is True]
-                assert len(dontdelete) == 0 or len(dontdelete) == 1, response
-                ids_to_delete += [v['VersionId'] for v in response['Versions'] if v['IsLatest'] is not True]
+                dontdelete = []
+                if 'Versions' in response:
+                    dontdelete = [v['VersionId'] for v in response['Versions'] if v['IsLatest'] is True]
+                    assert len(dontdelete) == 0 or len(dontdelete) == 1, response
+                    ids_to_delete += [v['VersionId'] for v in response['Versions'] if v['IsLatest'] is not True]
                 if 'DeleteMarkers' in response:
                     ids_to_delete += [d['VersionId'] for d in response['DeleteMarkers']]
                 if deleted == 'TRUE':
