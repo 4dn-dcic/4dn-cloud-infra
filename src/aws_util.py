@@ -449,7 +449,8 @@ class AWSUtil:
         with open(filename, newline='') as tsvfile, open(outfile, 'w', newline='') as tsvoutfile:
             reader = csv.reader(tsvfile, delimiter='\t', quotechar='|')
             writer = csv.writer(tsvoutfile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-            writer.writerow(['num', 'key', 'num versions to delete', 'version keys'])
+            writer.writerow(
+                ['num', 'key', 'current to be kept', 'num versions to delete', 'version keys', 'versions deleted'])
 
             for row in reader:
                 if reader.line_num == 1:
@@ -462,18 +463,28 @@ class AWSUtil:
                 assert response['IsTruncated'] is False, response
                 ids_to_delete = []
                 # important, do not delete the latest version
+                dontdelete = [v['VersionId'] for v in response['Versions'] if v['IsLatest'] is True]
+                assert len(dontdelete) == 0 or len(dontdelete) == 1, response
                 ids_to_delete += [v['VersionId'] for v in response['Versions'] if v['IsLatest'] is not True]
                 if 'DeleteMarkers' in response:
                     ids_to_delete += [d['VersionId'] for d in response['DeleteMarkers']]
                 if deleted == 'TRUE':
+                    assert len(dontdelete) == 0, response
+                    current = 'delete all'
                     assert total_versions + 1 == len(ids_to_delete), (deleted, total_versions, ids_to_delete, object)
                 else:
+                    assert len(dontdelete) == 1, response
+                    current = dontdelete[0]
+                    assert current not in ids_to_delete, response  # double check we aren't deleting current
                     assert total_versions - 1 == len(ids_to_delete), (deleted, total_versions, ids_to_delete, object)
                 if dry_run:
-                    writer.writerow([reader.line_num, object, len(ids_to_delete), ids_to_delete])
-                else:
+                    writer.writerow(
+                        [reader.line_num, object, current, len(ids_to_delete), ids_to_delete, 'dry run'])
+                else:  # run for real, deletes objects permanently
+                    deleted_ids = []
                     for version in ids_to_delete:
-                        pass  # TODO next: client.delete_object(Bucket=bucket, Key=object, VersionId=version)
-                # check is latest + delete markers
-                if reader.line_num > 100:  # TODO run for all
-                    break
+                        del_res = client.delete_object(Bucket=bucket, Key=object, VersionId=version)
+                        deleted_ids.append(version)
+                    writer.writerow(
+                        [reader.line_num, object, current, len(ids_to_delete), ids_to_delete, deleted_ids]
+                    )
