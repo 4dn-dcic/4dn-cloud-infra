@@ -494,6 +494,7 @@ class AWSUtil:
                         assert 'VersionId' in null_res, (null_res, ids_to_delete)
                         res_id = null_res['VersionId']
                         client.delete_object(Bucket=bucket, Key=object, VersionId=res_id)  # rm the delete-mark
+                        deleted_ids.append(res_id)
                     writer.writerow(
                         [reader.line_num, object, current, len(ids_to_delete), ids_to_delete, deleted_ids]
                     )
