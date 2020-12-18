@@ -476,7 +476,6 @@ class AWSUtil:
                     ids_to_delete += [d['VersionId'] for d in delete_markers]
                 if deleted == 'TRUE' and len(dontdelete) == 0:  # latest version is delete marked so delete all
                     current = 'delete all'
-                    assert total_versions + 1 == len(ids_to_delete), (deleted, total_versions, ids_to_delete, object)
                 else:
                     assert len(dontdelete) == 1, response  # verify there is exactly one version to keep
                     current = dontdelete[0]
