@@ -477,8 +477,6 @@ class AWSUtil:
                     assert len(dontdelete) == 1, response  # verify there is exactly one version to keep
                     current = dontdelete[0]
                     assert current not in ids_to_delete, response  # double check we aren't deleting current
-                    # halt if there's a discrepancy between the input tsv and the file versions now
-                    assert total_versions - 1 == len(ids_to_delete), (deleted, total_versions, ids_to_delete, object)
                 if dry_run:
                     writer.writerow(
                         [reader.line_num, object, current, len(ids_to_delete), ids_to_delete, 'dry run'])
