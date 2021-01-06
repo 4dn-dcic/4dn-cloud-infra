@@ -134,6 +134,3 @@ def create_new_account_template():
     template = configure_network_layout(template)
 
     return template
-
-
-
