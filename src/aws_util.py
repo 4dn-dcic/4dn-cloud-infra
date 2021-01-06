@@ -12,7 +12,6 @@ from src.pricing_calculator import PricingCalculator
 
 class AWSUtil:
     """ Define the constants used by util methods."""
-    MAIN_ACCOUNT_ID = "643366669028"
     BUCKET_SUMMARY_FILENAME = 'out/{}_run_results.tsv'.format(datetime.now().date())
     BUCKET_SUMMARY_HEADER = [
         'name', 'project tag', 'env tag', 'owner tag', 'size in bytes', 'readable size', 'estimated monthly cost']
