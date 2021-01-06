@@ -1,139 +1,8 @@
 import argparse
+import logging
 
-from troposphere import Ref, Template
-from troposphere.ec2 import InternetGateway, LocalGatewayRoute, Route, RouteTable, Subnet, SubnetCidrBlock, \
-    SubnetRouteTableAssociation, VPC, VPCGatewayAttachment
-
-# Version string identifies template capabilities
-# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/format-version-structure.html
-VERSION = '2010-09-09'
-STACK_NAME = 'CGAPTrial'
-STACK_CIDR_BLOCK = '10.1.0.0/16'
-
-
-def configure_network_layout(template):
-
-    # Create Internet Gateway, VPC, and attach Internet Gateway to VPC.
-
-    internet_gateway = template.add_resource(
-        InternetGateway(
-            '{}InternetGateway'.format(STACK_NAME)
-        )
-    )
-
-    virtual_private_cloud = template.add_resource(
-        VPC(
-            '{}VPC'.format(STACK_NAME),
-            CidrBlock=STACK_CIDR_BLOCK
-        )
-    )
-
-    internet_gateway_attachment = template.add_resource(
-        VPCGatewayAttachment(
-            '{}AttachGateway'.format(STACK_NAME),
-            VpcId=Ref(virtual_private_cloud),
-            InternetGatewayId=Ref(internet_gateway)
-        )
-    )
-
-    # Create route tables: main, public, and private.
-    # Attach local gateway to main and internet gateway to public.
-
-    # TODO(berg) add local gateway association
-    main_route_table = template.add_resource(
-        RouteTable(
-            '{}MainRouteTable'.format(STACK_NAME),
-            VpcId=Ref(virtual_private_cloud),
-        )
-    )
-
-    # TODO(berg) Local Gateway Virtual Interface Group Id not found on new account. Is this config needed?
-    """
-    # TODO(berg) add local gateway association to vpc
-    route_local_gateway = template.add_resource(
-        LocalGatewayRoute(
-            "{}LocalGatewayRoute".format(STACK_NAME),
-            DestinationCidrBlock=STACK_CIDR_BLOCK,
-            LocalGatewayRouteTableId=Ref(main_route_table),
-            LocalGatewayVirtualInterfaceGroupId=None
-
-        )
-    )
-    """
-
-    # TODO(berg) add subnet association
-    private_route_table = template.add_resource(
-        RouteTable(
-            '{}PrivateRouteTable'.format(STACK_NAME),
-            VpcId=Ref(virtual_private_cloud),
-        )
-    )
-
-    # TODO(berg) add subnet association
-    public_route_table = template.add_resource(
-        RouteTable(
-            '{}PublicRouteTable'.format(STACK_NAME),
-            VpcId=Ref(virtual_private_cloud),
-        )
-    )
-
-    route_internet_gateway = template.add_resource(
-        Route(
-            '{}InternetGatewayRoute'.format(STACK_NAME),
-            DependsOn=Ref(internet_gateway_attachment),  # TODO(berg) can 'DependsOn' use Ref?
-            GatewayId=Ref(internet_gateway),
-            DestinationCidrBlock='0.0.0.0/0',
-            RouteTableId=Ref(public_route_table)
-        )
-    )
-
-    # TODO(berg) build_subnet('letter', public=true)
-    public_subnet_a = template.add_resource(
-        Subnet(
-            '{}PublicSubnetA'.format(STACK_NAME),
-            CidrBlock='10.1.0.0/20',
-            VpcId=Ref(virtual_private_cloud)
-        )
-    )
-
-    private_subnet_a = template.add_resource(
-        Subnet(
-            '{}PrivateSubnetA'.format(STACK_NAME),
-            CidrBlock='10.1.16.0/20',
-            VpcId=Ref(virtual_private_cloud)
-        )
-    )
-
-    public_subnet_b = template.add_resource(
-        Subnet(
-            '{}PublicSubnetB'.format(STACK_NAME),
-            CidrBlock='10.1.32.0/20',
-            VpcId=Ref(virtual_private_cloud)
-        )
-    )
-
-    private_subnet_b = template.add_resource(
-        Subnet(
-            '{}PrivateSubnetB'.format(STACK_NAME),
-            CidrBlock='10.1.48.0/20',
-            VpcId=Ref(virtual_private_cloud)
-        )
-    )
-
-    return template
-
-
-def create_new_account_template():
-    template = Template()
-    template.set_version(VERSION)
-
-    template.set_description(
-        "AWS CloudFormation CGAP template: trial setup for cgap-portal environment"
-    )
-
-    template = configure_network_layout(template)
-
-    return template
+from src.aws_util import AWSUtil
+from src.infra import create_new_account_template
 
 
 def generate_template(args):
@@ -142,15 +11,42 @@ def generate_template(args):
     print(template.to_json())
 
 
+def costs(args):
+    aws_util = AWSUtil()
+    if args.upload and args.versioned:
+        # TODO add GSheet functionality as a src util
+        logging.info('Use ./bin/upload_vspreadsheets.py to upload versioned s3 spreadsheets')
+    if args.versioned:
+        logging.info('Generating versioned s3 buckets summary tsv...')
+        aws_util.generate_versioned_files_summary_tsvs()
+    if args.s3:
+        logging.info('Generating s3 buckets cost summary tsv at {}...'.format(aws_util.BUCKET_SUMMARY_FILENAME))
+        aws_util.generate_s3_bucket_summary_tsv(dry_run=False)
+    logging.info('Complete')
+
+
 def main():
+    """Set up and run the 4dn cloud infra command line scripts"""
+    logging.basicConfig(level=logging.INFO, format='%(asctime)-15s %(levelname)-8s %(message)s')
     parser = argparse.ArgumentParser(description='4DN Cloud Infrastructure')
-    subparsers = parser.add_subparsers(help='Commands')
+    subparsers = parser.add_subparsers(help='Commands', dest='command')
 
     parser_generate = subparsers.add_parser('generate', help='Generate Cloud Formation template as json')
     parser_generate.set_defaults(func=generate_template)
 
+    parser_cost = subparsers.add_parser('cost', help='Generate cost summary spreadsheets for 4DN accounts')
+    parser_cost.add_argument('--s3', action='store_true', help='Generate S3 buckets cost summary')
+    parser_cost.add_argument('--versioned', action='store_true', help='Generate versioned S3 buckets cost summary')
+    # TODO add summaries of other aws cost types
+    parser_cost.add_argument('--all', action='store_true', help='Generate all cost summary spreadsheets')
+    parser_cost.add_argument('--upload', action='store_true', help='Upload spreadsheets to Google Sheets')
+    parser_cost.set_defaults(func=costs)
+
     args = parser.parse_args()
-    args.func(args)
+    if args.command:
+        args.func(args)
+    else:
+        logging.info('Select a command, run with -h for help')
 
 
 if __name__ == '__main__':
