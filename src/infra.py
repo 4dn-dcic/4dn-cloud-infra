@@ -1,136 +1,94 @@
-from troposphere import Ref, Template
-from troposphere.ec2 import (
-    InternetGateway, LocalGatewayRoute, Route, RouteTable, Subnet, SubnetCidrBlock,
-    SubnetRouteTableAssociation, VPC, VPCGatewayAttachment,
-)
-
-# Version string identifies template capabilities
-# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/format-version-structure.html
-VERSION = '2010-09-09'
-STACK_NAME = 'CGAPTrial'
-STACK_CIDR_BLOCK = '10.1.0.0/16'
+import logging
+import sys
+from troposphere import Template
+from src.network import C4Network
+from src.db import C4DB
 
 
-def configure_network_layout(template):
-
-    # Create Internet Gateway, VPC, and attach Internet Gateway to VPC.
-
-    internet_gateway = template.add_resource(
-        InternetGateway(
-            '{}InternetGateway'.format(STACK_NAME)
-        )
-    )
-
-    virtual_private_cloud = template.add_resource(
-        VPC(
-            '{}VPC'.format(STACK_NAME),
-            CidrBlock=STACK_CIDR_BLOCK
-        )
-    )
-
-    internet_gateway_attachment = template.add_resource(
-        VPCGatewayAttachment(
-            '{}AttachGateway'.format(STACK_NAME),
-            VpcId=Ref(virtual_private_cloud),
-            InternetGatewayId=Ref(internet_gateway)
-        )
-    )
-
-    # Create route tables: main, public, and private.
-    # Attach local gateway to main and internet gateway to public.
-
-    # TODO(berg) add local gateway association
-    main_route_table = template.add_resource(
-        RouteTable(
-            '{}MainRouteTable'.format(STACK_NAME),
-            VpcId=Ref(virtual_private_cloud),
-        )
-    )
-
-    # TODO(berg) Local Gateway Virtual Interface Group Id not found on new account. Is this config needed?
-    """
-    # TODO(berg) add local gateway association to vpc
-    route_local_gateway = template.add_resource(
-        LocalGatewayRoute(
-            "{}LocalGatewayRoute".format(STACK_NAME),
-            DestinationCidrBlock=STACK_CIDR_BLOCK,
-            LocalGatewayRouteTableId=Ref(main_route_table),
-            LocalGatewayVirtualInterfaceGroupId=None
-
-        )
-    )
-    """
-
-    # TODO(berg) add subnet association
-    private_route_table = template.add_resource(
-        RouteTable(
-            '{}PrivateRouteTable'.format(STACK_NAME),
-            VpcId=Ref(virtual_private_cloud),
-        )
-    )
-
-    # TODO(berg) add subnet association
-    public_route_table = template.add_resource(
-        RouteTable(
-            '{}PublicRouteTable'.format(STACK_NAME),
-            VpcId=Ref(virtual_private_cloud),
-        )
-    )
-
-    route_internet_gateway = template.add_resource(
-        Route(
-            '{}InternetGatewayRoute'.format(STACK_NAME),
-            DependsOn=Ref(internet_gateway_attachment),  # TODO(berg) can 'DependsOn' use Ref?
-            GatewayId=Ref(internet_gateway),
-            DestinationCidrBlock='0.0.0.0/0',
-            RouteTableId=Ref(public_route_table)
-        )
-    )
-
-    # TODO(berg) build_subnet('letter', public=true)
-    public_subnet_a = template.add_resource(
-        Subnet(
-            '{}PublicSubnetA'.format(STACK_NAME),
-            CidrBlock='10.1.0.0/20',
-            VpcId=Ref(virtual_private_cloud)
-        )
-    )
-
-    private_subnet_a = template.add_resource(
-        Subnet(
-            '{}PrivateSubnetA'.format(STACK_NAME),
-            CidrBlock='10.1.16.0/20',
-            VpcId=Ref(virtual_private_cloud)
-        )
-    )
-
-    public_subnet_b = template.add_resource(
-        Subnet(
-            '{}PublicSubnetB'.format(STACK_NAME),
-            CidrBlock='10.1.32.0/20',
-            VpcId=Ref(virtual_private_cloud)
-        )
-    )
-
-    private_subnet_b = template.add_resource(
-        Subnet(
-            '{}PrivateSubnetB'.format(STACK_NAME),
-            CidrBlock='10.1.48.0/20',
-            VpcId=Ref(virtual_private_cloud)
-        )
-    )
-
-    return template
+class C4InfraException(Exception):
+    """ Custom exception type for C4Infra class-specific exceptions """
+    pass
 
 
-def create_new_account_template():
-    template = Template()
-    template.set_version(VERSION)
+class C4Infra(C4Network, C4DB):
+    """ Creates and manages a generic AWS Infrastructure environment.
+        Inherited by specific environment implementations """
 
-    template.set_description(
-        "AWS CloudFormation CGAP template: trial setup for cgap-portal environment"
-    )
+    # These class-level globals should be changed in inherited classes
+    STACK_NAME = 'c4-generic-stack'
+    ID_PREFIX = 'C4Generic'
+    DESC = 'AWS CloudFormation C4 template: Generic template for C4 AWS environment'
 
-    template = configure_network_layout(template)
+    # Version string identifies template capabilities
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/format-version-structure.html
+    VERSION = '2010-09-09'
 
-    return template
+    def __init__(self):
+        """ Initialize template self.t, used in mk functions to construct the infrastructure representation. """
+        self.t = Template()
+        pass
+
+    def generate_template(self, outfile=None, remake=True):
+        """ Generates a template """
+        if remake:
+            self.t = Template()
+        try:
+            self.mk_all()
+        except Exception as e:
+            # ... TODO
+            raise e
+        try:
+            current_yaml = self.t.to_yaml()
+        except Exception as e:
+            # ... TODO
+            raise e
+        if not outfile:
+            print(self.t.to_yaml(), file=sys.stdout)
+        else:
+            current_yaml = self.t.to_yaml()
+            self.write_outfile(current_yaml, outfile)
+            logging.info('Wrote template to {}'.format(outfile))
+        return self.t
+
+    def mk_all(self):
+        """ Make the template from the class-method specific resources"""
+        self.mk_meta()
+        self.mk_network()
+        self.mk_db()
+
+    def mk_meta(self):
+        """ Add metadata to the template self.t """
+        self.t.set_version(self.VERSION)
+        self.t.set_description(self.DESC)
+
+    def mk_network(self):
+        """ Add network resources to template self.t """
+        logging.debug('Adding network resources to template')
+
+        # Create Internet Gateway, VPC, and attach Internet Gateway to VPC.
+        self.t.add_resource(self.internet_gateway())
+        self.t.add_resource(self.virtual_private_cloud())
+        self.t.add_resource(self.internet_gateway_attachment())
+
+        # Create route tables: main, public, and private. Attach
+        # local gateway to main and internet gateway to public.
+        self.t.add_resource(self.main_route_table())
+        # self.t.add_resource(self.route_local_gateway())  TODO
+        self.t.add_resource(self.private_route_table())
+        self.t.add_resource(self.public_route_table())
+        # self.t.add_resource(self.route_internet_gateway())  TODO
+        self.t.add_resource(self.public_subnet_a())
+        self.t.add_resource(self.public_subnet_b())
+        self.t.add_resource(self.private_subnet_a())
+        self.t.add_resource(self.private_subnet_b())
+
+    def mk_db(self):
+        """ Add database resources to template self.t """
+        pass
+
+
+class C4InfraTrial(C4Infra):
+    """ Creates and manages a CGAP Trial Infrastructure """
+    STACK_NAME = 'cgap-trial'
+    ID_PREFIX = 'CGAPTrial'
+    DESC = 'AWS CloudFormation CGAP template: trial setup for cgap-portal environment'

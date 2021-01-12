@@ -2,13 +2,31 @@ import argparse
 import logging
 
 from src.aws_util import AWSUtil
-from src.infra import create_new_account_template
+from src.infra import C4InfraTrial
+
+""" TODO Q's:
+    1) 'TypeError: Object of type 'method' is not JSON serializable' findable via `to_dict` reply..add to execption?
+    2) 'Ref' subclass to execute method (and possibly add to dependency graph for meta-analysis + AWS drawing?) 
+    3) Exception class per-file or one for project?
+    4) method types...i.e. for
+        def write_outfile(text: Any,
+            outfile: Any) -> None  
+"""
 
 
-def generate_template(args):
-    # TODO(berg): as account migration proceeds, rename from create_new -> create_$actualname
-    template = create_new_account_template()
-    print(template.to_json())
+class CLIException(Exception):
+    """ Custom exception type for cli-specific exceptions """
+    pass
+
+
+def generate_template(args, env=None):
+    """ Generates the template for CGAPTrial.
+        TODO support other environments/stacks:
+        https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/best-practices.html#organizingstacks """
+    if env:
+        raise CLIException('envs other than CGAPTrial note supported')
+    current_version = '2020-01-12-cgap-trial-01'
+    C4InfraTrial().generate_template(outfile='out/cf-yml/{}.yml'.format(current_version))
 
 
 def costs(args):
@@ -22,18 +40,24 @@ def costs(args):
     if args.s3:
         logging.info('Generating s3 buckets cost summary tsv at {}...'.format(aws_util.BUCKET_SUMMARY_FILENAME))
         aws_util.generate_s3_bucket_summary_tsv(dry_run=False)
-    logging.info('Complete')
 
 
-def main():
+def cli():
     """Set up and run the 4dn cloud infra command line scripts"""
     logging.basicConfig(level=logging.INFO, format='%(asctime)-15s %(levelname)-8s %(message)s')
     parser = argparse.ArgumentParser(description='4DN Cloud Infrastructure')
     subparsers = parser.add_subparsers(help='Commands', dest='command')
 
-    parser_generate = subparsers.add_parser('generate', help='Generate Cloud Formation template as json')
+    # Configure 'generate' command
+    # TODO flag to select env
+    # TODO flag for log level
+    # TODO flag for verifying and saving template
+    parser_generate = subparsers.add_parser('generate', help='Generate Cloud Formation template for CGAP Trial env')
     parser_generate.set_defaults(func=generate_template)
 
+    # TODO command for Cloud Formation deploy flow: upload, verify, execute
+
+    # Configure 'cost' command
     parser_cost = subparsers.add_parser('cost', help='Generate cost summary spreadsheets for 4DN accounts')
     parser_cost.add_argument('--s3', action='store_true', help='Generate S3 buckets cost summary')
     parser_cost.add_argument('--versioned', action='store_true', help='Generate versioned S3 buckets cost summary')
@@ -45,9 +69,6 @@ def main():
     args = parser.parse_args()
     if args.command:
         args.func(args)
+        logging.info('Complete')
     else:
         logging.info('Select a command, run with -h for help')
-
-
-if __name__ == '__main__':
-    main()
