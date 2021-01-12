@@ -10,7 +10,10 @@ from src.infra import C4InfraTrial
     3) Exception class per-file or one for project?
     4) method types...i.e. for
         def write_outfile(text: Any,
-            outfile: Any) -> None  
+            outfile: Any) -> None 
+    5) tests -- a. if a resource has a classmethod but isn't in a mk method, raise error?
+                b. try to make each individual resource or 'mk_*' method...catch exceptions pushed to a branch...
+                   ...could also do the template upload + change set creation via CI hook, with the apply done via CLI.
 """
 
 
