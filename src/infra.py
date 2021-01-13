@@ -89,7 +89,7 @@ class C4Infra(C4Network, C4DB):
 
 class C4InfraTrial(C4Infra):
     """ Creates and manages a CGAP Trial Infrastructure """
-    STACK_NAME = 'cgap-trial'
+    STACK_NAME = 'cgap-trial-stack'
     ID_PREFIX = 'CGAPTrial'
     DESC = 'AWS CloudFormation CGAP template: trial setup for cgap-portal environment'
     ENV = 'dev'
