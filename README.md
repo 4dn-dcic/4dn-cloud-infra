@@ -4,7 +4,9 @@ Cloud Formation templates for 4dn-dcic AWS environments
 ## Setup
 
 ```
-pyenv exec python -m venv venv
+pyenv install 3.6.10
+# Builds or rebuilds the env, version found in `.python-version`
+pyenv exec python -m venv --clear venv
 . venv/bin/activate
 pip install --update pip
 pip install -r requirements.txt
