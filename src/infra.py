@@ -26,7 +26,6 @@ class C4Infra(C4Network, C4DB):
     def __init__(self):
         """ Initialize template self.t, used in mk functions to construct the infrastructure representation. """
         self.t = Template()
-        pass
 
     def generate_template(self, outfile=None, remake=True):
         """ Generates a template """

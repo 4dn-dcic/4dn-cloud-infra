@@ -97,43 +97,46 @@ class C4Network(C4Util):
     """
 
     @classmethod
-    def build_subnet(cls, letter, public=True):
-        """ TODO write this helper method """
-        raise C4NetworkException('unimplemented method')
+    def build_subnet(cls, name, cidr_block, vpc):
+        """ Builds a subnet with given name, cidr_block strings and vpc resource """
+        return Subnet(
+            cls.cf_id(name),
+            CidrBlock=cidr_block,
+            VpcId=Ref(vpc)
+        )
 
     @classmethod
     def public_subnet_a(cls):
-        """ Define public subnet A
-            TODO(berg) build_subnet('letter', public=true) """
-        return Subnet(
-            cls.cf_id('PublicSubnetA'),
-            CidrBlock='10.1.0.0/20',
-            VpcId=Ref(cls.virtual_private_cloud())
+        """ Define public subnet A """
+        return cls.build_subnet(
+            'PublicSubnetA',
+            '10.1.0.0/20',
+            cls.virtual_private_cloud()
         )
 
     @classmethod
     def public_subnet_b(cls):
         """ Define public subnet B """
-        return Subnet(
-            cls.cf_id('PublicSubnetB'),
-            CidrBlock='10.1.32.0/20',
-            VpcId=Ref(cls.virtual_private_cloud())
+        return cls.build_subnet(
+            'PublicSubnetB',
+            '10.1.32.0/20',
+            cls.virtual_private_cloud()
         )
 
     @classmethod
     def private_subnet_a(cls):
         """ Define private subnet A """
-        return Subnet(
-            cls.cf_id('PrivateSubnetA'),
-            CidrBlock='10.1.16.0/20',
-            VpcId=Ref(cls.virtual_private_cloud())
+        return cls.build_subnet(
+            'PrivateSubnetA',
+            '10.1.16.0/20',
+            cls.virtual_private_cloud()
         )
 
     @classmethod
     def private_subnet_b(cls):
         """ Define private subnet B """
-        return Subnet(
-            cls.cf_id('PrivateSubnetB'),
-            CidrBlock='10.1.48.0/20',
-            VpcId=Ref(cls.virtual_private_cloud())
+        return cls.build_subnet(
+            'PrivateSubnetB',
+            '10.1.48.0/20',
+            cls.virtual_private_cloud()
         )

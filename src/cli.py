@@ -22,13 +22,12 @@ class CLIException(Exception):
     pass
 
 
-def generate_template(args, env=None):
+def generate_template(args, env=None, current_version='2020-01-12-cgap-trial-01'):
     """ Generates the template for CGAPTrial.
         TODO support other environments/stacks:
         https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/best-practices.html#organizingstacks """
     if env:
-        raise CLIException('envs other than CGAPTrial note supported')
-    current_version = '2020-01-12-cgap-trial-01'
+        raise CLIException('envs other than CGAPTrial not supported')
     C4InfraTrial().generate_template(outfile='out/cf-yml/{}.yml'.format(current_version))
 
 
