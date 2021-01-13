@@ -80,6 +80,7 @@ class C4Infra(C4Network, C4DB):
         self.t.add_resource(self.public_subnet_b())
         self.t.add_resource(self.private_subnet_a())
         self.t.add_resource(self.private_subnet_b())
+        [self.t.add_resource(i) for i in self.subnet_associations()]
 
     def mk_db(self):
         """ Add database resources to template self.t """
@@ -91,3 +92,6 @@ class C4InfraTrial(C4Infra):
     STACK_NAME = 'cgap-trial'
     ID_PREFIX = 'CGAPTrial'
     DESC = 'AWS CloudFormation CGAP template: trial setup for cgap-portal environment'
+    ENV = 'dev'
+    PROJECT = 'cgap'
+    OWNER = 'project'

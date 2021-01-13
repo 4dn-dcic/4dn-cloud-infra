@@ -22,16 +22,18 @@ class C4Network(C4Util):
     def internet_gateway(cls):
         """ Define Internet Gateway resource. """
         return InternetGateway(
-            cls.cf_id('InternetGateway')
+            cls.cf_id('InternetGateway'),
         )
 
     @classmethod
     def virtual_private_cloud(cls):
         """ Define VPC resource with specific CIDR block. """
+        tags = [Tag(key='Name', value=cls.cf_id('VPC'))] + cls.cost_tag_array()
+
         return VPC(
             cls.cf_id('VPC'),
             CidrBlock=cls.STACK_CIDR_BLOCK,
-            Tags=[Tag(key='Name', value=cls.cf_id('VPC-01'))]
+            Tags=tags,
         )
 
     @classmethod
@@ -40,7 +42,7 @@ class C4Network(C4Util):
         return VPCGatewayAttachment(
             cls.cf_id('AttachGateway'),
             VpcId=Ref(cls.virtual_private_cloud()),
-            InternetGatewayId=Ref(cls.internet_gateway())
+            InternetGatewayId=Ref(cls.internet_gateway()),
         )
 
     @classmethod
@@ -50,6 +52,7 @@ class C4Network(C4Util):
         return RouteTable(
             cls.cf_id('MainRouteTable'),
             VpcId=Ref(cls.virtual_private_cloud()),
+            Tags=cls.cost_tag_array(),
         )
 
     # TODO(berg) Local Gateway Virtual Interface Group Id not found on new account. Is this config needed?
@@ -73,6 +76,7 @@ class C4Network(C4Util):
         return RouteTable(
             cls.cf_id('PrivateRouteTable'),
             VpcId=Ref(cls.virtual_private_cloud()),
+            Tags=cls.cost_tag_array(),
         )
 
     @classmethod
@@ -82,6 +86,7 @@ class C4Network(C4Util):
         return RouteTable(
             cls.cf_id('PublicRouteTable'),
             VpcId=Ref(cls.virtual_private_cloud()),
+            Tags=cls.cost_tag_array(),
         )
 
     """
@@ -102,7 +107,18 @@ class C4Network(C4Util):
         return Subnet(
             cls.cf_id(name),
             CidrBlock=cidr_block,
-            VpcId=Ref(vpc)
+            VpcId=Ref(vpc),
+            Tags=[Tag(key='Name', value=cls.cf_id(name))] + cls.cost_tag_array(),
+        )
+
+    @classmethod
+    def build_subnet_association(cls, subnet, route_table):
+        """ Builds a subnet assoociation between a subnet and a route table. What makes a 'public' subnet 'public'
+            and a 'private' subnet 'private'. """
+        return SubnetRouteTableAssociation(
+            cls.cf_id('{}To{}Association'.format(subnet.title, route_table.title)),
+            SubnetId=Ref(subnet),
+            RouteTableId=Ref(route_table),
         )
 
     @classmethod
@@ -140,3 +156,11 @@ class C4Network(C4Util):
             '10.1.48.0/20',
             cls.virtual_private_cloud()
         )
+
+    @classmethod
+    def subnet_associations(cls):
+        """ Define a set of subnet associations, which can be unrolled and added to a template. """
+        return (cls.build_subnet_association(cls.public_subnet_a(), cls.public_route_table()),
+                cls.build_subnet_association(cls.public_subnet_b(), cls.public_route_table()),
+                cls.build_subnet_association(cls.private_subnet_a(), cls.private_route_table()),
+                cls.build_subnet_association(cls.private_subnet_b(), cls.private_route_table()),)
