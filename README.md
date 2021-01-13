@@ -8,7 +8,7 @@ pyenv install 3.6.10
 # Builds or rebuilds the env, version found in `.python-version`
 pyenv exec python -m venv --clear venv
 . venv/bin/activate
-pip install --update pip
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
