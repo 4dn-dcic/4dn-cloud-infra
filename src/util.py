@@ -1,5 +1,7 @@
+import hashlib
 import logging
 import sys
+from datetime import datetime
 from troposphere import Tag
 
 
@@ -12,6 +14,13 @@ class C4Util:
     ENV = 'test'
     PROJECT = 'test'
     OWNER = 'test'
+
+    @classmethod
+    def version_name(cls, yaml_template):
+        """ Returns a version file name, based on the current date and the contents of the yaml """
+        d = str(datetime.now().date())
+        h = hashlib.new('md5', bytes(yaml_template, 'utf-8')).hexdigest()
+        return '{date}-cf-template-{hash}.yml'.format(date=d, hash=h)
 
     @classmethod
     def cf_id(cls, s):

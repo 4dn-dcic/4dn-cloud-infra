@@ -18,7 +18,7 @@ from src.exceptions import CLIException
 """
 
 
-def generate_template(args, env=None, current_version='2020-01-13-cgap-trial-01'):
+def generate_template(args, env=None, current_version='2021-01-15-cgap-trial-01'):
     """ Generates the template for CGAPTrial.
         TODO support other environments/stacks:
         https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/best-practices.html#organizingstacks """
