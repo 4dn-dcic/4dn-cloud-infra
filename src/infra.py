@@ -1,13 +1,9 @@
 import logging
 import sys
 from troposphere import Template
-from src.network import C4Network
 from src.db import C4DB
-
-
-class C4InfraException(Exception):
-    """ Custom exception type for C4Infra class-specific exceptions """
-    pass
+from src.exceptions import C4InfraException
+from src.network import C4Network
 
 
 class C4Infra(C4Network, C4DB):

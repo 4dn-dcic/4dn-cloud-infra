@@ -3,12 +3,8 @@ from troposphere.ec2 import (
     InternetGateway, LocalGatewayRoute, Route, RouteTable, Subnet, SubnetCidrBlock,
     SubnetRouteTableAssociation, Tag, VPC, VPCGatewayAttachment,
 )
+from src.exceptions import C4NetworkException
 from src.util import C4Util
-
-
-class C4NetworkException(Exception):
-    """ Custom exception type for C4Network class-specific exceptions """
-    pass
 
 
 class C4Network(C4Util):

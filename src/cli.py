@@ -4,11 +4,11 @@ import os
 
 from src.aws_util import AWSUtil
 from src.infra import C4InfraTrial
+from src.exceptions import CLIException
 
 """ TODO Q's:
     1) 'TypeError: Object of type 'method' is not JSON serializable' findable via `to_dict` reply..add to execption?
     2) 'Ref' subclass to execute method (and possibly add to dependency graph for meta-analysis + AWS drawing?) 
-    3) Exception class per-file or one for project?
     4) method types...i.e. for
         def write_outfile(text: Any,
             outfile: Any) -> None 
@@ -16,11 +16,6 @@ from src.infra import C4InfraTrial
                 b. try to make each individual resource or 'mk_*' method...catch exceptions pushed to a branch...
                    ...could also do the template upload + change set creation via CI hook, with the apply done via CLI.
 """
-
-
-class CLIException(Exception):
-    """ Custom exception type for cli-specific exceptions """
-    pass
 
 
 def generate_template(args, env=None, current_version='2020-01-13-cgap-trial-01'):
