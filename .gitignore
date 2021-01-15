@@ -8,7 +8,6 @@ credentials.json
 token.pickle
 __pycache__/
 .idea/
-*swp
 log/
 out/
 in/
