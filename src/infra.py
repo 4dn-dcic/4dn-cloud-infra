@@ -70,6 +70,9 @@ class C4Infra(C4DataStore):
         self.t.add_resource(self.private_subnet_a())
         self.t.add_resource(self.private_subnet_b())
         [self.t.add_resource(i) for i in self.subnet_associations()]
+        self.t.add_resource(self.db_security_group())
+        self.t.add_resource(self.db_outbound_rule())
+        self.t.add_resource(self.db_inbound_rule())
 
     def mk_data_store(self):
         """ Add data store resources to template self.t """

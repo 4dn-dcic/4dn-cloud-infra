@@ -36,6 +36,10 @@ class C4DataStore(C4Network):
             DBInstanceClass='db.t3.medium',
             Engine='postgres',
             DBInstanceIdentifier=cls.cf_id('RDS'),
+            DBName='postgresql',
+            CopyTagsToSnapshot=True,
+            AvailabilityZone='us-east-1a',
+            VPCSecurityGroups=[Ref(cls.db_security_group())],
             MasterUsername=Join('', [
                 '{{resolve:secretsmanager:',
                 {'Ref': cls.cf_id(cls.RDS_SECRET_STRING)},
