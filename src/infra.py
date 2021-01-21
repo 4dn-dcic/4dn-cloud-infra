@@ -22,19 +22,21 @@ class C4Infra(C4DataStore):
         """ Initialize template self.t, used in mk functions to construct the infrastructure representation. """
         self.t = Template()
 
-    def generate_template(self, outfile=None, remake=True):
-        """ Generates a template """
+    def generate_template(self, stdout=False, remake=True):
+        """ Generates a template. If stdout, print to STDOUT and return the Template object. Otherwise, write to
+            a file, and return the name of the file. """
         if remake:
             self.t = Template()
         self.mk_all()
         current_yaml = self.t.to_yaml()
-        if not outfile:
-            print(self.t.to_yaml(), file=sys.stdout)
+        if stdout:
+            print(current_yaml, file=sys.stdout)
+            return self.t
         else:
-            current_yaml = self.t.to_yaml()
+            outfile = self.version_name(current_yaml)
             self.write_outfile(current_yaml, outfile)
             logging.info('Wrote template to {}'.format(outfile))
-        return self.t
+            return outfile
 
     def mk_all(self):
         """ Make the template from the class-method specific resources"""

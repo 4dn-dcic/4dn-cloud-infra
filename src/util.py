@@ -20,7 +20,7 @@ class C4Util:
         """ Returns a version file name, based on the current date and the contents of the yaml """
         d = str(datetime.now().date())
         h = hashlib.new('md5', bytes(yaml_template, 'utf-8')).hexdigest()
-        return '{date}-cf-template-{hash}.yml'.format(date=d, hash=h)
+        return 'out/cf-yml/{date}-cf-template-{hash}.yml'.format(date=d, hash=h)
 
     @classmethod
     def cf_id(cls, s):
