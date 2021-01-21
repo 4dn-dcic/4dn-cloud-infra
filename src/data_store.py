@@ -34,7 +34,7 @@ class C4DataStore(C4Network):
             rds_id,
             AllocatedStorage=20,
             DBInstanceClass='db.t3.medium',
-            Engine='postgresql',
+            Engine='postgres',
             DBInstanceIdentifier=cls.cf_id('RDS'),
             MasterUsername=Join('', [
                 '{{resolve:secretsmanager:',
