@@ -1,11 +1,11 @@
 import logging
 import sys
 from troposphere import Template
-from src.data_store import C4DataStore
+from src.application import C4Application
 from src.exceptions import C4InfraException
 
 
-class C4Infra(C4DataStore):
+class C4Infra(C4Application):
     """ Creates and manages a generic AWS Infrastructure environment.
         Inherited by specific environment implementations """
 
