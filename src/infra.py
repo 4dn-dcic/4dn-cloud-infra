@@ -1,12 +1,11 @@
 import logging
 import sys
 from troposphere import Template
-from src.db import C4DB
+from src.data_store import C4DataStore
 from src.exceptions import C4InfraException
-from src.network import C4Network
 
 
-class C4Infra(C4Network, C4DB):
+class C4Infra(C4DataStore):
     """ Creates and manages a generic AWS Infrastructure environment.
         Inherited by specific environment implementations """
 
@@ -27,16 +26,8 @@ class C4Infra(C4Network, C4DB):
         """ Generates a template """
         if remake:
             self.t = Template()
-        try:
-            self.mk_all()
-        except Exception as e:
-            # ... TODO
-            raise e
-        try:
-            current_yaml = self.t.to_yaml()
-        except Exception as e:
-            # ... TODO
-            raise e
+        self.mk_all()
+        current_yaml = self.t.to_yaml()
         if not outfile:
             print(self.t.to_yaml(), file=sys.stdout)
         else:
@@ -49,7 +40,7 @@ class C4Infra(C4Network, C4DB):
         """ Make the template from the class-method specific resources"""
         self.mk_meta()
         self.mk_network()
-        self.mk_db()
+        self.mk_data_store()
 
     def mk_meta(self):
         """ Add metadata to the template self.t """
@@ -78,8 +69,18 @@ class C4Infra(C4Network, C4DB):
         self.t.add_resource(self.private_subnet_b())
         [self.t.add_resource(i) for i in self.subnet_associations()]
 
-    def mk_db(self):
-        """ Add database resources to template self.t """
+    def mk_data_store(self):
+        """ Add data store resources to template self.t """
+
+        # Adds RDS
+        self.t.add_resource((self.rds_secret()))
+        self.t.add_resource((self.rds_instance()))
+        self.t.add_resource((self.rds_secret_attachment()))
+
+        # Adds Elasticsearch
+        pass
+
+        # Adds SQS
         pass
 
 
