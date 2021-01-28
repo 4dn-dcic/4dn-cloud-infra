@@ -19,7 +19,7 @@ class C4DataStore(C4Network):
             Name=cls.cf_id(cls.RDS_SECRET_STRING),
             Description='This is the RDS instance master password',
             GenerateSecretString=GenerateSecretString(
-                SecretStringTemplate='{"username":"admin"}',
+                SecretStringTemplate='{"username":"postgresql"}',
                 GenerateStringKey='password',
                 PasswordLength=30,
             ),
