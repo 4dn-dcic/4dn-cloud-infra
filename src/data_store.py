@@ -4,12 +4,13 @@ from troposphere.elasticsearch import (AdvancedSecurityOptionsInput, Domain, Ela
                                        EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions)
 from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
+from troposphere.sqs import Queue
 
 
 class C4DataStore(C4Network):
     """ Class methods below construct the troposphere representations of AWS resources, without building the template
         1) Add resource as class method below
-        2) Add to template in a 'mk' method in C4Infra """
+        2) Add to template in a 'make' method in C4Infra """
 
     RDS_SECRET_STRING = 'RDSSecret'  # Generate Secret ID with `cls.cf_id(RDS_SECRET_STRING)`
 
@@ -124,4 +125,12 @@ class C4DataStore(C4Network):
 
     @classmethod
     def sqs_instance(cls):
-        pass
+        name = cls.cf_id('Queue')
+        return Queue(
+            name,
+            VisibilityTimeout=10*60,  # 10 minutes
+            MessageRetentionPeriod=14*24*60*60,  # 14 days
+            DelaySeconds=1,
+            ReceiveMessageWaitTimeSeconds=2,
+            Tags=cls.cost_tag_array(name=name),
+        )

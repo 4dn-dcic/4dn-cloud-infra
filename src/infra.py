@@ -47,6 +47,7 @@ class C4Infra(C4Application):
         self.make_meta()
         self.make_network()
         self.make_data_store()
+        self.make_application()
 
     def make_meta(self):
         """ Add metadata to the template self.t """
@@ -92,7 +93,14 @@ class C4Infra(C4Application):
         self.t.add_resource(self.elasticsearch_instance())
 
         # Adds SQS
-        pass
+        self.t.add_resource(self.sqs_instance())
+
+    def make_application(self):
+        """ Add Beanstalk application to template self.t """
+
+        # Adds application
+        self.t.add_resource(self.beanstalk_application())
+        # TODO
 
 
 class C4InfraTrial(C4Infra):
