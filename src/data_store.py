@@ -1,5 +1,5 @@
 from src.network import C4Network
-from troposphere import Join, Ref
+from troposphere import Join, Ref, Tags
 from troposphere.elasticsearch import (AdvancedSecurityOptionsInput, Domain, ElasticsearchClusterConfig,
                                        EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions)
 from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
@@ -132,5 +132,5 @@ class C4DataStore(C4Network):
             MessageRetentionPeriod=14*24*60*60,  # 14 days
             DelaySeconds=1,
             ReceiveMessageWaitTimeSeconds=2,
-            Tags=cls.cost_tag_array(name=name),
+            Tags=Tags(*cls.cost_tag_array(name=name)),
         )
