@@ -123,7 +123,7 @@ class C4Network(C4Util):
         """ Define public subnet A """
         return cls.build_subnet(
             'PublicSubnetA',
-            '10.2.1.0/24',
+            '10.2.5.0/24',
             cls.virtual_private_cloud(),
             'us-east-1a',
         )
@@ -133,7 +133,7 @@ class C4Network(C4Util):
         """ Define public subnet B """
         return cls.build_subnet(
             'PublicSubnetB',
-            '10.2.3.0/24',
+            '10.2.7.0/24',
             cls.virtual_private_cloud(),
             'us-east-1b',
         )
@@ -143,7 +143,7 @@ class C4Network(C4Util):
         """ Define private subnet A """
         return cls.build_subnet(
             'PrivateSubnetA',
-            '10.2.2.0/24',
+            '10.2.6.0/24',
             cls.virtual_private_cloud(),
             'us-east-1a',
         )
@@ -153,7 +153,7 @@ class C4Network(C4Util):
         """ Define private subnet B """
         return cls.build_subnet(
             'PrivateSubnetB',
-            '10.2.4.0/24',
+            '10.2.8.0/24',
             cls.virtual_private_cloud(),
             'us-east-1b',
         )
