@@ -103,7 +103,7 @@ class C4DataStore(C4Network):
             domain_name,
             DomainName=domain_name,
             NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
-            EncryptionAtRestOptions=EncryptionAtRestOptions(Enable=True),  # TODO specify KMS key
+            EncryptionAtRestOptions=EncryptionAtRestOptions(Enabled=True),  # TODO specify KMS key
             # DomainEndpointOptions=DomainEndpointOptions(EnforceHTTPS=True),  #feature not yet supported by troposphere
             ElasticsearchClusterConfig=ElasticsearchClusterConfig(
                 InstanceCount=1,

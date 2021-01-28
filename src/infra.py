@@ -89,7 +89,7 @@ class C4Infra(C4Application):
         self.t.add_resource(self.rds_secret_attachment())
 
         # Adds Elasticsearch
-        pass
+        self.t.add_resource(self.elasticsearch_instance())
 
         # Adds SQS
         pass
