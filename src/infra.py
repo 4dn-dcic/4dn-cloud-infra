@@ -78,9 +78,10 @@ class C4Infra(C4Application):
         """ Add data store resources to template self.t """
 
         # Adds RDS
-        self.t.add_resource((self.rds_secret()))
-        self.t.add_resource((self.rds_instance()))
-        self.t.add_resource((self.rds_secret_attachment()))
+        self.t.add_resource(self.rds_secret())
+        self.t.add_resource(self.rds_parameter_group())
+        self.t.add_resource(self.rds_instance())
+        self.t.add_resource(self.rds_secret_attachment())
 
         # Adds Elasticsearch
         pass
