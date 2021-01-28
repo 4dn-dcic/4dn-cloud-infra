@@ -1,5 +1,7 @@
 from src.network import C4Network
 from troposphere import Join, Ref
+from troposphere.elasticsearch import (AdvancedSecurityOptionsInput, Domain, ElasticsearchClusterConfig,
+                                       EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions)
 from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 
@@ -95,7 +97,30 @@ class C4DataStore(C4Network):
 
     @classmethod
     def elasticsearch_instance(cls):
-        pass
+        """ Returns an Elasticsearch domain """
+        domain_name = cls.cf_id('ES')
+        return Domain(
+            domain_name,
+            DomainName=domain_name,
+            NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
+            EncryptionAtRestOptions=EncryptionAtRestOptions(Enable=True),  # TODO specify KMS key
+            # DomainEndpointOptions=DomainEndpointOptions(EnforceHTTPS=True),  #feature not yet supported by troposphere
+            ElasticsearchClusterConfig=ElasticsearchClusterConfig(
+                InstanceCount=1,
+                InstanceType='c5.large.elasticsearch',
+            ),
+            ElasticsearchVersion='6.8',
+            EBSOptions=EBSOptions(
+                EBSEnabled=True,
+                VolumeSize=10,
+                VolumeType='gp2',  # gp3?
+            ),
+            VPCOptions=VPCOptions(
+                # SecurityGroupIds=[],  # TODO web sg
+                SubnetIds=[Ref(cls.private_subnet_a()), Ref(cls.private_subnet_b())],
+            ),
+            Tags=cls.cost_tag_array(name=domain_name),
+        )
 
     @classmethod
     def sqs_instance(cls):
