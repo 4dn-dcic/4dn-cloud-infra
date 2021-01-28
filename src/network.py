@@ -195,6 +195,4 @@ class C4Network(C4Util):
             Description='allows outbound traffic to all tcp ports',  # TODO
             GroupId=Ref(cls.db_security_group()),
             IpProtocol='tcp',
-            FromPort=-1,  # all ports
-            ToPort=-1,  # all ports
         )
