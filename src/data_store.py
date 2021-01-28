@@ -1,6 +1,6 @@
 from src.network import C4Network
 from troposphere import Join, Ref
-from troposphere.rds import DBInstance, DBParameterGroup, DBSecurityGroup
+from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 
 
@@ -30,7 +30,7 @@ class C4DataStore(C4Network):
     @classmethod
     def rds_subnet_group(cls):
         """ Returns a subnet group for the single RDS instance in the infrastructure stack """
-        return DBSecurityGroup(
+        return DBSubnetGroup(
             cls.cf_id('DBSecurityGroup'),
             DBSubnetGroupDescription='RDS subnet group',
             SubnetIds=[Ref(cls.private_subnet_a()), Ref(cls.private_subnet_b())],
