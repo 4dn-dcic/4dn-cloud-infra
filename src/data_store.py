@@ -27,18 +27,18 @@ class C4DataStore(C4Network):
         )
 
     @classmethod
-    def rds_instance(cls):
+    def rds_instance(cls, instance_size='db.t3.medium', az_zone='us-east-1a'):
         """ Returns the single RDS instance for the infrastructure stack """
         rds_id = cls.cf_id('RDS')
         return DBInstance(
             rds_id,
             AllocatedStorage=20,
-            DBInstanceClass='db.t3.medium',
+            DBInstanceClass=instance_size,
             Engine='postgres',
             DBInstanceIdentifier=cls.cf_id('RDS'),
-            DBName='postgresql',
+            DBName='c4db',
             CopyTagsToSnapshot=True,
-            AvailabilityZone='us-east-1a',
+            AvailabilityZone=az_zone,
             VPCSecurityGroups=[Ref(cls.db_security_group())],
             MasterUsername=Join('', [
                 '{{resolve:secretsmanager:',
