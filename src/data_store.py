@@ -1,6 +1,6 @@
 from src.network import C4Network
 from troposphere import Join, Ref
-from troposphere.rds import DBInstance, DBParameterGroup
+from troposphere.rds import DBInstance, DBParameterGroup, DBSecurityGroup
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 
 
@@ -28,6 +28,16 @@ class C4DataStore(C4Network):
         )
 
     @classmethod
+    def rds_subnet_group(cls):
+        """ Returns a subnet group for the single RDS instance in the infrastructure stack """
+        return DBSecurityGroup(
+            cls.cf_id('DBSecurityGroup'),
+            DBSubnetGroupDescription='RDS subnet group',
+            SubnetIds=[Ref(cls.private_subnet_a()), Ref(cls.private_subnet_b())],
+            Tags=cls.cost_tag_array(),
+        )
+
+    @classmethod
     def rds_instance(cls, instance_size='db.t3.medium', az_zone='us-east-1a', storage_size=20, storage_type='standard'):
         """ Returns the single RDS instance for the infrastructure stack. """
         rds_id = cls.cf_id('RDS')
@@ -39,6 +49,7 @@ class C4DataStore(C4Network):
             DBInstanceIdentifier=cls.cf_id('RDS'),
             DBName='c4db',
             DBParameterGroupName=Ref(cls.rds_parameter_group()),
+            DBSubnetGroupName=Ref(cls.rds_subnet_group()),
             StorageEncrypted=True,  # TODO use KmsKeyId to configure KMS key (requires db replacement)
             CopyTagsToSnapshot=True,
             AvailabilityZone=az_zone,
