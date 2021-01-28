@@ -98,12 +98,13 @@ class C4Network(C4Util):
     """
 
     @classmethod
-    def build_subnet(cls, name, cidr_block, vpc):
-        """ Builds a subnet with given name, cidr_block strings and vpc resource """
+    def build_subnet(cls, name, cidr_block, vpc, az):
+        """ Builds a subnet with given name, cidr_block strings, vpc resource, and availability zone (az). """
         return Subnet(
             cls.cf_id(name),
             CidrBlock=cidr_block,
             VpcId=Ref(vpc),
+            AvailabilityZone=az,
             Tags=[Tag(key='Name', value=cls.cf_id(name))] + cls.cost_tag_array(),
         )
 
@@ -123,7 +124,8 @@ class C4Network(C4Util):
         return cls.build_subnet(
             'PublicSubnetA',
             '10.2.1.0/24',
-            cls.virtual_private_cloud()
+            cls.virtual_private_cloud(),
+            'us-east-1a',
         )
 
     @classmethod
@@ -132,7 +134,8 @@ class C4Network(C4Util):
         return cls.build_subnet(
             'PublicSubnetB',
             '10.2.3.0/24',
-            cls.virtual_private_cloud()
+            cls.virtual_private_cloud(),
+            'us-east-1b',
         )
 
     @classmethod
@@ -141,7 +144,8 @@ class C4Network(C4Util):
         return cls.build_subnet(
             'PrivateSubnetA',
             '10.2.2.0/24',
-            cls.virtual_private_cloud()
+            cls.virtual_private_cloud(),
+            'us-east-1a',
         )
 
     @classmethod
@@ -150,7 +154,8 @@ class C4Network(C4Util):
         return cls.build_subnet(
             'PrivateSubnetB',
             '10.2.4.0/24',
-            cls.virtual_private_cloud()
+            cls.virtual_private_cloud(),
+            'us-east-1b',
         )
 
     @classmethod
