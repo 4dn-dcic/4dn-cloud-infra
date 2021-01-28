@@ -7,12 +7,12 @@ from src.infra import C4InfraTrial
 from src.exceptions import CLIException
 
 
-def generate_template(args, env=None, current_version='2021-01-15-cgap-trial-01'):
+def generate_template(args, env=None):
     """ Generates the template for CGAPTrial.
         TODO support other environments/stacks:
         https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/best-practices.html#organizingstacks """
     if env:
-        raise CLIException('envs other than CGAPTrial not supported')
+        raise CLIException('envs other than CGAPTrial not yet supported')
 
     infra_trial = C4InfraTrial()  # TODO support other environments/stacks
     if args.stdout:
