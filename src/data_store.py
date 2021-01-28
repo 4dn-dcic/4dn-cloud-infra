@@ -12,6 +12,10 @@ class C4DataStore(C4Network):
     RDS_SECRET_STRING = 'RDSSecret'  # Generate Secret ID with `cls.cf_id(RDS_SECRET_STRING)`
 
     @classmethod
+    def rds_subnet_group_name(cls):
+        return cls.cf_id('DBSubnetGroup')
+
+    @classmethod
     def rds_secret(cls):
         """ Returns the RDS secret, as generated and stored by AWS Secrets Manager """
         return Secret(
@@ -31,7 +35,7 @@ class C4DataStore(C4Network):
     def rds_subnet_group(cls):
         """ Returns a subnet group for the single RDS instance in the infrastructure stack """
         return DBSubnetGroup(
-            cls.cf_id('DBSecurityGroup'),
+            cls.rds_subnet_group_name(),
             DBSubnetGroupDescription='RDS subnet group',
             SubnetIds=[Ref(cls.private_subnet_a()), Ref(cls.private_subnet_b())],
             Tags=cls.cost_tag_array(),
@@ -49,7 +53,7 @@ class C4DataStore(C4Network):
             DBInstanceIdentifier=cls.cf_id('RDS'),
             DBName='c4db',
             DBParameterGroupName=Ref(cls.rds_parameter_group()),
-            DBSubnetGroupName=Ref(cls.rds_subnet_group()),
+            DBSubnetGroupName=cls.rds_subnet_group_name(),
             StorageEncrypted=True,  # TODO use KmsKeyId to configure KMS key (requires db replacement)
             CopyTagsToSnapshot=True,
             AvailabilityZone=az_zone,
