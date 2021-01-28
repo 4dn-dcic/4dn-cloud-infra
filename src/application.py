@@ -1,4 +1,5 @@
 from src.data_store import C4DataStore
+from troposphere.elasticbeanstalk import Application
 
 
 class C4Application(C4DataStore):
@@ -8,4 +9,9 @@ class C4Application(C4DataStore):
 
     @classmethod
     def beanstalk_application(cls):
-        pass
+        name = cls.cf_id('Application')
+        return Application(
+            name,
+            ApplicationName=name,
+            # TODO
+        )

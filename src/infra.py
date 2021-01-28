@@ -100,7 +100,6 @@ class C4Infra(C4Application):
 
         # Adds application
         self.t.add_resource(self.beanstalk_application())
-        # TODO
 
 
 class C4InfraTrial(C4Infra):
