@@ -97,8 +97,8 @@ class C4DataStore(C4Network):
         )
 
     @classmethod
-    def elasticsearch_instance(cls):
-        """ Returns an Elasticsearch domain """
+    def elasticsearch_instance(cls, data_node_instance_type='c5.large.elasticsearch'):
+        """ Returns an Elasticsearch domain with 1 data node, configurable via data_node_instance_type """
         domain_name = cls.cf_id('ES')
         return Domain(
             domain_name,
@@ -108,7 +108,7 @@ class C4DataStore(C4Network):
             # DomainEndpointOptions=DomainEndpointOptions(EnforceHTTPS=True),  #feature not yet supported by troposphere
             ElasticsearchClusterConfig=ElasticsearchClusterConfig(
                 InstanceCount=1,
-                InstanceType='c5.large.elasticsearch',
+                InstanceType=data_node_instance_type,
             ),
             ElasticsearchVersion='6.8',
             EBSOptions=EBSOptions(
