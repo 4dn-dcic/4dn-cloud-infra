@@ -37,7 +37,7 @@ class C4DataStore(C4Network):
             Engine='postgres',
             DBInstanceIdentifier=cls.cf_id('RDS'),
             DBName='c4db',
-            DBParameterGroupName=Ref(cls.rds_parameter_group),
+            DBParameterGroupName=Ref(cls.rds_parameter_group()),
             StorageEncrypted=True,  # TODO use KmsKeyId to configure KMS key (requires db replacement)
             CopyTagsToSnapshot=True,
             AvailabilityZone=az_zone,

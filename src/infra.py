@@ -28,7 +28,11 @@ class C4Infra(C4Application):
         if remake:
             self.t = Template()
         self.make_all()
-        current_yaml = self.t.to_yaml()
+        try:
+            current_yaml = self.t.to_yaml()
+        except TypeError as e:
+            print('TypeError when generating template..did you pass an uninstantiated class method as a Ref?')
+            raise e
         if stdout:
             print(current_yaml, file=sys.stdout)
             return self.t
