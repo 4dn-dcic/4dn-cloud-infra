@@ -124,13 +124,37 @@ class C4DataStore(C4Network):
         )
 
     @classmethod
-    def sqs_instance(cls):
-        name = cls.cf_id('Queue')
+    def build_sqs_instance(cls, logical_id_suffix, name_suffix, cgap_env='green'):
+        """ Builds a SQS instance with the logical id suffix for CloudFormation and the given name_suffix for the queue
+            name. Uses 'green' as default cgap env. """
+        logical_name = cls.cf_id(logical_id_suffix)
+        queue_name = 'cgap-{env}-{suffix}'.format(env=cgap_env, suffix=name_suffix)  # TODO configurable cgap env
         return Queue(
-            name,
+            logical_name,
+            QueueName=queue_name,
             VisibilityTimeout=10*60,  # 10 minutes
             MessageRetentionPeriod=14*24*60*60,  # 14 days
             DelaySeconds=1,
             ReceiveMessageWaitTimeSeconds=2,
-            Tags=Tags(*cls.cost_tag_array(name=name)),
+            Tags=Tags(*cls.cost_tag_array(name=queue_name)),
         )
+
+    @classmethod
+    def primary_queue(cls):
+        return cls.build_sqs_instance('PrimaryQueue', 'indexer-queue-primary')
+
+    @classmethod
+    def secondary_queue(cls):
+        return cls.build_sqs_instance('SecondaryQueue', 'indexer-queue-secondary')
+
+    @classmethod
+    def dead_letter_queue(cls):
+        return cls.build_sqs_instance('DeadLetterQueue', 'indexer-queue-dlq')
+
+    @classmethod
+    def ingestion_queue(cls):
+        return cls.build_sqs_instance('IngestionQueue', 'ingestion-queue')
+
+    @classmethod
+    def realtime_queue(cls):
+        return cls.build_sqs_instance('RealtimeQueue', 'indexer-queue-realtime')

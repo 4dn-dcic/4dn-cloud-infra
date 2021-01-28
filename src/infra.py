@@ -92,8 +92,10 @@ class C4Infra(C4Application):
         # Adds Elasticsearch
         self.t.add_resource(self.elasticsearch_instance())
 
-        # Adds SQS
-        self.t.add_resource(self.sqs_instance())
+        # Adds SQS Queues
+        for i in [self.primary_queue(), self.secondary_queue(), self.dead_letter_queue(), self.ingestion_queue(),
+                  self.realtime_queue()]:
+            self.t.add_resource(i)
 
     def make_application(self):
         """ Add Beanstalk application to template self.t """
