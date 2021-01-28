@@ -1,6 +1,6 @@
 from src.network import C4Network
 from troposphere import Join, Ref
-from troposphere.rds import DBInstance
+from troposphere.rds import DBInstance, DBParameterGroup
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 
 
@@ -27,18 +27,22 @@ class C4DataStore(C4Network):
         )
 
     @classmethod
-    def rds_instance(cls, instance_size='db.t3.medium', az_zone='us-east-1a'):
-        """ Returns the single RDS instance for the infrastructure stack """
+    def rds_instance(cls, instance_size='db.t3.medium', az_zone='us-east-1a', storage_size=20, storage_type='standard'):
+        """ Returns the single RDS instance for the infrastructure stack. """
         rds_id = cls.cf_id('RDS')
         return DBInstance(
             rds_id,
-            AllocatedStorage=20,
+            AllocatedStorage=storage_size,
             DBInstanceClass=instance_size,
             Engine='postgres',
             DBInstanceIdentifier=cls.cf_id('RDS'),
             DBName='c4db',
+            DBParameterGroupName=Ref(cls.rds_parameter_group),
+            StorageEncrypted=True,  # TODO use KmsKeyId to configure KMS key (requires db replacement)
             CopyTagsToSnapshot=True,
             AvailabilityZone=az_zone,
+            PubliclyAccessible=False,
+            StorageType=storage_type,
             VPCSecurityGroups=[Ref(cls.db_security_group())],
             MasterUsername=Join('', [
                 '{{resolve:secretsmanager:',
@@ -51,6 +55,19 @@ class C4DataStore(C4Network):
                 ':SecretString:password}}'
             ]),
             Tags=cls.cost_tag_array(name=rds_id),
+        )
+
+    @classmethod
+    def rds_parameter_group(cls):
+        """ Creates the parameter group for an RDS instance """
+        parameters = {
+            'rds.force_ssl': 1,  # SSL required for all connections when set to 1
+        }
+        return DBParameterGroup(
+            cls.cf_id('RDSParameterGroup'),
+            Description='parameters for C4 RDS instances',
+            Family='postgres11',
+            Parameters=parameters,
         )
 
     @classmethod
