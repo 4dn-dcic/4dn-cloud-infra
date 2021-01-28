@@ -46,6 +46,7 @@ class C4DataStore(C4Network):
             AllocatedStorage=storage_size,
             DBInstanceClass=instance_size,
             Engine='postgres',
+            EngineVersion='11.9',
             DBInstanceIdentifier=cls.cf_id('RDS'),
             DBName='c4db',
             DBParameterGroupName=Ref(cls.rds_parameter_group()),
