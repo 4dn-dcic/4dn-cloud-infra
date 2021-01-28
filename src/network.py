@@ -1,7 +1,7 @@
 from troposphere import Ref
 from troposphere.ec2 import (
-    InternetGateway, LocalGatewayRoute, Route, RouteTable, Subnet, SubnetCidrBlock,
-    SubnetRouteTableAssociation, Tag, VPC, VPCGatewayAttachment,
+    InternetGateway, LocalGatewayRoute, Route, RouteTable, SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
+    Subnet, SubnetCidrBlock, SubnetRouteTableAssociation, Tag, VPC, VPCGatewayAttachment,
 )
 from src.exceptions import C4NetworkException
 from src.util import C4Util
@@ -98,12 +98,13 @@ class C4Network(C4Util):
     """
 
     @classmethod
-    def build_subnet(cls, name, cidr_block, vpc):
-        """ Builds a subnet with given name, cidr_block strings and vpc resource """
+    def build_subnet(cls, name, cidr_block, vpc, az):
+        """ Builds a subnet with given name, cidr_block strings, vpc resource, and availability zone (az). """
         return Subnet(
             cls.cf_id(name),
             CidrBlock=cidr_block,
             VpcId=Ref(vpc),
+            AvailabilityZone=az,
             Tags=[Tag(key='Name', value=cls.cf_id(name))] + cls.cost_tag_array(),
         )
 
@@ -122,8 +123,9 @@ class C4Network(C4Util):
         """ Define public subnet A """
         return cls.build_subnet(
             'PublicSubnetA',
-            '10.2.1.0/24',
-            cls.virtual_private_cloud()
+            '10.2.5.0/24',
+            cls.virtual_private_cloud(),
+            'us-east-1a',
         )
 
     @classmethod
@@ -131,8 +133,9 @@ class C4Network(C4Util):
         """ Define public subnet B """
         return cls.build_subnet(
             'PublicSubnetB',
-            '10.2.3.0/24',
-            cls.virtual_private_cloud()
+            '10.2.7.0/24',
+            cls.virtual_private_cloud(),
+            'us-east-1b',
         )
 
     @classmethod
@@ -140,8 +143,9 @@ class C4Network(C4Util):
         """ Define private subnet A """
         return cls.build_subnet(
             'PrivateSubnetA',
-            '10.2.2.0/24',
-            cls.virtual_private_cloud()
+            '10.2.6.0/24',
+            cls.virtual_private_cloud(),
+            'us-east-1a',
         )
 
     @classmethod
@@ -149,8 +153,9 @@ class C4Network(C4Util):
         """ Define private subnet B """
         return cls.build_subnet(
             'PrivateSubnetB',
-            '10.2.4.0/24',
-            cls.virtual_private_cloud()
+            '10.2.8.0/24',
+            cls.virtual_private_cloud(),
+            'us-east-1b',
         )
 
     @classmethod
@@ -160,3 +165,41 @@ class C4Network(C4Util):
                 cls.build_subnet_association(cls.public_subnet_b(), cls.public_route_table()),
                 cls.build_subnet_association(cls.private_subnet_a(), cls.private_route_table()),
                 cls.build_subnet_association(cls.private_subnet_b(), cls.private_route_table()),)
+
+    @classmethod
+    def db_security_group(cls):
+        """ Define the database security group """
+        group_id = cls.cf_id('DBSecurityGroup')
+        return SecurityGroup(
+            group_id,
+            GroupName=group_id,
+            GroupDescription='allows database access on a port range',
+            VpcId=Ref(cls.virtual_private_cloud()),
+            Tags=cls.cost_tag_array(name=group_id),
+        )
+
+    @classmethod
+    def db_inbound_rule(cls):
+        """ Returns inbound rules for database (RDS) security group """
+        return SecurityGroupIngress(
+            cls.cf_id('DBPortRangeAccess'),
+            CidrIp='0.0.0.0/0',  # TODO web sg w/ 'DestinationSecurityGroupId'
+            Description='allows database access on tcp ports 54xx',
+            GroupId=Ref(cls.db_security_group()),
+            IpProtocol='tcp',
+            FromPort=5400,
+            ToPort=5499,
+        )
+
+    @classmethod
+    def db_outbound_rule(cls):
+        """ Returns outbound rules for database (RDS) security group """
+        return SecurityGroupEgress(
+            cls.cf_id('DBOutboundAllAccess'),
+            CidrIp='0.0.0.0/0',  # TODO web sg w/ 'DestinationSecurityGroupId'
+            Description='allows outbound traffic to all tcp ports',  # TODO
+            GroupId=Ref(cls.db_security_group()),
+            IpProtocol='tcp',
+            FromPort=5400,
+            ToPort=5499,
+        )

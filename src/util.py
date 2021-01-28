@@ -20,7 +20,7 @@ class C4Util:
         """ Returns a version file name, based on the current date and the contents of the yaml """
         d = str(datetime.now().date())
         h = hashlib.new('md5', bytes(yaml_template, 'utf-8')).hexdigest()
-        return '{date}-cf-template-{hash}.yml'.format(date=d, hash=h)
+        return 'out/cf-yml/{date}-cf-template-{hash}.yml'.format(date=d, hash=h)
 
     @classmethod
     def cf_id(cls, s):
@@ -30,10 +30,14 @@ class C4Util:
         return '{0}{1}'.format(cls.ID_PREFIX, s)
 
     @classmethod
-    def cost_tag_array(cls):
+    def cost_tag_array(cls, name=None):
         """ Build a Tag array given the three cost allocation tags: env, project, and owner. This can be appended
             to a Tag array with additional info (such as the Name tag)"""
-        return [Tag(k='env', v=cls.ENV), Tag(k='project', v=cls.PROJECT), Tag(k='owner', v=cls.OWNER)]
+        cost_tags = [Tag(k='env', v=cls.ENV), Tag(k='project', v=cls.PROJECT), Tag(k='owner', v=cls.OWNER)]
+        if name:
+            return [Tag(k='Name', v=name)] + cost_tags
+        else:
+            return cost_tags
 
     @staticmethod
     def write_outfile(text, outfile):

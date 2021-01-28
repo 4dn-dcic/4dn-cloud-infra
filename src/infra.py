@@ -1,12 +1,11 @@
 import logging
 import sys
 from troposphere import Template
-from src.db import C4DB
+from src.application import C4Application
 from src.exceptions import C4InfraException
-from src.network import C4Network
 
 
-class C4Infra(C4Network, C4DB):
+class C4Infra(C4Application):
     """ Creates and manages a generic AWS Infrastructure environment.
         Inherited by specific environment implementations """
 
@@ -23,40 +22,38 @@ class C4Infra(C4Network, C4DB):
         """ Initialize template self.t, used in mk functions to construct the infrastructure representation. """
         self.t = Template()
 
-    def generate_template(self, outfile=None, remake=True):
-        """ Generates a template """
+    def generate_template(self, stdout=False, remake=True):
+        """ Generates a template. If stdout, print to STDOUT and return the Template object. Otherwise, write to
+            a file, and return the name of the file. """
         if remake:
             self.t = Template()
-        try:
-            self.mk_all()
-        except Exception as e:
-            # ... TODO
-            raise e
+        self.make_all()
         try:
             current_yaml = self.t.to_yaml()
-        except Exception as e:
-            # ... TODO
+        except TypeError as e:
+            print('TypeError when generating template..did you pass an uninstantiated class method as a Ref?')
             raise e
-        if not outfile:
-            print(self.t.to_yaml(), file=sys.stdout)
+        if stdout:
+            print(current_yaml, file=sys.stdout)
+            return self.t
         else:
-            current_yaml = self.t.to_yaml()
+            outfile = self.version_name(current_yaml)
             self.write_outfile(current_yaml, outfile)
             logging.info('Wrote template to {}'.format(outfile))
-        return self.t
+            return outfile
 
-    def mk_all(self):
+    def make_all(self):
         """ Make the template from the class-method specific resources"""
-        self.mk_meta()
-        self.mk_network()
-        self.mk_db()
+        self.make_meta()
+        self.make_network()
+        self.make_data_store()
 
-    def mk_meta(self):
+    def make_meta(self):
         """ Add metadata to the template self.t """
         self.t.set_version(self.VERSION)
         self.t.set_description(self.DESC)
 
-    def mk_network(self):
+    def make_network(self):
         """ Add network resources to template self.t """
         logging.debug('Adding network resources to template')
 
@@ -77,9 +74,24 @@ class C4Infra(C4Network, C4DB):
         self.t.add_resource(self.private_subnet_a())
         self.t.add_resource(self.private_subnet_b())
         [self.t.add_resource(i) for i in self.subnet_associations()]
+        self.t.add_resource(self.db_security_group())
+        self.t.add_resource(self.db_outbound_rule())
+        self.t.add_resource(self.db_inbound_rule())
 
-    def mk_db(self):
-        """ Add database resources to template self.t """
+    def make_data_store(self):
+        """ Add data store resources to template self.t """
+
+        # Adds RDS
+        self.t.add_resource(self.rds_secret())
+        self.t.add_resource(self.rds_parameter_group())
+        self.t.add_resource(self.rds_instance())
+        self.t.add_resource(self.rds_subnet_group())
+        self.t.add_resource(self.rds_secret_attachment())
+
+        # Adds Elasticsearch
+        pass
+
+        # Adds SQS
         pass
 
 

@@ -7,14 +7,19 @@ from src.infra import C4InfraTrial
 from src.exceptions import CLIException
 
 
-def generate_template(args, env=None, current_version='2021-01-15-cgap-trial-01'):
+def generate_template(args, env=None):
     """ Generates the template for CGAPTrial.
         TODO support other environments/stacks:
         https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/best-practices.html#organizingstacks """
     if env:
-        raise CLIException('envs other than CGAPTrial not supported')
-    outfile = 'out/cf-yml/{}.yml'.format(current_version)
-    C4InfraTrial().generate_template(outfile=outfile)
+        raise CLIException('envs other than CGAPTrial not yet supported')
+
+    infra_trial = C4InfraTrial()  # TODO support other environments/stacks
+    if args.stdout:
+        infra_trial.generate_template(stdout=True)
+        return
+
+    outfile = infra_trial.generate_template()
     if args.validate:
         cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {args}'.format(
             mount_yaml='~/code/4dn-cloud-infra/out/cf-yml:/root/out/cf-yml',
@@ -65,6 +70,7 @@ def cli():
     # TODO flag for log level
     # TODO flag for verifying and saving template
     parser_generate = subparsers.add_parser('generate', help='Generate Cloud Formation template for CGAP Trial env')
+    parser_generate.add_argument('--stdout', action='store_true', help='Writes template to STDOUT only')
     parser_generate.add_argument('--validate', action='store_true', help='Verifies template')
     parser_generate.add_argument('--upload', action='store_true', help='Uploads template and generates change set')
     parser_generate.set_defaults(func=generate_template)
