@@ -22,6 +22,7 @@ class C4DataStore(C4Network):
                 SecretStringTemplate='{"username":"postgresql"}',
                 GenerateStringKey='password',
                 PasswordLength=30,
+                ExcludePunctuation=True,
             ),
             Tags=cls.cost_tag_array(),
         )
