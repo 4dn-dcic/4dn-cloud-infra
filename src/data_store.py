@@ -2,6 +2,11 @@ from src.network import C4Network
 from troposphere import Join, Ref, Tags
 from troposphere.elasticsearch import (AdvancedSecurityOptionsInput, Domain, ElasticsearchClusterConfig,
                                        EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions)
+try:
+    from troposphere.elasticsearch import DomainEndpointOptions  # noQA
+except ImportError:
+    def DomainEndpointOptions(*args, **kwargs):  # noQA
+        raise NotImplementedError('DomainEndpointOptions')
 from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
@@ -100,12 +105,16 @@ class C4DataStore(C4Network):
     def elasticsearch_instance(cls, data_node_instance_type='c5.large.elasticsearch'):
         """ Returns an Elasticsearch domain with 1 data node, configurable via data_node_instance_type """
         domain_name = cls.cf_id('ES')
+        options = {}
+        try:  # feature not yet supported by troposphere
+            options['DomainEndpointOptions'] = DomainEndpointOptions(EnforceHTTPS=True)
+        except NotImplementedError:
+            pass
         return Domain(
             domain_name,
             DomainName=domain_name,
             NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
             EncryptionAtRestOptions=EncryptionAtRestOptions(Enabled=True),  # TODO specify KMS key
-            # DomainEndpointOptions=DomainEndpointOptions(EnforceHTTPS=True),  #feature not yet supported by troposphere
             ElasticsearchClusterConfig=ElasticsearchClusterConfig(
                 InstanceCount=1,
                 InstanceType=data_node_instance_type,
@@ -121,6 +130,7 @@ class C4DataStore(C4Network):
                 SubnetIds=[Ref(cls.private_subnet_a()), Ref(cls.private_subnet_b())],
             ),
             Tags=cls.cost_tag_array(name=domain_name),
+            **options,
         )
 
     @classmethod
