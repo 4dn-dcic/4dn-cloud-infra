@@ -1,4 +1,5 @@
 from src.network import C4Network
+from dcicutils.misc_utils import as_seconds
 from troposphere import Join, Ref, Tags
 from troposphere.elasticsearch import (AdvancedSecurityOptionsInput, Domain, ElasticsearchClusterConfig,
                                        EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions)
@@ -142,8 +143,8 @@ class C4DataStore(C4Network):
         return Queue(
             logical_name,
             QueueName=queue_name,
-            VisibilityTimeout=10*60,  # 10 minutes
-            MessageRetentionPeriod=14*24*60*60,  # 14 days
+            VisibilityTimeout=as_seconds(minutes=10),
+            MessageRetentionPeriod=as_seconds(days=14),
             DelaySeconds=1,
             ReceiveMessageWaitTimeSeconds=2,
             Tags=Tags(*cls.cost_tag_array(name=queue_name)),

@@ -179,7 +179,7 @@ class C4Network(C4Util):
         )
 
     @classmethod
-    def db_inbound_rule(cls):
+    def db_inbound_rule(cls, db_port_low=5400, db_port_high=5499):
         """ Returns inbound rules for database (RDS) security group """
         return SecurityGroupIngress(
             cls.cf_id('DBPortRangeAccess'),
@@ -187,12 +187,12 @@ class C4Network(C4Util):
             Description='allows database access on tcp ports 54xx',
             GroupId=Ref(cls.db_security_group()),
             IpProtocol='tcp',
-            FromPort=5400,
-            ToPort=5499,
+            FromPort=db_port_low,
+            ToPort=db_port_high,
         )
 
     @classmethod
-    def db_outbound_rule(cls):
+    def db_outbound_rule(cls, db_port_low=5400, db_port_high=5499):
         """ Returns outbound rules for database (RDS) security group """
         return SecurityGroupEgress(
             cls.cf_id('DBOutboundAllAccess'),
@@ -200,6 +200,6 @@ class C4Network(C4Util):
             Description='allows outbound traffic to all tcp ports',  # TODO
             GroupId=Ref(cls.db_security_group()),
             IpProtocol='tcp',
-            FromPort=5400,
-            ToPort=5499,
+            FromPort=db_port_low,
+            ToPort=db_port_high,
         )
