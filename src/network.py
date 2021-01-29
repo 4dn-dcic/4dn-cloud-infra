@@ -13,6 +13,8 @@ class C4Network(C4Util):
         2) Add to template in a 'make' method in C4Infra """
 
     STACK_CIDR_BLOCK = '10.2.0.0/16'
+    DB_PORT_LOW = 5400
+    DB_PORT_HIGH = 5499
 
     @classmethod
     def internet_gateway(cls):
@@ -179,7 +181,7 @@ class C4Network(C4Util):
         )
 
     @classmethod
-    def db_inbound_rule(cls, db_port_low=5400, db_port_high=5499):
+    def db_inbound_rule(cls):
         """ Returns inbound rules for database (RDS) security group """
         return SecurityGroupIngress(
             cls.cf_id('DBPortRangeAccess'),
@@ -187,12 +189,12 @@ class C4Network(C4Util):
             Description='allows database access on tcp ports 54xx',
             GroupId=Ref(cls.db_security_group()),
             IpProtocol='tcp',
-            FromPort=db_port_low,
-            ToPort=db_port_high,
+            FromPort=cls.DB_PORT_LOW,
+            ToPort=cls.DB_PORT_HIGH,
         )
 
     @classmethod
-    def db_outbound_rule(cls, db_port_low=5400, db_port_high=5499):
+    def db_outbound_rule(cls):
         """ Returns outbound rules for database (RDS) security group """
         return SecurityGroupEgress(
             cls.cf_id('DBOutboundAllAccess'),
@@ -200,6 +202,6 @@ class C4Network(C4Util):
             Description='allows outbound traffic to all tcp ports',  # TODO
             GroupId=Ref(cls.db_security_group()),
             IpProtocol='tcp',
-            FromPort=db_port_low,
-            ToPort=db_port_high,
+            FromPort=cls.DB_PORT_LOW,
+            ToPort=cls.DB_PORT_HIGH,
         )
