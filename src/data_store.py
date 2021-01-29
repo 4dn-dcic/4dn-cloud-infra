@@ -127,7 +127,7 @@ class C4DataStore(C4Network):
                 VolumeType='gp2',  # gp3?
             ),
             VPCOptions=VPCOptions(
-                # SecurityGroupIds=[],  # TODO web sg
+                SecurityGroupIds=[Ref(cls.https_security_group())],
                 SubnetIds=[Ref(cls.private_subnet_a()), Ref(cls.private_subnet_b())],
             ),
             Tags=cls.cost_tag_array(name=domain_name),

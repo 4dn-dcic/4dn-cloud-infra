@@ -199,9 +199,47 @@ class C4Network(C4Util):
         return SecurityGroupEgress(
             cls.cf_id('DBOutboundAllAccess'),
             CidrIp='0.0.0.0/0',  # TODO web sg w/ 'DestinationSecurityGroupId'
-            Description='allows outbound traffic to all tcp ports',  # TODO
+            Description='allows outbound traffic to tcp 54xx',
             GroupId=Ref(cls.db_security_group()),
             IpProtocol='tcp',
             FromPort=cls.DB_PORT_LOW,
             ToPort=cls.DB_PORT_HIGH,
+        )
+
+    @classmethod
+    def https_security_group(cls):
+        """ Define the https-only web security group """
+        group_id = cls.cf_id('HTTPSSecurityGroup')
+        return SecurityGroup(
+            group_id,
+            GroupName=group_id,
+            GroupDescription='allows https-only web access on port 443',
+            VpcId=Ref(cls.virtual_private_cloud()),
+            Tags=cls.cost_tag_array(name=group_id),
+        )
+
+    @classmethod
+    def https_inbound_rule(cls):
+        """ Returns inbound rules for https-only web security group """
+        return SecurityGroupIngress(
+            cls.cf_id('HTTPSInboundAccess'),
+            CidrIp='0.0.0.0/0',
+            Description='allows inbound traffic on tcp port 443',
+            GroupId=Ref(cls.https_security_group()),
+            IpProtocol='tcp',
+            FromPort=443,
+            ToPort=443,
+        )
+
+    @classmethod
+    def https_outbound_rule(cls):
+        """ Returns outbound rules for https-only web security group """
+        return SecurityGroupEgress(
+            cls.cf_id('HTTPSOutboundAllAccess'),
+            CidrIp='0.0.0.0/0',
+            Description='allows outbound traffic on tcp port 443',
+            GroupId=Ref(cls.https_security_group()),
+            IpProtocol='tcp',
+            FromPort=443,
+            ToPort=443,
         )
