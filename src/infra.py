@@ -105,6 +105,11 @@ class C4Infra(C4Application):
 
         # Adds application
         self.t.add_resource(self.beanstalk_application())
+        self.t.add_resource(self.beanstalk_application_resource_lifecycle_config())
+        self.t.add_resource(self.beanstalk_environment())
+        self.t.add_resource(self.beanstalk_configuration_template())
+        self.t.add_resource(self.beanstalk_application_version())
+        self.t.add_resource(self.beanstalk_application_version_lifecycle_config())
 
 
 class C4InfraTrial(C4Infra):
