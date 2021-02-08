@@ -23,6 +23,7 @@ class C4Application(C4DataStore):
 
     @classmethod
     def beanstalk_application_resource_lifecycle_config(cls):
+        """ The resource lifecycle config for a specific Beanstalk Application. """
         return ApplicationResourceLifecycleConfig(
             ServiceRole='arn:aws:iam::{0}:role/aws-elasticbeanstalk-service-role'.format(cls.ACCOUNT_NUMBER),
             VersionLifecycleConfig=Ref(cls.beanstalk_application_version_lifecycle_config())
@@ -30,6 +31,9 @@ class C4Application(C4DataStore):
 
     @classmethod
     def beanstalk_application(cls):
+        """ Creates a Beanstalk Application, which has a related Configuration Template, where default configuration
+            is defined, as `beanstalk_configuration_template`. Specific environments are spun off from this application
+            e.g. production, dev, staging, etc. """
         name = cls.cf_id('Application')  # TODO more specific?
         return Application(
             name,
@@ -40,6 +44,7 @@ class C4Application(C4DataStore):
 
     @classmethod
     def make_beanstalk_environment(cls, env):
+        """ Creates Beanstalk Environments, which are associated with an overall Beanstalk Application. """
         env_name = 'cgap-{}'.format(env.lower())
         name = cls.cf_id('{}Environment'.format(env))
         return Environment(
@@ -59,10 +64,12 @@ class C4Application(C4DataStore):
 
     @classmethod
     def beanstalk_configuration_template(cls):
-        name = cls.cf_id('ConfigurationTemplate')
+        """ Returns the 'configuration template' for an application. Essentially the configuration defaults, which can
+            be overridden on an environment-by-environment basis. """
+        name = cls.cf_id('ConfigurationTemplate')  # more generic for multiple applications in the same infra?
         return ConfigurationTemplate(
             name,
-            # TODO
+            ApplicationName=Ref(cls.beanstalk_application()),
         )
 
     @classmethod
