@@ -3,6 +3,7 @@ import logging
 import sys
 from datetime import datetime
 from troposphere import Tag
+from src.exceptions import C4InfraException
 
 
 class C4Util:
@@ -14,6 +15,7 @@ class C4Util:
     ENV = 'test'
     PROJECT = 'test'
     OWNER = 'test'
+    ACCOUNT_NUMBER = '645819926742'  # 'trial' account number; overridden for other accounts TODO more generic?
 
     @classmethod
     def version_name(cls, yaml_template):
