@@ -105,15 +105,16 @@ class C4DataStore(C4Network):
     @classmethod
     def elasticsearch_instance(cls, data_node_instance_type='c5.large.elasticsearch'):
         """ Returns an Elasticsearch domain with 1 data node, configurable via data_node_instance_type """
-        domain_name = cls.cf_id('ES')
+        logical = cls.cf_id('ES')
+        domain = cls.domain_name(logical)
         options = {}
         try:  # feature not yet supported by troposphere
             options['DomainEndpointOptions'] = DomainEndpointOptions(EnforceHTTPS=True)
         except NotImplementedError:
             pass
         return Domain(
-            domain_name,
-            DomainName=domain_name,
+            logical,
+            DomainName=domain,
             NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
             EncryptionAtRestOptions=EncryptionAtRestOptions(Enabled=True),  # TODO specify KMS key
             ElasticsearchClusterConfig=ElasticsearchClusterConfig(

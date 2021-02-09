@@ -47,7 +47,7 @@ class C4Infra(C4Application):
         self.make_meta()
         self.make_network()
         self.make_data_store()
-        self.make_application()
+        # self.make_application()
 
     def make_meta(self):
         """ Add metadata to the template self.t """
