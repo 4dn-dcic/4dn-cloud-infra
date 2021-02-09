@@ -129,9 +129,9 @@ class C4DataStore(C4Network):
             ),
             VPCOptions=VPCOptions(
                 SecurityGroupIds=[Ref(cls.https_security_group())],
-                SubnetIds=[Ref(cls.private_subnet_a()), Ref(cls.private_subnet_b())],
+                SubnetIds=[Ref(cls.private_subnet_a())],
             ),
-            Tags=cls.cost_tag_array(name=domain_name),
+            Tags=cls.cost_tag_array(name=domain),
             **options,
         )
 
