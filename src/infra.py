@@ -47,7 +47,7 @@ class C4Infra(C4Application):
         self.make_meta()
         self.make_network()
         self.make_data_store()
-        # self.make_application()
+        self.make_application()
 
     def make_meta(self):
         """ Add metadata to the template self.t """
@@ -105,11 +105,9 @@ class C4Infra(C4Application):
 
         # Adds application
         self.t.add_resource(self.beanstalk_application())
-        self.t.add_resource(self.beanstalk_application_resource_lifecycle_config())
-        self.t.add_resource(self.beanstalk_environment())
+        self.t.add_resource(self.dev_beanstalk_environment())
         self.t.add_resource(self.beanstalk_configuration_template())
-        self.t.add_resource(self.beanstalk_application_version())
-        self.t.add_resource(self.beanstalk_application_version_lifecycle_config())
+        # self.t.add_resource(self.beanstalk_application_version())  TODO
 
 
 class C4InfraTrial(C4Infra):
