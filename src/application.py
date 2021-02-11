@@ -81,12 +81,17 @@ class C4Application(C4DataStore):
             OptionSettings(
                 Namespace='aws:ec2:vpc',
                 OptionName='VPCId',
-                Value=cls.virtual_private_cloud().title  # check if this is equivalent to passing the vpc id
+                Value=Ref(cls.virtual_private_cloud())  # check if this is equivalent to passing the vpc id
             ),
             OptionSettings(
                 Namespace='aws:ec2:vpc',
                 OptionName='ELBSubnets',
-                Value=','.join([cls.public_subnet_a().title, cls.public_subnet_b().title])
+                Value=','.join([str(Ref(cls.public_subnet_a())), str(Ref(cls.public_subnet_b()))])
+            ),
+            OptionSettings(
+                Namespace='',
+                OptionName='',
+                Value=''
             ),
         ]
 
