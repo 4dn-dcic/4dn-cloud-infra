@@ -88,11 +88,6 @@ class C4Application(C4DataStore):
                 OptionName='ELBSubnets',
                 Value=','.join([str(Ref(cls.public_subnet_a())), str(Ref(cls.public_subnet_b()))])
             ),
-            OptionSettings(
-                Namespace='',
-                OptionName='',
-                Value=''
-            ),
         ]
 
     @classmethod
