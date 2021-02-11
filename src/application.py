@@ -39,6 +39,8 @@ class C4Application(C4DataStore):
             # TODO Description?
             SolutionStackName='64bit Amazon Linux 2018.03 v2.9.18 running Python 3.6',
             Tags=Tags(*cls.cost_tag_array(name=name)),
+            DependsOn=[
+                cls.https_security_group().title, cls.db_security_group().title, cls.virtual_private_cloud().title],
         )
 
     @classmethod
