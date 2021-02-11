@@ -92,6 +92,11 @@ class C4Application(C4DataStore):
                 OptionName='ELBSubnets',
                 Value=Join(delimiter=',', values=[Ref(cls.public_subnet_a()), Ref(cls.public_subnet_b())])
             ),
+            OptionSettings(
+                Namespace='aws:ec2:vpc',
+                OptionName='Subnets',
+                Value=Join(delimiter=',', values=[Ref(cls.public_subnet_a()), Ref(cls.public_subnet_b())])
+            ),
         ]
 
     @classmethod
