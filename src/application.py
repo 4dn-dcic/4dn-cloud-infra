@@ -22,6 +22,8 @@ class C4Application(C4DataStore):
             name,
             ApplicationName=name,
             Description=name,
+            DependsOn=[
+                cls.https_security_group().title, cls.db_security_group().title, cls.virtual_private_cloud().title],
         )
 
     @classmethod
@@ -103,6 +105,8 @@ class C4Application(C4DataStore):
             Description='Base configuration template for beanstalk application',
             SolutionStackName=cls.BEANSTALK_SOLUTION_STACK,
             OptionSettings=cls.beanstalk_configuration_option_settings(),
+            DependsOn=[
+                cls.https_security_group().title, cls.db_security_group().title, cls.virtual_private_cloud().title],
         )
 
     @classmethod
