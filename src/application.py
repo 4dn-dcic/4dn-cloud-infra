@@ -47,12 +47,46 @@ class C4Application(C4DataStore):
     @classmethod
     def beanstalk_configuration_option_settings(cls):
         """ Returns a list of ConfigurationOptionSetting for the base configuration template of a beanstalk
-            application. """
+            application.
+            Reference: https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html """
         return [
             OptionSettings(
                 Namespace='aws:autoscaling:launchconfiguration',
                 OptionName='EC2KeyName',
-                Value='todo'  # tODO next
+                Value='trial-ssh-key-01'  # pem key for EC2 instance access; TODO configurable
+            ),
+            OptionSettings(
+                Namespace='aws:autoscaling:launchconfiguration',
+                OptionName='IamInstanceProfile',
+                Value='aws-elasticbeanstalk-ec2-role'
+            ),
+            OptionSettings(
+                Namespace='aws:autoscaling:launchconfiguration',
+                OptionName='MonitoringInterval',
+                Value='5 minute'  # default is 5 min; TODO should this be 1 min?
+            ),
+            OptionSettings(
+                Namespace='aws:autoscaling:launchconfiguration',
+                OptionName='SecurityGroups',  # TODO correct security groups
+                Value=','.join([cls.https_security_group().title, cls.db_security_group().title])
+            ),
+            # TODO SSHSourceRestriction from bastion host
+            # TODO use scheduled actions: aws:autoscaling:scheduledaction. Ref:
+            # https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-cfg-autoscaling-scheduledactions.html
+            OptionSettings(
+                Namespace='aws:ec2:instances',
+                OptionName='InstanceTypes',
+                Value='c5.large'
+            ),
+            OptionSettings(
+                Namespace='aws:ec2:vpc',
+                OptionName='VPCId',
+                Value=cls.virtual_private_cloud().title  # check if this is equivalent to passing the vpc id
+            ),
+            OptionSettings(
+                Namespace='aws:ec2:vpc',
+                OptionName='ELBSubnets',
+                Value=','.join([cls.public_subnet_a().title, cls.public_subnet_b().title])
             ),
         ]
 
