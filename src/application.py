@@ -1,5 +1,5 @@
 from src.data_store import C4DataStore
-from troposphere import Ref, Tags
+from troposphere import Ref, Tags, Join
 from troposphere.elasticbeanstalk import (Application, ApplicationVersion, ConfigurationTemplate, Environment,
                                           ApplicationResourceLifecycleConfig, ApplicationVersionLifecycleConfig,
                                           OptionSettings, MaxAgeRule, MaxCountRule)
@@ -68,7 +68,7 @@ class C4Application(C4DataStore):
             OptionSettings(
                 Namespace='aws:autoscaling:launchconfiguration',
                 OptionName='SecurityGroups',  # TODO correct security groups
-                Value=','.join([str(Ref(cls.https_security_group())), str(Ref(cls.db_security_group()))])
+                Value=Join([Ref(cls.https_security_group()), Ref(cls.db_security_group())])
             ),
             # TODO SSHSourceRestriction from bastion host
             # TODO use scheduled actions: aws:autoscaling:scheduledaction. Ref:
@@ -86,7 +86,7 @@ class C4Application(C4DataStore):
             OptionSettings(
                 Namespace='aws:ec2:vpc',
                 OptionName='ELBSubnets',
-                Value=','.join([str(Ref(cls.public_subnet_a())), str(Ref(cls.public_subnet_b()))])
+                Value=Join([Ref(cls.public_subnet_a()), Ref(cls.public_subnet_b())])
             ),
         ]
 
