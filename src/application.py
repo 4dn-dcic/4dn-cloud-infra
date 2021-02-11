@@ -68,7 +68,7 @@ class C4Application(C4DataStore):
             OptionSettings(
                 Namespace='aws:autoscaling:launchconfiguration',
                 OptionName='SecurityGroups',  # TODO correct security groups
-                Value=Join([Ref(cls.https_security_group()), Ref(cls.db_security_group())])
+                Value=Join(delimiter=',', values=[Ref(cls.https_security_group()), Ref(cls.db_security_group())])
             ),
             # TODO SSHSourceRestriction from bastion host
             # TODO use scheduled actions: aws:autoscaling:scheduledaction. Ref:
@@ -86,7 +86,7 @@ class C4Application(C4DataStore):
             OptionSettings(
                 Namespace='aws:ec2:vpc',
                 OptionName='ELBSubnets',
-                Value=Join([Ref(cls.public_subnet_a()), Ref(cls.public_subnet_b())])
+                Value=Join(delimiter=',', values=[Ref(cls.public_subnet_a()), Ref(cls.public_subnet_b())])
             ),
         ]
 
