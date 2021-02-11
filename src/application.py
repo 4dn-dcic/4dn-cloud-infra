@@ -68,7 +68,7 @@ class C4Application(C4DataStore):
             OptionSettings(
                 Namespace='aws:autoscaling:launchconfiguration',
                 OptionName='SecurityGroups',  # TODO correct security groups
-                Value=','.join([cls.https_security_group().title, cls.db_security_group().title])
+                Value=','.join([str(Ref(cls.https_security_group())), str(Ref(cls.db_security_group()))])
             ),
             # TODO SSHSourceRestriction from bastion host
             # TODO use scheduled actions: aws:autoscaling:scheduledaction. Ref:
