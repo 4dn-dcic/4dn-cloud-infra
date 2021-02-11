@@ -10,9 +10,11 @@ from src.util import C4Util
 class C4Network(C4Util):
     """ Class methods below construct the troposphere representations of AWS resources, without building the template
         1) Add resource as class method below
-        2) Add to template in a 'mk' method in C4Infra """
+        2) Add to template in a 'make' method in C4Infra """
 
     STACK_CIDR_BLOCK = '10.2.0.0/16'
+    DB_PORT_LOW = 5400
+    DB_PORT_HIGH = 5499
 
     @classmethod
     def internet_gateway(cls):
@@ -187,8 +189,8 @@ class C4Network(C4Util):
             Description='allows database access on tcp ports 54xx',
             GroupId=Ref(cls.db_security_group()),
             IpProtocol='tcp',
-            FromPort=5400,
-            ToPort=5499,
+            FromPort=cls.DB_PORT_LOW,
+            ToPort=cls.DB_PORT_HIGH,
         )
 
     @classmethod
@@ -197,9 +199,47 @@ class C4Network(C4Util):
         return SecurityGroupEgress(
             cls.cf_id('DBOutboundAllAccess'),
             CidrIp='0.0.0.0/0',  # TODO web sg w/ 'DestinationSecurityGroupId'
-            Description='allows outbound traffic to all tcp ports',  # TODO
+            Description='allows outbound traffic to tcp 54xx',
             GroupId=Ref(cls.db_security_group()),
             IpProtocol='tcp',
-            FromPort=5400,
-            ToPort=5499,
+            FromPort=cls.DB_PORT_LOW,
+            ToPort=cls.DB_PORT_HIGH,
+        )
+
+    @classmethod
+    def https_security_group(cls):
+        """ Define the https-only web security group """
+        group_id = cls.cf_id('HTTPSSecurityGroup')
+        return SecurityGroup(
+            group_id,
+            GroupName=group_id,
+            GroupDescription='allows https-only web access on port 443',
+            VpcId=Ref(cls.virtual_private_cloud()),
+            Tags=cls.cost_tag_array(name=group_id),
+        )
+
+    @classmethod
+    def https_inbound_rule(cls):
+        """ Returns inbound rules for https-only web security group """
+        return SecurityGroupIngress(
+            cls.cf_id('HTTPSInboundAccess'),
+            CidrIp='0.0.0.0/0',
+            Description='allows inbound traffic on tcp port 443',
+            GroupId=Ref(cls.https_security_group()),
+            IpProtocol='tcp',
+            FromPort=443,
+            ToPort=443,
+        )
+
+    @classmethod
+    def https_outbound_rule(cls):
+        """ Returns outbound rules for https-only web security group """
+        return SecurityGroupEgress(
+            cls.cf_id('HTTPSOutboundAllAccess'),
+            CidrIp='0.0.0.0/0',
+            Description='allows outbound traffic on tcp port 443',
+            GroupId=Ref(cls.https_security_group()),
+            IpProtocol='tcp',
+            FromPort=443,
+            ToPort=443,
         )

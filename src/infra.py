@@ -47,6 +47,7 @@ class C4Infra(C4Application):
         self.make_meta()
         self.make_network()
         self.make_data_store()
+        self.make_application()
 
     def make_meta(self):
         """ Add metadata to the template self.t """
@@ -77,6 +78,9 @@ class C4Infra(C4Application):
         self.t.add_resource(self.db_security_group())
         self.t.add_resource(self.db_outbound_rule())
         self.t.add_resource(self.db_inbound_rule())
+        self.t.add_resource(self.https_security_group())
+        self.t.add_resource(self.https_inbound_rule())
+        self.t.add_resource(self.https_outbound_rule())
 
     def make_data_store(self):
         """ Add data store resources to template self.t """
@@ -89,10 +93,21 @@ class C4Infra(C4Application):
         self.t.add_resource(self.rds_secret_attachment())
 
         # Adds Elasticsearch
-        pass
+        self.t.add_resource(self.elasticsearch_instance())
 
-        # Adds SQS
-        pass
+        # Adds SQS Queues
+        for i in [self.primary_queue(), self.secondary_queue(), self.dead_letter_queue(), self.ingestion_queue(),
+                  self.realtime_queue()]:
+            self.t.add_resource(i)
+
+    def make_application(self):
+        """ Add Beanstalk application to template self.t """
+
+        # Adds application TODO iterate on with CI
+        # self.t.add_resource(self.beanstalk_application())
+        # self.t.add_resource(self.dev_beanstalk_environment())
+        # self.t.add_resource(self.beanstalk_configuration_template())
+        # self.t.add_resource(self.beanstalk_application_version())
 
 
 class C4InfraTrial(C4Infra):

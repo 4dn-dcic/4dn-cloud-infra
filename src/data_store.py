@@ -1,13 +1,22 @@
 from src.network import C4Network
-from troposphere import Join, Ref
+from dcicutils.misc_utils import as_seconds
+from troposphere import Join, Ref, Tags
+from troposphere.elasticsearch import (AdvancedSecurityOptionsInput, Domain, ElasticsearchClusterConfig,
+                                       EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions)
+try:
+    from troposphere.elasticsearch import DomainEndpointOptions  # noQA
+except ImportError:
+    def DomainEndpointOptions(*args, **kwargs):  # noQA
+        raise NotImplementedError('DomainEndpointOptions')
 from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
+from troposphere.sqs import Queue
 
 
 class C4DataStore(C4Network):
     """ Class methods below construct the troposphere representations of AWS resources, without building the template
         1) Add resource as class method below
-        2) Add to template in a 'mk' method in C4Infra """
+        2) Add to template in a 'make' method in C4Infra """
 
     RDS_SECRET_STRING = 'RDSSecret'  # Generate Secret ID with `cls.cf_id(RDS_SECRET_STRING)`
 
@@ -94,9 +103,70 @@ class C4DataStore(C4Network):
         )
 
     @classmethod
-    def elasticsearch_instance(cls):
-        pass
+    def elasticsearch_instance(cls, data_node_instance_type='c5.large.elasticsearch'):
+        """ Returns an Elasticsearch domain with 1 data node, configurable via data_node_instance_type """
+        logical = cls.cf_id('ES')
+        domain = cls.domain_name(logical)
+        options = {}
+        try:  # feature not yet supported by troposphere
+            options['DomainEndpointOptions'] = DomainEndpointOptions(EnforceHTTPS=True)
+        except NotImplementedError:
+            pass
+        return Domain(
+            logical,
+            DomainName=domain,
+            NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
+            EncryptionAtRestOptions=EncryptionAtRestOptions(Enabled=True),  # TODO specify KMS key
+            ElasticsearchClusterConfig=ElasticsearchClusterConfig(
+                InstanceCount=1,
+                InstanceType=data_node_instance_type,
+            ),
+            ElasticsearchVersion='6.8',
+            EBSOptions=EBSOptions(
+                EBSEnabled=True,
+                VolumeSize=10,
+                VolumeType='gp2',  # gp3?
+            ),
+            VPCOptions=VPCOptions(
+                SecurityGroupIds=[Ref(cls.https_security_group())],
+                SubnetIds=[Ref(cls.private_subnet_a())],
+            ),
+            Tags=cls.cost_tag_array(name=domain),
+            **options,
+        )
 
     @classmethod
-    def sqs_instance(cls):
-        pass
+    def build_sqs_instance(cls, logical_id_suffix, name_suffix, cgap_env='green'):
+        """ Builds a SQS instance with the logical id suffix for CloudFormation and the given name_suffix for the queue
+            name. Uses 'green' as default cgap env. """
+        logical_name = cls.cf_id(logical_id_suffix)
+        queue_name = 'cgap-{env}-{suffix}'.format(env=cgap_env, suffix=name_suffix)  # TODO configurable cgap env
+        return Queue(
+            logical_name,
+            QueueName=queue_name,
+            VisibilityTimeout=as_seconds(minutes=10),
+            MessageRetentionPeriod=as_seconds(days=14),
+            DelaySeconds=1,
+            ReceiveMessageWaitTimeSeconds=2,
+            Tags=Tags(*cls.cost_tag_array(name=queue_name)),
+        )
+
+    @classmethod
+    def primary_queue(cls):
+        return cls.build_sqs_instance('PrimaryQueue', 'indexer-queue-primary')
+
+    @classmethod
+    def secondary_queue(cls):
+        return cls.build_sqs_instance('SecondaryQueue', 'indexer-queue-secondary')
+
+    @classmethod
+    def dead_letter_queue(cls):
+        return cls.build_sqs_instance('DeadLetterQueue', 'indexer-queue-dlq')
+
+    @classmethod
+    def ingestion_queue(cls):
+        return cls.build_sqs_instance('IngestionQueue', 'ingestion-queue')
+
+    @classmethod
+    def realtime_queue(cls):
+        return cls.build_sqs_instance('RealtimeQueue', 'indexer-queue-realtime')
