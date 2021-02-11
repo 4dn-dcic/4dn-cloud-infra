@@ -2,7 +2,7 @@ from src.data_store import C4DataStore
 from troposphere import Ref, Tags, Join, ImportValue, Output
 from troposphere.elasticbeanstalk import (Application, ApplicationVersion, ConfigurationTemplate, Environment,
                                           ApplicationResourceLifecycleConfig, ApplicationVersionLifecycleConfig,
-                                          OptionSettings, MaxAgeRule, MaxCountRule)
+                                          OptionSettings, SourceBundle, MaxAgeRule, MaxCountRule)
 
 
 class C4Application(C4DataStore):
@@ -116,8 +116,14 @@ class C4Application(C4DataStore):
 
     @classmethod
     def beanstalk_application_version(cls):
+        """ An existing application version source bundle. TODO: application version upload process """
         name = cls.cf_id('ApplicationVersion')
         return ApplicationVersion(
             name,
-            # TODO
+            Description="Version 1.0",
+            ApplicationName=Ref(cls.beanstalk_application()),
+            SourceBundle=SourceBundle(
+                S3Bucket='elasticbeanstalk-us-east-1-645819926742',
+                S3Key='my-trial-app-02/cgap-trial-account-b7.zip',
+            ),
         )
