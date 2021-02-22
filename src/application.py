@@ -11,6 +11,7 @@ class C4Application(C4DataStore):
         2) Add to template in a 'make' method in C4Infra """
 
     BEANSTALK_SOLUTION_STACK = '64bit Amazon Linux 2018.03 v2.9.18 running Python 3.6'
+    APPLICATION_ENV_SECRET = 'dev/beanstalk/cgap-dev'  # name of secret in AWS Secret Manager; todo script initial add?
 
     @classmethod
     def beanstalk_application(cls):
@@ -137,11 +138,34 @@ class C4Application(C4DataStore):
         ]
 
     @classmethod
+    def beanstalk_env_secret_retrieval(cls, key):
+        """ Retrieve key from beanstalk env secret stored in AWS Secret Manager, for use in a Cloud Formation template.
+        """
+        return Join('', [
+                '{{resolve:secretsmanager:',
+                {'Ref': cls.cf_id(cls.APPLICATION_ENV_SECRET)},
+                ':SecretString:{}}}'.format(key)
+            ])
+
+    @classmethod
     def application_environment_options(cls):
         """ TODO
             Ref: https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/
             command-options-general.html#command-options-general-elasticbeanstalkapplicationenvironment """
-        return []
+        options = []
+        keys = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SECRET_KEY', 'Auth0Client', 'Auth0Secret',
+                'ENCODED_BS_ENV', 'ENCODED_DATA_SET', 'ENCODED_ES_SERVER', 'ENCODED_SECRET', 'ENCODED_VERSION',
+                'ENV_NAME', 'LANG', 'LC_ALL', 'RDS_DB_NAME', 'RDS_HOSTNAME', 'RDS_PASSWORD', 'RDS_PORT', 'RDS_USERNAME',
+                'S3_ENCRYPT_KEY', 'SENTRY_DSN', 'reCaptchaSecret']
+        for i in keys:
+            options.append(
+                OptionSettings(
+                    Namespace='aws:elasticbeanstalk:application:environment',
+                    OptionName=i,
+                    Value=cls.beanstalk_env_secret_retrieval(i)
+                )
+            )
+        return options
 
     @classmethod
     def environment_options(cls):
