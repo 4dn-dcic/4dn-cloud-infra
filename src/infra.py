@@ -104,8 +104,8 @@ class C4Infra(C4Application):
         """ Add Beanstalk application to template self.t """
 
         # Adds application TODO iterate on with CI
-        # self.t.add_resource(self.beanstalk_application())
-        # self.t.add_resource(self.dev_beanstalk_environment())
+        self.t.add_resource(self.beanstalk_application())
+        self.t.add_resource(self.dev_beanstalk_environment())
         # self.t.add_resource(self.beanstalk_configuration_template())
         # self.t.add_resource(self.beanstalk_application_version())
 

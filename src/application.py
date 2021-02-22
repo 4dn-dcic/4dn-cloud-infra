@@ -39,8 +39,10 @@ class C4Application(C4DataStore):
             # TODO Description?
             SolutionStackName='64bit Amazon Linux 2018.03 v2.9.18 running Python 3.6',
             Tags=Tags(*cls.cost_tag_array(name=name)),
+            OptionSettings=cls.beanstalk_configuration_option_settings(),
             DependsOn=[
-                cls.https_security_group().title, cls.db_security_group().title, cls.virtual_private_cloud().title],
+                cls.https_security_group().title, cls.db_security_group().title, cls.virtual_private_cloud().title,
+                cls.beanstalk_application()],
         )
 
     @classmethod
@@ -50,9 +52,38 @@ class C4Application(C4DataStore):
 
     @classmethod
     def beanstalk_configuration_option_settings(cls):
-        """ Returns a list of ConfigurationOptionSetting for the base configuration template of a beanstalk
-            application.
+        """ Returns a list of OptionSettings for the base configuration of a beanstalk environment.
             Reference: https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html """
+        # TODO SSHSourceRestriction from bastion host
+        # TODO use scheduled actions: aws:autoscaling:scheduledaction. Ref:
+        # https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-cfg-autoscaling-scheduledactions.html
+        return (
+                cls.launchconfiguration_options() +
+                cls.instances_options() +
+                cls.vpc_options() +
+                cls.environment_options() +
+                cls.application_environment_options()
+        )
+
+    @classmethod
+    def beanstalk_application_version(cls):
+        """ An existing application version source bundle. TODO: application version upload process """
+        name = cls.cf_id('ApplicationVersion')
+        return ApplicationVersion(
+            name,
+            Description="Version 1.0",
+            ApplicationName=Ref(cls.beanstalk_application()),
+            SourceBundle=SourceBundle(
+                S3Bucket='elasticbeanstalk-us-east-1-645819926742',
+                S3Key='my-trial-app-02/cgap-trial-account-b7.zip',
+            ),
+        )
+
+    # Beanstalk Options #
+    # TODO docstrings
+
+    @classmethod
+    def launchconfiguration_options(cls):
         return [
             OptionSettings(
                 Namespace='aws:autoscaling:launchconfiguration',
@@ -73,15 +104,21 @@ class C4Application(C4DataStore):
                 Namespace='aws:autoscaling:launchconfiguration',
                 OptionName='SecurityGroups',  # TODO correct security groups
                 Value=Join(delimiter=',', values=[Ref(cls.https_security_group()), Ref(cls.db_security_group())]),
-            ),
-            # TODO SSHSourceRestriction from bastion host
-            # TODO use scheduled actions: aws:autoscaling:scheduledaction. Ref:
-            # https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-cfg-autoscaling-scheduledactions.html
+            )]
+
+    @classmethod
+    def instances_options(cls):
+        return [
             OptionSettings(
                 Namespace='aws:ec2:instances',
                 OptionName='InstanceTypes',
                 Value='c5.large'
             ),
+        ]
+
+    @classmethod
+    def vpc_options(cls):
+        return [
             OptionSettings(
                 Namespace='aws:ec2:vpc',
                 OptionName='VPCId',
@@ -100,30 +137,23 @@ class C4Application(C4DataStore):
         ]
 
     @classmethod
-    def beanstalk_configuration_template(cls):
-        """ Returns the 'configuration template' for an application. Essentially the configuration defaults, which can
-            be overridden on an environment-by-environment basis. """
-        name = cls.cf_id('ConfigurationTemplate')  # more generic for multiple applications in the same infra?
-        return ConfigurationTemplate(
-            name,
-            ApplicationName=Ref(cls.beanstalk_application()),
-            Description='Base configuration template for beanstalk application',
-            SolutionStackName=cls.BEANSTALK_SOLUTION_STACK,
-            OptionSettings=cls.beanstalk_configuration_option_settings(),
-            DependsOn=[
-                cls.https_security_group().title, cls.db_security_group().title, cls.virtual_private_cloud().title],
-        )
+    def application_environment_options(cls):
+        """ TODO
+            Ref: https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/
+            command-options-general.html#command-options-general-elasticbeanstalkapplicationenvironment """
+        return []
 
     @classmethod
-    def beanstalk_application_version(cls):
-        """ An existing application version source bundle. TODO: application version upload process """
-        name = cls.cf_id('ApplicationVersion')
-        return ApplicationVersion(
-            name,
-            Description="Version 1.0",
-            ApplicationName=Ref(cls.beanstalk_application()),
-            SourceBundle=SourceBundle(
-                S3Bucket='elasticbeanstalk-us-east-1-645819926742',
-                S3Key='my-trial-app-02/cgap-trial-account-b7.zip',
+    def environment_options(cls):
+        return [
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:environment',
+                OptionName='ServiceRole',
+                Value='arn:aws:iam::645819926742:role/aws-elasticbeanstalk-service-role'
             ),
-        )
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:environment',
+                OptionName='LoadBalancerType',
+                Value='application'
+            )
+        ]
