@@ -143,7 +143,7 @@ class C4Application(C4DataStore):
         """
         return Join('', [
                 '{{resolve:secretsmanager:',
-                {'Ref': cls.cf_id(cls.APPLICATION_ENV_SECRET)},
+                {'Ref': cls.APPLICATION_ENV_SECRET},
                 ':SecretString:{}}}'.format(key)
             ])
 
