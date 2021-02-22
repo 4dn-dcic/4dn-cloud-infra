@@ -142,8 +142,7 @@ class C4Application(C4DataStore):
         """ Retrieve key from beanstalk env secret stored in AWS Secret Manager, for use in a Cloud Formation template.
         """
         return Join('', [
-                '{{resolve:secretsmanager:',
-                {'Ref': cls.APPLICATION_ENV_SECRET},
+                '{{resolve:secretsmanager:{}'.format(cls.APPLICATION_ENV_SECRET),
                 ':SecretString:{}}}'.format(key)
             ])
 
