@@ -140,11 +140,9 @@ class C4Application(C4DataStore):
     @classmethod
     def beanstalk_env_secret_retrieval(cls, key):
         """ Retrieve key from beanstalk env secret stored in AWS Secret Manager, for use in a Cloud Formation template.
+            TODO manage this secret name via Cloud Formation?
         """
-        return Join('', [
-                '{{resolve:secretsmanager:{}'.format(cls.APPLICATION_ENV_SECRET),
-                ':SecretString:{}}}'.format(key)
-            ])
+        return '{{resolve:secretsmanager:{}:SecretString:{}}}'.format(cls.APPLICATION_ENV_SECRET, key)
 
     @classmethod
     def application_environment_options(cls):
