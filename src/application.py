@@ -155,8 +155,9 @@ class C4Application(C4DataStore):
         options = []
         keys = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SECRET_KEY', 'Auth0Client', 'Auth0Secret',
                 'ENCODED_BS_ENV', 'ENCODED_DATA_SET', 'ENCODED_ES_SERVER', 'ENCODED_SECRET', 'ENCODED_VERSION',
-                'ENV_NAME', 'LANG', 'LC_ALL', 'RDS_DB_NAME', 'RDS_HOSTNAME', 'RDS_PASSWORD', 'RDS_PORT', 'RDS_USERNAME',
+                'ENV_NAME', 'LANG', 'LC_ALL', 'RDS_DB_NAME', 'RDS_HOSTNAME', 'RDS_PORT', 'RDS_USERNAME',
                 'S3_ENCRYPT_KEY', 'SENTRY_DSN', 'reCaptchaSecret']
+        # Create OptionSettings for each environment variable, retrieved from AWS Secrets Manager
         for i in keys:
             options.append(
                 OptionSettings(
@@ -165,6 +166,18 @@ class C4Application(C4DataStore):
                     Value=cls.beanstalk_env_secret_retrieval(i)
                 )
             )
+        # Special case for 'RDS_PASSWORD'
+        options.append(
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='RDS_PASSWORD',
+                Value=Join('', [
+                    '{{resolve:secretsmanager:',
+                    {'Ref': cls.cf_id(cls.RDS_SECRET_STRING)},
+                    ':SecretString:password}}'
+                ]),
+            )
+        )
         return options
 
     @classmethod
