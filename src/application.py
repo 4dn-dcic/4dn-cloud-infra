@@ -24,7 +24,7 @@ class C4Application(C4DataStore):
             ApplicationName=name,
             Description=name,
             DependsOn=[
-                cls.https_security_group().title, cls.db_security_group().title, cls.virtual_private_cloud().title],
+                cls.beanstalk_security_group().title, cls.db_security_group().title, cls.virtual_private_cloud().title],
         )
 
     @classmethod
@@ -42,7 +42,7 @@ class C4Application(C4DataStore):
             Tags=Tags(*cls.cost_tag_array(name=name)),
             OptionSettings=cls.beanstalk_configuration_option_settings(),
             DependsOn=[
-                cls.https_security_group().title, cls.db_security_group().title, cls.virtual_private_cloud().title,
+                cls.beanstalk_security_group().title, cls.db_security_group().title, cls.virtual_private_cloud().title,
                 cls.beanstalk_application()],
         )
 
@@ -104,7 +104,7 @@ class C4Application(C4DataStore):
             OptionSettings(
                 Namespace='aws:autoscaling:launchconfiguration',
                 OptionName='SecurityGroups',  # TODO correct security groups
-                Value=Join(delimiter=',', values=[Ref(cls.https_security_group()), Ref(cls.db_security_group())]),
+                Value=Join(delimiter=',', values=[Ref(cls.beanstalk_security_group()), Ref(cls.db_security_group())]),
             )]
 
     @classmethod
