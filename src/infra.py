@@ -75,12 +75,16 @@ class C4Infra(C4Application):
         self.t.add_resource(self.private_subnet_a())
         self.t.add_resource(self.private_subnet_b())
         [self.t.add_resource(i) for i in self.subnet_associations()]
+
+        # Add security groups, and their inbound, outbound rules
         self.t.add_resource(self.db_security_group())
         self.t.add_resource(self.db_outbound_rule())
         self.t.add_resource(self.db_inbound_rule())
         self.t.add_resource(self.https_security_group())
         self.t.add_resource(self.https_inbound_rule())
         self.t.add_resource(self.https_outbound_rule())
+        self.t.add_resource(self.beanstalk_security_group())
+        [self.t.add_resource(i) for i in self.beanstalk_security_rules()]
 
     def make_data_store(self):
         """ Add data store resources to template self.t """

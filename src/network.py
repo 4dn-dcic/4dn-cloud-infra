@@ -243,3 +243,93 @@ class C4Network(C4Util):
             FromPort=443,
             ToPort=443,
         )
+
+    @classmethod
+    def beanstalk_security_group(cls):
+        """ Returns beanstalk security group for rules needed by beanstalk to access resources """
+        group_id = cls.cf_id('BeanstalkSecurityGroup')
+        return SecurityGroup(
+            group_id,
+            GroupName=group_id,
+            GroupDescription='allows access needed by Beanstalk Application',
+            VpcId=Ref(cls.virtual_private_cloud()),
+            Tags=cls.cost_tag_array(name=group_id),
+        )
+
+    @classmethod
+    def beanstalk_security_rules(cls):
+        """ Returns list of inbound and outbound rules needed by beanstalk to access resources """
+        return [
+            SecurityGroupIngress(
+                cls.cf_id('BeanstalkHTTPSInboundAccess'),
+                CidrIp='0.0.0.0/0',
+                Description='allows inbound traffic on tcp port 443',
+                GroupId=Ref(cls.beanstalk_security_group()),
+                IpProtocol='tcp',
+                FromPort=443,
+                ToPort=443,
+            ),
+            SecurityGroupEgress(
+                cls.cf_id('BeanstalkHTTPSOutboundAllAccess'),
+                CidrIp='0.0.0.0/0',
+                Description='allows outbound traffic on tcp port 443',
+                GroupId=Ref(cls.beanstalk_security_group()),
+                IpProtocol='tcp',
+                FromPort=443,
+                ToPort=443,
+            ),
+            SecurityGroupIngress(
+                cls.cf_id('BeanstalkWebInboundAccess'),
+                CidrIp='0.0.0.0/0',
+                Description='allows inbound traffic on tcp port 80',
+                GroupId=Ref(cls.beanstalk_security_group()),
+                IpProtocol='tcp',
+                FromPort=80,
+                ToPort=80,
+            ),
+            SecurityGroupEgress(
+                cls.cf_id('BeanstalkWebOutboundAllAccess'),
+                CidrIp='0.0.0.0/0',
+                Description='allows outbound traffic on tcp port 443',
+                GroupId=Ref(cls.beanstalk_security_group()),
+                IpProtocol='tcp',
+                FromPort=80,
+                ToPort=80,
+            ),
+            SecurityGroupIngress(
+                cls.cf_id('BeanstalkNTPInboundAllAccess'),
+                CidrIp='0.0.0.0/0',
+                Description='allows inbound traffic on udp port 123',
+                GroupId=Ref(cls.beanstalk_security_group()),
+                IpProtocol='udp',
+                FromPort=123,
+                ToPort=123,
+            ),
+            SecurityGroupEgress(
+                cls.cf_id('BeanstalkNTPOutboundAllAccess'),
+                CidrIp='0.0.0.0/0',
+                Description='allows outbound traffic on udp port 123',
+                GroupId=Ref(cls.beanstalk_security_group()),
+                IpProtocol='udp',
+                FromPort=123,
+                ToPort=123,
+            ),
+            SecurityGroupIngress(
+                cls.cf_id('BeanstalkSSHInboundAllAccess'),
+                CidrIp='0.0.0.0/0',
+                Description='allows inbound traffic on tcp port 22',
+                GroupId=Ref(cls.beanstalk_security_group()),
+                IpProtocol='tcp',
+                FromPort=22,
+                ToPort=22,
+            ),
+            SecurityGroupEgress(
+                cls.cf_id('BeanstalkSSHOutboundAllAccess'),
+                CidrIp='0.0.0.0/0',
+                Description='allows outbound traffic on tcp port 22',
+                GroupId=Ref(cls.beanstalk_security_group()),
+                IpProtocol='tcp',
+                FromPort=22,
+                ToPort=22,
+            ),
+        ]
