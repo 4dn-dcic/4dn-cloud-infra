@@ -29,9 +29,30 @@ class C4Application(C4DataStore):
 
     @classmethod
     def beanstalk_shared_load_balancer(cls):
-        """ Creates a shared load balancer for use by beanstalk environments. """
+        """ Creates a shared load balancer for use by beanstalk environments. Refs:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-loadbalancerattributes.html
+        """
+        name = cls.cf_id('SharedLoadBalancer')
         return LoadBalancer(
-
+            name,
+            IpAddressType='ipv4',
+            Name=name,
+            Scheme='internet-facing',
+            SecurityGroups=[Ref(cls.beanstalk_security_group())],
+            Subnets=[Ref(cls.public_subnet_a()), Ref(cls.public_subnet_b())],
+            Tags=cls.cost_tag_array(name),
+            Type='application',  # default
+            LoadBalancerAttributes=[
+                LoadBalancerAttributes(
+                    Key='idle_timeout.timeout_seconds',
+                    Value='5'
+                ),
+                LoadBalancerAttributes(
+                    Key='routing.http.desync_mitigation_mode',
+                    Value='defensive'  # default
+                ),
+            ]
         )
 
     @classmethod
@@ -92,10 +113,12 @@ class C4Application(C4DataStore):
         )
 
     # Beanstalk Options #
-    # TODO docstrings
 
     @classmethod
     def launchconfiguration_options(cls, env):
+        """ Returns list of OptionsSettings for beanstalk launch configuration. Ref:
+            https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-autoscalinglaunchconfiguration
+        """
         return [
             OptionSettings(
                 Namespace='aws:autoscaling:launchconfiguration',
@@ -120,6 +143,9 @@ class C4Application(C4DataStore):
 
     @classmethod
     def instances_options(cls, env):
+        """ Returns list of OptionsSettings for beanstalk instances. Ref:
+            https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-ec2instances
+        """
         return [
             OptionSettings(
                 Namespace='aws:ec2:instances',
@@ -147,7 +173,12 @@ class C4Application(C4DataStore):
             OptionSettings(
                 Namespace='aws:ec2:vpc',
                 OptionName='Subnets',
-                Value=Join(delimiter=',', values=[Ref(cls.public_subnet_a()), Ref(cls.public_subnet_b())])
+                Value=Join(delimiter=',', values=[Ref(cls.private_subnet_a()), Ref(cls.private_subnet_b())])
+            ),
+            OptionSettings(
+                Namespace='aws:ec2:vpc',
+                OptionName='ELBScheme',
+                Value='public'  # default
             ),
         ]
 
