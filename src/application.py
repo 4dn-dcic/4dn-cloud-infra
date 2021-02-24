@@ -3,7 +3,7 @@ from troposphere import Ref, Tags, Join, ImportValue, Output
 from troposphere.elasticbeanstalk import (Application, ApplicationVersion, ConfigurationTemplate, Environment,
                                           ApplicationResourceLifecycleConfig, ApplicationVersionLifecycleConfig,
                                           OptionSettings, SourceBundle, MaxAgeRule, MaxCountRule)
-from troposphere.elasticloadbalancingv2 import LoadBalancer, LoadBalancerAttributes, Listener
+from troposphere.elasticloadbalancingv2 import LoadBalancer, LoadBalancerAttributes, Listener, Action
 
 
 class C4Application(C4DataStore):
@@ -66,7 +66,7 @@ class C4Application(C4DataStore):
             Port=80,
             Protocol='HTTP',
             LoadBalancerArn=Ref(cls.beanstalk_shared_load_balancer()),  # or, ARN directly?
-            # Actions?
+            DefaultActions=[Action(Type='forward')]
         )
 
     @classmethod
