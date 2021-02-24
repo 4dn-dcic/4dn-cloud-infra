@@ -96,7 +96,9 @@ class C4Application(C4DataStore):
                 cls.python_platform_options(env) +
                 cls.asg_options(env) +
                 cls.loadbalancer_options(env) +
-                cls.rolling_options(env)
+                cls.rolling_options(env) +
+                cls.shared_alb_listener_options(env) +
+                cls.shared_alb_listener_default_rule_options(env)
         )
 
     @classmethod
@@ -316,4 +318,34 @@ class C4Application(C4DataStore):
                 OptionName='RollingUpdateType',
                 Value='Immutable'
             ),
+        ]
+
+    @classmethod
+    def shared_alb_listener_options(cls, env):
+        """ Returns list of OptionSettings for a shared ALB listening on port 80. Ref:
+            https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elbv2-listener
+        """
+        return [
+            OptionSettings(
+                Namespace='aws:elbv2:listener:80',
+                OptionName='Rules',
+                Value='shared_default'
+                # rules defined in `shared_alb_listener_default_rule_options` with namespace:
+                # aws:elbv2:listenerrule:shared_default
+            )
+        ]
+
+    @classmethod
+    def shared_alb_listener_default_rule_options(cls, env):
+        """ Returns list of OptionSettings for the default rules of a shared ALB listener. Ref:
+            https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elbv2-listenerrule
+            See also `shared_alb_listener_options`.
+        """
+        return [
+            OptionSettings(
+                Namespace='aws:elbv2:listenerrule:shared_default',
+                OptionName='PathPatterns',
+                Value='*'  # TODO '/*'?
+            ),
+            # By default, routes to 'default' process.
         ]
