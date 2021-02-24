@@ -301,7 +301,7 @@ class C4Application(C4DataStore):
         ]
 
     @classmethod
-    def rolling_options(cls):
+    def rolling_options(cls, env):
         """ Returns list of OptionsSettings for beanstalk rolling updates. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-autoscalingupdatepolicyrollingupdate
         """
