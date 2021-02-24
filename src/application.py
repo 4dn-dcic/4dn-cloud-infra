@@ -95,7 +95,8 @@ class C4Application(C4DataStore):
                 cls.application_environment_options(env) +
                 cls.python_platform_options(env) +
                 cls.asg_options(env) +
-                cls.loadbalancer_options(env)
+                cls.loadbalancer_options(env) +
+                cls.rolling_options(env)
         )
 
     @classmethod
@@ -296,5 +297,23 @@ class C4Application(C4DataStore):
                 Namespace='aws:elbv2:loadbalancer',
                 OptionName='SharedLoadBalancer',
                 Value=Ref(cls.beanstalk_shared_load_balancer())
+            ),
+        ]
+
+    @classmethod
+    def rolling_options(cls):
+        """ Returns list of OptionsSettings for beanstalk rolling updates. Ref:
+            https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-autoscalingupdatepolicyrollingupdate
+        """
+        return [
+            OptionSettings(
+                Namespace='aws:autoscaling:updatepolicy:rollingupdate',
+                OptionName='Timeout',
+                Value='PT10M'  # 10 minutes
+            ),
+            OptionSettings(
+                Namespace='aws:autoscaling:updatepolicy:rollingupdate',
+                OptionName='RollingUpdateType',
+                Value='Immutable'
             ),
         ]
