@@ -329,9 +329,9 @@ class C4Application(C4DataStore):
             OptionSettings(
                 Namespace='aws:elbv2:listener:80',
                 OptionName='Rules',
-                Value='shared_default'
+                Value='defaultshared'
                 # rules defined in `shared_alb_listener_default_rule_options` with namespace:
-                # aws:elbv2:listenerrule:shared_default
+                # aws:elbv2:listenerrule:defaultshared
             )
         ]
 
@@ -343,7 +343,7 @@ class C4Application(C4DataStore):
         """
         return [
             OptionSettings(
-                Namespace='aws:elbv2:listenerrule:shared_default',
+                Namespace='aws:elbv2:listenerrule:defaultshared',
                 OptionName='PathPatterns',
                 Value='*'  # TODO '/*'?
             ),
