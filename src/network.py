@@ -25,9 +25,10 @@ class C4Network(C4Util):
 
     @classmethod
     def virtual_private_cloud(cls):
-        """ Define VPC resource with specific CIDR block. """
+        """ Define VPC resource with specific CIDR block. Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc.html
+        """
         tags = [Tag(key='Name', value=cls.cf_id('VPC'))] + cls.cost_tag_array()
-
         return VPC(
             cls.cf_id('VPC'),
             CidrBlock=cls.STACK_CIDR_BLOCK,
