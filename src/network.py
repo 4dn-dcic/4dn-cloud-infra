@@ -66,6 +66,7 @@ class C4Network(C4Util):
     def route_local_gateway(cls):
         """ Define local gateway route Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-localgatewayroute.html
+            TODO -- unneeded? currently commented out of infra
         """
         name = cls.cf_id('LocalGatewayRoute')
         return LocalGatewayRoute(
@@ -74,39 +75,47 @@ class C4Network(C4Util):
             LocalGatewayRouteTableId=Ref(cls.main_route_table()),
             LocalGatewayVirtualInterfaceGroupId=None,  # TODO
             # TODO(berg) Local Gateway Virtual Interface Group Id not found on new account. Is this config needed?
+            # TODO aws cli
+            # https://awscli.amazonaws.com/v2/documentation/api/latest/reference/ec2/search-local-gateway-routes.html
         )
 
     @classmethod
     def private_route_table(cls):
-        """ Define route table resource *without* an internet gateway attachment
-            TODO(berg) add subnet association """
+        """ Define route table resource *without* an internet gateway attachment Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route-table.html
+        """
+        name = cls.cf_id('PrivateRouteTable')
         return RouteTable(
-            cls.cf_id('PrivateRouteTable'),
+            name,
             VpcId=Ref(cls.virtual_private_cloud()),
-            Tags=cls.cost_tag_array(),
+            Tags=cls.cost_tag_array(name=name),
         )
 
     @classmethod
     def public_route_table(cls):
-        """ Define route table resource *with* an internet gateway attachment
-            TODO(berg) add subnet association """
+        """ Define route table resource *with* an internet gateway attachment Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route-table.html
+        """
+        name = cls.cf_id('PublicRouteTable')
         return RouteTable(
-            cls.cf_id('PublicRouteTable'),
+            name,
             VpcId=Ref(cls.virtual_private_cloud()),
-            Tags=cls.cost_tag_array(),
+            Tags=cls.cost_tag_array(name=name),
         )
 
-    """
-    route_internet_gateway = template.add_resource(
-        Route(
-            '{}InternetGatewayRoute'.format(STACK_NAME),
-            DependsOn=Ref(internet_gateway_attachment),  # TODO(berg) can 'DependsOn' use Ref?
-            GatewayId=Ref(internet_gateway),
+    @classmethod
+    def route_internet_gateway(cls):
+        """ Defines Internet Gateway route to Public Route Table Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route.html
+        """
+        name = cls.cf_id('InternetGatewayRoute')
+        return Route(
+            name,
+            RouteTableId=Ref(cls.public_route_table()),
+            GatewayId=Ref(cls.internet_gateway()),
             DestinationCidrBlock='0.0.0.0/0',
-            RouteTableId=Ref(public_route_table)
+            # DependsOn -- TODO needed? see example in src/application.py
         )
-    )
-    """
 
     @classmethod
     def build_subnet(cls, name, cidr_block, vpc, az):
@@ -116,7 +125,7 @@ class C4Network(C4Util):
             CidrBlock=cidr_block,
             VpcId=Ref(vpc),
             AvailabilityZone=az,
-            Tags=[Tag(key='Name', value=cls.cf_id(name))] + cls.cost_tag_array(),
+            Tags=cls.cost_tag_array(name=name),
         )
 
     @classmethod
