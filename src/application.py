@@ -3,6 +3,7 @@ from troposphere import Ref, Tags, Join, ImportValue, Output
 from troposphere.elasticbeanstalk import (Application, ApplicationVersion, ConfigurationTemplate, Environment,
                                           ApplicationResourceLifecycleConfig, ApplicationVersionLifecycleConfig,
                                           OptionSettings, SourceBundle, MaxAgeRule, MaxCountRule)
+from troposphere.elasticloadbalancingv2 import LoadBalancer, LoadBalancerAttributes
 
 
 class C4Application(C4DataStore):
@@ -15,8 +16,7 @@ class C4Application(C4DataStore):
 
     @classmethod
     def beanstalk_application(cls):
-        """ Creates a Beanstalk Application, which has a related Configuration Template, where default configuration
-            is defined, as `beanstalk_configuration_template`. Specific environments are spun off from this application
+        """ Creates a Beanstalk Application, Specific environments are spun off from this application
             e.g. production, dev, staging, etc. """
         name = cls.cf_id('Application')  # TODO more specific?
         return Application(
@@ -28,8 +28,16 @@ class C4Application(C4DataStore):
         )
 
     @classmethod
+    def beanstalk_shared_load_balancer(cls):
+        """ Creates a shared load balancer for use by beanstalk environments. """
+        return LoadBalancer(
+
+        )
+
+    @classmethod
     def make_beanstalk_environment(cls, env):
-        """ Creates Beanstalk Environments, which are associated with an overall Beanstalk Application. """
+        """ Creates Beanstalk Environments, which are associated with an overall Beanstalk Application. The specified
+            env is passed through the options settings for parameterized change. """
         env_name = 'cgap-{}'.format(env.lower())
         name = cls.cf_id('{}Environment'.format(env))
         return Environment(
@@ -40,7 +48,7 @@ class C4Application(C4DataStore):
             # TODO Description?
             SolutionStackName='64bit Amazon Linux 2018.03 v2.9.18 running Python 3.6',
             Tags=Tags(*cls.cost_tag_array(name=name)),
-            OptionSettings=cls.beanstalk_configuration_option_settings(),
+            OptionSettings=cls.beanstalk_configuration_option_settings(env),
             DependsOn=[
                 cls.beanstalk_security_group().title, cls.db_security_group().title, cls.virtual_private_cloud().title,
                 cls.beanstalk_application()],
@@ -52,18 +60,21 @@ class C4Application(C4DataStore):
         return cls.make_beanstalk_environment(env='Dev')
 
     @classmethod
-    def beanstalk_configuration_option_settings(cls):
+    def beanstalk_configuration_option_settings(cls, env):
         """ Returns a list of OptionSettings for the base configuration of a beanstalk environment.
             Reference: https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html """
         # TODO SSHSourceRestriction from bastion host
         # TODO use scheduled actions: aws:autoscaling:scheduledaction. Ref:
         # https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-cfg-autoscaling-scheduledactions.html
         return (
-                cls.launchconfiguration_options() +
-                cls.instances_options() +
-                cls.vpc_options() +
-                cls.environment_options() +
-                cls.application_environment_options()
+                cls.launchconfiguration_options(env) +
+                cls.instances_options(env) +
+                cls.vpc_options(env) +
+                cls.environment_options(env) +
+                cls.application_environment_options(env) +
+                cls.python_platform_options(env) +
+                cls.asg_options(env) +
+                cls.loadbalancer_options(env)
         )
 
     @classmethod
@@ -84,7 +95,7 @@ class C4Application(C4DataStore):
     # TODO docstrings
 
     @classmethod
-    def launchconfiguration_options(cls):
+    def launchconfiguration_options(cls, env):
         return [
             OptionSettings(
                 Namespace='aws:autoscaling:launchconfiguration',
@@ -108,7 +119,7 @@ class C4Application(C4DataStore):
             )]
 
     @classmethod
-    def instances_options(cls):
+    def instances_options(cls, env):
         return [
             OptionSettings(
                 Namespace='aws:ec2:instances',
@@ -118,7 +129,10 @@ class C4Application(C4DataStore):
         ]
 
     @classmethod
-    def vpc_options(cls):
+    def vpc_options(cls, env):
+        """ Returns list of OptionSettings for beanstalk VPC. Ref:
+            https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-ec2vpc
+        """
         return [
             OptionSettings(
                 Namespace='aws:ec2:vpc',
@@ -145,10 +159,10 @@ class C4Application(C4DataStore):
         return '{{resolve:secretsmanager:{}:SecretString:{}}}'.format(cls.APPLICATION_ENV_SECRET, key)
 
     @classmethod
-    def application_environment_options(cls):
-        """ TODO
-            Ref: https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/
-            command-options-general.html#command-options-general-elasticbeanstalkapplicationenvironment """
+    def application_environment_options(cls, env):
+        """ Returns list of OptionSettings for beanstalk application environment. Ref:
+            https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elasticbeanstalkapplicationenvironment
+        """
         options = []
         keys = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SECRET_KEY', 'Auth0Client', 'Auth0Secret',
                 'ENCODED_BS_ENV', 'ENCODED_DATA_SET', 'ENCODED_ES_SERVER', 'ENCODED_SECRET', 'ENCODED_VERSION',
@@ -178,8 +192,16 @@ class C4Application(C4DataStore):
         return options
 
     @classmethod
-    def environment_options(cls):
+    def environment_options(cls, env):
+        """ Returns list of OptionSettings for beanstalk environment. Ref:
+            https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elasticbeanstalkenvironment
+        """
         return [
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:environment',
+                OptionName='EnvironmentType',
+                Value='LoadBalanced'  # default
+            ),
             OptionSettings(
                 Namespace='aws:elasticbeanstalk:environment',
                 OptionName='ServiceRole',
@@ -189,5 +211,59 @@ class C4Application(C4DataStore):
                 Namespace='aws:elasticbeanstalk:environment',
                 OptionName='LoadBalancerType',
                 Value='application'
-            )
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:environment',
+                OptionName='LoadBalancerIsShared',
+                Value='true'  # requires configuration in aws:elbv2:loadbalancer namespace
+            ),
+        ]
+
+    @classmethod
+    def python_platform_options(cls, env):
+        """ Returns list of OptionSettings for beanstalk python platform. Ref:
+            https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-specific.html#command-options-python
+        """
+        return [
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:container:python',
+                OptionName='WSGIPath',
+                Value='parts/production/wsgi'
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:container:python',
+                OptionName='NumProcesses',
+                Value='5'
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:container:python',
+                OptionName='NumThreads',
+                Value='4'
+            ),
+        ]
+
+    @classmethod
+    def asg_options(cls, env):
+        """ Returns list of OptionSettings for beanstalk auto-scaling group. Ref:
+            https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-autoscalingasg
+        """
+        return [
+            OptionSettings(
+                Namespace='aws:autoscaling:asg',
+                OptionName='MaxSize',
+                Value='1'
+            ),
+        ]
+
+    @classmethod
+    def loadbalancer_options(cls, env):
+        """ Returns list of OptionsSettings for beanstalk loadbalancer. Ref:
+            https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elbv2
+        """
+        return [
+            OptionSettings(
+                Namespace='aws:elbv2:loadbalancer',
+                OptionName='SharedLoadBalancer',
+                Value=Ref(cls.beanstalk_shared_load_balancer())
+            ),
         ]

@@ -66,10 +66,10 @@ class C4Infra(C4Application):
         # Create route tables: main, public, and private. Attach
         # local gateway to main and internet gateway to public.
         self.t.add_resource(self.main_route_table())
-        # self.t.add_resource(self.route_local_gateway())  TODO
+        self.t.add_resource(self.route_local_gateway())  # TODO
         self.t.add_resource(self.private_route_table())
         self.t.add_resource(self.public_route_table())
-        # self.t.add_resource(self.route_internet_gateway())  TODO
+        self.t.add_resource(self.route_internet_gateway())  # TODO
         self.t.add_resource(self.public_subnet_a())
         self.t.add_resource(self.public_subnet_b())
         self.t.add_resource(self.private_subnet_a())
@@ -109,6 +109,7 @@ class C4Infra(C4Application):
 
         # Adds application TODO iterate on with CI
         # self.t.add_resource(self.beanstalk_application())
+        # self.t.add_resource(self.beanstalk_shared_load_balancer())
         # self.t.add_resource(self.dev_beanstalk_environment())
         # self.t.add_resource(self.beanstalk_application_version())
 
