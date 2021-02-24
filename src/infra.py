@@ -105,7 +105,8 @@ class C4Infra(C4Application):
             self.t.add_resource(i)
 
     def make_application(self):
-        """ Add Beanstalk application to template self.t """
+        """ Add Beanstalk application to template self.t
+            TODO separate cloudform stack for application? """
 
         # Adds application TODO iterate on with CI
         # self.t.add_resource(self.beanstalk_application())

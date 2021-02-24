@@ -18,9 +18,13 @@ class C4Network(C4Util):
 
     @classmethod
     def internet_gateway(cls):
-        """ Define Internet Gateway resource. """
+        """ Define Internet Gateway resource. Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-internetgateway.html
+        """
+        name = cls.cf_id('InternetGateway')
         return InternetGateway(
-            cls.cf_id('InternetGateway'),
+            name,
+            Tags=cls.cost_tag_array(name=name)
         )
 
     @classmethod
@@ -28,16 +32,18 @@ class C4Network(C4Util):
         """ Define VPC resource with specific CIDR block. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc.html
         """
-        tags = [Tag(key='Name', value=cls.cf_id('VPC'))] + cls.cost_tag_array()
+        name = cls.cf_id('VPC')
         return VPC(
-            cls.cf_id('VPC'),
+            name,
             CidrBlock=cls.STACK_CIDR_BLOCK,
-            Tags=tags,
+            Tags=cls.cost_tag_array(name=name),
         )
 
     @classmethod
     def internet_gateway_attachment(cls):
-        """ Define attaching the internet gateway to the VPC. """
+        """ Define attaching the internet gateway to the VPC. Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc-gateway-attachment.html
+        """
         return VPCGatewayAttachment(
             cls.cf_id('AttachGateway'),
             VpcId=Ref(cls.virtual_private_cloud()),
@@ -46,27 +52,29 @@ class C4Network(C4Util):
 
     @classmethod
     def main_route_table(cls):
-        """ Define main (default) route table resource
+        """ Define main (default) route table resource Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route-table.html
             TODO(berg) add local gateway association """
+        name = cls.cf_id('MainRouteTable')
         return RouteTable(
-            cls.cf_id('MainRouteTable'),
+            name,
             VpcId=Ref(cls.virtual_private_cloud()),
-            Tags=cls.cost_tag_array(),
+            Tags=cls.cost_tag_array(name=name),
         )
 
-    # TODO(berg) Local Gateway Virtual Interface Group Id not found on new account. Is this config needed?
-    """
-    # TODO(berg) add local gateway association to vpc
-    route_local_gateway = template.add_resource(
-        LocalGatewayRoute(
-            "{}LocalGatewayRoute".format(STACK_NAME),
-            DestinationCidrBlock=STACK_CIDR_BLOCK,
-            LocalGatewayRouteTableId=Ref(main_route_table),
-            LocalGatewayVirtualInterfaceGroupId=None
-
+    @classmethod
+    def route_local_gateway(cls):
+        """ Define local gateway route Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-localgatewayroute.html
+        """
+        name = cls.cf_id('LocalGatewayRoute')
+        return LocalGatewayRoute(
+            name,
+            DestinationCidrBlock=cls.STACK_CIDR_BLOCK,
+            LocalGatewayRouteTableId=Ref(cls.main_route_table()),
+            LocalGatewayVirtualInterfaceGroupId=None,  # TODO
+            # TODO(berg) Local Gateway Virtual Interface Group Id not found on new account. Is this config needed?
         )
-    )
-    """
 
     @classmethod
     def private_route_table(cls):
