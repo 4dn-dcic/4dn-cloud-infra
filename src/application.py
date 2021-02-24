@@ -3,7 +3,7 @@ from troposphere import Ref, Tags, Join, ImportValue, Output
 from troposphere.elasticbeanstalk import (Application, ApplicationVersion, ConfigurationTemplate, Environment,
                                           ApplicationResourceLifecycleConfig, ApplicationVersionLifecycleConfig,
                                           OptionSettings, SourceBundle, MaxAgeRule, MaxCountRule)
-from troposphere.elasticloadbalancingv2 import LoadBalancer, LoadBalancerAttributes
+from troposphere.elasticloadbalancingv2 import LoadBalancer, LoadBalancerAttributes, Listener
 
 
 class C4Application(C4DataStore):
@@ -53,6 +53,20 @@ class C4Application(C4DataStore):
                     Value='defensive'  # default
                 ),
             ]
+        )
+
+    @classmethod
+    def beanstalk_shared_load_balancer_listener(cls):
+        """ Defines a listener on port 80 for a shared load balancer. Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html
+        """
+        name = cls.cf_id('SharedLoadBalancerListener')
+        return Listener(
+            name,
+            Port=80,
+            Protocol='HTTP',
+            LoadBalancerArn=Ref(cls.beanstalk_shared_load_balancer()),  # or, ARN directly?
+            # Actions?
         )
 
     @classmethod
