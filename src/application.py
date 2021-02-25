@@ -93,7 +93,7 @@ class C4Application(C4DataStore):
             env is passed through the options settings for parameterized change. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-beanstalk-environment.html
         """
-        env_name = 'cgap-{}'.format(env.lower())
+        env_name = 'fourfront-cgap{}'.format(env.lower())  # TODO change?
         name = cls.cf_id('{}Environment'.format(env))
         return Environment(
             name,
