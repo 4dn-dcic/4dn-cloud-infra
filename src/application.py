@@ -15,10 +15,24 @@ class C4Application(C4DataStore):
     APPLICATION_ENV_SECRET = 'dev/beanstalk/cgap-dev'  # name of secret in AWS Secret Manager; todo script initial add?
 
     @classmethod
+    def beanstalk_application_version(cls):
+        """ An existing application version source bundle. TODO: application version upload process """
+        name = cls.cf_id('ApplicationVersion')
+        return ApplicationVersion(
+            name,
+            Description="Version 1.0",
+            ApplicationName=Ref(cls.beanstalk_application()),
+            SourceBundle=SourceBundle(
+                S3Bucket='elasticbeanstalk-us-east-1-645819926742',
+                S3Key='my-trial-app-02/cgap-trial-account-b7.zip',
+            ),
+        )
+
+    @classmethod
     def beanstalk_application(cls):
         """ Creates a Beanstalk Application, Specific environments are spun off from this application
             e.g. production, dev, staging, etc. Ref:
-
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-beanstalk.html
         """
         name = cls.cf_id('Application')  # TODO more specific?
         return Application(
@@ -75,7 +89,9 @@ class C4Application(C4DataStore):
     @classmethod
     def make_beanstalk_environment(cls, env):
         """ Creates Beanstalk Environments, which are associated with an overall Beanstalk Application. The specified
-            env is passed through the options settings for parameterized change. """
+            env is passed through the options settings for parameterized change. Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-beanstalk-environment.html
+        """
         env_name = 'cgap-{}'.format(env.lower())
         name = cls.cf_id('{}Environment'.format(env))
         return Environment(
@@ -83,7 +99,8 @@ class C4Application(C4DataStore):
             EnvironmentName=env_name,
             ApplicationName=Ref(cls.beanstalk_application()),
             # TODO CNAMEPrefix?
-            # TODO Description?
+            Description='CGAP {} env'.format(env),
+            VersionLabel=Ref(cls.beanstalk_application_version()),  # TODO configuration for deploying changes
             SolutionStackName=cls.BEANSTALK_SOLUTION_STACK,
             Tags=Tags(*cls.cost_tag_array(name=name)),
             OptionSettings=cls.beanstalk_configuration_option_settings(env),
@@ -118,20 +135,6 @@ class C4Application(C4DataStore):
                 cls.health_options(env)
                 # cls.shared_alb_listener_options(env) +
                 # cls.shared_alb_listener_default_rule_options(env)  TODO unneeded?
-        )
-
-    @classmethod
-    def beanstalk_application_version(cls):
-        """ An existing application version source bundle. TODO: application version upload process """
-        name = cls.cf_id('ApplicationVersion')
-        return ApplicationVersion(
-            name,
-            Description="Version 1.0",
-            ApplicationName=Ref(cls.beanstalk_application()),
-            SourceBundle=SourceBundle(
-                S3Bucket='elasticbeanstalk-us-east-1-645819926742',
-                S3Key='my-trial-app-02/cgap-trial-account-b7.zip',
-            ),
         )
 
     # Beanstalk Options #
