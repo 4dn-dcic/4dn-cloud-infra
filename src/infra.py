@@ -114,11 +114,12 @@ class C4Infra(C4Application):
             TODO separate cloudform stack for application? """
 
         # Adds application TODO iterate on with CI
-        self.t.add_resource(self.beanstalk_application())
         # self.t.add_resource(self.beanstalk_shared_load_balancer())  TODO
         # self.t.add_resource(self.beanstalk_shared_load_balancer_listener())  TODO
-        self.t.add_resource(self.dev_beanstalk_environment())
-        self.t.add_resource(self.beanstalk_application_version())
+
+        # self.t.add_resource(self.beanstalk_application())
+        # self.t.add_resource(self.dev_beanstalk_environment())
+        # self.t.add_resource(self.beanstalk_application_version())
 
 
 class C4InfraTrial(C4Infra):
