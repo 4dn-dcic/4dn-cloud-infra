@@ -1,3 +1,4 @@
+import src.secrets as secrets  # TODO
 from src.data_store import C4DataStore
 from troposphere import Ref, Tags, Join, ImportValue, Output
 from troposphere.elasticbeanstalk import (Application, ApplicationVersion, ConfigurationTemplate, Environment,
@@ -219,33 +220,120 @@ class C4Application(C4DataStore):
         """ Returns list of OptionSettings for beanstalk application environment. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elasticbeanstalkapplicationenvironment
         """
-        options = []
         keys = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SECRET_KEY', 'Auth0Client', 'Auth0Secret',
                 'ENCODED_BS_ENV', 'ENCODED_DATA_SET', 'ENCODED_ES_SERVER', 'ENCODED_SECRET', 'ENCODED_VERSION',
-                'ENV_NAME', 'LANG', 'LC_ALL', 'RDS_DB_NAME', 'RDS_HOSTNAME', 'RDS_PORT', 'RDS_USERNAME',
+                'ENV_NAME', 'LANG', 'LC_ALL', 'RDS_PASSWORD', 'RDS_DB_NAME', 'RDS_HOSTNAME', 'RDS_PORT', 'RDS_USERNAME',
                 'S3_ENCRYPT_KEY', 'SENTRY_DSN', 'reCaptchaSecret']
-        # Create OptionSettings for each environment variable, retrieved from AWS Secrets Manager
-        for i in keys:
-            options.append(
-                OptionSettings(
-                    Namespace='aws:elasticbeanstalk:application:environment',
-                    OptionName=i,
-                    Value=cls.beanstalk_env_secret_retrieval(i)
-                )
-            )
-        # Special case for 'RDS_PASSWORD'
-        options.append(
+        # Create OptionSettings for each environment variable, secure retrieval from Secrets Manager TODO
+        # >>> for i in keys:
+        #       print('''OptionSettings(\n    Namespace='aws:elasticbeanstalk:application:environment',\n    OptionName='{0}',\n    Value=secrets.{0}\n),'''.format(i))
+        return [
+            OptionSettings(
+            Namespace='aws:elasticbeanstalk:application:environment',
+            OptionName='AWS_ACCESS_KEY_ID',
+            Value=secrets.AWS_ACCESS_KEY_ID
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='AWS_SECRET_ACCESS_KEY',
+                Value=secrets.AWS_SECRET_ACCESS_KEY
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='AWS_SECRET_KEY',
+                Value=secrets.AWS_SECRET_KEY
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='Auth0Client',
+                Value=secrets.Auth0Client
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='Auth0Secret',
+                Value=secrets.Auth0Secret
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='ENCODED_BS_ENV',
+                Value=secrets.ENCODED_BS_ENV
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='ENCODED_DATA_SET',
+                Value=secrets.ENCODED_DATA_SET
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='ENCODED_ES_SERVER',
+                Value=secrets.ENCODED_ES_SERVER
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='ENCODED_SECRET',
+                Value=secrets.ENCODED_SECRET
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='ENCODED_VERSION',
+                Value=secrets.ENCODED_VERSION
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='ENV_NAME',
+                Value=secrets.ENV_NAME
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='LANG',
+                Value=secrets.LANG
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='LC_ALL',
+                Value=secrets.LC_ALL
+            ),
             OptionSettings(
                 Namespace='aws:elasticbeanstalk:application:environment',
                 OptionName='RDS_PASSWORD',
-                Value=Join('', [
-                    '{{resolve:secretsmanager:',
-                    {'Ref': cls.cf_id(cls.RDS_SECRET_STRING)},
-                    ':SecretString:password}}'
-                ]),
-            )
-        )
-        return options
+                Value=secrets.RDS_PASSWORD
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='RDS_DB_NAME',
+                Value=secrets.RDS_DB_NAME
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='RDS_HOSTNAME',
+                Value=secrets.RDS_HOSTNAME
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='RDS_PORT',
+                Value=secrets.RDS_PORT
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='RDS_USERNAME',
+                Value=secrets.RDS_USERNAME
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='S3_ENCRYPT_KEY',
+                Value=secrets.S3_ENCRYPT_KEY
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='SENTRY_DSN',
+                Value=secrets.SENTRY_DSN
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='reCaptchaSecret',
+                Value=secrets.reCaptchaSecret
+            ),
+        ]
 
     @classmethod
     def environment_options(cls, env):
