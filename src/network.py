@@ -65,7 +65,7 @@ class C4Network(C4Util):
         name = cls.cf_id('NatGateway')
         return NatGateway(
             name,
-            DependsOn=[Ref(cls.nat_eip().title)],
+            DependsOn=cls.nat_eip().title,
             AllocationId=Ref(cls.nat_eip()),
             SubnetId=Ref(cls.public_subnet_a()),
             Tags=cls.cost_tag_array(name=name),
