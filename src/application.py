@@ -310,6 +310,11 @@ class C4Application(C4DataStore):
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elbv2
         """
         return [
+            OptionSettings(
+                Namespace='aws:elbv2:loadbalancer',
+                OptionName='SecurityGroups',
+                Value=Ref(cls.beanstalk_security_group())
+            ),
             # OptionSettings(
             #   Namespace='aws:elbv2:loadbalancer',
             #   OptionName='SharedLoadBalancer',

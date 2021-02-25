@@ -63,17 +63,22 @@ class C4Infra(C4Application):
         self.t.add_resource(self.virtual_private_cloud())
         self.t.add_resource(self.internet_gateway_attachment())
 
-        # Create route tables: main, public, and private. Attach
-        # local gateway to main and internet gateway to public.
+        # Create NAT gateway
+        self.t.add_resource(self.nat_eip())
+        self.t.add_resource(self.nat_gateway())
+
+        # Add route tables
         self.t.add_resource(self.main_route_table())
-        # self.t.add_resource(self.route_local_gateway())  TODO - unneeded?
         self.t.add_resource(self.private_route_table())
         self.t.add_resource(self.public_route_table())
+
+        # Add Internet Gateway to public route table, NAT Gateway to private route table
         self.t.add_resource(self.route_internet_gateway())
-        self.t.add_resource(self.public_subnet_a())
-        self.t.add_resource(self.public_subnet_b())
-        self.t.add_resource(self.private_subnet_a())
-        self.t.add_resource(self.private_subnet_b())
+        self.t.add_resource(self.route_nat_gateway())
+
+        # Add subnets and subnet to route table associations
+        for i in (self.public_subnet_a(), self.public_subnet_b(), self.private_subnet_a(), self.private_subnet_b()):
+            self.t.add_resource(i)
         [self.t.add_resource(i) for i in self.subnet_associations()]
 
         # Add security groups, and their inbound, outbound rules
@@ -109,11 +114,11 @@ class C4Infra(C4Application):
             TODO separate cloudform stack for application? """
 
         # Adds application TODO iterate on with CI
-        # self.t.add_resource(self.beanstalk_application())
-        # self.t.add_resource(self.beanstalk_shared_load_balancer())
-        # self.t.add_resource(self.beanstalk_shared_load_balancer_listener())
-        # self.t.add_resource(self.dev_beanstalk_environment())
-        # self.t.add_resource(self.beanstalk_application_version())
+        self.t.add_resource(self.beanstalk_application())
+        # self.t.add_resource(self.beanstalk_shared_load_balancer())  TODO
+        # self.t.add_resource(self.beanstalk_shared_load_balancer_listener())  TODO
+        self.t.add_resource(self.dev_beanstalk_environment())
+        self.t.add_resource(self.beanstalk_application_version())
 
 
 class C4InfraTrial(C4Infra):

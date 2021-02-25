@@ -1,7 +1,7 @@
 from troposphere import Ref
 from troposphere.ec2 import (
     InternetGateway, LocalGatewayRoute, Route, RouteTable, SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
-    Subnet, SubnetCidrBlock, SubnetRouteTableAssociation, Tag, VPC, VPCGatewayAttachment,
+    Subnet, SubnetCidrBlock, SubnetRouteTableAssociation, Tag, VPC, VPCGatewayAttachment, NatGateway, EIP
 )
 from src.exceptions import C4NetworkException
 from src.util import C4Util
@@ -51,6 +51,26 @@ class C4Network(C4Util):
         )
 
     @classmethod
+    def nat_eip(cls):
+        """ Define an Elastic IP for a NAT gateway """
+        name = cls.cf_id('NatPublicIP')
+        return EIP(
+            name,
+            Domain='vpc',
+        )
+
+    @classmethod
+    def nat_gateway(cls):
+        """ Define a NAT Gateway """
+        name = cls.cf_id('NatGateway')
+        return NatGateway(
+            name,
+            AllocationId=Ref(cls.nat_eip()),
+            SubnetId=Ref(cls.public_subnet_a()),
+            Tags=cls.cost_tag_array(name=name),
+        )
+
+    @classmethod
     def main_route_table(cls):
         """ Define main (default) route table resource Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route-table.html
@@ -60,23 +80,6 @@ class C4Network(C4Util):
             name,
             VpcId=Ref(cls.virtual_private_cloud()),
             Tags=cls.cost_tag_array(name=name),
-        )
-
-    @classmethod
-    def route_local_gateway(cls):
-        """ Define local gateway route Ref:
-            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-localgatewayroute.html
-            TODO -- unneeded? currently commented out of infra
-        """
-        name = cls.cf_id('LocalGatewayRoute')
-        return LocalGatewayRoute(
-            name,
-            DestinationCidrBlock=cls.STACK_CIDR_BLOCK,
-            LocalGatewayRouteTableId=Ref(cls.main_route_table()),
-            LocalGatewayVirtualInterfaceGroupId=None,  # TODO
-            # TODO(berg) Local Gateway Virtual Interface Group Id not found on new account. Is this config needed?
-            # TODO aws cli
-            # https://awscli.amazonaws.com/v2/documentation/api/latest/reference/ec2/search-local-gateway-routes.html
         )
 
     @classmethod
@@ -114,6 +117,20 @@ class C4Network(C4Util):
             RouteTableId=Ref(cls.public_route_table()),
             GatewayId=Ref(cls.internet_gateway()),
             DestinationCidrBlock='0.0.0.0/0',
+            # DependsOn -- TODO needed? see example in src/application.py
+        )
+
+    @classmethod
+    def route_nat_gateway(cls):
+        """ Defines NAT Gateway route to Private Route Table Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route.html
+        """
+        name = cls.cf_id('NatGatewayRoute')
+        return Route(
+            name,
+            RouteTableId=Ref(cls.private_route_table()),
+            DestinationCidrBlock='0.0.0.0/0',
+            NatGatewayId=Ref(cls.nat_gateway())
             # DependsOn -- TODO needed? see example in src/application.py
         )
 
