@@ -375,6 +375,7 @@ class C4Network(C4Util):
     @classmethod
     def bastion_host(cls):
         """ Defines a bastion host in public subnet a of the vpc """
+        # TODO
         return Instance(
 
         )
