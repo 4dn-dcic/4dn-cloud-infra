@@ -117,24 +117,24 @@ class C4DataStore(C4Network):
         return Domain(
             logical,
             DomainName=domain,
-            AccessPolicies='''{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": [
-          "arn:aws:iam::645819926742:role/aws-elasticbeanstalk-ec2-role",
-          "arn:aws:iam::645819926742:user/will.ronchetti",
-          "arn:aws:iam::645819926742:user/trial.application.user",
-          "arn:aws:iam::645819926742:user/eric.berg"
-        ]
-      },
-      "Action": "es:*",
-      "Resource": "arn:aws:es:us-east-1:645819926742:domain/cgaptriales/*"
-    }
-  ]
-}''',
+            AccessPolicies={
+                'Version': '2012-10-17',
+                'Statement': [
+                    {
+                        'Effect': 'Allow',
+                        'Principal': {
+                            'AWS': [
+                                'arn:aws:iam::645819926742:role/aws-elasticbeanstalk-ec2-role',
+                                'arn:aws:iam::645819926742:user/will.ronchetti',
+                                'arn:aws:iam::645819926742:user/trial.application.user',
+                                'arn:aws:iam::645819926742:user/eric.berg'
+                            ]
+                        },
+                        'Action': 'es:*',
+                        'Resource': 'arn:aws:es:us-east-1:645819926742:domain/cgaptriales/*'
+                    }
+                ]
+            },
             NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
             EncryptionAtRestOptions=EncryptionAtRestOptions(Enabled=True),  # TODO specify KMS key
             ElasticsearchClusterConfig=ElasticsearchClusterConfig(
