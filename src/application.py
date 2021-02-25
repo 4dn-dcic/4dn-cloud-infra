@@ -97,8 +97,9 @@ class C4Application(C4DataStore):
 
     @classmethod
     def beanstalk_configuration_option_settings(cls, env):
-        """ Returns a list of OptionSettings for the base configuration of a beanstalk environment.
-            Reference: https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html """
+        """ Returns a list of OptionSettings for the base configuration of a beanstalk environment. Ref:
+            https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html
+        """
         # TODO SSHSourceRestriction from bastion host
         # TODO use scheduled actions: aws:autoscaling:scheduledaction. Ref:
         # https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-cfg-autoscaling-scheduledactions.html
@@ -275,11 +276,11 @@ class C4Application(C4DataStore):
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-specific.html#command-options-python
         """
         return [
-            # OptionSettings(
-            #    Namespace='aws:elasticbeanstalk:container:python',
-            #    OptionName='WSGIPath',
-            #    Value='parts/production/wsgi'
-            #),
+             OptionSettings(
+                Namespace='aws:elasticbeanstalk:container:python',
+                OptionName='WSGIPath',
+                Value='parts/production/wsgi'
+            ),
             OptionSettings(
                 Namespace='aws:elasticbeanstalk:container:python',
                 OptionName='NumProcesses',
