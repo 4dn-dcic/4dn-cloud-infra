@@ -111,7 +111,8 @@ class C4Application(C4DataStore):
                 cls.python_platform_options(env) +
                 cls.asg_options(env) +
                 cls.loadbalancer_options(env) +
-                cls.rolling_options(env)
+                cls.rolling_options(env) +
+                cls.health_options()
                 # cls.shared_alb_listener_options(env) +
                 # cls.shared_alb_listener_default_rule_options(env)  TODO unneeded?
         )
@@ -368,4 +369,17 @@ class C4Application(C4DataStore):
                 Value='*'  # TODO '/*'?
             ),
             # By default, routes to 'default' process.
+        ]
+
+    @classmethod
+    def health_options(cls, env):
+        """ Returns list of OptionSettings for the beanstalk health reporting options. Ref:
+            https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elasticbeanstalkhealthreporting
+        """
+        return [
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:healthreporting:system',
+                OptionName='SystemType',
+                Value='enhanced'
+            ),
         ]
