@@ -1,4 +1,4 @@
-from troposphere import Ref
+from troposphere import Ref, GetAtt
 from troposphere.ec2 import (
     InternetGateway, LocalGatewayRoute, Route, RouteTable, SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
     Subnet, SubnetCidrBlock, SubnetRouteTableAssociation, Tag, VPC, VPCGatewayAttachment, NatGateway, EIP
@@ -52,7 +52,9 @@ class C4Network(C4Util):
 
     @classmethod
     def nat_eip(cls):
-        """ Define an Elastic IP for a NAT gateway """
+        """ Define an Elastic IP for a NAT gateway. Ref:
+        https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-eip.html
+        """
         name = cls.cf_id('NatPublicIP')
         return EIP(
             name,
@@ -66,7 +68,7 @@ class C4Network(C4Util):
         return NatGateway(
             name,
             DependsOn=cls.nat_eip().title,
-            AllocationId=Ref(cls.nat_eip()),
+            AllocationId=GetAtt(cls.nat_eip(), 'AllocationId'),
             SubnetId=Ref(cls.public_subnet_a()),
             Tags=cls.cost_tag_array(name=name),
         )
