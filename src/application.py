@@ -274,11 +274,11 @@ class C4Application(C4DataStore):
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-specific.html#command-options-python
         """
         return [
-            OptionSettings(
-                Namespace='aws:elasticbeanstalk:container:python',
-                OptionName='WSGIPath',
-                Value='parts/production/wsgi'
-            ),
+            # OptionSettings(
+            #    Namespace='aws:elasticbeanstalk:container:python',
+            #    OptionName='WSGIPath',
+            #    Value='parts/production/wsgi'
+            #),
             OptionSettings(
                 Namespace='aws:elasticbeanstalk:container:python',
                 OptionName='NumProcesses',
