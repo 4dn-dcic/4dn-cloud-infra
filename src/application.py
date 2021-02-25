@@ -264,7 +264,7 @@ class C4Application(C4DataStore):
             OptionSettings(
                 Namespace='aws:elasticbeanstalk:environment',
                 OptionName='LoadBalancerIsShared',
-                Value='true'  # requires configuration in aws:elbv2:loadbalancer namespace
+                Value='false'  # default TODO set to true; requires configuration in aws:elbv2:loadbalancer namespace
             ),
         ]
 
@@ -310,11 +310,11 @@ class C4Application(C4DataStore):
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elbv2
         """
         return [
-            OptionSettings(
-                Namespace='aws:elbv2:loadbalancer',
-                OptionName='SharedLoadBalancer',
-                Value=Ref(cls.beanstalk_shared_load_balancer())
-            ),
+            # OptionSettings(
+            #   Namespace='aws:elbv2:loadbalancer',
+            #   OptionName='SharedLoadBalancer',
+            #   Value=Ref(cls.beanstalk_shared_load_balancer())
+            # ),  TODO Shared Load Balancer
         ]
 
     @classmethod
