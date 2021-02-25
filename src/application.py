@@ -382,4 +382,9 @@ class C4Application(C4DataStore):
                 OptionName='SystemType',
                 Value='enhanced'
             ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:application',
+                OptionName='Application Healthcheck URL',
+                Value='/health?format=json'
+            )
         ]

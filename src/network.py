@@ -1,7 +1,7 @@
 from troposphere import Ref, GetAtt
 from troposphere.ec2 import (
     InternetGateway, LocalGatewayRoute, Route, RouteTable, SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
-    Subnet, SubnetCidrBlock, SubnetRouteTableAssociation, Tag, VPC, VPCGatewayAttachment, NatGateway, EIP
+    Subnet, SubnetCidrBlock, SubnetRouteTableAssociation, Tag, VPC, VPCGatewayAttachment, NatGateway, EIP, Instance
 )
 from src.exceptions import C4NetworkException
 from src.util import C4Util
@@ -371,3 +371,10 @@ class C4Network(C4Util):
                 ToPort=22,
             ),
         ]
+
+    @classmethod
+    def bastion_host(cls):
+        """ Defines a bastion host in public subnet a of the vpc """
+        return Instance(
+
+        )
