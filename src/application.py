@@ -17,7 +17,9 @@ class C4Application(C4DataStore):
     @classmethod
     def beanstalk_application(cls):
         """ Creates a Beanstalk Application, Specific environments are spun off from this application
-            e.g. production, dev, staging, etc. """
+            e.g. production, dev, staging, etc. Ref:
+
+        """
         name = cls.cf_id('Application')  # TODO more specific?
         return Application(
             name,
@@ -82,7 +84,7 @@ class C4Application(C4DataStore):
             ApplicationName=Ref(cls.beanstalk_application()),
             # TODO CNAMEPrefix?
             # TODO Description?
-            SolutionStackName='64bit Amazon Linux 2018.03 v2.9.18 running Python 3.6',
+            SolutionStackName=cls.BEANSTALK_SOLUTION_STACK,
             Tags=Tags(*cls.cost_tag_array(name=name)),
             OptionSettings=cls.beanstalk_configuration_option_settings(env),
             DependsOn=[
