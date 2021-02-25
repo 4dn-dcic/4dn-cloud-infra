@@ -111,7 +111,7 @@ class C4Application(C4DataStore):
                 cls.python_platform_options(env) +
                 cls.asg_options(env) +
                 cls.loadbalancer_options(env) +
-                cls.rolling_options(env) +
+                cls.rolling_options(env)
                 # cls.shared_alb_listener_options(env) +
                 # cls.shared_alb_listener_default_rule_options(env)  TODO unneeded?
         )
