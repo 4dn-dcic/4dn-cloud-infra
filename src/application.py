@@ -123,13 +123,19 @@ class C4Application(C4DataStore):
         # TODO SSHSourceRestriction from bastion host
         # TODO use scheduled actions: aws:autoscaling:scheduledaction. Ref:
         # https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-cfg-autoscaling-scheduledactions.html
+
+        # Choose platform-specific options based on env. Defaults to Python Platform.
+        if env == 'docker':
+            platform = cls.docker_platform_options(env)  # TODO for docker
+        else:
+            platform = cls.python_platform_options(env)
         return (
                 cls.launchconfiguration_options(env) +
                 cls.instances_options(env) +
                 cls.vpc_options(env) +
                 cls.environment_options(env) +
                 cls.application_environment_options(env) +
-                cls.python_platform_options(env) +
+                platform +
                 cls.asg_options(env) +
                 cls.loadbalancer_options(env) +
                 cls.rolling_options(env) +
