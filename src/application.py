@@ -1,5 +1,6 @@
 import src.secrets as secrets  # TODO
 from src.data_store import C4DataStore
+from src.exceptions import C4ApplicationException
 from troposphere import Ref, Tags, Join, ImportValue, Output
 from troposphere.elasticbeanstalk import (Application, ApplicationVersion, ConfigurationTemplate, Environment,
                                           ApplicationResourceLifecycleConfig, ApplicationVersionLifecycleConfig,
@@ -95,6 +96,11 @@ class C4Application(C4DataStore):
         """
         env_name = 'fourfront-cgap{}'.format(env.lower())  # TODO change?
         name = cls.cf_id('{}Environment'.format(env))
+
+        # TODO replace with docker specific env changes -- VersionLabel to demo application, SolutionStackName change
+        if env.lower() == 'docker':
+            raise C4ApplicationException('Docker environment implementation in progress')
+
         return Environment(
             name,
             EnvironmentName=env_name,
@@ -116,6 +122,11 @@ class C4Application(C4DataStore):
         return cls.make_beanstalk_environment(env='Dev')
 
     @classmethod
+    def docker_beanstalk_environment(cls):
+        """ Sketch of how to support a docker environment on this application, using the demo docker application. """
+        return cls.make_beanstalk_environment(env='Docker')
+
+    @classmethod
     def beanstalk_configuration_option_settings(cls, env):
         """ Returns a list of OptionSettings for the base configuration of a beanstalk environment. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html
@@ -125,7 +136,8 @@ class C4Application(C4DataStore):
         # https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-cfg-autoscaling-scheduledactions.html
 
         # Choose platform-specific options based on env. Defaults to Python Platform.
-        if env == 'docker':
+        if env.lower() == 'docker':
+            raise C4ApplicationException('Docker configuration option changes in progress')
             platform = cls.docker_platform_options(env)  # TODO for docker
         else:
             platform = cls.python_platform_options(env)
