@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import os
 import sys
 from datetime import datetime
 from troposphere import Tag
@@ -54,7 +55,7 @@ class C4Util:
         # Verify the outfile path exists, and create if it doesn't
         path, filename = os.path.split(outfile)
         if os.path.exists(path) is False:
-            os.path.makedirs(path)
+            os.makedirs(path)
 
         with open(outfile, 'w', newline='') as file:
             file.write(text)
