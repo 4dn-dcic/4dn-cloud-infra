@@ -172,6 +172,9 @@ class C4InfraTrialECS(C4Infra):
         self.t.add_resource(C4ECSApplication.ecs_cluster())
         self.t.add_resource(C4ECSApplication.ecs_lb_security_group())
         self.t.add_resource(C4ECSApplication.ecs_load_balancer())
+        self.t.add_resource(C4ECSApplication.ecs_container_security_group(
+            '10.2.5.0/24', '10.2.7.0/24'  # TODO get via arguments
+        ))
 
     def make_all(self):
         """ Override the method to allow some customization here. """

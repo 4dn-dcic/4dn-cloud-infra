@@ -98,3 +98,26 @@ class C4ECSApplication(C4DataStore):
             Default="c5.large",
             AllowedValues=['c5.large']  # configure more later
         )
+
+    @classmethod
+    def ecs_container_security_group(cls, public_subnet_cidr_1, public_subnet_cidr_2):
+        return SecurityGroup(
+            'ContainerSecurityGroup',
+            GroupDescription='Container Security Group.',
+            VpcId=cls.cf_id('VPC'),
+            SecurityGroupIngress=[
+                # HTTP from web public subnets
+                SecurityGroupRule(
+                    IpProtocol="tcp",
+                    FromPort=Ref(cls.ecs_web_worker_port()),
+                    ToPort=Ref(cls.ecs_web_worker_port()),
+                    CidrIp=public_subnet_cidr_1,
+                ),
+                SecurityGroupRule(
+                    IpProtocol="tcp",
+                    FromPort=Ref(cls.ecs_web_worker_port()),
+                    ToPort=Ref(cls.ecs_web_worker_port()),
+                    CidrIp=public_subnet_cidr_2,
+                ),
+            ]
+        )
