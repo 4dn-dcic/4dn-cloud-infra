@@ -1,9 +1,7 @@
 from troposphere import (
     AWS_ACCOUNT_ID,
-    AWS_REGION,
     Join,
     Ref,
-    Output,
 )
 from troposphere.ecr import Repository
 from awacs.aws import (
@@ -13,15 +11,17 @@ from awacs.aws import (
     Statement,
 )
 import awacs.ecr as ecr
+from .iam import C4IAM
 
 
 class C4ContainerRegistry:
     """ Contains a classmethod that builds an ECR template for this stack.
+        NOTE: IAM setup must be done before this.
         TODO: Test, add to template.
     """
 
     @classmethod
-    def ecr_push_statement(cls, principle='root'):
+    def ecr_push_acl(cls, principle='root'):
         """ This statement gives the root user push/pull access to ECR.
             TODO: 'root' is likely not correct.
         """
@@ -46,9 +46,11 @@ class C4ContainerRegistry:
             ])
 
     @classmethod
-    def ecr_pull_statement(cls, principle='root'):
+    def ecr_pull_acl(cls, principle=C4IAM.ROLE_NAME):
         """ This statement gives the given principle pull access to ECR.
             This perm should be attached to the assumed IAM role of ECS.
+
+            ROLE_NAME corresponds to the assumed IAM role of ECS. See iam.py.
         """
         return Statement(
                 Sid="AllowPull",  # allow pull only
@@ -76,7 +78,7 @@ class C4ContainerRegistry:
                       Statement=[
                           # 2 statements - push/pull to whoever will be uploading the image
                           # and pull to the assumed IAM role
-                          cls.ecr_push_statement(), cls.ecr_pull_statement()
+                          cls.ecr_push_acl(), cls.ecr_pull_acl()
                       ]
                 )
 
@@ -84,7 +86,7 @@ class C4ContainerRegistry:
     def repository(cls):
         """ Builds the ECR Repository. """
         return Repository(
-            'CGAP-Docker',
+            'CGAPDocker',
             RepositoryName='WSGI',  # might be we need many of these?
             RepositoryPolicyText=cls.ecr_access_policy()
         )

@@ -1,11 +1,17 @@
 import logging
 import sys
-from troposphere import Template
+from troposphere import (
+    Template, Ref, Join, Output,
+    AWS_ACCOUNT_ID, AWS_REGION,
+)
 from src.application import C4Application
+from src.ecr import C4ContainerRegistry
+from src.iam import C4IAM
+from src.ecs import C4ECSApplication
 from src.exceptions import C4InfraException
 
 
-class C4Infra(C4Application):
+class C4Infra(C4ECSApplication):
     """ Creates and manages a generic AWS Infrastructure environment.
         Inherited by specific environment implementations """
 
@@ -121,10 +127,57 @@ class C4InfraTrial(C4Infra):
 
 
 class C4InfraTrialECS(C4Infra):
-    """ Creates and manages a CGAP Trial Infrastructure using ECS instead of EB """
+    """ Creates and manages a CGAP Trial Infrastructure using ECS instead of EB.
+        Because of the inheritance structure, this class functions slightly differently
+        than the above
+    """
     STACK_NAME = 'cgap-ecs-trial-stack'
     ID_PREFIX = 'CGAPTrialECS'
     DESC = 'AWS CloudFormation CGAP template: trial setup for cgap-portal environment'
     ENV = 'dev'
     PROJECT = 'cgap'
     OWNER = 'project'
+
+    def make_ecr(self):
+        """ Creates ECR. """
+        repo = C4ContainerRegistry.repository()
+        self.t.add_resource(repo)
+        self.t.add_output(Output(
+            'CGAPDockerRepoURL',
+            Description="CGAPDocker Image Repository",
+            Value=Join("", [
+                Ref(AWS_ACCOUNT_ID),
+                ".dkr.ecr.",
+                Ref(AWS_REGION),
+                ".amazonaws.com/",
+                Ref(repo),
+            ]),
+        ))
+
+    def make_iam(self):
+        """ Creates IAM Role and Instance Profile for use by the ECS Service. """
+        self.t.add_resource(C4IAM.ecs_assumed_iam_role())
+        self.t.add_resource(C4IAM.ecs_instance_profile())
+
+    def make_ecs(self):
+        """ Creates ECS.
+            TODO a lot here, see ecr.py.
+        """
+        # ECS Parameters
+        self.t.add_parameter(C4ECSApplication.ecs_web_worker_port())
+        self.t.add_parameter(C4ECSApplication.ecs_container_instance_type())
+        # self.t.add_parameter(C4ECSApplication.ecs_lb_certificate())
+
+        # ECS Components
+        self.t.add_resource(C4ECSApplication.ecs_cluster())
+        self.t.add_resource(C4ECSApplication.ecs_lb_security_group())
+        self.t.add_resource(C4ECSApplication.ecs_load_balancer())
+
+    def make_all(self):
+        """ Override the method to allow some customization here. """
+        self.make_iam()
+        self.make_ecr()
+        self.make_meta()
+        self.make_network()
+        self.make_data_store()
+        self.make_ecs()

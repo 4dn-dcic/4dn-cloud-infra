@@ -3,7 +3,7 @@ import logging
 import os
 
 from src.aws_util import AWSUtil
-from src.infra import C4InfraTrial
+from src.infra import C4InfraTrial, C4InfraTrialECS
 from src.exceptions import CLIException
 
 
@@ -14,7 +14,9 @@ def generate_template(args, env=None):
     if env:
         raise CLIException('envs other than CGAPTrial not yet supported')
 
-    infra_trial = C4InfraTrial()  # TODO support other environments/stacks
+    # TODO support other environments/stacks
+    # Right now, you can swap them in here as needed
+    infra_trial = C4InfraTrialECS()
     if args.stdout:
         infra_trial.generate_template(stdout=True)
         return
