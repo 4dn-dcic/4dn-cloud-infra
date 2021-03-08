@@ -1,6 +1,6 @@
 from troposphere import AWS_REGION, AWS_ACCOUNT_ID
 from troposphere.iam import Role, InstanceProfile, Policy
-from awacs.aws import Allow, Statement, Principal, PolicyDocument, Action
+from awacs.aws import PolicyDocument
 
 
 class C4IAM:
@@ -20,7 +20,7 @@ class C4IAM:
             PolicyName='ECSSQSAccessPolicy',
             PolicyDocument=dict(
                 Statement=dict(
-                    Effect=Allow,
+                    Effect='Allow',
                     Action=['sqs:*'],  # TODO: prune this slightly?
                     Resource=['arn:aws:sqs:%s:%s:%s*' %
                               (AWS_REGION, AWS_ACCOUNT_ID, prefix)]
@@ -112,6 +112,7 @@ class C4IAM:
             cls.ROLE_NAME,
             AssumeRolePolicyDocument=PolicyDocument(
                 # Statement=[
+                #     TODO fix me
                 #     cls.ecs_assume_role_acl(),
                 # ]
             ),
