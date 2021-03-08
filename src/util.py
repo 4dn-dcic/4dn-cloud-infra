@@ -50,5 +50,11 @@ class C4Util:
     @staticmethod
     def write_outfile(text, outfile):
         """ Write text to the file `outfile` """
+
+        # Verify the outfile path exists, and create if it doesn't
+        path, filename = os.path.split(outfile)
+        if os.path.exists(path) is False:
+            os.path.makedirs(path)
+
         with open(outfile, 'w', newline='') as file:
             file.write(text)
