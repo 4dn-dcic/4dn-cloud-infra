@@ -296,7 +296,15 @@ class C4Network(C4Util):
 
     @classmethod
     def beanstalk_security_rules(cls):
-        """ Returns list of inbound and outbound rules needed by beanstalk to access resources """
+        """ Returns list of inbound and outbound rules needed by beanstalk to access resources.
+
+            These are each attached to the beanstalk_security_group, which is in turn attached to
+            the virtual_private_cloud. The beanstalk security group, when attached to a Beanstalk environment
+            via an 'aws:autoscaling:launchconfiguration' option, then enable access to and from the application
+            on specific ports via specific protocols. Ref:
+
+            https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html
+        """
         return [
             SecurityGroupIngress(
                 cls.cf_id('BeanstalkHTTPSInboundAccess'),

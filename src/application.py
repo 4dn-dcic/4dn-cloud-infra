@@ -17,7 +17,9 @@ class C4Application(C4DataStore):
     APPLICATION_ENV_SECRET = 'dev/beanstalk/cgap-dev'  # name of secret in AWS Secret Manager; todo script initial add?
 
     @classmethod
-    def beanstalk_application_version(cls):
+    def beanstalk_application_version(cls,
+                                      bucket='elasticbeanstalk-us-east-1-645819926742',
+                                      key='my-trial-app-02/cgap-trial-account-b7.zip'):
         """ An existing application version source bundle. TODO: application version upload process """
         name = cls.cf_id('ApplicationVersion')
         return ApplicationVersion(
@@ -25,8 +27,8 @@ class C4Application(C4DataStore):
             Description="Version 1.0",
             ApplicationName=Ref(cls.beanstalk_application()),
             SourceBundle=SourceBundle(
-                S3Bucket='elasticbeanstalk-us-east-1-645819926742',
-                S3Key='my-trial-app-02/cgap-trial-account-b7.zip',
+                S3Bucket=bucket,
+                S3Key=key,
             ),
         )
 
@@ -46,7 +48,7 @@ class C4Application(C4DataStore):
         )
 
     @classmethod
-    def beanstalk_shared_load_balancer(cls):
+    def beanstalk_shared_load_balancer(cls, ip_address_type='ipv4', load_balancer_type='application'):
         """ Creates a shared load balancer for use by beanstalk environments. Refs:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-loadbalancerattributes.html
@@ -54,13 +56,13 @@ class C4Application(C4DataStore):
         name = cls.cf_id('SharedLoadBalancer')
         return LoadBalancer(
             name,
-            IpAddressType='ipv4',
+            IpAddressType=ip_address_type,
             Name=name,
             Scheme='internet-facing',
             SecurityGroups=[Ref(cls.beanstalk_security_group())],
             Subnets=[Ref(cls.public_subnet_a()), Ref(cls.public_subnet_b())],
             Tags=cls.cost_tag_array(name),
-            Type='application',  # default
+            Type=load_balancer_type,  # 'application' is the default
             LoadBalancerAttributes=[
                 LoadBalancerAttributes(
                     Key='idle_timeout.timeout_seconds',
@@ -74,7 +76,7 @@ class C4Application(C4DataStore):
         )
 
     @classmethod
-    def beanstalk_shared_load_balancer_listener(cls):
+    def beanstalk_shared_load_balancer_listener(cls, port=80, protocol='HTTP'):
         """ Defines a listener on port 80 for a shared load balancer. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html
             TODO unneeded? removed from infra config
@@ -82,8 +84,8 @@ class C4Application(C4DataStore):
         name = cls.cf_id('SharedLoadBalancerListener')
         return Listener(
             name,
-            Port=80,
-            Protocol='HTTP',
+            Port=port,
+            Protocol=protocol,
             LoadBalancerArn=Ref(cls.beanstalk_shared_load_balancer()),  # or, ARN directly?
             DefaultActions=[Action(Type='redirect', RedirectConfig=RedirectConfig())]
         )
