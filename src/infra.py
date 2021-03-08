@@ -130,3 +130,13 @@ class C4InfraTrial(C4Infra):
     ENV = 'dev'
     PROJECT = 'cgap'
     OWNER = 'project'
+
+
+class C4InfraTrialECS(C4Infra):
+    """ Creates and manages a CGAP Trial Infrastructure using ECS instead of EB """
+    STACK_NAME = 'cgap-ecs-trial-stack'
+    ID_PREFIX = 'CGAPTrialECS'
+    DESC = 'AWS CloudFormation CGAP template: trial setup for cgap-portal environment'
+    ENV = 'dev'
+    PROJECT = 'cgap'
+    OWNER = 'project'

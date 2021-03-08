@@ -9,7 +9,8 @@ pyenv install 3.6.10
 pyenv exec python -m venv --clear venv
 . venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install --upgrade poetry
+poetry install
 ```
 
 ## Usage
