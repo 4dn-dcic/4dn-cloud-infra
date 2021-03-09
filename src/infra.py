@@ -1,7 +1,7 @@
 import logging
 import sys
 from troposphere import (
-    Template, Ref, Join, Output,
+    Template, Ref, Join, Output, logs,
     AWS_ACCOUNT_ID, AWS_REGION,
 )
 from src.application import C4Application
@@ -153,16 +153,33 @@ class C4InfraTrialECS(C4Infra):
                 Ref(repo),
             ]),
         ))
+        return repo
 
     def make_iam(self):
         """ Creates IAM Role and Instance Profile for use by the ECS Service. """
         self.t.add_resource(C4IAM.ecs_assumed_iam_role())
         self.t.add_resource(C4IAM.ecs_instance_profile())
 
+    def make_logging(self):
+        """ Creates a log group for use by the stack. """
+        log_group = logs.LogGroup(
+            'CGAPDockerLogs',
+            RetentionInDays=365,
+            DeletionPolicy='Retain'  # XXX: configure further?
+        )
+        self.t.add_resource(log_group)
+        return log_group
+
     def make_ecs(self):
         """ Creates ECS.
             TODO a lot here, see ecr.py.
         """
+        # Make logging
+        log_group = self.make_logging()
+
+        # Make ECR
+        repo = self.make_ecr()
+
         # ECS Parameters
         self.t.add_parameter(C4ECSApplication.ecs_web_worker_port())
         self.t.add_parameter(C4ECSApplication.ecs_container_instance_type())
@@ -175,11 +192,21 @@ class C4InfraTrialECS(C4Infra):
         self.t.add_resource(C4ECSApplication.ecs_container_security_group(
             '10.2.5.0/24', '10.2.7.0/24'  # TODO get via arguments
         ))
+        self.t.add_resource(C4ECSApplication.ecs_autoscaling_group(self.private_subnet_a(),
+                                                                   self.private_subnet_b(),
+                                                                   self.public_subnet_a(),
+                                                                   self.public_subnet_b,
+                                                                   C4IAM.ecs_instance_profile()))
+        self.t.add_resource(C4ECSApplication.ecs_wsgi_task(repo, log_group))
+        self.t.add_resource(C4ECSApplication.ecs_wsgi_service(repo, log_group, C4IAM.ecs_assumed_iam_role()))
+        self.t.add_resource(C4ECSApplication.ecs_indexer_task(repo, log_group))
+        self.t.add_resource(C4ECSApplication.ecs_indexer_service(repo, log_group, C4IAM.ecs_assumed_iam_role()))
+        self.t.add_resource(C4ECSApplication.ecs_ingester_task(repo, log_group))
+        self.t.add_resource(C4ECSApplication.ecs_ingester_service(repo, log_group, C4IAM.ecs_assumed_iam_role()))
 
     def make_all(self):
         """ Override the method to allow some customization here. """
         self.make_iam()
-        self.make_ecr()
         self.make_meta()
         self.make_network()
         self.make_data_store()

@@ -5,9 +5,23 @@ from troposphere import (
     Join,
     Ref,
     elasticloadbalancing as elb,
+    autoscaling,
+    cloudformation,
+    AWS_ACCOUNT_ID,
+    AWS_STACK_ID,
+    AWS_STACK_NAME,
+    AWS_REGION,
+    Base64,
 )
 from troposphere.ecs import (
     Cluster,
+    TaskDefinition,
+    ContainerDefinition,
+    Environment,
+    LogConfiguration,
+    PortMapping,
+    Service,
+    LoadBalancer
 )
 from troposphere.ec2 import (
     SecurityGroup,
@@ -19,11 +33,19 @@ class C4ECSApplication(C4DataStore):
     """ Configures the ECS Cluster Application for CGAP
         This class contains everything necessary for running CGAP on ECS, including:
             * The Cluster itself (done)
-            * TODO The Load Balancer that forwards traffic to the Cluster (partway done)
-            * TODO Container instance
-            * TODO Autoscaling Group
-            * TODO ECS Service
-            * TODO ECS Task
+            * The Load Balancer that forwards traffic to the Cluster
+            * Container instance
+            * Autoscaling Group
+            * ECS Tasks
+                * WSGI
+                * Indexer
+                * Ingester
+            * ECS Services
+                * WSGI
+                * Indexer
+                * Ingester
+
+        Note: application upload handling is still TODO
     """
 
     @classmethod
@@ -120,4 +142,304 @@ class C4ECSApplication(C4DataStore):
                     CidrIp=public_subnet_cidr_2,
                 ),
             ]
+        )
+
+    @classmethod
+    def ecs_container_instance_configuration(cls,
+                                             public_subnet_a,
+                                             public_subnet_b,
+                                             profile,
+                                             name='CGAPDockerWSGILaunchConfiguration'):
+        """ Builds a launch configuration for the ecs container instance.
+            This might be very wrong, but the general idea works for others.
+        """
+        return autoscaling.LaunchConfiguration(
+            name,
+            Metadata=autoscaling.Metadata(
+                cloudformation.Init(dict(
+                    config=cloudformation.InitConfig(
+                        commands=dict(
+                            register_cluster=dict(command=Join("", [
+                                "#!/bin/bash\n",
+                                # Register the cluster
+                                "echo ECS_CLUSTER=",
+                                Ref(cls.ecs_cluster()),
+                                " >> /etc/ecs/config\n",
+                            ]))
+                        ),
+                        files=cloudformation.InitFiles({
+                            "/etc/cfn/cfn-hup.conf": cloudformation.InitFile(
+                                content=Join("", [
+                                    "[main]\n",
+                                    "template=",
+                                    Ref(AWS_STACK_ID),
+                                    "\n",
+                                    "region=",
+                                    Ref(AWS_REGION),
+                                    "\n",
+                                ]),
+                                mode="000400",
+                                owner="root",
+                                group="root",
+                            ),
+                            "/etc/cfn/hooks.d/cfn-auto-reload.conf":
+                            cloudformation.InitFile(
+                                content=Join("", [
+                                    "[cfn-auto-reloader-hook]\n",
+                                    "triggers=post.update\n",
+                                    "path=Resources.%s."
+                                    % name,
+                                    "Metadata.AWS::CloudFormation::Init\n",
+                                    "action=/opt/aws/bin/cfn-init -v ",
+                                    "         --template ",
+                                    Ref(AWS_STACK_NAME),
+                                    "         --resource %s"
+                                    % name,
+                                    "         --region ",
+                                    Ref("AWS::Region"),
+                                    "\n",
+                                    "runas=root\n",
+                                ])
+                            )
+                        }),
+                        services=dict(
+                            sysvinit=cloudformation.InitServices({
+                                'cfn-hup': cloudformation.InitService(
+                                    enabled=True,
+                                    ensureRunning=True,
+                                    files=[
+                                        "/etc/cfn/cfn-hup.conf",
+                                        "/etc/cfn/hooks.d/cfn-auto-reloader.conf",
+                                    ]
+                                ),
+                            })
+                        )
+                    )
+                ))
+            ),
+            SecurityGroups=[Ref(cls.ecs_container_security_group(
+                '10.2.5.0/24', '10.2.7.0/24'  # TODO get via arguments
+            ))],
+            InstanceType=Ref(cls.ecs_container_instance_type()),
+            IamInstanceProfile=Ref(profile),
+            UserData=Base64(Join('', [
+                "#!/bin/bash -xe\n",
+                "yum install -y aws-cfn-bootstrap\n",
+
+                "/opt/aws/bin/cfn-init -v ",
+                "         --template ", Ref(AWS_STACK_NAME),
+                "         --resource %s " % name,
+                "         --region ", Ref(AWS_REGION), "\n",
+            ])),
+        )
+
+    @staticmethod
+    def ecs_max_container_instances(max='1'):
+        return Parameter(
+            'MaxScale',
+            Description='Maximum container instances count',
+            Type='Number',
+            Default=max,  # XXX: How to best set this?
+        )
+
+    @staticmethod
+    def ecs_desired_container_instances():
+        return Parameter(
+            'DesiredScale',
+            Description='Desired container instances count',
+            Type='Number',
+            Default='1',
+        )
+
+    @classmethod
+    def ecs_autoscaling_group(cls, private_subnet_a, private_subnet_b,
+                              public_subnet_a, public_subnet_b, instance_profile,
+                              name='CGAPDockerECSAutoscalingGroup'):
+        """ Builds an autoscaling group for the EC2s """
+        return autoscaling.AutoScalingGroup(
+            name,
+            VPCZoneIdentifier=[Ref(private_subnet_a), Ref(private_subnet_b)],
+            MinSize=Ref(cls.ecs_desired_container_instances()),
+            MaxSize=Ref(cls.ecs_max_container_instances()),
+            DesiredCapacity=Ref(cls.ecs_desired_container_instances()),
+            LaunchConfigurationName=Ref(cls.ecs_container_instance_configuration(public_subnet_a,
+                                                                                 public_subnet_b,
+                                                                                 instance_profile)),
+            LoadBalancerNames=[Ref(cls.ecs_load_balancer())],
+            # Since one instance within the group is a reserved slot
+            # for rolling ECS service upgrade, it's not possible to rely
+            # on a "dockerized" `ELB` health-check, else this reserved
+            # instance will be flagged as `unhealthy` and won't stop respawning'
+            HealthCheckType="EC2",
+            HealthCheckGracePeriod=300,
+        )
+
+    @staticmethod
+    def ecs_web_worker_cpu():
+        return Parameter(
+            'WebWorkerCPU',
+            Description='Web worker CPU units',
+            Type='Number',
+            Default='1024',  # 1 cpu
+        )
+
+    @staticmethod
+    def ecs_web_worker_memory():
+        return Parameter(
+            'WebWorkerMemory',
+            Description='Web worker memory',
+            Type='Number',
+            Default='2048',
+        )
+
+    @classmethod
+    def ecs_wsgi_task(cls, ecr, log_group, app_revision='latest'):
+        """ Defines the WSGI Task (serve HTTP requests) """
+        return TaskDefinition(
+            'CGAPWSGI',
+            ContainerDefinitions=[
+                ContainerDefinition(
+                    Name='WSGI',
+                    Cpu=Ref(cls.ecs_web_worker_cpu()),
+                    Memory=Ref(cls.ecs_web_worker_memory()),
+                    Essential=True,
+                    Image=Join("", [
+                        Ref(AWS_ACCOUNT_ID),
+                        '.dkr.ecr.',
+                        Ref(AWS_REGION),
+                        '.amazonaws.com/',
+                        Ref(ecr),
+                        ':',
+                        app_revision,
+                    ]),
+                    PortMappings=[PortMapping(
+                        ContainerPort=Ref(cls.ecs_web_worker_port()),
+                        HostPort=Ref(cls.ecs_web_worker_port()),
+                    )],
+                    LogConfiguration=LogConfiguration(
+                        LogDriver='awslogs',
+                        Options={
+                            'awslogs-group': Ref(log_group),
+                            'awslogs-region': Ref(AWS_REGION),
+                        }
+                    ),
+                )
+            ],
+        )
+
+    @classmethod
+    def ecs_indexer_task(cls, ecr, log_group, app_revision='latest'):
+        """ Defines the Indexer task (indexer app)
+            TODO expand as needed
+        """
+        return TaskDefinition(
+            'CGAPIndexer',
+            ContainerDefinitions=[
+                ContainerDefinition(
+                    Name='Indexer',
+                    Cpu=Ref(cls.ecs_web_worker_cpu()),
+                    Memory=Ref(cls.ecs_web_worker_memory()),
+                    Essential=True,
+                    Image=Join("", [
+                        Ref(AWS_ACCOUNT_ID),
+                        '.dkr.ecr.',
+                        Ref(AWS_REGION),
+                        '.amazonaws.com/',
+                        Ref(ecr),
+                        ':',
+                        app_revision,
+                    ]),
+                    LogConfiguration=LogConfiguration(
+                        LogDriver='awslogs',
+                        Options={
+                            'awslogs-group': Ref(log_group),
+                            'awslogs-region': Ref(AWS_REGION),
+                        }
+                    ),
+                )
+            ],
+        )
+
+    @classmethod
+    def ecs_ingester_task(cls, ecr, log_group, app_revision='latest'):
+        """ Defines the Ingester task (ingester app)
+            TODO expand as needed
+        """
+        return TaskDefinition(
+            'CGAPIngester',
+            ContainerDefinitions=[
+                ContainerDefinition(
+                    Name='Indexer',
+                    Cpu=Ref(cls.ecs_web_worker_cpu()),
+                    Memory=Ref(cls.ecs_web_worker_memory()),
+                    Essential=True,
+                    Image=Join("", [
+                        Ref(AWS_ACCOUNT_ID),
+                        '.dkr.ecr.',
+                        Ref(AWS_REGION),
+                        '.amazonaws.com/',
+                        Ref(ecr),
+                        ':',
+                        app_revision,
+                    ]),
+                    LogConfiguration=LogConfiguration(
+                        LogDriver='awslogs',
+                        Options={
+                            'awslogs-group': Ref(log_group),
+                            'awslogs-region': Ref(AWS_REGION),
+                        }
+                    ),
+                )
+            ],
+        )
+
+    @classmethod
+    def ecs_wsgi_service(cls, repo, log_group, role):
+        """ Defines the WSGI service (manages WSGI Tasks) """
+        return Service(
+            "CGAPWSGIService",
+            Cluster=Ref(cls.ecs_cluster()),
+            DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
+            DesiredCount='1',
+            LoadBalancers=[LoadBalancer(
+                ContainerName='WSGILB',
+                ContainerPort=Ref(cls.ecs_web_worker_port()),
+                LoadBalancerName=Ref(cls.ecs_load_balancer()),
+            )],
+            TaskDefinition=Ref(cls.ecs_wsgi_task(repo, log_group)),
+            Role=Ref(role),
+        )
+
+    @classmethod
+    def ecs_indexer_service(cls, repo, log_group, role):
+        """ Defines the Indexer service (manages Indexer Tasks)
+            No open ports (for now)
+            No LB
+            TODO customize?
+            TODO SQS trigger?
+        """
+        return Service(
+            "CGAPIndexerService",
+            Cluster=Ref(cls.ecs_cluster()),
+            DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
+            DesiredCount='1',
+            TaskDefinition=Ref(cls.ecs_indexer_task(repo, log_group)),
+            Role=Ref(role),
+        )
+
+    @classmethod
+    def ecs_ingester_service(cls, repo, log_group, role):
+        """ Defines the Ingester service (manages Ingestion Tasks)
+            No open ports (for now)
+            No LB
+            TODO customize?
+            TODO SQS trigger?
+        """
+        return Service(
+            "CGAPIngesterService",
+            Cluster=Ref(cls.ecs_cluster()),
+            DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
+            DesiredCount='1',
+            TaskDefinition=Ref(cls.ecs_ingester_task(repo, log_group)),
+            Role=Ref(role),
         )
