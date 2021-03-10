@@ -104,7 +104,9 @@ class C4DataStore(C4Network):
 
     @classmethod
     def elasticsearch_instance(cls, data_node_instance_type='c5.large.elasticsearch'):
-        """ Returns an Elasticsearch domain with 1 data node, configurable via data_node_instance_type """
+        """ Returns an Elasticsearch domain with 1 data node, configurable via data_node_instance_type. Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
+        """
         logical = cls.cf_id('ES')
         domain = cls.domain_name(logical)
         options = {}
@@ -115,6 +117,24 @@ class C4DataStore(C4Network):
         return Domain(
             logical,
             DomainName=domain,
+            AccessPolicies={
+                'Version': '2012-10-17',
+                'Statement': [
+                    {
+                        'Effect': 'Allow',
+                        'Principal': {
+                            'AWS': [
+                                'arn:aws:iam::645819926742:role/aws-elasticbeanstalk-ec2-role',
+                                'arn:aws:iam::645819926742:user/will.ronchetti',
+                                'arn:aws:iam::645819926742:user/trial.application.user',
+                                'arn:aws:iam::645819926742:user/eric.berg'
+                            ]
+                        },
+                        'Action': 'es:*',
+                        'Resource': 'arn:aws:es:us-east-1:645819926742:domain/cgaptriales/*'
+                    }
+                ]
+            },
             NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
             EncryptionAtRestOptions=EncryptionAtRestOptions(Enabled=True),  # TODO specify KMS key
             ElasticsearchClusterConfig=ElasticsearchClusterConfig(

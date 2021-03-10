@@ -1,7 +1,7 @@
-from troposphere import Ref
+from troposphere import Ref, GetAtt
 from troposphere.ec2 import (
     InternetGateway, LocalGatewayRoute, Route, RouteTable, SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
-    Subnet, SubnetCidrBlock, SubnetRouteTableAssociation, Tag, VPC, VPCGatewayAttachment,
+    Subnet, SubnetCidrBlock, SubnetRouteTableAssociation, Tag, VPC, VPCGatewayAttachment, NatGateway, EIP, Instance
 )
 from src.exceptions import C4NetworkException
 from src.util import C4Util
@@ -18,25 +18,32 @@ class C4Network(C4Util):
 
     @classmethod
     def internet_gateway(cls):
-        """ Define Internet Gateway resource. """
+        """ Define Internet Gateway resource. Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-internetgateway.html
+        """
+        name = cls.cf_id('InternetGateway')
         return InternetGateway(
-            cls.cf_id('InternetGateway'),
+            name,
+            Tags=cls.cost_tag_array(name=name)
         )
 
     @classmethod
     def virtual_private_cloud(cls):
-        """ Define VPC resource with specific CIDR block. """
-        tags = [Tag(key='Name', value=cls.cf_id('VPC'))] + cls.cost_tag_array()
-
+        """ Define VPC resource with specific CIDR block. Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc.html
+        """
+        name = cls.cf_id('VPC')
         return VPC(
-            cls.cf_id('VPC'),
+            name,
             CidrBlock=cls.STACK_CIDR_BLOCK,
-            Tags=tags,
+            Tags=cls.cost_tag_array(name=name),
         )
 
     @classmethod
     def internet_gateway_attachment(cls):
-        """ Define attaching the internet gateway to the VPC. """
+        """ Define attaching the internet gateway to the VPC. Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc-gateway-attachment.html
+        """
         return VPCGatewayAttachment(
             cls.cf_id('AttachGateway'),
             VpcId=Ref(cls.virtual_private_cloud()),
@@ -44,60 +51,91 @@ class C4Network(C4Util):
         )
 
     @classmethod
+    def nat_eip(cls):
+        """ Define an Elastic IP for a NAT gateway. Ref:
+        https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-eip.html
+        """
+        name = cls.cf_id('NatPublicIP')
+        return EIP(
+            name,
+            Domain='vpc',
+        )
+
+    @classmethod
+    def nat_gateway(cls):
+        """ Define a NAT Gateway """
+        name = cls.cf_id('NatGateway')
+        return NatGateway(
+            name,
+            DependsOn=cls.nat_eip().title,
+            AllocationId=GetAtt(cls.nat_eip(), 'AllocationId'),
+            SubnetId=Ref(cls.public_subnet_a()),
+            Tags=cls.cost_tag_array(name=name),
+        )
+
+    @classmethod
     def main_route_table(cls):
-        """ Define main (default) route table resource
+        """ Define main (default) route table resource Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route-table.html
             TODO(berg) add local gateway association """
+        name = cls.cf_id('MainRouteTable')
         return RouteTable(
-            cls.cf_id('MainRouteTable'),
+            name,
             VpcId=Ref(cls.virtual_private_cloud()),
-            Tags=cls.cost_tag_array(),
+            Tags=cls.cost_tag_array(name=name),
         )
-
-    # TODO(berg) Local Gateway Virtual Interface Group Id not found on new account. Is this config needed?
-    """
-    # TODO(berg) add local gateway association to vpc
-    route_local_gateway = template.add_resource(
-        LocalGatewayRoute(
-            "{}LocalGatewayRoute".format(STACK_NAME),
-            DestinationCidrBlock=STACK_CIDR_BLOCK,
-            LocalGatewayRouteTableId=Ref(main_route_table),
-            LocalGatewayVirtualInterfaceGroupId=None
-
-        )
-    )
-    """
 
     @classmethod
     def private_route_table(cls):
-        """ Define route table resource *without* an internet gateway attachment
-            TODO(berg) add subnet association """
+        """ Define route table resource *without* an internet gateway attachment Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route-table.html
+        """
+        name = cls.cf_id('PrivateRouteTable')
         return RouteTable(
-            cls.cf_id('PrivateRouteTable'),
+            name,
             VpcId=Ref(cls.virtual_private_cloud()),
-            Tags=cls.cost_tag_array(),
+            Tags=cls.cost_tag_array(name=name),
         )
 
     @classmethod
     def public_route_table(cls):
-        """ Define route table resource *with* an internet gateway attachment
-            TODO(berg) add subnet association """
+        """ Define route table resource *with* an internet gateway attachment Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route-table.html
+        """
+        name = cls.cf_id('PublicRouteTable')
         return RouteTable(
-            cls.cf_id('PublicRouteTable'),
+            name,
             VpcId=Ref(cls.virtual_private_cloud()),
-            Tags=cls.cost_tag_array(),
+            Tags=cls.cost_tag_array(name=name),
         )
 
-    """
-    route_internet_gateway = template.add_resource(
-        Route(
-            '{}InternetGatewayRoute'.format(STACK_NAME),
-            DependsOn=Ref(internet_gateway_attachment),  # TODO(berg) can 'DependsOn' use Ref?
-            GatewayId=Ref(internet_gateway),
+    @classmethod
+    def route_internet_gateway(cls):
+        """ Defines Internet Gateway route to Public Route Table Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route.html
+        """
+        name = cls.cf_id('InternetGatewayRoute')
+        return Route(
+            name,
+            RouteTableId=Ref(cls.public_route_table()),
+            GatewayId=Ref(cls.internet_gateway()),
             DestinationCidrBlock='0.0.0.0/0',
-            RouteTableId=Ref(public_route_table)
+            # DependsOn -- TODO needed? see example in src/application.py
         )
-    )
-    """
+
+    @classmethod
+    def route_nat_gateway(cls):
+        """ Defines NAT Gateway route to Private Route Table Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route.html
+        """
+        name = cls.cf_id('NatGatewayRoute')
+        return Route(
+            name,
+            RouteTableId=Ref(cls.private_route_table()),
+            DestinationCidrBlock='0.0.0.0/0',
+            NatGatewayId=Ref(cls.nat_gateway())
+            # DependsOn -- TODO needed? see example in src/application.py
+        )
 
     @classmethod
     def build_subnet(cls, name, cidr_block, vpc, az):
@@ -107,7 +145,7 @@ class C4Network(C4Util):
             CidrBlock=cidr_block,
             VpcId=Ref(vpc),
             AvailabilityZone=az,
-            Tags=[Tag(key='Name', value=cls.cf_id(name))] + cls.cost_tag_array(),
+            Tags=cls.cost_tag_array(name=name),
         )
 
     @classmethod
@@ -242,4 +280,110 @@ class C4Network(C4Util):
             IpProtocol='tcp',
             FromPort=443,
             ToPort=443,
+        )
+
+    @classmethod
+    def beanstalk_security_group(cls):
+        """ Returns beanstalk security group for rules needed by beanstalk to access resources """
+        group_id = cls.cf_id('BeanstalkSecurityGroup')
+        return SecurityGroup(
+            group_id,
+            GroupName=group_id,
+            GroupDescription='allows access needed by Beanstalk Application',
+            VpcId=Ref(cls.virtual_private_cloud()),
+            Tags=cls.cost_tag_array(name=group_id),
+        )
+
+    @classmethod
+    def beanstalk_security_rules(cls):
+        """ Returns list of inbound and outbound rules needed by beanstalk to access resources.
+
+            These are each attached to the beanstalk_security_group, which is in turn attached to
+            the virtual_private_cloud. The beanstalk security group, when attached to a Beanstalk environment
+            via an 'aws:autoscaling:launchconfiguration' option, then enable access to and from the application
+            on specific ports via specific protocols. Ref:
+
+            https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html
+        """
+        return [
+            SecurityGroupIngress(
+                cls.cf_id('BeanstalkHTTPSInboundAccess'),
+                CidrIp='0.0.0.0/0',
+                Description='allows inbound traffic on tcp port 443',
+                GroupId=Ref(cls.beanstalk_security_group()),
+                IpProtocol='tcp',
+                FromPort=443,
+                ToPort=443,
+            ),
+            SecurityGroupEgress(
+                cls.cf_id('BeanstalkHTTPSOutboundAllAccess'),
+                CidrIp='0.0.0.0/0',
+                Description='allows outbound traffic on tcp port 443',
+                GroupId=Ref(cls.beanstalk_security_group()),
+                IpProtocol='tcp',
+                FromPort=443,
+                ToPort=443,
+            ),
+            SecurityGroupIngress(
+                cls.cf_id('BeanstalkWebInboundAccess'),
+                CidrIp='0.0.0.0/0',
+                Description='allows inbound traffic on tcp port 80',
+                GroupId=Ref(cls.beanstalk_security_group()),
+                IpProtocol='tcp',
+                FromPort=80,
+                ToPort=80,
+            ),
+            SecurityGroupEgress(
+                cls.cf_id('BeanstalkWebOutboundAllAccess'),
+                CidrIp='0.0.0.0/0',
+                Description='allows outbound traffic on tcp port 443',
+                GroupId=Ref(cls.beanstalk_security_group()),
+                IpProtocol='tcp',
+                FromPort=80,
+                ToPort=80,
+            ),
+            SecurityGroupIngress(
+                cls.cf_id('BeanstalkNTPInboundAllAccess'),
+                CidrIp='0.0.0.0/0',
+                Description='allows inbound traffic on udp port 123',
+                GroupId=Ref(cls.beanstalk_security_group()),
+                IpProtocol='udp',
+                FromPort=123,
+                ToPort=123,
+            ),
+            SecurityGroupEgress(
+                cls.cf_id('BeanstalkNTPOutboundAllAccess'),
+                CidrIp='0.0.0.0/0',
+                Description='allows outbound traffic on udp port 123',
+                GroupId=Ref(cls.beanstalk_security_group()),
+                IpProtocol='udp',
+                FromPort=123,
+                ToPort=123,
+            ),
+            SecurityGroupIngress(
+                cls.cf_id('BeanstalkSSHInboundAllAccess'),
+                CidrIp='0.0.0.0/0',
+                Description='allows inbound traffic on tcp port 22',
+                GroupId=Ref(cls.beanstalk_security_group()),
+                IpProtocol='tcp',
+                FromPort=22,
+                ToPort=22,
+            ),
+            SecurityGroupEgress(
+                cls.cf_id('BeanstalkSSHOutboundAllAccess'),
+                CidrIp='0.0.0.0/0',
+                Description='allows outbound traffic on tcp port 22',
+                GroupId=Ref(cls.beanstalk_security_group()),
+                IpProtocol='tcp',
+                FromPort=22,
+                ToPort=22,
+            ),
+        ]
+
+    @classmethod
+    def bastion_host(cls):
+        """ Defines a bastion host in public subnet a of the vpc """
+        # TODO
+        return Instance(
+
         )
