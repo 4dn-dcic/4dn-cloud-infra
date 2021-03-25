@@ -1,8 +1,7 @@
 import logging
 import sys
 from troposphere import Template
-from src.application import C4Application
-from src.exceptions import C4InfraException
+from src.parts.beanstalk import C4Application
 
 
 class C4Infra(C4Application):
@@ -10,9 +9,10 @@ class C4Infra(C4Application):
         Inherited by specific environment implementations """
 
     # These class-level globals should be changed in inherited classes
-    STACK_NAME = 'c4-generic-stack'
-    ID_PREFIX = 'C4Generic'
+    STACK_NAME = 'c4-generic-stack'  #StackName
+    ID_PREFIX = 'C4Generic'  # QCName
     DESC = 'AWS CloudFormation C4 template: Generic template for C4 AWS environment'
+    RESOURCE_GROUPS = []  # Class methods that add resources to this stack's template when run
 
     # Version string identifies template capabilities
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/format-version-structure.html
@@ -27,7 +27,7 @@ class C4Infra(C4Application):
             a file, and return the name of the file. """
         if remake:
             self.t = Template()
-        self.make_all()
+        self.add_resource_groups_to_template()
         try:
             current_yaml = self.t.to_yaml()
         except TypeError as e:
@@ -42,94 +42,29 @@ class C4Infra(C4Application):
             logging.info('Wrote template to {}'.format(outfile))
             return outfile
 
-    def make_all(self):
-        """ Make the template from the class-method specific resources"""
-        self.make_meta()
-        self.make_network()
-        self.make_data_store()
-        self.make_application()
+    def add_resource_groups_to_template(self, adds_metadata=True):
+        """ Reads from self.RESOURCE_GROUPS and executes each class method listed therein. Assumes that a resource group
+            adds resources to the template self.t. Always adds metadata_group to the template if adds_metadata is True
+            (the default)."""
+        if adds_metadata:
+            self.metadata_group()
+        for group in self.RESOURCE_GROUPS:
+            group()  # executes each group in this template, adding these resources to the template
 
-    def make_meta(self):
+    def metadata_group(self):
         """ Add metadata to the template self.t """
         self.t.set_version(self.VERSION)
         self.t.set_description(self.DESC)
 
-    def make_network(self):
-        """ Add network resources to template self.t """
-        logging.debug('Adding network resources to template')
-
-        # Create Internet Gateway, VPC, and attach Internet Gateway to VPC.
-        self.t.add_resource(self.internet_gateway())
-        self.t.add_resource(self.virtual_private_cloud())
-        self.t.add_resource(self.internet_gateway_attachment())
-
-        # Create NAT gateway
-        self.t.add_resource(self.nat_eip())
-        self.t.add_resource(self.nat_gateway())
-
-        # Add route tables
-        self.t.add_resource(self.main_route_table())
-        self.t.add_resource(self.private_route_table())
-        self.t.add_resource(self.public_route_table())
-
-        # Add Internet Gateway to public route table, NAT Gateway to private route table
-        self.t.add_resource(self.route_internet_gateway())
-        self.t.add_resource(self.route_nat_gateway())
-
-        # Add subnets and subnet to route table associations
-        for i in (self.public_subnet_a(), self.public_subnet_b(), self.private_subnet_a(), self.private_subnet_b()):
-            self.t.add_resource(i)
-        [self.t.add_resource(i) for i in self.subnet_associations()]
-
-        # Add security groups, and their inbound, outbound rules
-        self.t.add_resource(self.db_security_group())
-        self.t.add_resource(self.db_outbound_rule())
-        self.t.add_resource(self.db_inbound_rule())
-        self.t.add_resource(self.https_security_group())
-        self.t.add_resource(self.https_inbound_rule())
-        self.t.add_resource(self.https_outbound_rule())
-        self.t.add_resource(self.beanstalk_security_group())
-        [self.t.add_resource(i) for i in self.beanstalk_security_rules()]
+    def network_group(self):
+        pass
 
     def make_data_store(self):
         """ Add data store resources to template self.t """
-
-        # Adds RDS
-        self.t.add_resource(self.rds_secret())
-        self.t.add_resource(self.rds_parameter_group())
-        self.t.add_resource(self.rds_instance())
-        self.t.add_resource(self.rds_subnet_group())
-        self.t.add_resource(self.rds_secret_attachment())
-
-        # Adds Elasticsearch
-        self.t.add_resource(self.elasticsearch_instance())
-
-        # Adds SQS Queues
-        for i in [self.primary_queue(), self.secondary_queue(), self.dead_letter_queue(), self.ingestion_queue(),
-                  self.realtime_queue()]:
-            self.t.add_resource(i)
+        pass
 
     def make_application(self):
-        """ Add Beanstalk application to template self.t
-            TODO separate cloudform stack for application? """
-
-        # Adds application TODO iterate on with CI
-        # self.t.add_resource(self.beanstalk_shared_load_balancer())  TODO
-        # self.t.add_resource(self.beanstalk_shared_load_balancer_listener())  TODO
-
-        self.t.add_resource(self.beanstalk_application())
-        self.t.add_resource(self.dev_beanstalk_environment())
-        self.t.add_resource(self.beanstalk_application_version())
-
-
-class C4InfraTrial(C4Infra):
-    """ Creates and manages a CGAP Trial Infrastructure """
-    STACK_NAME = 'cgap-trial-stack'
-    ID_PREFIX = 'CGAPTrial'
-    DESC = 'AWS CloudFormation CGAP template: trial setup for cgap-portal environment'
-    ENV = 'dev'
-    PROJECT = 'cgap'
-    OWNER = 'project'
+        pass
 
 
 class C4InfraTrialECS(C4Infra):
@@ -140,3 +75,15 @@ class C4InfraTrialECS(C4Infra):
     ENV = 'dev'
     PROJECT = 'cgap'
     OWNER = 'project'
+
+
+class C4InfraTrialNetwork(C4Infra):
+    """ Creates and manages a CGAP Trial Infrastructure using ECS instead of EB """
+    STACK_NAME = 'cgap-trial-network-stack'
+    ID_PREFIX = 'CGAPTrialNetwork'
+    DESC = 'AWS CloudFormation CGAP template: trial network setup for cgap-portal environment'
+    ENV = 'dev'
+    PROJECT = 'cgap'
+    OWNER = 'project'
+
+    RESOURCE_GROUPS = [self.network_group]

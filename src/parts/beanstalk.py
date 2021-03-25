@@ -1,67 +1,75 @@
 import src.secrets as secrets  # TODO
-from src.data_store import C4DataStore
+from src.part import QCPart
 from src.exceptions import C4ApplicationException
-from troposphere import Ref, Tags, Join, ImportValue, Output
-from troposphere.elasticbeanstalk import (Application, ApplicationVersion, ConfigurationTemplate, Environment,
-                                          ApplicationResourceLifecycleConfig, ApplicationVersionLifecycleConfig,
-                                          OptionSettings, SourceBundle, MaxAgeRule, MaxCountRule)
+from src.parts.network import QCNetworkExports
+from troposphere import Ref, Tags, Join, Template
+from troposphere.elasticbeanstalk import (Application, ApplicationVersion, Environment,
+                                          OptionSettings, SourceBundle)
 from troposphere.elasticloadbalancingv2 import LoadBalancer, LoadBalancerAttributes, Listener, Action, RedirectConfig
 
 
-class C4Application(C4DataStore):
-    """ Class methods below construct the troposphere representations of AWS resources, without building the template
-        1) Add resource as class method below
-        2) Add to template in a 'make' method in C4Infra """
-
+class QCBeanstalk(QCPart):
     BEANSTALK_SOLUTION_STACK = '64bit Amazon Linux 2018.03 v2.9.18 running Python 3.6'
     APPLICATION_ENV_SECRET = 'dev/beanstalk/cgap-dev'  # name of secret in AWS Secret Manager; todo script initial add?
 
-    @classmethod
-    def beanstalk_application_version(cls,
+    def build_template(self, template: Template) -> Template:
+        # self.t.add_resource(self.beanstalk_shared_load_balancer())  TODO
+        # self.t.add_resource(self.beanstalk_shared_load_balancer_listener())  TODO
+
+        template.add_resource(self.beanstalk_application())
+        template.add_resource(self.dev_beanstalk_environment())
+        template.add_resource(self.beanstalk_application_version())
+
+        return template
+
+    def beanstalk_application_version(self,
                                       bucket='elasticbeanstalk-us-east-1-645819926742',
                                       key='my-trial-app-02/cgap-trial-account-b7.zip'):
         """ An existing application version source bundle. TODO: application version upload process """
-        name = cls.cf_id('ApplicationVersion')
+        logical_id = self.name.logical_id('ApplicationVersion')
         return ApplicationVersion(
-            name,
+            logical_id,
             Description="Version 1.0",
-            ApplicationName=Ref(cls.beanstalk_application()),
+            ApplicationName=Ref(self.beanstalk_application()),
             SourceBundle=SourceBundle(
                 S3Bucket=bucket,
                 S3Key=key,
             ),
         )
 
-    @classmethod
-    def beanstalk_application(cls):
+    def beanstalk_application(self):
         """ Creates a Beanstalk Application, Specific environments are spun off from this application
             e.g. production, dev, staging, etc. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-beanstalk.html
         """
-        name = cls.cf_id('Application')  # TODO more specific?
+        logical_id = self.name.logical_id('Application')  # TODO more specific?
         return Application(
-            name,
-            ApplicationName=name,
-            Description=name,
-            DependsOn=[
-                cls.beanstalk_security_group().title, cls.db_security_group().title, cls.virtual_private_cloud().title],
+            logical_id,
+            ApplicationName=logical_id,
+            Description=logical_id,
+            # DependsOn=[
+            #    self.beanstalk_security_group().title, self.db_security_group().title,
+            #    self.virtual_private_cloud().title],
+            # export
         )
 
-    @classmethod
-    def beanstalk_shared_load_balancer(cls, ip_address_type='ipv4', load_balancer_type='application'):
+    def beanstalk_shared_load_balancer(self, ip_address_type='ipv4', load_balancer_type='application'):
         """ Creates a shared load balancer for use by beanstalk environments. Refs:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-loadbalancerattributes.html
         """
-        name = cls.cf_id('SharedLoadBalancer')
+        logical_id = self.name.logical_id('SharedLoadBalancer')
         return LoadBalancer(
-            name,
+            logical_id,
             IpAddressType=ip_address_type,
-            Name=name,
+            Name=logical_id,
             Scheme='internet-facing',
-            SecurityGroups=[Ref(cls.beanstalk_security_group())],
-            Subnets=[Ref(cls.public_subnet_a()), Ref(cls.public_subnet_b())],
-            Tags=cls.cost_tag_array(name),
+            SecurityGroups=[QCNetworkExports.import_value(QCNetworkExports.BEANSTALK_SECURITY_GROUP)],
+            Subnets=[
+                QCNetworkExports.import_value(QCNetworkExports.PUBLIC_SUBNET_A),
+                QCNetworkExports.import_value(QCNetworkExports.PUBLIC_SUBNET_B),
+            ],
+            Tags=self.tags.cost_tag_array(name=logical_id),
             Type=load_balancer_type,  # 'application' is the default
             LoadBalancerAttributes=[
                 LoadBalancerAttributes(
@@ -75,61 +83,57 @@ class C4Application(C4DataStore):
             ]
         )
 
-    @classmethod
-    def beanstalk_shared_load_balancer_listener(cls, port=80, protocol='HTTP'):
+    def beanstalk_shared_load_balancer_listener(self, port=80, protocol='HTTP'):
         """ Defines a listener on port 80 for a shared load balancer. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html
             TODO unneeded? removed from infra config
         """
-        name = cls.cf_id('SharedLoadBalancerListener')
+        logical_id = self.name.logical_id('SharedLoadBalancerListener')
         return Listener(
-            name,
+            logical_id,
             Port=port,
             Protocol=protocol,
-            LoadBalancerArn=Ref(cls.beanstalk_shared_load_balancer()),  # or, ARN directly?
+            LoadBalancerArn=Ref(self.beanstalk_shared_load_balancer()),  # or, ARN directly?
             DefaultActions=[Action(Type='redirect', RedirectConfig=RedirectConfig())]
         )
 
-    @classmethod
-    def make_beanstalk_environment(cls, env):
+    def make_beanstalk_environment(self, env):
         """ Creates Beanstalk Environments, which are associated with an overall Beanstalk Application. The specified
             env is passed through the options settings for parameterized change. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-beanstalk-environment.html
         """
         env_name = 'fourfront-cgap{}'.format(env.lower())  # TODO change?
-        name = cls.cf_id('{}Environment'.format(env))
+        logical_id = self.name.logical_id('{}Environment'.format(env))
 
         # TODO replace with docker specific env changes -- VersionLabel to demo application, SolutionStackName change
         if env.lower() == 'docker':
             raise C4ApplicationException('Docker environment implementation in progress')
 
         return Environment(
-            name,
+            logical_id,
             EnvironmentName=env_name,
-            ApplicationName=Ref(cls.beanstalk_application()),
+            ApplicationName=Ref(self.beanstalk_application()),
             # TODO CNAMEPrefix?
             Description='CGAP {} env'.format(env),
-            VersionLabel=Ref(cls.beanstalk_application_version()),  # TODO configuration for deploying changes
-            SolutionStackName=cls.BEANSTALK_SOLUTION_STACK,
-            Tags=Tags(*cls.cost_tag_array(name=name)),
-            OptionSettings=cls.beanstalk_configuration_option_settings(env),
+            VersionLabel=Ref(self.beanstalk_application_version()),  # TODO configuration for deploying changes
+            SolutionStackName=self.BEANSTALK_SOLUTION_STACK,
+            Tags=Tags(*self.tags.cost_tag_array(name=logical_id)),
+            OptionSettings=self.beanstalk_configuration_option_settings(),
             DependsOn=[
-                cls.beanstalk_security_group().title, cls.db_security_group().title, cls.virtual_private_cloud().title,
-                cls.beanstalk_application()],
+                # self.beanstalk_security_group().title, self.db_security_group().title,
+                # self.virtual_private_cloud().title,
+                self.beanstalk_application()],
         )
 
-    @classmethod
-    def dev_beanstalk_environment(cls):
+    def dev_beanstalk_environment(self):
         """ Defines a dev beanstalk environment, using pre-loaded ES inserts on instantiation """
-        return cls.make_beanstalk_environment(env='Dev')
+        return self.make_beanstalk_environment(env='Dev')
 
-    @classmethod
-    def docker_beanstalk_environment(cls):
+    def docker_beanstalk_environment(self):
         """ Sketch of how to support a docker environment on this application, using the demo docker application. """
-        return cls.make_beanstalk_environment(env='Docker')
+        return self.make_beanstalk_environment(env='Docker')
 
-    @classmethod
-    def beanstalk_configuration_option_settings(cls, env):
+    def beanstalk_configuration_option_settings(self):
         """ Returns a list of OptionSettings for the base configuration of a beanstalk environment. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html
         """
@@ -137,31 +141,27 @@ class C4Application(C4DataStore):
         # TODO use scheduled actions: aws:autoscaling:scheduledaction. Ref:
         # https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-cfg-autoscaling-scheduledactions.html
 
-        # Choose platform-specific options based on env. Defaults to Python Platform.
-        if env.lower() == 'docker':
-            raise C4ApplicationException('Docker configuration option changes in progress')
-            platform = cls.docker_platform_options(env)  # TODO for docker
-        else:
-            platform = cls.python_platform_options(env)
+        # Choose platform-specific options based on env. Defaults to Python Platform. TODO: other platforms?
+        platform = self.python_platform_options()
         return (
-                cls.launchconfiguration_options(env) +
-                cls.instances_options(env) +
-                cls.vpc_options(env) +
-                cls.environment_options(env) +
-                cls.application_environment_options(env) +
+                self.launchconfiguration_options() +
+                self.instances_options() +
+                self.vpc_options() +
+                self.environment_options() +
+                self.application_environment_options() +
                 platform +
-                cls.asg_options(env) +
-                cls.loadbalancer_options(env) +
-                cls.rolling_options(env) +
-                cls.health_options(env)
+                self.asg_options() +
+                self.loadbalancer_options() +
+                self.rolling_options() +
+                self.health_options()
                 # cls.shared_alb_listener_options(env) +
                 # cls.shared_alb_listener_default_rule_options(env)  TODO unneeded?
         )
 
     # Beanstalk Options #
 
-    @classmethod
-    def launchconfiguration_options(cls, env):
+    @staticmethod
+    def launchconfiguration_options():
         """ Returns list of OptionsSettings for beanstalk launch configuration. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-autoscalinglaunchconfiguration
         """
@@ -184,11 +184,14 @@ class C4Application(C4DataStore):
             OptionSettings(
                 Namespace='aws:autoscaling:launchconfiguration',
                 OptionName='SecurityGroups',  # TODO correct security groups
-                Value=Join(delimiter=',', values=[Ref(cls.beanstalk_security_group()), Ref(cls.db_security_group())]),
-            )]
+                Value=Join(delimiter=',', values=[
+                    QCNetworkExports.import_value(QCNetworkExports.BEANSTALK_SECURITY_GROUP),
+                    QCNetworkExports.import_value(QCNetworkExports.DB_SECURITY_GROUP)]),
+            ),
+        ]
 
-    @classmethod
-    def instances_options(cls, env):
+    @staticmethod
+    def instances_options():
         """ Returns list of OptionsSettings for beanstalk instances. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-ec2instances
         """
@@ -200,8 +203,8 @@ class C4Application(C4DataStore):
             ),
         ]
 
-    @classmethod
-    def vpc_options(cls, env):
+    @staticmethod
+    def vpc_options():
         """ Returns list of OptionSettings for beanstalk VPC. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-ec2vpc
         """
@@ -209,17 +212,21 @@ class C4Application(C4DataStore):
             OptionSettings(
                 Namespace='aws:ec2:vpc',
                 OptionName='VPCId',
-                Value=Ref(cls.virtual_private_cloud())  # check if this is equivalent to passing the vpc id
+                Value=QCNetworkExports.import_value(QCNetworkExports.VPC)
             ),
             OptionSettings(
                 Namespace='aws:ec2:vpc',
                 OptionName='ELBSubnets',
-                Value=Join(delimiter=',', values=[Ref(cls.public_subnet_a()), Ref(cls.public_subnet_b())])
+                Value=Join(delimiter=',', values=[
+                    QCNetworkExports.import_value(QCNetworkExports.PUBLIC_SUBNET_A),
+                    QCNetworkExports.import_value(QCNetworkExports.PUBLIC_SUBNET_B)])
             ),
             OptionSettings(
                 Namespace='aws:ec2:vpc',
                 OptionName='Subnets',
-                Value=Join(delimiter=',', values=[Ref(cls.private_subnet_a()), Ref(cls.private_subnet_b())])
+                Value=Join(delimiter=',', values=[
+                    QCNetworkExports.import_value(QCNetworkExports.PUBLIC_SUBNET_A),
+                    QCNetworkExports.import_value(QCNetworkExports.PUBLIC_SUBNET_B)])
             ),
             OptionSettings(
                 Namespace='aws:ec2:vpc',
@@ -228,30 +235,31 @@ class C4Application(C4DataStore):
             ),
         ]
 
-    @classmethod
-    def beanstalk_env_secret_retrieval(cls, key):
+    def beanstalk_env_secret_retrieval(self, key):
         """ Retrieve key from beanstalk env secret stored in AWS Secret Manager, for use in a Cloud Formation template.
             TODO manage this secret name via Cloud Formation?
         """
-        return '{{resolve:secretsmanager:{}:SecretString:{}}}'.format(cls.APPLICATION_ENV_SECRET, key)
+        return '{{resolve:secretsmanager:{}:SecretString:{}}}'.format(self.APPLICATION_ENV_SECRET, key)
 
-    @classmethod
-    def application_environment_options(cls, env):
+    @staticmethod
+    def application_environment_options():
         """ Returns list of OptionSettings for beanstalk application environment. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elasticbeanstalkapplicationenvironment
         """
-        keys = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SECRET_KEY', 'Auth0Client', 'Auth0Secret',
-                'ENCODED_BS_ENV', 'ENCODED_DATA_SET', 'ENCODED_ES_SERVER', 'ENCODED_SECRET', 'ENCODED_VERSION',
-                'ENV_NAME', 'LANG', 'LC_ALL', 'RDS_PASSWORD', 'RDS_DB_NAME', 'RDS_HOSTNAME', 'RDS_PORT', 'RDS_USERNAME',
-                'S3_ENCRYPT_KEY', 'SENTRY_DSN', 'reCaptchaSecret']
         # Create OptionSettings for each environment variable, secure retrieval from Secrets Manager TODO
+        # >>> keys = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SECRET_KEY', 'Auth0Client', 'Auth0Secret',
+        # 'ENCODED_BS_ENV', 'ENCODED_DATA_SET', 'ENCODED_ES_SERVER', 'ENCODED_SECRET', 'ENCODED_VERSION',
+        #       'ENV_NAME', 'LANG', 'LC_ALL', 'RDS_PASSWORD', 'RDS_DB_NAME', 'RDS_HOSTNAME', 'RDS_PORT', 'RDS_USERNAME',
+        #        'S3_ENCRYPT_KEY', 'SENTRY_DSN', 'reCaptchaSecret']
         # >>> for i in keys:
-        #       print('''OptionSettings(\n    Namespace='aws:elasticbeanstalk:application:environment',\n    OptionName='{0}',\n    Value=secrets.{0}\n),'''.format(i))
+        #       print('''OptionSettings(\n
+        #       Namespace='aws:elasticbeanstalk:application:environment',\n
+        #       OptionName='{0}',\n    Value=secrets.{0}\n),'''.format(i))
         return [
             OptionSettings(
-            Namespace='aws:elasticbeanstalk:application:environment',
-            OptionName='AWS_ACCESS_KEY_ID',
-            Value=secrets.AWS_ACCESS_KEY_ID
+                Namespace='aws:elasticbeanstalk:application:environment',
+                OptionName='AWS_ACCESS_KEY_ID',
+                Value=secrets.AWS_ACCESS_KEY_ID
             ),
             OptionSettings(
                 Namespace='aws:elasticbeanstalk:application:environment',
@@ -355,8 +363,8 @@ class C4Application(C4DataStore):
             ),
         ]
 
-    @classmethod
-    def environment_options(cls, env):
+    @staticmethod
+    def environment_options():
         """ Returns list of OptionSettings for beanstalk environment. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elasticbeanstalkenvironment
         """
@@ -383,13 +391,13 @@ class C4Application(C4DataStore):
             ),
         ]
 
-    @classmethod
-    def python_platform_options(cls, env):
+    @staticmethod
+    def python_platform_options():
         """ Returns list of OptionSettings for beanstalk python platform. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-specific.html#command-options-python
         """
         return [
-             OptionSettings(
+            OptionSettings(
                 Namespace='aws:elasticbeanstalk:container:python',
                 OptionName='WSGIPath',
                 Value='parts/production/wsgi'
@@ -406,8 +414,8 @@ class C4Application(C4DataStore):
             ),
         ]
 
-    @classmethod
-    def asg_options(cls, env):
+    @staticmethod
+    def asg_options():
         """ Returns list of OptionSettings for beanstalk auto-scaling group. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-autoscalingasg
         """
@@ -419,8 +427,8 @@ class C4Application(C4DataStore):
             ),
         ]
 
-    @classmethod
-    def loadbalancer_options(cls, env):
+    @staticmethod
+    def loadbalancer_options():
         """ Returns list of OptionsSettings for beanstalk loadbalancer. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elbv2
         """
@@ -428,7 +436,7 @@ class C4Application(C4DataStore):
             OptionSettings(
                 Namespace='aws:elbv2:loadbalancer',
                 OptionName='SecurityGroups',
-                Value=Ref(cls.beanstalk_security_group())
+                Value=QCNetworkExports.import_value(QCNetworkExports.BEANSTALK_SECURITY_GROUP)
             ),
             # OptionSettings(
             #   Namespace='aws:elbv2:loadbalancer',
@@ -437,8 +445,8 @@ class C4Application(C4DataStore):
             # ),  TODO Shared Load Balancer
         ]
 
-    @classmethod
-    def rolling_options(cls, env):
+    @staticmethod
+    def rolling_options():
         """ Returns list of OptionsSettings for beanstalk rolling updates. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-autoscalingupdatepolicyrollingupdate
         """
@@ -455,8 +463,8 @@ class C4Application(C4DataStore):
             ),
         ]
 
-    @classmethod
-    def shared_alb_listener_options(cls, env):
+    @staticmethod
+    def shared_alb_listener_options():
         """ Returns list of OptionSettings for a shared ALB listening on port 80. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elbv2-listener
         """
@@ -470,8 +478,8 @@ class C4Application(C4DataStore):
             )
         ]
 
-    @classmethod
-    def shared_alb_listener_default_rule_options(cls, env):
+    @staticmethod
+    def shared_alb_listener_default_rule_options():
         """ Returns list of OptionSettings for the default rules of a shared ALB listener. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elbv2-listenerrule
             See also `shared_alb_listener_options`.
@@ -485,8 +493,8 @@ class C4Application(C4DataStore):
             # By default, routes to 'default' process.
         ]
 
-    @classmethod
-    def health_options(cls, env):
+    @staticmethod
+    def health_options():
         """ Returns list of OptionSettings for the beanstalk health reporting options. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elasticbeanstalkhealthreporting
         """
