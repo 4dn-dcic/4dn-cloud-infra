@@ -2,7 +2,7 @@ import src.secrets as secrets  # TODO
 from src.part import QCPart
 from src.exceptions import C4ApplicationException
 from src.parts.network import QCNetworkExports
-from troposphere import Ref, Tags, Join, Template
+from troposphere import Ref, Tags, Join, Template, Parameter
 from troposphere.elasticbeanstalk import (Application, ApplicationVersion, Environment,
                                           OptionSettings, SourceBundle)
 from troposphere.elasticloadbalancingv2 import LoadBalancer, LoadBalancerAttributes, Listener, Action, RedirectConfig
@@ -13,6 +13,13 @@ class QCBeanstalk(QCPart):
     APPLICATION_ENV_SECRET = 'dev/beanstalk/cgap-dev'  # name of secret in AWS Secret Manager; todo script initial add?
 
     def build_template(self, template: Template) -> Template:
+        # Adds Network Stack Parameter
+        template.add_parameter(Parameter(
+            QCNetworkExports.REFERENCE_PARAM_KEY,
+            Description='Name of network stack for network import value references',
+            Type='String',
+        ))
+
         # self.t.add_resource(self.beanstalk_shared_load_balancer())  TODO
         # self.t.add_resource(self.beanstalk_shared_load_balancer_listener())  TODO
 

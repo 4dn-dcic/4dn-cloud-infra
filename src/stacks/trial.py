@@ -2,6 +2,9 @@ from src.stack import QCStack, QCName, QCTags, QCAccount
 from src.parts import network, datastore, ecr, beanstalk
 
 
+# Helper methods for construction of trial stacks
+
+
 def c4_stack_trial_name(name):
     return QCName(name='c4-{}-trial'.format(name))
     # logical_id_prefix -> C4{Name}Trial
@@ -20,10 +23,13 @@ def c4_stack_trial_description(stack):
     return 'AWS CloudFormation CGAP {0} template: trial {0} setup for cgap-portal environment'.format(stack)
 
 
+# Trial Stacks
+
+
 def c4_stack_trial_network():
     name = 'network'
     parts = [network.QCNetwork]
-    description=c4_stack_trial_description(name)
+    description = c4_stack_trial_description(name)
     return QCStack(
         name=c4_stack_trial_name(name),
         tags=c4_stack_trial_tags(),
@@ -46,12 +52,18 @@ def c4_stack_trial_datastore():
     )
 
 
+def c4_stack_trial_beanstalk_meta():
+    short_name = 'beanstalk'
+    name = c4_stack_trial_name(short_name)
+    description = c4_stack_trial_description(short_name)
+    return name, description
+
+
 def c4_stack_trial_beanstalk():
-    name = 'beanstalk'
+    name, description = c4_stack_trial_beanstalk_meta()
     parts = [beanstalk.QCBeanstalk]
-    description=c4_stack_trial_description(name)
     return QCStack(
-        name=c4_stack_trial_name(name),
+        name=name,
         tags=c4_stack_trial_tags(),
         account=c4_stack_trial_account(),
         parts=parts,
@@ -62,7 +74,7 @@ def c4_stack_trial_beanstalk():
 def stack_trial_ecr():
     name = 'ecr'
     parts = [ecr.QCContainerRegistry]
-    description=c4_stack_trial_description(name)
+    description = c4_stack_trial_description(name)
     return QCStack(
         name=c4_stack_trial_name(name),
         tags=c4_stack_trial_tags(),

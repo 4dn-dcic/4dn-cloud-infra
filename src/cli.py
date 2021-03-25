@@ -2,53 +2,54 @@ import argparse
 import logging
 import os
 
-from src.aws_util import AWSUtil
+from src.info.aws_util import AWSUtil
 from src.exceptions import CLIException
 from src.stacks.trial import c4_stack_trial_network, c4_stack_trial_datastore, c4_stack_trial_beanstalk
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)-15s %(levelname)-8s %(message)s')
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-beanstalk-trial']
 
-def generate_template(args):
-    """ Generates the template for CGAPTrial.
-        TODO support other environments/parts:
+
+def provision_stack(args):
+    """ Helper function for performing Cloud Formation operations on a specific stack. Ref:
         https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/best-practices.html#organizingstacks """
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
-    if args.env == 'c4-network-trial':
+    if args.stack == 'c4-network-trial':
         stack = c4_stack_trial_network()
-    elif args.env == 'c4-datastore-trial':
+    elif args.stack == 'c4-datastore-trial':
         stack = c4_stack_trial_datastore()
-    elif args.env == 'c4-beanstalk-trial':
+    elif args.stack == 'c4-beanstalk-trial':
         stack = c4_stack_trial_beanstalk()
     else:
-        raise CLIException('envs other than c4-{network, datastore, beanstalk}-trial not yet supported')
+        raise CLIException('Unsupported stack {}. Supported Stacks: {}'.format(args.stack, SUPPORTED_STACKS))
 
     if args.stdout:
         stack.print_template(stdout=True)
     else:
-        outfile = stack.print_template()
+        template_object, path, template_name = stack.print_template()
+        file_path = ''.join([path, template_name])
+        logger.info('Written template to {}'.format(file_path))
         if args.validate:
             cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {args}'.format(
-                mount_yaml='~/code/4dn-cloud-infra/out/cf-yml:/root/out/cf-yml',
+                mount_yaml='~/code/4dn-cloud-infra/out/templates:/root/out/templates',
                 mount_creds='~/.aws_test:/root/.aws',
                 command='amazon/aws-cli cloudformation validate-template',
-                args='--template-body file:///root/{outfile}'.format(outfile=outfile),
+                args='--template-body file:///root/{file_path}'.format(file_path=file_path),
             )
-            logger.info('Validating generated template...')
+            logger.info('Validating provisioned template...')
             os.system(cmd)
 
         if args.upload_change_set:
             cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {args}'.format(
-                mount_yaml='~/code/4dn-cloud-infra/out/cf-yml:/root/out/cf-yml',
+                mount_yaml='~/code/4dn-cloud-infra/out/templates:/root/out/templates',
                 mount_creds='~/.aws_test:/root/.aws',
                 command='amazon/aws-cli cloudformation deploy',
-                args='--template-file /root/{outfile} --stack-name {stack_name} --no-execute-changeset'.format(
-                    outfile=outfile, stack_name=stack.name.stack_name),
+                args='--template-file /root/{file_path} --stack-name {stack_name} --no-execute-changeset'.format(
+                    file_path=file_path, stack_name=stack.name.stack_name),
             )
 
-            logger.info('Uploading generated template and generating change-set...')
+            logger.info('Uploading provisioned template and generating changeset...')
             if '--no-execute-changeset' not in cmd:
                 raise CLIException(
                     'Upload command must include no-execute-changeset, or the changes will be executed immediately')
@@ -71,18 +72,18 @@ def info(args):
 def cli():
     """Set up and run the 4dn cloud infra command line scripts"""
     parser = argparse.ArgumentParser(description='4DN Cloud Infrastructure')
+    parser.add_argument('--debug', action='store_true', help='Sets log level to debug')
     subparsers = parser.add_subparsers(help='Commands', dest='command')
 
-    # Configure 'generate' command
+    # Configure 'provision' command
     # TODO flag for log level
-    parser_generate = subparsers.add_parser('generate', help='Generate Cloud Formation template for CGAP Trial env')
-    parser_generate.add_argument('env', help='Select stack to operate on')
-    parser_generate.add_argument('--stdout', action='store_true', help='Writes template to STDOUT only')
-    parser_generate.add_argument('--debug', action='store_true', help='Sets log level to debug')
-    parser_generate.add_argument('--validate', action='store_true', help='Verifies template')
-    parser_generate.add_argument('--upload_change_set', action='store_true',
-                                 help='Uploads template and generates change set')
-    parser_generate.set_defaults(func=generate_template)
+    parser_provision = subparsers.add_parser('provision', help='Provisions cloud resources for CGAP/4DN')
+    parser_provision.add_argument('stack', help='Select stack to operate on: {}'.format(SUPPORTED_STACKS))
+    parser_provision.add_argument('--stdout', action='store_true', help='Writes template to STDOUT only')
+    parser_provision.add_argument('--validate', action='store_true', help='Verifies template')
+    parser_provision.add_argument('--upload_change_set', action='store_true',
+                                  help='Uploads template and provisions change set')
+    parser_provision.set_defaults(func=provision_stack)
 
     # TODO command for Cloud Formation deploy flow: execute_change_set
 
@@ -96,8 +97,13 @@ def cli():
     parser_info.set_defaults(func=info)
 
     args = parser.parse_args()
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        logger.debug('Debug mode enabled')
+    else:
+        logger.setLevel(logging.INFO)
     if args.command:
         args.func(args)
-        logger.info('Complete')
+        logger.info('Command completed, exiting..')
     else:
-        logger.info('Select a command, run with -h for help')
+        logger.info('Select a command, run with -h to list them, exiting..')

@@ -9,7 +9,10 @@ import logging
 
 
 class QCNetworkExports:
-    REFERENCE_PARAM = '${NetworkStackNameParameter}'  # could reference QCNetworkPart.name.stack_name
+    """ Helper class for working with network exported resources and their input values """
+    REFERENCE_PARAM_KEY = 'NetworkStackNameParameter'
+    REFERENCE_PARAM = '${' + REFERENCE_PARAM_KEY + '}'
+    # could perhaps reference QCNetworkPart.name.stack_name
     STACK_NAME_PARAM = '${AWS::StackName}'
     VPC = 'ExportVPC'
     PRIVATE_SUBNET_A = 'ExportPrivateSubnetA'
@@ -22,6 +25,9 @@ class QCNetworkExports:
 
     @classmethod
     def export(cls, resource_id):
+        """ Helper method for building the Export field in an Output for a template. Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html
+        """
         # valid exports: [i for i in dir(QCNetworkExports) if i.isupper() and 'PARAM' not in i]
         return Export(Sub(
             '{}-{}'.format(cls.STACK_NAME_PARAM, resource_id)
@@ -29,6 +35,9 @@ class QCNetworkExports:
 
     @classmethod
     def import_value(cls, resource_id):
+        """ Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-importvalue.html
+        """
         # valid import values: [i for i in dir(QCNetworkExports) if i.isupper() and 'PARAM' not in i]
         return ImportValue(Sub(
             '{}-{}'.format(cls.REFERENCE_PARAM, resource_id)

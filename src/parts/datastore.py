@@ -1,4 +1,4 @@
-from troposphere import Join, Ref, Template, Tags
+from troposphere import Join, Ref, Template, Tags, Parameter
 from troposphere.elasticsearch import (Domain, ElasticsearchClusterConfig,
                                        EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions)
 try:
@@ -18,6 +18,13 @@ class QCDatastore(QCPart):
     RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names
 
     def build_template(self, template: Template) -> Template:
+        # Adds Network Stack Parameter
+        template.add_parameter(Parameter(
+            QCNetworkExports.REFERENCE_PARAM_KEY,
+            Description='Name of network stack for network import value references',
+            Type='String',
+        ))
+
         # Adds RDS
         for i in [self.rds_secret(), self.rds_parameter_group(), self.rds_instance(),
                   self.rds_subnet_group(), self.rds_secret_attachment()]:
@@ -62,7 +69,8 @@ class QCDatastore(QCPart):
             Tags=self.tags.cost_tag_array(),
         )
 
-    def rds_instance(self, instance_size='db.t3.medium', az_zone='us-east-1a', storage_size=20, storage_type='standard'):
+    def rds_instance(
+            self, instance_size='db.t3.medium', az_zone='us-east-1a', storage_size=20, storage_type='standard'):
         """ Returns the single RDS instance for the infrastructure stack. """
         logical_id = self.name.logical_id('RDS')
         secret_string_logical_id = self.name.logical_id(self.RDS_SECRET_STRING)
