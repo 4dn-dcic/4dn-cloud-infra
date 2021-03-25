@@ -4,7 +4,8 @@ import os
 
 from src.info.aws_util import AWSUtil
 from src.exceptions import CLIException
-from src.stacks.trial import c4_stack_trial_network, c4_stack_trial_datastore, c4_stack_trial_beanstalk
+from src.stacks.trial import (c4_stack_trial_network, c4_stack_trial_network_metadata,
+    c4_stack_trial_datastore, c4_stack_trial_beanstalk)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,25 +29,31 @@ def provision_stack(args):
         stack.print_template(stdout=True)
     else:
         template_object, path, template_name = stack.print_template()
-        file_path = ''.join([path, template_name])
+        file_path = ''.join(['/root/', path, template_name])
         logger.info('Written template to {}'.format(file_path))
         if args.validate:
             cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {args}'.format(
                 mount_yaml='~/code/4dn-cloud-infra/out/templates:/root/out/templates',
                 mount_creds='~/.aws_test:/root/.aws',
                 command='amazon/aws-cli cloudformation validate-template',
-                args='--template-body file:///root/{file_path}'.format(file_path=file_path),
+                args='--template-body file://{file_path}'.format(file_path=file_path),
             )
             logger.info('Validating provisioned template...')
             os.system(cmd)
 
         if args.upload_change_set:
-            cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {args}'.format(
+            network_stack_name, _ = c4_stack_trial_network_metadata()
+            flags = '{template_flag} {stack_flag} {parameter_flag} {changeset_flag}'.format(
+                template_flag='--template-file {file_path}'.format(file_path=file_path),
+                stack_flag='--stack-name {stack_name}'.format(stack_name=stack.name.stack_name),
+                parameter_flag='--parameter-overrides "NetworkStackNameParameter={stack}"'.format(
+                    stack=network_stack_name),
+                changeset_flag='--no-execute-changeset')
+            cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {flags}'.format(
                 mount_yaml='~/code/4dn-cloud-infra/out/templates:/root/out/templates',
                 mount_creds='~/.aws_test:/root/.aws',
                 command='amazon/aws-cli cloudformation deploy',
-                args='--template-file /root/{file_path} --stack-name {stack_name} --no-execute-changeset'.format(
-                    file_path=file_path, stack_name=stack.name.stack_name),
+                flags=flags,
             )
 
             logger.info('Uploading provisioned template and generating changeset...')

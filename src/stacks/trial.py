@@ -23,15 +23,22 @@ def c4_stack_trial_description(stack):
     return 'AWS CloudFormation CGAP {0} template: trial {0} setup for cgap-portal environment'.format(stack)
 
 
+def c4_stack_trial_network_metadata():
+    """ Returns the network trial stack name and metadata.
+        Allows these to be referenced without compiling the network stack."""
+    name = 'network'
+    return (c4_stack_trial_name(name),
+            c4_stack_trial_description(name))
+
+
 # Trial Stacks
 
 
 def c4_stack_trial_network():
-    name = 'network'
     parts = [network.QCNetwork]
-    description = c4_stack_trial_description(name)
+    name, description = c4_stack_trial_network_metadata()
     return QCStack(
-        name=c4_stack_trial_name(name),
+        name=name,
         tags=c4_stack_trial_tags(),
         account=c4_stack_trial_account(),
         parts=parts,
