@@ -47,7 +47,7 @@ def provision_stack(args):
                 template_flag='--template-file {file_path}'.format(file_path=file_path),
                 stack_flag='--stack-name {stack_name}'.format(stack_name=stack.name.stack_name),
                 parameter_flag='--parameter-overrides "NetworkStackNameParameter={stack}"'.format(
-                    stack=network_stack_name),
+                    stack=network_stack_name.stack_name),
                 changeset_flag='--no-execute-changeset')
             cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {flags}'.format(
                 mount_yaml='~/code/4dn-cloud-infra/out/templates:/root/out/templates',
