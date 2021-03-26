@@ -7,7 +7,7 @@ import concurrent.futures
 from botocore.exceptions import ClientError
 from datetime import datetime, timedelta
 
-from src.pricing_calculator import PricingCalculator
+from src.info.pricing_calculator import PricingCalculator
 
 
 class AWSUtil:
@@ -438,9 +438,9 @@ class AWSUtil:
             calls and results if running for real, with dry_run as False.
 
             e.g.
-            >>> delete_previous_versions(
+            >>> self.delete_previous_versions(
             >>>     'elasticbeanstalk-fourfront-webprod-files', 'in/elasticbeanstalk-fourfront-webprod-files.tsv')
-            >>> delete_previous_versions(
+            >>> self.delete_previous_versions(
             >>>     'elasticbeanstalk-fourfront-webprod-wfoutput', 'in/elasticbeanstalk-fourfront-webprod-wfoutput.tsv')
         """
         SKIP_LIST = [  # TODO resolve these separately with Sarah

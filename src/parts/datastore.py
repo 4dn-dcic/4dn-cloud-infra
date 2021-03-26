@@ -1,7 +1,5 @@
-from src.network import C4Network
-from dcicutils.misc_utils import as_seconds
-from troposphere import Join, Ref, Tags
-from troposphere.elasticsearch import (AdvancedSecurityOptionsInput, Domain, ElasticsearchClusterConfig,
+from troposphere import Join, Ref, Template, Tags, Parameter
+from troposphere.elasticsearch import (Domain, ElasticsearchClusterConfig,
                                        EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions)
 try:
     from troposphere.elasticsearch import DomainEndpointOptions  # noQA
@@ -11,21 +9,43 @@ except ImportError:
 from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
+from dcicutils.misc_utils import as_seconds
+from src.part import QCPart
+from src.parts.network import QCNetworkExports
 
 
-class C4DataStore(C4Network):
-    """ Class methods below construct the troposphere representations of AWS resources, without building the template
-        1) Add resource as class method below
-        2) Add to template in a 'make' method in C4Infra """
+class QCDatastore(QCPart):
+    RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names
 
-    RDS_SECRET_STRING = 'RDSSecret'  # Generate Secret ID with `cls.cf_id(RDS_SECRET_STRING)`
+    def build_template(self, template: Template) -> Template:
+        # Adds Network Stack Parameter
+        template.add_parameter(Parameter(
+            QCNetworkExports.REFERENCE_PARAM_KEY,
+            Description='Name of network stack for network import value references',
+            Type='String',
+        ))
 
-    @classmethod
-    def rds_secret(cls):
+        # Adds RDS
+        for i in [self.rds_secret(), self.rds_parameter_group(), self.rds_instance(),
+                  self.rds_subnet_group(), self.rds_secret_attachment()]:
+            template.add_resource(i)
+
+        # Adds Elasticsearch
+        template.add_resource(self.elasticsearch_instance())
+
+        # Adds SQS Queues
+        for i in [self.primary_queue(), self.secondary_queue(), self.dead_letter_queue(), self.ingestion_queue(),
+                  self.realtime_queue()]:
+            template.add_resource(i)
+
+        return template
+
+    def rds_secret(self):
         """ Returns the RDS secret, as generated and stored by AWS Secrets Manager """
+        logical_id = self.name.logical_id(self.RDS_SECRET_STRING)
         return Secret(
-            cls.cf_id(cls.RDS_SECRET_STRING),
-            Name=cls.cf_id(cls.RDS_SECRET_STRING),
+            logical_id,
+            Name=logical_id,
             Description='This is the RDS instance master password',
             GenerateSecretString=GenerateSecretString(
                 SecretStringTemplate='{"username":"postgresql"}',
@@ -33,90 +53,93 @@ class C4DataStore(C4Network):
                 PasswordLength=30,
                 ExcludePunctuation=True,
             ),
-            Tags=cls.cost_tag_array(),
+            Tags=self.tags.cost_tag_array(),
         )
 
-    @classmethod
-    def rds_subnet_group(cls):
+    def rds_subnet_group(self):
         """ Returns a subnet group for the single RDS instance in the infrastructure stack """
+        logical_id = self.name.logical_id('DBSubnetGroup')
         return DBSubnetGroup(
-            cls.cf_id('DBSubnetGroup'),
+            logical_id,
             DBSubnetGroupDescription='RDS subnet group',
-            SubnetIds=[Ref(cls.private_subnet_a()), Ref(cls.private_subnet_b())],
-            Tags=cls.cost_tag_array(),
+            SubnetIds=[
+                QCNetworkExports.import_value(QCNetworkExports.PRIVATE_SUBNET_A),
+                QCNetworkExports.import_value(QCNetworkExports.PRIVATE_SUBNET_B),
+            ],
+            Tags=self.tags.cost_tag_array(),
         )
 
-    @classmethod
-    def rds_instance(cls, instance_size='db.t3.medium', az_zone='us-east-1a', storage_size=20, storage_type='standard'):
+    def rds_instance(
+            self, instance_size='db.t3.medium', az_zone='us-east-1a', storage_size=20, storage_type='standard'):
         """ Returns the single RDS instance for the infrastructure stack. """
-        rds_id = cls.cf_id('RDS')
+        logical_id = self.name.logical_id('RDS')
+        secret_string_logical_id = self.name.logical_id(self.RDS_SECRET_STRING)
         return DBInstance(
-            rds_id,
+            logical_id,
             AllocatedStorage=storage_size,
             DBInstanceClass=instance_size,
             Engine='postgres',
             EngineVersion='11.9',
-            DBInstanceIdentifier=cls.cf_id('RDS'),
+            DBInstanceIdentifier=logical_id,
             DBName='c4db',
-            DBParameterGroupName=Ref(cls.rds_parameter_group()),
-            DBSubnetGroupName=Ref(cls.rds_subnet_group()),
+            DBParameterGroupName=Ref(self.rds_parameter_group()),
+            DBSubnetGroupName=Ref(self.rds_subnet_group()),
             StorageEncrypted=True,  # TODO use KmsKeyId to configure KMS key (requires db replacement)
             CopyTagsToSnapshot=True,
             AvailabilityZone=az_zone,
             PubliclyAccessible=False,
             StorageType=storage_type,
-            VPCSecurityGroups=[Ref(cls.db_security_group())],
+            VPCSecurityGroups=[QCNetworkExports.import_value(QCNetworkExports.DB_SECURITY_GROUP)],
             MasterUsername=Join('', [
                 '{{resolve:secretsmanager:',
-                {'Ref': cls.cf_id(cls.RDS_SECRET_STRING)},
+                {'Ref': secret_string_logical_id},
                 ':SecretString:username}}'
             ]),
             MasterUserPassword=Join('', [
                 '{{resolve:secretsmanager:',
-                {'Ref': cls.cf_id(cls.RDS_SECRET_STRING)},
+                {'Ref': secret_string_logical_id},
                 ':SecretString:password}}'
             ]),
-            Tags=cls.cost_tag_array(name=rds_id),
+            Tags=self.tags.cost_tag_array(name=logical_id),
         )
 
-    @classmethod
-    def rds_parameter_group(cls):
+    def rds_parameter_group(self) -> DBParameterGroup:
         """ Creates the parameter group for an RDS instance """
         parameters = {
             'rds.force_ssl': 1,  # SSL required for all connections when set to 1
         }
+        logical_id = self.name.logical_id('RDSParameterGroup')
         return DBParameterGroup(
-            cls.cf_id('RDSParameterGroup'),
+            logical_id,
             Description='parameters for C4 RDS instances',
             Family='postgres11',
             Parameters=parameters,
         )
 
-    @classmethod
-    def rds_secret_attachment(cls):
+    def rds_secret_attachment(self) -> SecretTargetAttachment:
         """ Attaches the rds_secret to the rds_instance. """
+        logical_id = self.name.logical_id('SecretRDSInstanceAttachment')
         return SecretTargetAttachment(
-            cls.cf_id('SecretRDSInstanceAttachment'),
+            logical_id,
             TargetType='AWS::RDS::DBInstance',
-            SecretId=Ref(cls.rds_secret()),
-            TargetId=Ref(cls.rds_instance()),
+            SecretId=Ref(self.rds_secret()),
+            TargetId=Ref(self.rds_instance()),
         )
 
-    @classmethod
-    def elasticsearch_instance(cls, data_node_instance_type='c5.large.elasticsearch'):
+    def elasticsearch_instance(self, data_node_instance_type='c5.large.elasticsearch'):
         """ Returns an Elasticsearch domain with 1 data node, configurable via data_node_instance_type. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
         """
-        logical = cls.cf_id('ES')
-        domain = cls.domain_name(logical)
+        logical_id = self.name.logical_id('ES')
+        domain_name = self.name.domain_name(logical_id)
         options = {}
         try:  # feature not yet supported by troposphere
             options['DomainEndpointOptions'] = DomainEndpointOptions(EnforceHTTPS=True)
         except NotImplementedError:
             pass
         return Domain(
-            logical,
-            DomainName=domain,
+            logical_id,
+            DomainName=domain_name,
             AccessPolicies={
                 'Version': '2012-10-17',
                 'Statement': [
@@ -148,18 +171,21 @@ class C4DataStore(C4Network):
                 VolumeType='gp2',  # gp3?
             ),
             VPCOptions=VPCOptions(
-                SecurityGroupIds=[Ref(cls.https_security_group())],
-                SubnetIds=[Ref(cls.private_subnet_a())],
+                SecurityGroupIds=[
+                    QCNetworkExports.import_value(QCNetworkExports.HTTPS_SECURITY_GROUP),
+                ],
+                SubnetIds=[
+                    QCNetworkExports.import_value(QCNetworkExports.PRIVATE_SUBNET_A),
+                ],
             ),
-            Tags=cls.cost_tag_array(name=domain),
+            Tags=self.tags.cost_tag_array(name=domain_name),
             **options,
         )
 
-    @classmethod
-    def build_sqs_instance(cls, logical_id_suffix, name_suffix, cgap_env='green'):
+    def build_sqs_instance(self, logical_id_suffix, name_suffix, cgap_env='green') -> Queue:
         """ Builds a SQS instance with the logical id suffix for CloudFormation and the given name_suffix for the queue
             name. Uses 'green' as default cgap env. """
-        logical_name = cls.cf_id(logical_id_suffix)
+        logical_name = self.name.logical_id(logical_id_suffix)
         queue_name = 'cgap-{env}-{suffix}'.format(env=cgap_env, suffix=name_suffix)  # TODO configurable cgap env
         return Queue(
             logical_name,
@@ -168,25 +194,20 @@ class C4DataStore(C4Network):
             MessageRetentionPeriod=as_seconds(days=14),
             DelaySeconds=1,
             ReceiveMessageWaitTimeSeconds=2,
-            Tags=Tags(*cls.cost_tag_array(name=queue_name)),
+            Tags=Tags(*self.tags.cost_tag_array(name=queue_name)),  # special case
         )
 
-    @classmethod
-    def primary_queue(cls):
-        return cls.build_sqs_instance('PrimaryQueue', 'indexer-queue-primary')
+    def primary_queue(self) -> Queue:
+        return self.build_sqs_instance('PrimaryQueue', 'indexer-queue-primary')
 
-    @classmethod
-    def secondary_queue(cls):
-        return cls.build_sqs_instance('SecondaryQueue', 'indexer-queue-secondary')
+    def secondary_queue(self) -> Queue:
+        return self.build_sqs_instance('SecondaryQueue', 'indexer-queue-secondary')
 
-    @classmethod
-    def dead_letter_queue(cls):
-        return cls.build_sqs_instance('DeadLetterQueue', 'indexer-queue-dlq')
+    def dead_letter_queue(self) -> Queue:
+        return self.build_sqs_instance('DeadLetterQueue', 'indexer-queue-dlq')
 
-    @classmethod
-    def ingestion_queue(cls):
-        return cls.build_sqs_instance('IngestionQueue', 'ingestion-queue')
+    def ingestion_queue(self) -> Queue:
+        return self.build_sqs_instance('IngestionQueue', 'ingestion-queue')
 
-    @classmethod
-    def realtime_queue(cls):
-        return cls.build_sqs_instance('RealtimeQueue', 'indexer-queue-realtime')
+    def realtime_queue(self) -> Queue:
+        return self.build_sqs_instance('RealtimeQueue', 'indexer-queue-realtime')
