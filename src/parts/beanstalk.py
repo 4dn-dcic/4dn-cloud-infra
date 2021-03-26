@@ -232,8 +232,8 @@ class QCBeanstalk(QCPart):
                 Namespace='aws:ec2:vpc',
                 OptionName='Subnets',
                 Value=Join(delimiter=',', values=[
-                    QCNetworkExports.import_value(QCNetworkExports.PUBLIC_SUBNET_A),
-                    QCNetworkExports.import_value(QCNetworkExports.PUBLIC_SUBNET_B)])
+                    QCNetworkExports.import_value(QCNetworkExports.PRIVATE_SUBNET_A),
+                    QCNetworkExports.import_value(QCNetworkExports.PRIVATE_SUBNET_B)])
             ),
             OptionSettings(
                 Namespace='aws:ec2:vpc',
