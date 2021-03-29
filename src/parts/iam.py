@@ -13,6 +13,8 @@ class C4IAM:
     """ Contains IAM Role configuration for CGAP.
         Right now, there is only one important IAM Role to configure.
         That is the assumed IAM role assigned to ECS.
+
+        TODO refactor for new setup.
     """
     ROLE_NAME = 'CGAPECSRole'
     INSTANCE_PROFILE_NAME = 'CGAPECSInstanceProfile'

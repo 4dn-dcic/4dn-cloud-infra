@@ -17,6 +17,10 @@ poetry install
 
 `./4dn-cloud-infra -h`
 
+## Documentation
+
+["Cloud Infrastructure: Development & Deployment"](https://hms-dbmi.atlassian.net/wiki/spaces/FOURDNDCIC/pages/1929314305/Cloud+Infrastructure+Development+Deployment) on Confluence
+
 ## Architecture
 
 * `src/cli.py` - Command-line interface for the `4dn-cloud-infra` script

@@ -46,6 +46,7 @@ class C4ECSApplication(C4DataStore):
                 * Ingester
 
         Note: application upload handling is still TODO
+        TODO refactor for new setup.
     """
 
     @classmethod

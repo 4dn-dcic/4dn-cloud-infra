@@ -12,3 +12,7 @@ class CLIException(Exception):
     """ Custom exception type for cli-specific exceptions """
     pass
 
+
+class C4ApplicationException(Exception):
+    """ Custom exception type for application-specific exceptions """
+    pass
