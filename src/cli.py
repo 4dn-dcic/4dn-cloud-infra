@@ -6,24 +6,43 @@ from src.info.aws_util import AWSUtil
 from src.exceptions import CLIException
 from src.stacks.trial import (c4_stack_trial_network, c4_stack_trial_network_metadata,
     c4_stack_trial_datastore, c4_stack_trial_beanstalk)
+from src.stacks.trial_ecs import (c4_ecs_stack_trial_network, c4_stack_trial_network_metadata,
+                                  c4_ecs_stack_trial_datastore)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+# TODO constants
 SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-beanstalk-trial']
+SUPPORTED_ECS_STACKS = ['c4-ecs-network-trial', 'c4-ecs-datastore-trial', 'c4-ecs-cluster-trial']
 
 
 def provision_stack(args):
     """ Helper function for performing Cloud Formation operations on a specific stack. Ref:
         https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/best-practices.html#organizingstacks """
-    if args.stack == 'c4-network-trial':
-        stack = c4_stack_trial_network()
-    elif args.stack == 'c4-datastore-trial':
-        stack = c4_stack_trial_datastore()
-    elif args.stack == 'c4-beanstalk-trial':
-        stack = c4_stack_trial_beanstalk()
+    # TODO helper method?
+    if args.ecs:
+        if args.stack == 'c4-ecs-network-trial':
+            stack = c4_ecs_stack_trial_network()
+        elif args.stack == 'c4-ecs-datastore-trial':
+            stack = c4_ecs_stack_trial_datastore()
+        # TODO add remaining stacks
+        # elif args.stack == 'c4-ecs-ecr-trial':
+        #     stack = implement_me()
+        # elif args.stack == 'c4-ecs-cluster-trial':
+        #     stack = implement_me()
+        else:
+            raise CLIException('Unsupported stack {}. Supported Stacks: {}'.format(args.stack, SUPPORTED_ECS_STACKS))
     else:
-        raise CLIException('Unsupported stack {}. Supported Stacks: {}'.format(args.stack, SUPPORTED_STACKS))
+        if args.stack == 'c4-network-trial':
+            stack = c4_stack_trial_network()
+        elif args.stack == 'c4-datastore-trial':
+            stack = c4_stack_trial_datastore()
+        elif args.stack == 'c4-beanstalk-trial':
+            stack = c4_stack_trial_beanstalk()
+        else:
+            raise CLIException('Unsupported stack {}. Supported Stacks: {}'.format(args.stack, SUPPORTED_STACKS))
 
     if args.stdout:
         stack.print_template(stdout=True)
@@ -86,6 +105,7 @@ def cli():
     # TODO flag for log level
     parser_provision = subparsers.add_parser('provision', help='Provisions cloud resources for CGAP/4DN')
     parser_provision.add_argument('stack', help='Select stack to operate on: {}'.format(SUPPORTED_STACKS))
+    parser_provision.add_argument('--ecs', action='store_true', help='Triggers building of ECS stack', default=False)
     parser_provision.add_argument('--stdout', action='store_true', help='Writes template to STDOUT only')
     parser_provision.add_argument('--validate', action='store_true', help='Verifies template')
     parser_provision.add_argument('--upload_change_set', action='store_true',

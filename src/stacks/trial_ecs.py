@@ -34,6 +34,7 @@ def c4_stack_trial_network_metadata():
 
 
 def c4_ecs_stack_trial_network():
+    """ Network stack for the ECS version of CGAP """
     parts = [network.QCNetwork]
     name, description = c4_stack_trial_network_metadata()
     return QCStack(
@@ -45,7 +46,8 @@ def c4_ecs_stack_trial_network():
     )
 
 
-def c4_stack_trial_datastore():
+def c4_ecs_stack_trial_datastore():
+    """ Datastore stack for the ECS version of CGAP """
     name = 'datastore'
     parts = [datastore.QCDatastore]
     description = c4_ecs_stack_trial_description(name)
@@ -58,9 +60,10 @@ def c4_stack_trial_datastore():
     )
 
 
-def stack_trial_ecr():
-    name = 'ecr'
-    parts = [ecr.QCContainerRegistry]
+def c4_ecs_stack_trial_iam():
+    """ IAM Configuration for ECS CGAP """
+    name = 'iam'
+    parts = [iam.C4IAM]
     description = c4_ecs_stack_trial_description(name)
     return QCStack(
         name=c4_ecs_stack_trial_name(name),
@@ -69,3 +72,24 @@ def stack_trial_ecr():
         parts=parts,
         description=description,
     )
+
+
+def c4_ecs_stack_trial_ecr():
+    """ ECR stack for ECS version of CGAP
+        depends on IAM above (does that mean it needs both parts?)
+    """
+    name = 'ecr'
+    parts = [iam.C4IAM, ecr.QCContainerRegistry]
+    description = c4_ecs_stack_trial_description(name)
+    return QCStack(
+        name=c4_ecs_stack_trial_name(name),
+        tags=c4_ecs_stack_trial_tags(),
+        account=c4_ecs_stack_trial_account(),
+        parts=parts,
+        description=description,
+    )
+
+
+def c4_ecs_stack_trial_logging():
+    """ Implements logging policies for ECS CGAP """
+    pass

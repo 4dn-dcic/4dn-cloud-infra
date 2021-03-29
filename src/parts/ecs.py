@@ -1,5 +1,3 @@
-from src.data_store import C4DataStore
-
 from troposphere import (
     Parameter,
     Join,
@@ -12,6 +10,7 @@ from troposphere import (
     AWS_STACK_NAME,
     AWS_REGION,
     Base64,
+    Template
 )
 from troposphere.ecs import (
     Cluster,
@@ -27,9 +26,11 @@ from troposphere.ec2 import (
     SecurityGroup,
     SecurityGroupRule,
 )
+from src.part import QCPart
+from src.parts.network import QCNetworkExports
 
 
-class C4ECSApplication(C4DataStore):
+class QCECSApplication(QCPart):
     """ Configures the ECS Cluster Application for CGAP
         This class contains everything necessary for running CGAP on ECS, including:
             * The Cluster itself (done)
@@ -46,8 +47,48 @@ class C4ECSApplication(C4DataStore):
                 * Ingester
 
         Note: application upload handling is still TODO
-        TODO refactor for new setup.
     """
+
+    def build_template(self, template: Template) -> Template:
+        # Adds Network Stack Parameter
+        template.add_parameter(Parameter(
+            QCNetworkExports.REFERENCE_PARAM_KEY,
+            Description='Name of network stack for network import value references',
+            Type='String',
+        ))
+
+        # TODO Adds ECR Stack Parameter
+        # TODO Adds IAM Stack Parameter
+
+        # ECS Params
+        template.add_parameter(self.ecs_web_worker_port())
+        template.add_parameter(self.ecs_container_instance_type())
+
+        # ECS Components
+        template.add_resource(self.ecs_cluster())
+        template.add_resource(self.ecs_lb_security_group())
+        template.add_resource(self.ecs_load_balancer())
+        template.add_resource(self.ecs_container_security_group(  # container runs in private subnets
+            QCNetworkExports.import_value(QCNetworkExports.PRIVATE_SUBNET_A),
+            QCNetworkExports.import_value(QCNetworkExports.PRIVATE_SUBNET_B),
+        ))
+        template.add_resource(self.ecs_autoscaling_group(
+            QCNetworkExports.import_value(QCNetworkExports.PRIVATE_SUBNET_A),
+            QCNetworkExports.import_value(QCNetworkExports.PRIVATE_SUBNET_B),
+            QCNetworkExports.import_value(QCNetworkExports.PUBLIC_SUBNET_A),
+            QCNetworkExports.import_value(QCNetworkExports.PUBLIC_SUBNET_B),
+            # TODO missing output val here for ECS IAM instance profile
+        ))
+
+        # ECS Task/Services
+        template.add_resource(self.ecs_wsgi_task())
+        template.add_resource(self.ecs_wsgi_service())
+        template.add_resource(self.ecs_indexer_task())
+        template.add_resource(self.ecs_indexer_service())
+        template.add_resource(self.ecs_ingester_task())
+        template.add_resource(self.ecs_ingester_service())
+
+        return template
 
     @classmethod
     def ecs_cluster(cls):

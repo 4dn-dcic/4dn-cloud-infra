@@ -1,7 +1,13 @@
 from troposphere import (
     AWS_ACCOUNT_ID,
+    AWS_REGION,
     Join,
     Ref,
+    Template,
+    Output,
+    Export,
+    Sub,
+    ImportValue
 )
 from troposphere.ecr import Repository
 from awacs.aws import (
@@ -12,18 +18,32 @@ from awacs.aws import (
 )
 import awacs.ecr as ecr
 from .iam import C4IAM
+from src.part import QCPart
 
-class QCContainerRegistry:
-    pass  # TODO
 
-class C4ContainerRegistry:
+class QCContainerRegistry(QCPart):
     """ Contains a classmethod that builds an ECR template for this stack.
         NOTE: IAM setup must be done before this.
-        TODO: Test, add to template.
     """
 
-    @classmethod
-    def ecr_push_acl(cls, principle='root'):
+    def build_template(self, template: Template) -> Template:
+        repo = self.repository()
+        template.add_resource(repo)
+        template.add_output(Output(
+            'CGAPDockerRepoURL',
+            Description="CGAPDocker Image Repository",
+            Value=Join("", [
+                Ref(AWS_ACCOUNT_ID),
+                ".dkr.ecr.",
+                Ref(AWS_REGION),
+                ".amazonaws.com/",
+                Ref(repo),
+            ]),
+        ))
+        return template
+
+    @staticmethod
+    def ecr_push_acl(principle='root'):
         """ This statement gives the root user push/pull access to ECR.
             TODO: 'root' is likely not correct.
         """
@@ -47,8 +67,8 @@ class C4ContainerRegistry:
                 ecr.CompleteLayerUpload,
             ])
 
-    @classmethod
-    def ecr_pull_acl(cls, principle=C4IAM.ROLE_NAME):
+    @staticmethod
+    def ecr_pull_acl(principle=C4IAM.ROLE_NAME):
         """ This statement gives the given principle pull access to ECR.
             This perm should be attached to the assumed IAM role of ECS.
 

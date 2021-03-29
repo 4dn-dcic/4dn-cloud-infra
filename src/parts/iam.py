@@ -1,4 +1,4 @@
-from troposphere import AWS_REGION, AWS_ACCOUNT_ID
+from troposphere import AWS_REGION, AWS_ACCOUNT_ID, Template, Parameter
 from troposphere.iam import Role, InstanceProfile, Policy
 from awacs.ecr import (
     GetAuthorizationToken,
@@ -8,16 +8,27 @@ from awacs.ecr import (
 )
 from awacs.aws import PolicyDocument, Statement, Action, Principal
 
+from src.part import QCPart
 
-class C4IAM:
+
+# TODO add exports
+
+
+class C4IAM(QCPart):
     """ Contains IAM Role configuration for CGAP.
         Right now, there is only one important IAM Role to configure.
         That is the assumed IAM role assigned to ECS.
-
-        TODO refactor for new setup.
     """
     ROLE_NAME = 'CGAPECSRole'
     INSTANCE_PROFILE_NAME = 'CGAPECSInstanceProfile'
+
+    def build_template(self, template: Template) -> Template:
+        """ Builds current IAM template, currently just the ECS assumed IAM role
+            and instance profile.
+        """
+        template.add_resource(self.ecs_assumed_iam_role())
+        template.add_resource(self.ecs_instance_profile())
+        return template
 
     @staticmethod
     def ecs_sqs_policy(prefix='cgap-dev'):
@@ -107,8 +118,8 @@ class C4IAM:
             ),
         )
 
-    @classmethod
-    def ecs_log_policy(cls):
+    @staticmethod
+    def ecs_log_policy():
         """ Grants ECS container the ability to log things. """
         return Policy(
             PolicyName='ECSLoggingPolicy',
