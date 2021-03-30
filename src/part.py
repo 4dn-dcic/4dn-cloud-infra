@@ -3,7 +3,7 @@ from datetime import datetime
 from troposphere import Tag, Template
 
 
-class QCTags:
+class C4Tags:
     """ Helper class for working with cost allocation tags """
     def __init__(self, env='test', project='test', owner='test'):
         self.env = env
@@ -20,13 +20,13 @@ class QCTags:
             return cost_tags
 
 
-class QCAccount:
+class C4Account:
     """ Helper class for working with an AWS account """
     def __init__(self, account_number):
         self.account_number = str(account_number)
 
 
-class QCName:
+class C4Name:
     """ Helper class for working with stack names and resource name construction """
     def __init__(self, name):
         self.name = name
@@ -62,14 +62,14 @@ class QCName:
         return path, filename
 
 
-class QCPart:
+class C4Part:
     """ Inheritable class for building parts of a stack by:
         - adding to a stack's template
         - collecting the helper classes used for the stack
     """
     # Ref: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/pseudo-parameter-reference.html
 
-    def __init__(self, name: QCName, tags: QCTags, account: QCAccount, **kwargs):
+    def __init__(self, name: C4Name, tags: C4Tags, account: C4Account, **kwargs):
         self.name = name
         self.tags = tags
         self.account = account
