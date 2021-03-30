@@ -1,4 +1,4 @@
-from src.stack import QCStack, QCName, QCTags, QCAccount
+from src.stack import C4Stack, C4Name, C4Tags, C4Account
 from src.parts import network, datastore, ecr, beanstalk
 
 
@@ -6,17 +6,17 @@ from src.parts import network, datastore, ecr, beanstalk
 
 
 def c4_stack_trial_name(name):
-    return QCName(name='c4-{}-trial'.format(name))
+    return C4Name(name='c4-{}-trial'.format(name))
     # logical_id_prefix -> C4{Name}Trial
     # stack_name -> c4-{name}-trial-stack
 
 
 def c4_stack_trial_tags():
-    return QCTags(env='dev', project='cgap', owner='project')
+    return C4Tags(env='dev', project='cgap', owner='project')
 
 
 def c4_stack_trial_account():
-    return QCAccount(account_number='645819926742')
+    return C4Account(account_number='645819926742')
 
 
 def c4_stack_trial_description(stack):
@@ -35,9 +35,9 @@ def c4_stack_trial_network_metadata():
 
 
 def c4_stack_trial_network():
-    parts = [network.QCNetwork]
+    parts = [network.C4Network]
     name, description = c4_stack_trial_network_metadata()
-    return QCStack(
+    return C4Stack(
         name=name,
         tags=c4_stack_trial_tags(),
         account=c4_stack_trial_account(),
@@ -48,9 +48,9 @@ def c4_stack_trial_network():
 
 def c4_stack_trial_datastore():
     name = 'datastore'
-    parts = [datastore.QCDatastore]
+    parts = [datastore.C4Datastore]
     description = c4_stack_trial_description(name)
-    return QCStack(
+    return C4Stack(
         name=c4_stack_trial_name(name),
         tags=c4_stack_trial_tags(),
         account=c4_stack_trial_account(),
@@ -68,8 +68,8 @@ def c4_stack_trial_beanstalk_meta():
 
 def c4_stack_trial_beanstalk():
     name, description = c4_stack_trial_beanstalk_meta()
-    parts = [beanstalk.QCBeanstalk]
-    return QCStack(
+    parts = [beanstalk.C4Beanstalk]
+    return C4Stack(
         name=name,
         tags=c4_stack_trial_tags(),
         account=c4_stack_trial_account(),
@@ -80,9 +80,9 @@ def c4_stack_trial_beanstalk():
 
 def stack_trial_ecr():
     name = 'ecr'
-    parts = [ecr.QCContainerRegistry]
+    parts = [ecr.C4ContainerRegistry]
     description = c4_stack_trial_description(name)
-    return QCStack(
+    return C4Stack(
         name=c4_stack_trial_name(name),
         tags=c4_stack_trial_tags(),
         account=c4_stack_trial_account(),

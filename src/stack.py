@@ -1,4 +1,4 @@
-from src.part import QCName, QCTags, QCAccount, QCPart
+from src.part import C4Name, C4Tags, C4Account, C4Part
 from troposphere import Template
 import os
 import sys
@@ -9,7 +9,7 @@ import logging
 CLOUD_FORMATION_VERSION = '2010-09-09'
 
 
-def build_template_from_parts(parts: [QCPart], description) -> Template:
+def build_template_from_parts(parts: [C4Part], description) -> Template:
     """ Helper function for building a template from scratch using a list of parts and a description. """
     template = Template()
     template.set_version(CLOUD_FORMATION_VERSION)
@@ -19,8 +19,8 @@ def build_template_from_parts(parts: [QCPart], description) -> Template:
     return template
 
 
-class QCStack:
-    def __init__(self, name: QCName, tags: QCTags, account: QCAccount, parts: [QCPart], description):
+class C4Stack:
+    def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account, parts: [C4Part]):
         self.name = name
         self.tags = tags
         self.account = account

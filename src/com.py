@@ -4,13 +4,15 @@ import os
 
 from src.info.aws_util import AWSUtil
 from src.exceptions import CLIException
-from src.stacks.trial import (c4_stack_trial_network, c4_stack_trial_network_metadata,
-    c4_stack_trial_datastore, c4_stack_trial_beanstalk)
+from src.stacks.trial import (
+    c4_stack_trial_network, c4_stack_trial_network_metadata, c4_stack_trial_datastore, c4_stack_trial_beanstalk,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-beanstalk-trial']
+CREDENTIAL_DIR = '~/.aws_test'  # further parameterize
 
 
 def provision_stack(args):
@@ -34,12 +36,18 @@ def provision_stack(args):
         if args.validate:
             cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {args}'.format(
                 mount_yaml='~/code/4dn-cloud-infra/out/templates:/root/out/templates',
-                mount_creds='~/.aws_test:/root/.aws',
+                mount_creds='{test_creds}:/root/.aws'.format(test_creds=CREDENTIAL_DIR),
                 command='amazon/aws-cli cloudformation validate-template',
                 args='--template-body file://{file_path}'.format(file_path=file_path),
             )
             logger.info('Validating provisioned template...')
             os.system(cmd)
+
+        if args.view_changes:
+            # fetch current template from cloudformation, convert to json
+            # generate current template as json
+            # view and print diffs
+            pass  # dcic_utils.diff_utils.
 
         if args.upload_change_set:
             network_stack_name, _ = c4_stack_trial_network_metadata()
@@ -76,7 +84,7 @@ def info(args):
         aws_util.generate_s3_bucket_summary_tsv(dry_run=False)
 
 
-def cli():
+def com():
     """Set up and run the 4dn cloud infra command line scripts"""
     parser = argparse.ArgumentParser(description='4DN Cloud Infrastructure')
     parser.add_argument('--debug', action='store_true', help='Sets log level to debug')
@@ -88,6 +96,7 @@ def cli():
     parser_provision.add_argument('stack', help='Select stack to operate on: {}'.format(SUPPORTED_STACKS))
     parser_provision.add_argument('--stdout', action='store_true', help='Writes template to STDOUT only')
     parser_provision.add_argument('--validate', action='store_true', help='Verifies template')
+    parser_provision.add_argument('--view_changes', action='store_true', help='TBD: view changes made to template')
     parser_provision.add_argument('--upload_change_set', action='store_true',
                                   help='Uploads template and provisions change set')
     parser_provision.set_defaults(func=provision_stack)

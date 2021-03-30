@@ -14,8 +14,6 @@ from awacs.aws import (
 )
 import awacs.ecr as ecr
 
-class QCContainerRegistry:
-    pass  # TODO
 
 class C4ContainerRegistry:
     """ Contains a classmethod that builds an ECR template for this stack.
