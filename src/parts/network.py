@@ -1,19 +1,15 @@
-from troposphere import Ref, GetAtt, Export, Output, Sub, Template, ImportValue
+from troposphere import Ref, GetAtt, Output, Template
 from troposphere.ec2 import (
-    InternetGateway, LocalGatewayRoute, Route, RouteTable, SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
-    Subnet, SubnetCidrBlock, SubnetRouteTableAssociation, Tag, VPC, VPCGatewayAttachment, NatGateway, EIP, Instance
+    InternetGateway, Route, RouteTable, SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
+    Subnet, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment, NatGateway, EIP
 )
-from src.exceptions import C4NetworkException
 from src.part import C4Part
+from src.exports import C4Exports
 import logging
 
 
-class C4NetworkExports:
+class C4NetworkExports(C4Exports):
     """ Helper class for working with network exported resources and their input values """
-    REFERENCE_PARAM_KEY = 'NetworkStackNameParameter'
-    REFERENCE_PARAM = '${' + REFERENCE_PARAM_KEY + '}'
-    # could perhaps reference C4NetworkPart.name.stack_name
-    STACK_NAME_PARAM = '${AWS::StackName}'
     VPC = 'ExportVPC'
     PRIVATE_SUBNET_A = 'ExportPrivateSubnetA'
     PRIVATE_SUBNET_B = 'ExportPrivateSubnetB'
@@ -23,31 +19,17 @@ class C4NetworkExports:
     DB_SECURITY_GROUP = 'ExportDBSecurityGroup'
     HTTPS_SECURITY_GROUP = 'ExportHTTPSSecurityGroup'
 
-    @classmethod
-    def export(cls, resource_id):
-        """ Helper method for building the Export field in an Output for a template. Ref:
-            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html
-        """
-        # valid exports: [i for i in dir(C4NetworkExports) if i.isupper() and 'PARAM' not in i]
-        return Export(Sub(
-            '{}-{}'.format(cls.STACK_NAME_PARAM, resource_id)
-        ))
-
-    @classmethod
-    def import_value(cls, resource_id):
-        """ Ref:
-            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-importvalue.html
-        """
-        # valid import values: [i for i in dir(C4NetworkExports) if i.isupper() and 'PARAM' not in i]
-        return ImportValue(Sub(
-            '{}-{}'.format(cls.REFERENCE_PARAM, resource_id)
-        ))
+    def __init__(self):
+        parameter = 'NetworkStackNameParameter'
+        # could perhaps reference C4NetworkPart.name.stack_name
+        super().__init__(parameter)
 
 
 class C4Network(C4Part):
     CIDR_BLOCK = '10.2.0.0/16'
     DB_PORT_LOW = 5400
     DB_PORT_HIGH = 5499
+    EXPORTS = C4NetworkExports()
 
     def build_template(self, template: Template) -> Template:
         """ Add network resources to template """
@@ -134,8 +116,8 @@ class C4Network(C4Part):
         resource = self.virtual_private_cloud()
         output = Output(
             logical_id,
-            Value=Ref(self.virtual_private_cloud()),
-            Export=C4NetworkExports.export(export_name),
+            Value=Ref(resource),
+            Export=self.EXPORTS.export(export_name),
         )
         return output
 
@@ -244,7 +226,7 @@ class C4Network(C4Part):
         )
 
     def build_subnet_association(self, subnet, route_table) -> SubnetRouteTableAssociation:
-        """ Builds a subnet assoociation between a subnet and a route table. What makes a 'public' subnet 'public'
+        """ Builds a subnet association between a subnet and a route table. What makes a 'public' subnet 'public'
             and a 'private' subnet 'private'. """
         logical_id = self.name.logical_id('{}To{}Association'.format(subnet.title, route_table.title))
         return SubnetRouteTableAssociation(
@@ -287,7 +269,7 @@ class C4Network(C4Part):
             output = Output(
                 logical_id,
                 Value=Ref(subnet),
-                Export=C4NetworkExports.export(export_name),
+                Export=self.EXPORTS.export(export_name),
             )
             outputs.append(output)
         return outputs
@@ -319,7 +301,7 @@ class C4Network(C4Part):
         output = Output(
             logical_id,
             Value=Ref(resource),
-            Export=C4NetworkExports.export(export_name),
+            Export=self.EXPORTS.export(export_name),
         )
         return output
 
@@ -373,10 +355,9 @@ class C4Network(C4Part):
         output = Output(
             logical_id,
             Value=Ref(resource),
-            Export=C4NetworkExports.export(export_name),
+            Export=self.EXPORTS.export(export_name),
         )
         return output
-
 
     def https_inbound_rule(self) -> SecurityGroupIngress:
         """ Returns inbound rules for https-only web security group. Ref:
@@ -428,7 +409,7 @@ class C4Network(C4Part):
         output = Output(
             logical_id,
             Value=Ref(resource),
-            Export=C4NetworkExports.export(export_name),
+            Export=self.EXPORTS.export(export_name),
         )
         return output
 

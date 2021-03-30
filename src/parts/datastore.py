@@ -16,11 +16,12 @@ from src.parts.network import C4NetworkExports
 
 class C4Datastore(C4Part):
     RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names
+    NETWORK_EXPORTS = C4NetworkExports()
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
         template.add_parameter(Parameter(
-            C4NetworkExports.REFERENCE_PARAM_KEY,
+            self.NETWORK_EXPORTS.reference_param_key,
             Description='Name of network stack for network import value references',
             Type='String',
         ))
@@ -63,8 +64,8 @@ class C4Datastore(C4Part):
             logical_id,
             DBSubnetGroupDescription='RDS subnet group',
             SubnetIds=[
-                C4NetworkExports.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                C4NetworkExports.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
+                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
             ],
             Tags=self.tags.cost_tag_array(),
         )
@@ -89,7 +90,7 @@ class C4Datastore(C4Part):
             AvailabilityZone=az_zone,
             PubliclyAccessible=False,
             StorageType=storage_type,
-            VPCSecurityGroups=[C4NetworkExports.import_value(C4NetworkExports.DB_SECURITY_GROUP)],
+            VPCSecurityGroups=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.DB_SECURITY_GROUP)],
             MasterUsername=Join('', [
                 '{{resolve:secretsmanager:',
                 {'Ref': secret_string_logical_id},
@@ -172,10 +173,10 @@ class C4Datastore(C4Part):
             ),
             VPCOptions=VPCOptions(
                 SecurityGroupIds=[
-                    C4NetworkExports.import_value(C4NetworkExports.HTTPS_SECURITY_GROUP),
+                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.HTTPS_SECURITY_GROUP),
                 ],
                 SubnetIds=[
-                    C4NetworkExports.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
                 ],
             ),
             Tags=self.tags.cost_tag_array(name=domain_name),

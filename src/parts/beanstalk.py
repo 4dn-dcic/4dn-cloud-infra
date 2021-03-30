@@ -11,11 +11,12 @@ from troposphere.elasticloadbalancingv2 import LoadBalancer, LoadBalancerAttribu
 class C4Beanstalk(C4Part):
     BEANSTALK_SOLUTION_STACK = '64bit Amazon Linux 2018.03 v2.9.18 running Python 3.6'
     APPLICATION_ENV_SECRET = 'dev/beanstalk/cgap-dev'  # name of secret in AWS Secret Manager; todo script initial add?
+    NETWORK_EXPORTS = C4NetworkExports()
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
         template.add_parameter(Parameter(
-            C4NetworkExports.REFERENCE_PARAM_KEY,
+            self.NETWORK_EXPORTS.reference_param_key,
             Description='Name of network stack for network import value references',
             Type='String',
         ))
@@ -71,10 +72,11 @@ class C4Beanstalk(C4Part):
             IpAddressType=ip_address_type,
             Name=logical_id,
             Scheme='internet-facing',
-            SecurityGroups=[C4NetworkExports.import_value(C4NetworkExports.BEANSTALK_SECURITY_GROUP)],
+            SecurityGroups=[self.NETWORK_EXPORTS.import_value(
+                C4NetworkExports.BEANSTALK_SECURITY_GROUP)],
             Subnets=[
-                C4NetworkExports.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
-                C4NetworkExports.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
+                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
+                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
             ],
             Tags=self.tags.cost_tag_array(name=logical_id),
             Type=load_balancer_type,  # 'application' is the default
@@ -167,8 +169,7 @@ class C4Beanstalk(C4Part):
 
     # Beanstalk Options #
 
-    @staticmethod
-    def launchconfiguration_options():
+    def launchconfiguration_options(self):
         """ Returns list of OptionsSettings for beanstalk launch configuration. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-autoscalinglaunchconfiguration
         """
@@ -192,8 +193,8 @@ class C4Beanstalk(C4Part):
                 Namespace='aws:autoscaling:launchconfiguration',
                 OptionName='SecurityGroups',  # TODO correct security groups
                 Value=Join(delimiter=',', values=[
-                    C4NetworkExports.import_value(C4NetworkExports.BEANSTALK_SECURITY_GROUP),
-                    C4NetworkExports.import_value(C4NetworkExports.DB_SECURITY_GROUP)]),
+                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.BEANSTALK_SECURITY_GROUP),
+                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.DB_SECURITY_GROUP)]),
             ),
         ]
 
@@ -210,8 +211,7 @@ class C4Beanstalk(C4Part):
             ),
         ]
 
-    @staticmethod
-    def vpc_options():
+    def vpc_options(self):
         """ Returns list of OptionSettings for beanstalk VPC. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-ec2vpc
         """
@@ -219,21 +219,21 @@ class C4Beanstalk(C4Part):
             OptionSettings(
                 Namespace='aws:ec2:vpc',
                 OptionName='VPCId',
-                Value=C4NetworkExports.import_value(C4NetworkExports.VPC)
+                Value=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC)
             ),
             OptionSettings(
                 Namespace='aws:ec2:vpc',
                 OptionName='ELBSubnets',
                 Value=Join(delimiter=',', values=[
-                    C4NetworkExports.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
-                    C4NetworkExports.import_value(C4NetworkExports.PUBLIC_SUBNET_B)])
+                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
+                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B)])
             ),
             OptionSettings(
                 Namespace='aws:ec2:vpc',
                 OptionName='Subnets',
                 Value=Join(delimiter=',', values=[
-                    C4NetworkExports.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                    C4NetworkExports.import_value(C4NetworkExports.PRIVATE_SUBNET_B)])
+                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)])
             ),
             OptionSettings(
                 Namespace='aws:ec2:vpc',
@@ -434,8 +434,7 @@ class C4Beanstalk(C4Part):
             ),
         ]
 
-    @staticmethod
-    def loadbalancer_options():
+    def loadbalancer_options(self):
         """ Returns list of OptionsSettings for beanstalk loadbalancer. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elbv2
         """
@@ -443,7 +442,7 @@ class C4Beanstalk(C4Part):
             OptionSettings(
                 Namespace='aws:elbv2:loadbalancer',
                 OptionName='SecurityGroups',
-                Value=C4NetworkExports.import_value(C4NetworkExports.BEANSTALK_SECURITY_GROUP)
+                Value=self.NETWORK_EXPORTS.import_value(C4NetworkExports.BEANSTALK_SECURITY_GROUP)
             ),
             # OptionSettings(
             #   Namespace='aws:elbv2:loadbalancer',
