@@ -1,4 +1,4 @@
-from src.stack import QCStack, QCName, QCTags, QCAccount
+from src.stack import C4Stack, C4Name, C4Tags, C4Account
 from src.parts import network, datastore, ecr, ecs, iam
 
 
@@ -6,16 +6,16 @@ from src.parts import network, datastore, ecr, ecs, iam
 
 
 def c4_ecs_stack_trial_name(name):
-    return QCName(name='c4-{}-trial-ecs'.format(name))
+    return C4Name(name='c4-{}-trial-ecs'.format(name))
 
 
 def c4_ecs_stack_trial_tags():
-    return QCTags(env='prod', project='cgap', owner='project')
+    return C4Tags(env='prod', project='cgap', owner='project')
 
 
 def c4_ecs_stack_trial_account(aws_account_id=645819926742):
     """ Set to the account ID to deploy in. """
-    return QCAccount(account_number=aws_account_id)
+    return C4Account(account_number=aws_account_id)
 
 
 def c4_ecs_stack_trial_description(stack):
@@ -35,9 +35,9 @@ def c4_stack_trial_network_metadata():
 
 def c4_ecs_stack_trial_network():
     """ Network stack for the ECS version of CGAP """
-    parts = [network.QCNetwork]
+    parts = [network.C4Network]
     name, description = c4_stack_trial_network_metadata()
-    return QCStack(
+    return C4Stack(
         name=name,
         tags=c4_ecs_stack_trial_tags(),
         account=c4_ecs_stack_trial_account(),
@@ -49,9 +49,9 @@ def c4_ecs_stack_trial_network():
 def c4_ecs_stack_trial_datastore():
     """ Datastore stack for the ECS version of CGAP """
     name = 'datastore'
-    parts = [datastore.QCDatastore]
+    parts = [datastore.C4Datastore]
     description = c4_ecs_stack_trial_description(name)
-    return QCStack(
+    return C4Stack(
         name=c4_ecs_stack_trial_name(name),
         tags=c4_ecs_stack_trial_tags(),
         account=c4_ecs_stack_trial_account(),
@@ -65,7 +65,7 @@ def c4_ecs_stack_trial_iam():
     name = 'iam'
     parts = [iam.C4IAM]
     description = c4_ecs_stack_trial_description(name)
-    return QCStack(
+    return C4Stack(
         name=c4_ecs_stack_trial_name(name),
         tags=c4_ecs_stack_trial_tags(),
         account=c4_ecs_stack_trial_account(),
@@ -81,7 +81,7 @@ def c4_ecs_stack_trial_ecr():
     name = 'ecr'
     parts = [iam.C4IAM, ecr.QCContainerRegistry]
     description = c4_ecs_stack_trial_description(name)
-    return QCStack(
+    return C4Stack(
         name=c4_ecs_stack_trial_name(name),
         tags=c4_ecs_stack_trial_tags(),
         account=c4_ecs_stack_trial_account(),

@@ -1,8 +1,8 @@
 from troposphere import logs, Template
-from src.part import QCPart
+from src.part import C4Part
 
 
-class QCLogging(QCPart):
+class QCLogging(C4Part):
 
     def build_template(self, template: Template) -> Template:
         log_group = logs.LogGroup(

@@ -8,13 +8,13 @@ from awacs.ecr import (
 )
 from awacs.aws import PolicyDocument, Statement, Action, Principal
 
-from src.part import QCPart
+from src.part import C4Part
 
 
 # TODO add exports
 
 
-class C4IAM(QCPart):
+class C4IAM(C4Part):
     """ Contains IAM Role configuration for CGAP.
         Right now, there is only one important IAM Role to configure.
         That is the assumed IAM role assigned to ECS.

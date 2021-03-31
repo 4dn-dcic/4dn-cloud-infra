@@ -26,11 +26,11 @@ from troposphere.ec2 import (
     SecurityGroup,
     SecurityGroupRule,
 )
-from src.part import QCPart
-from src.parts.network import QCNetworkExports
+from src.part import C4Part
+from src.parts.network import C4NetworkExports
 
 
-class QCECSApplication(QCPart):
+class QCECSApplication(C4Part):
     """ Configures the ECS Cluster Application for CGAP
         This class contains everything necessary for running CGAP on ECS, including:
             * The Cluster itself (done)

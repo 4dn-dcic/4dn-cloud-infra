@@ -10,17 +10,18 @@ from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
 from dcicutils.misc_utils import as_seconds
-from src.part import QCPart
-from src.parts.network import QCNetworkExports
+from src.part import C4Part
+from src.parts.network import C4NetworkExports
 
 
-class QCDatastore(QCPart):
+class C4Datastore(C4Part):
     RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names
+    NETWORK_EXPORTS = C4NetworkExports()
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
         template.add_parameter(Parameter(
-            QCNetworkExports.REFERENCE_PARAM_KEY,
+            self.NETWORK_EXPORTS.reference_param_key,
             Description='Name of network stack for network import value references',
             Type='String',
         ))
@@ -63,8 +64,8 @@ class QCDatastore(QCPart):
             logical_id,
             DBSubnetGroupDescription='RDS subnet group',
             SubnetIds=[
-                QCNetworkExports.import_value(QCNetworkExports.PRIVATE_SUBNET_A),
-                QCNetworkExports.import_value(QCNetworkExports.PRIVATE_SUBNET_B),
+                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
             ],
             Tags=self.tags.cost_tag_array(),
         )
@@ -89,7 +90,7 @@ class QCDatastore(QCPart):
             AvailabilityZone=az_zone,
             PubliclyAccessible=False,
             StorageType=storage_type,
-            VPCSecurityGroups=[QCNetworkExports.import_value(QCNetworkExports.DB_SECURITY_GROUP)],
+            VPCSecurityGroups=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.DB_SECURITY_GROUP)],
             MasterUsername=Join('', [
                 '{{resolve:secretsmanager:',
                 {'Ref': secret_string_logical_id},
@@ -172,10 +173,10 @@ class QCDatastore(QCPart):
             ),
             VPCOptions=VPCOptions(
                 SecurityGroupIds=[
-                    QCNetworkExports.import_value(QCNetworkExports.HTTPS_SECURITY_GROUP),
+                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.HTTPS_SECURITY_GROUP),
                 ],
                 SubnetIds=[
-                    QCNetworkExports.import_value(QCNetworkExports.PRIVATE_SUBNET_A),
+                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
                 ],
             ),
             Tags=self.tags.cost_tag_array(name=domain_name),

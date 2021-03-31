@@ -1,19 +1,15 @@
-from troposphere import Ref, GetAtt, Export, Output, Sub, Template, ImportValue
+from troposphere import Ref, GetAtt, Output, Template
 from troposphere.ec2 import (
-    InternetGateway, LocalGatewayRoute, Route, RouteTable, SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
-    Subnet, SubnetCidrBlock, SubnetRouteTableAssociation, Tag, VPC, VPCGatewayAttachment, NatGateway, EIP, Instance
+    InternetGateway, Route, RouteTable, SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
+    Subnet, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment, NatGateway, EIP
 )
-from src.exceptions import C4NetworkException
-from src.part import QCPart
+from src.part import C4Part
+from src.exports import C4Exports
 import logging
 
 
-class QCNetworkExports:
+class C4NetworkExports(C4Exports):
     """ Helper class for working with network exported resources and their input values """
-    REFERENCE_PARAM_KEY = 'NetworkStackNameParameter'
-    REFERENCE_PARAM = '${' + REFERENCE_PARAM_KEY + '}'
-    # could perhaps reference QCNetworkPart.name.stack_name
-    STACK_NAME_PARAM = '${AWS::StackName}'
     VPC = 'ExportVPC'
     PRIVATE_SUBNET_A = 'ExportPrivateSubnetA'
     PRIVATE_SUBNET_B = 'ExportPrivateSubnetB'
@@ -23,31 +19,17 @@ class QCNetworkExports:
     DB_SECURITY_GROUP = 'ExportDBSecurityGroup'
     HTTPS_SECURITY_GROUP = 'ExportHTTPSSecurityGroup'
 
-    @classmethod
-    def export(cls, resource_id):
-        """ Helper method for building the Export field in an Output for a template. Ref:
-            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html
-        """
-        # valid exports: [i for i in dir(QCNetworkExports) if i.isupper() and 'PARAM' not in i]
-        return Export(Sub(
-            '{}-{}'.format(cls.STACK_NAME_PARAM, resource_id)
-        ))
-
-    @classmethod
-    def import_value(cls, resource_id):
-        """ Ref:
-            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-importvalue.html
-        """
-        # valid import values: [i for i in dir(QCNetworkExports) if i.isupper() and 'PARAM' not in i]
-        return ImportValue(Sub(
-            '{}-{}'.format(cls.REFERENCE_PARAM, resource_id)
-        ))
+    def __init__(self):
+        parameter = 'NetworkStackNameParameter'
+        # could perhaps reference C4NetworkPart.name.stack_name
+        super().__init__(parameter)
 
 
-class QCNetwork(QCPart):
+class C4Network(C4Part):
     CIDR_BLOCK = '10.2.0.0/16'
     DB_PORT_LOW = 5400
     DB_PORT_HIGH = 5499
+    EXPORTS = C4NetworkExports()
 
     def build_template(self, template: Template) -> Template:
         """ Add network resources to template """
@@ -129,13 +111,13 @@ class QCNetwork(QCPart):
         """ Define output for VPC resource for cross-stack compatibility. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html
         """
-        export_name = QCNetworkExports.VPC
+        export_name = C4NetworkExports.VPC
         logical_id = self.name.logical_id(export_name)
         resource = self.virtual_private_cloud()
         output = Output(
             logical_id,
-            Value=Ref(self.virtual_private_cloud()),
-            Export=QCNetworkExports.export(export_name),
+            Value=Ref(resource),
+            Export=self.EXPORTS.export(export_name),
         )
         return output
 
@@ -244,7 +226,7 @@ class QCNetwork(QCPart):
         )
 
     def build_subnet_association(self, subnet, route_table) -> SubnetRouteTableAssociation:
-        """ Builds a subnet assoociation between a subnet and a route table. What makes a 'public' subnet 'public'
+        """ Builds a subnet association between a subnet and a route table. What makes a 'public' subnet 'public'
             and a 'private' subnet 'private'. """
         logical_id = self.name.logical_id('{}To{}Association'.format(subnet.title, route_table.title))
         return SubnetRouteTableAssociation(
@@ -276,10 +258,10 @@ class QCNetwork(QCPart):
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html
         """
         subnet_exports = [
-            (self.public_subnet_a(), QCNetworkExports.PUBLIC_SUBNET_A),
-            (self.public_subnet_b(), QCNetworkExports.PUBLIC_SUBNET_B),
-            (self.private_subnet_a(), QCNetworkExports.PRIVATE_SUBNET_A),
-            (self.private_subnet_b(), QCNetworkExports.PRIVATE_SUBNET_B),
+            (self.public_subnet_a(), C4NetworkExports.PUBLIC_SUBNET_A),
+            (self.public_subnet_b(), C4NetworkExports.PUBLIC_SUBNET_B),
+            (self.private_subnet_a(), C4NetworkExports.PRIVATE_SUBNET_A),
+            (self.private_subnet_b(), C4NetworkExports.PRIVATE_SUBNET_B),
         ]
         outputs = []
         for subnet, export_name in subnet_exports:
@@ -287,7 +269,7 @@ class QCNetwork(QCPart):
             output = Output(
                 logical_id,
                 Value=Ref(subnet),
-                Export=QCNetworkExports.export(export_name),
+                Export=self.EXPORTS.export(export_name),
             )
             outputs.append(output)
         return outputs
@@ -303,7 +285,7 @@ class QCNetwork(QCPart):
         """ Define the database security group. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
         """
-        logical_id = self.name.logical_id(QCNetworkExports.DB_SECURITY_GROUP)
+        logical_id = self.name.logical_id(C4NetworkExports.DB_SECURITY_GROUP)
         return SecurityGroup(
             logical_id,
             GroupName=logical_id,
@@ -314,12 +296,12 @@ class QCNetwork(QCPart):
 
     def db_security_group_output(self) -> Output:
         resource = self.db_security_group()
-        export_name = QCNetworkExports.DB_SECURITY_GROUP
+        export_name = C4NetworkExports.DB_SECURITY_GROUP
         logical_id = self.name.logical_id(export_name)
         output = Output(
             logical_id,
             Value=Ref(resource),
-            Export=QCNetworkExports.export(export_name),
+            Export=self.EXPORTS.export(export_name),
         )
         return output
 
@@ -368,15 +350,14 @@ class QCNetwork(QCPart):
 
     def https_security_group_output(self) -> Output:
         resource = self.https_security_group()
-        export_name = QCNetworkExports.HTTPS_SECURITY_GROUP
+        export_name = C4NetworkExports.HTTPS_SECURITY_GROUP
         logical_id = self.name.logical_id(export_name)
         output = Output(
             logical_id,
             Value=Ref(resource),
-            Export=QCNetworkExports.export(export_name),
+            Export=self.EXPORTS.export(export_name),
         )
         return output
-
 
     def https_inbound_rule(self) -> SecurityGroupIngress:
         """ Returns inbound rules for https-only web security group. Ref:
@@ -423,12 +404,12 @@ class QCNetwork(QCPart):
 
     def beanstalk_security_group_output(self) -> Output:
         resource = self.beanstalk_security_group()
-        export_name = QCNetworkExports.BEANSTALK_SECURITY_GROUP
+        export_name = C4NetworkExports.BEANSTALK_SECURITY_GROUP
         logical_id = self.name.logical_id(export_name)
         output = Output(
             logical_id,
             Value=Ref(resource),
-            Export=QCNetworkExports.export(export_name),
+            Export=self.EXPORTS.export(export_name),
         )
         return output
 

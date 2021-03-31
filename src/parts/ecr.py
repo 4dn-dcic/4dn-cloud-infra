@@ -18,10 +18,10 @@ from awacs.aws import (
 )
 import awacs.ecr as ecr
 from .iam import C4IAM
-from src.part import QCPart
+from src.part import C4Part
 
 
-class QCContainerRegistry(QCPart):
+class QCContainerRegistry(C4Part):
     """ Contains a classmethod that builds an ECR template for this stack.
         NOTE: IAM setup must be done before this.
     """
