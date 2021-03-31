@@ -89,6 +89,8 @@ class C4ECSApplication(C4Part):
         template.add_parameter(self.ecs_max_scale())
         template.add_parameter(self.ecs_desired_scale())
         template.add_parameter(self.ecs_lb_certificate())  # TODO must be provisioned
+        template.add_parameter(self.ecs_web_worker_memory())
+        template.add_parameter(self.ecs_web_worker_cpu())
 
         # ECS Components
         template.add_resource(self.ecs_cluster())
@@ -211,7 +213,7 @@ class C4ECSApplication(C4Part):
                 self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
                 self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
             ],
-            SecurityGroups=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.BEANSTALK_SECURITY_GROUP)],
+            SecurityGroups=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.APPLICATION_SECURITY_GROUP)],
             Listeners=[elb.Listener(
                 LoadBalancerPort=443,
                 InstanceProtocol='HTTP',
@@ -336,7 +338,7 @@ class C4ECSApplication(C4Part):
                 private_subnet_a, private_subnet_b,  # use private subnet for container
             ))],
             InstanceType=Ref(self.ecs_container_instance_type()),
-            IamInstanceProfile=Ref(profile),
+            IamInstanceProfile=profile,
             ImageId='latest',
             UserData=Base64(Join('', [
                 "#!/bin/bash -xe\n",
@@ -458,14 +460,14 @@ class C4ECSApplication(C4Part):
                         '.dkr.ecr.',
                         Ref(AWS_REGION),
                         '.amazonaws.com/',
-                        Ref(ecr),
+                        ecr,
                         ':',
                         app_revision,
                     ]),
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
                         Options={
-                            'awslogs-group': Ref(log_group),
+                            'awslogs-group': log_group,
                             'awslogs-region': Ref(AWS_REGION),
                         }
                     ),
@@ -497,7 +499,7 @@ class C4ECSApplication(C4Part):
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
                         Options={
-                            'awslogs-group': Ref(log_group),
+                            'awslogs-group': log_group,
                             'awslogs-region': Ref(AWS_REGION),
                         }
                     ),
@@ -534,7 +536,7 @@ class C4ECSApplication(C4Part):
             DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
             DesiredCount='1',
             TaskDefinition=Ref(self.ecs_indexer_task(repo, log_group)),
-            Role=Ref(role),
+            Role=role,
         )
 
     def ecs_ingester_service(self, repo, log_group, role):
@@ -550,5 +552,5 @@ class C4ECSApplication(C4Part):
             DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
             DesiredCount='1',
             TaskDefinition=Ref(self.ecs_ingester_task(repo, log_group)),
-            Role=Ref(role),
+            Role=role,
         )
