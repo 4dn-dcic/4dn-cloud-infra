@@ -1,4 +1,4 @@
-import src.secrets as secrets  # TODO
+import src.secrets as secrets
 from src.part import C4Part
 from src.exceptions import C4ApplicationException
 from src.parts.network import C4NetworkExports
@@ -56,7 +56,7 @@ class C4Beanstalk(C4Part):
             ApplicationName=logical_id,
             Description=logical_id,
             # DependsOn=[
-            #    self.beanstalk_security_group().title, self.db_security_group().title,
+            #    self.application_security_group().title, self.db_security_group().title,
             #    self.virtual_private_cloud().title],
             # export
         )
@@ -129,7 +129,7 @@ class C4Beanstalk(C4Part):
             Tags=Tags(*self.tags.cost_tag_array(name=logical_id)),
             OptionSettings=self.beanstalk_configuration_option_settings(),
             DependsOn=[
-                # self.beanstalk_security_group().title, self.db_security_group().title,
+                # self.application_security_group().title, self.db_security_group().title,
                 # self.virtual_private_cloud().title,
                 self.beanstalk_application()],
         )

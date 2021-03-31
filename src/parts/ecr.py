@@ -3,7 +3,11 @@ from troposphere import (
     AWS_REGION,
     Join,
     Ref,
+    Template,
     Output,
+    Export,
+    Sub,
+    ImportValue
 )
 from troposphere.ecr import Repository
 from awacs.aws import (
@@ -13,15 +17,34 @@ from awacs.aws import (
     Statement,
 )
 import awacs.ecr as ecr
+from .iam import C4IAM
+from src.part import C4Part
+from src.exports import C4Exports
 
 
-class C4ContainerRegistry:
+class C4ECRExports(C4Exports):
+    """ Holds exports for ECR. """
+    ECR_REPO_URL = 'ECRRepoURL'
+
+    def __init__(self):
+        parameter = 'ECRStackNameParameter'
+        super().__init__(parameter)
+
+
+class QCContainerRegistry(C4Part):
     """ Contains a classmethod that builds an ECR template for this stack.
-        TODO: Test, add to template.
+        NOTE: IAM setup must be done before this.
     """
+    EXPORTS = C4ECRExports()
 
-    @classmethod
-    def ecr_push_statement(cls, principle='root'):
+    def build_template(self, template: Template) -> Template:
+        repo = self.repository()
+        template.add_resource(repo)
+        template.add_output(self.output_repo_url(repo))
+        return template
+
+    @staticmethod
+    def ecr_push_acl(principle='root'):
         """ This statement gives the root user push/pull access to ECR.
             TODO: 'root' is likely not correct.
         """
@@ -45,10 +68,12 @@ class C4ContainerRegistry:
                 ecr.CompleteLayerUpload,
             ])
 
-    @classmethod
-    def ecr_pull_statement(cls, principle='root'):
+    @staticmethod
+    def ecr_pull_acl(principle=C4IAM.ROLE_NAME):
         """ This statement gives the given principle pull access to ECR.
             This perm should be attached to the assumed IAM role of ECS.
+
+            ROLE_NAME corresponds to the assumed IAM role of ECS. See iam.py.
         """
         return Statement(
                 Sid="AllowPull",  # allow pull only
@@ -69,22 +94,35 @@ class C4ContainerRegistry:
                     ecr.CompleteLayerUpload,
                 ])
 
-    @classmethod
-    def ecr_access_policy(cls):
+    def ecr_access_policy(self):
         """ Contains ECR access policy """
         return Policy(Version='2008-10-17',
                       Statement=[
                           # 2 statements - push/pull to whoever will be uploading the image
                           # and pull to the assumed IAM role
-                          cls.ecr_push_statement(), cls.ecr_pull_statement()
+                          self.ecr_push_acl(), self.ecr_pull_acl()
                       ]
                 )
 
-    @classmethod
-    def repository(cls):
+    def repository(self):
         """ Builds the ECR Repository. """
         return Repository(
-            'CGAP-Docker',
+            'CGAPDocker',
             RepositoryName='WSGI',  # might be we need many of these?
-            RepositoryPolicyText=cls.ecr_access_policy()
+            RepositoryPolicyText=self.ecr_access_policy()
+        )
+
+    @staticmethod
+    def output_repo_url(resource: Repository):
+        """ Generates repo URL output """
+        return Output(
+            C4ECRExports.ECR_REPO_URL,
+            Description='CGAPDocker Image Repository URL',
+            Value=Join('', [
+                Ref(AWS_ACCOUNT_ID),
+                '.dkr.ecr.',
+                Ref(AWS_REGION),
+                '.amazonaws.com/',
+                Ref(resource),
+            ]),
         )

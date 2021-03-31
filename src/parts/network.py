@@ -15,7 +15,7 @@ class C4NetworkExports(C4Exports):
     PRIVATE_SUBNET_B = 'ExportPrivateSubnetB'
     PUBLIC_SUBNET_A = 'ExportPublicSubnetA'
     PUBLIC_SUBNET_B = 'ExportPublicSubnetB'
-    BEANSTALK_SECURITY_GROUP = 'ExportBeanstalkSecurityGroup'
+    APPLICATION_SECURITY_GROUP = 'ExportApplicationSecurityGroup'  # XXX: Can we name this something more generic? -Will
     DB_SECURITY_GROUP = 'ExportDBSecurityGroup'
     HTTPS_SECURITY_GROUP = 'ExportHTTPSSecurityGroup'
 
@@ -26,6 +26,9 @@ class C4NetworkExports(C4Exports):
 
 
 class C4Network(C4Part):
+    """ Note: when reading this code 'application' roughly refers to the AWS service running
+        the CGAP Portal, whether it be Elastic Beanstalk or ECS.
+    """
     CIDR_BLOCK = '10.2.0.0/16'
     DB_PORT_LOW = 5400
     DB_PORT_HIGH = 5499
@@ -65,11 +68,11 @@ class C4Network(C4Part):
             template.add_resource(i)
 
         # Add security groups
-        for i in [self.db_security_group(), self.https_security_group(), self.beanstalk_security_group()]:
+        for i in [self.db_security_group(), self.https_security_group(), self.application_security_group()]:
             template.add_resource(i)
         # Add security group outputs
         for i in [self.db_security_group_output(), self.https_security_group_output(),
-                  self.beanstalk_security_group_output()]:
+                  self.application_security_group_output()]:
             template.add_output(i)
 
         # Add db inbound and outbound rules
@@ -80,8 +83,8 @@ class C4Network(C4Part):
         for i in [self.https_inbound_rule(), self.https_outbound_rule()]:
             template.add_resource(i)
 
-        # Add beanstalk security rules
-        for i in self.beanstalk_security_rules():
+        # Add Application security rules
+        for i in self.application_security_rules():
             template.add_resource(i)
 
         return template
@@ -389,22 +392,22 @@ class C4Network(C4Part):
             ToPort=443,
         )
 
-    def beanstalk_security_group(self) -> SecurityGroup:
-        """ Returns beanstalk security group for rules needed by beanstalk to access resources. Ref:
+    def application_security_group(self) -> SecurityGroup:
+        """ Returns application security group for rules needed by application to access resources. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
         """
-        logical_id = self.name.logical_id('BeanstalkSecurityGroup')
+        logical_id = self.name.logical_id('ApplicationSecurityGroup')
         return SecurityGroup(
             logical_id,
             GroupName=logical_id,
-            GroupDescription='allows access needed by Beanstalk Application',
+            GroupDescription='allows access needed by Application',
             VpcId=Ref(self.virtual_private_cloud()),
             Tags=self.tags.cost_tag_array(name=logical_id),
         )
 
-    def beanstalk_security_group_output(self) -> Output:
-        resource = self.beanstalk_security_group()
-        export_name = C4NetworkExports.BEANSTALK_SECURITY_GROUP
+    def application_security_group_output(self) -> Output:
+        resource = self.application_security_group()
+        export_name = C4NetworkExports.APPLICATION_SECURITY_GROUP
         logical_id = self.name.logical_id(export_name)
         output = Output(
             logical_id,
@@ -413,11 +416,11 @@ class C4Network(C4Part):
         )
         return output
 
-    def beanstalk_security_rules(self) -> [SecurityGroupIngress, SecurityGroupEgress]:
-        """ Returns list of inbound and outbound rules needed by beanstalk to access resources.
+    def application_security_rules(self) -> [SecurityGroupIngress, SecurityGroupEgress]:
+        """ Returns list of inbound and outbound rules needed by Application to access resources.
 
-            These are each attached to the beanstalk_security_group, which is in turn attached to
-            the virtual_private_cloud. The beanstalk security group, when attached to a Beanstalk environment
+            These are each attached to the application_security_group, which is in turn attached to
+            the virtual_private_cloud. The Application security group, when attached to a Application environment
             via an 'aws:autoscaling:launchconfiguration' option, then enable access to and from the application
             on specific ports via specific protocols. Ref:
 
@@ -425,73 +428,73 @@ class C4Network(C4Part):
         """
         return [
             SecurityGroupIngress(
-                self.name.logical_id('BeanstalkHTTPSInboundAccess'),
+                self.name.logical_id('ApplicationHTTPSInboundAccess'),
                 CidrIp='0.0.0.0/0',
                 Description='allows inbound traffic on tcp port 443',
-                GroupId=Ref(self.beanstalk_security_group()),
+                GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
                 FromPort=443,
                 ToPort=443,
             ),
             SecurityGroupEgress(
-                self.name.logical_id('BeanstalkHTTPSOutboundAllAccess'),
+                self.name.logical_id('ApplicationHTTPSOutboundAllAccess'),
                 CidrIp='0.0.0.0/0',
                 Description='allows outbound traffic on tcp port 443',
-                GroupId=Ref(self.beanstalk_security_group()),
+                GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
                 FromPort=443,
                 ToPort=443,
             ),
             SecurityGroupIngress(
-                self.name.logical_id('BeanstalkWebInboundAccess'),
+                self.name.logical_id('ApplicationWebInboundAccess'),
                 CidrIp='0.0.0.0/0',
                 Description='allows inbound traffic on tcp port 80',
-                GroupId=Ref(self.beanstalk_security_group()),
+                GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
                 FromPort=80,
                 ToPort=80,
             ),
             SecurityGroupEgress(
-                self.name.logical_id('BeanstalkWebOutboundAllAccess'),
+                self.name.logical_id('ApplicationWebOutboundAllAccess'),
                 CidrIp='0.0.0.0/0',
                 Description='allows outbound traffic on tcp port 443',
-                GroupId=Ref(self.beanstalk_security_group()),
+                GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
                 FromPort=80,
                 ToPort=80,
             ),
             SecurityGroupIngress(
-                self.name.logical_id('BeanstalkNTPInboundAllAccess'),
+                self.name.logical_id('ApplicationNTPInboundAllAccess'),
                 CidrIp='0.0.0.0/0',
                 Description='allows inbound traffic on udp port 123',
-                GroupId=Ref(self.beanstalk_security_group()),
+                GroupId=Ref(self.application_security_group()),
                 IpProtocol='udp',
                 FromPort=123,
                 ToPort=123,
             ),
             SecurityGroupEgress(
-                self.name.logical_id('BeanstalkNTPOutboundAllAccess'),
+                self.name.logical_id('ApplicationNTPOutboundAllAccess'),
                 CidrIp='0.0.0.0/0',
                 Description='allows outbound traffic on udp port 123',
-                GroupId=Ref(self.beanstalk_security_group()),
+                GroupId=Ref(self.application_security_group()),
                 IpProtocol='udp',
                 FromPort=123,
                 ToPort=123,
             ),
             SecurityGroupIngress(
-                self.name.logical_id('BeanstalkSSHInboundAllAccess'),
+                self.name.logical_id('ApplicationSSHInboundAllAccess'),
                 CidrIp='0.0.0.0/0',
                 Description='allows inbound traffic on tcp port 22',
-                GroupId=Ref(self.beanstalk_security_group()),
+                GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
                 FromPort=22,
                 ToPort=22,
             ),
             SecurityGroupEgress(
-                self.name.logical_id('BeanstalkSSHOutboundAllAccess'),
+                self.name.logical_id('ApplicationSSHOutboundAllAccess'),
                 CidrIp='0.0.0.0/0',
                 Description='allows outbound traffic on tcp port 22',
-                GroupId=Ref(self.beanstalk_security_group()),
+                GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
                 FromPort=22,
                 ToPort=22,
