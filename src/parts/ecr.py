@@ -19,27 +19,28 @@ from awacs.aws import (
 import awacs.ecr as ecr
 from .iam import C4IAM
 from src.part import C4Part
+from src.exports import C4Exports
+
+
+class C4ECRExports(C4Exports):
+    """ Holds exports for ECR. """
+    ECR_REPO_URL = 'ECRRepoURL'
+
+    def __init__(self):
+        parameter = 'ECRStackNameParameter'
+        super().__init__(parameter)
 
 
 class QCContainerRegistry(C4Part):
     """ Contains a classmethod that builds an ECR template for this stack.
         NOTE: IAM setup must be done before this.
     """
+    EXPORTS = C4ECRExports()
 
     def build_template(self, template: Template) -> Template:
         repo = self.repository()
         template.add_resource(repo)
-        template.add_output(Output(
-            'CGAPDockerRepoURL',
-            Description="CGAPDocker Image Repository",
-            Value=Join("", [
-                Ref(AWS_ACCOUNT_ID),
-                ".dkr.ecr.",
-                Ref(AWS_REGION),
-                ".amazonaws.com/",
-                Ref(repo),
-            ]),
-        ))
+        template.add_output(self.output_repo_url(repo))
         return template
 
     @staticmethod
@@ -93,22 +94,35 @@ class QCContainerRegistry(C4Part):
                     ecr.CompleteLayerUpload,
                 ])
 
-    @classmethod
-    def ecr_access_policy(cls):
+    def ecr_access_policy(self):
         """ Contains ECR access policy """
         return Policy(Version='2008-10-17',
                       Statement=[
                           # 2 statements - push/pull to whoever will be uploading the image
                           # and pull to the assumed IAM role
-                          cls.ecr_push_acl(), cls.ecr_pull_acl()
+                          self.ecr_push_acl(), self.ecr_pull_acl()
                       ]
                 )
 
-    @classmethod
-    def repository(cls):
+    def repository(self):
         """ Builds the ECR Repository. """
         return Repository(
             'CGAPDocker',
             RepositoryName='WSGI',  # might be we need many of these?
-            RepositoryPolicyText=cls.ecr_access_policy()
+            RepositoryPolicyText=self.ecr_access_policy()
+        )
+
+    @staticmethod
+    def output_repo_url(resource: Repository):
+        """ Generates repo URL output """
+        return Output(
+            C4ECRExports.ECR_REPO_URL,
+            Description='CGAPDocker Image Repository URL',
+            Value=Join('', [
+                Ref(AWS_ACCOUNT_ID),
+                '.dkr.ecr.',
+                Ref(AWS_REGION),
+                '.amazonaws.com/',
+                Ref(resource),
+            ]),
         )

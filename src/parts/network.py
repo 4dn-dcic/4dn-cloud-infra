@@ -15,7 +15,7 @@ class C4NetworkExports(C4Exports):
     PRIVATE_SUBNET_B = 'ExportPrivateSubnetB'
     PUBLIC_SUBNET_A = 'ExportPublicSubnetA'
     PUBLIC_SUBNET_B = 'ExportPublicSubnetB'
-    BEANSTALK_SECURITY_GROUP = 'ExportBeanstalkSecurityGroup'
+    BEANSTALK_SECURITY_GROUP = 'ExportBeanstalkSecurityGroup'  # XXX: Can we name this something more generic? -Will
     DB_SECURITY_GROUP = 'ExportDBSecurityGroup'
     HTTPS_SECURITY_GROUP = 'ExportHTTPSSecurityGroup'
 

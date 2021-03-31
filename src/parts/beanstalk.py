@@ -1,4 +1,4 @@
-# import src.secrets as secrets  # TODO for will
+import src.secrets as secrets
 from src.part import C4Part
 from src.exceptions import C4ApplicationException
 from src.parts.network import C4NetworkExports

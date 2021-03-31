@@ -28,9 +28,12 @@ from troposphere.ec2 import (
 )
 from src.part import C4Part
 from src.parts.network import C4NetworkExports
+from src.parts.ecr import C4ECRExports
+from src.parts.iam import C4IAMExports
+from src.parts.logging import C4LoggingExports
 
 
-class QCECSApplication(C4Part):
+class C4ECSApplication(C4Part):
     """ Configures the ECS Cluster Application for CGAP
         This class contains everything necessary for running CGAP on ECS, including:
             * The Cluster itself (done)
@@ -48,64 +51,130 @@ class QCECSApplication(C4Part):
 
         Note: application upload handling is still TODO
     """
+    NETWORK_EXPORTS = C4NetworkExports()
+    ECR_EXPORTS = C4ECRExports()
+    IAM_EXPORTS = C4IAMExports()
+    LOGGING_EXPORTS = C4LoggingExports()
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
         template.add_parameter(Parameter(
-            QCNetworkExports.REFERENCE_PARAM_KEY,
+            self.NETWORK_EXPORTS.reference_param_key,
             Description='Name of network stack for network import value references',
             Type='String',
         ))
 
-        # TODO Adds ECR Stack Parameter
-        # TODO Adds IAM Stack Parameter
+        # Adds ECR Stack Parameter
+        template.add_parameter(Parameter(
+            self.ECR_EXPORTS.reference_param_key,
+            Description='Name of ECR stack for getting repo URL',
+            Type='String',
+        ))
+        # Adds IAM Stack Parameter
+        template.add_parameter(Parameter(
+            self.IAM_EXPORTS.reference_param_key,
+            Description='Name of IAM stack for IAM role/instance profile references',
+            Type='String',
+        ))
+        # Adds logging Stack Parameter (just creates a log group for now)
+        template.add_parameter(Parameter(
+            self.LOGGING_EXPORTS.reference_param_key,
+            Description='Name of Logging stack for referencing the log group',
+            Type='String',
+        ))
 
         # ECS Params
         template.add_parameter(self.ecs_web_worker_port())
         template.add_parameter(self.ecs_container_instance_type())
+        template.add_parameter(self.ecs_max_scale())
+        template.add_parameter(self.ecs_desired_scale())
+        template.add_parameter(self.ecs_lb_certificate())  # TODO must be provisioned
 
         # ECS Components
         template.add_resource(self.ecs_cluster())
         template.add_resource(self.ecs_lb_security_group())
         template.add_resource(self.ecs_load_balancer())
         template.add_resource(self.ecs_container_security_group(  # container runs in private subnets
-            QCNetworkExports.import_value(QCNetworkExports.PRIVATE_SUBNET_A),
-            QCNetworkExports.import_value(QCNetworkExports.PRIVATE_SUBNET_B),
+            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
         ))
         template.add_resource(self.ecs_autoscaling_group(
-            QCNetworkExports.import_value(QCNetworkExports.PRIVATE_SUBNET_A),
-            QCNetworkExports.import_value(QCNetworkExports.PRIVATE_SUBNET_B),
-            QCNetworkExports.import_value(QCNetworkExports.PUBLIC_SUBNET_A),
-            QCNetworkExports.import_value(QCNetworkExports.PUBLIC_SUBNET_B),
-            # TODO missing output val here for ECS IAM instance profile
+            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
+            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
+            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
+            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_INSTANCE_PROFILE)
+        ))
+        template.add_resource(self.ecs_container_instance_launch_configuration(
+            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
+            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_INSTANCE_PROFILE),
         ))
 
         # ECS Task/Services
-        template.add_resource(self.ecs_wsgi_task())
-        template.add_resource(self.ecs_wsgi_service())
-        template.add_resource(self.ecs_indexer_task())
-        template.add_resource(self.ecs_indexer_service())
-        template.add_resource(self.ecs_ingester_task())
-        template.add_resource(self.ecs_ingester_service())
-
+        template.add_resource(self.ecs_wsgi_task(
+            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
+        ))
+        template.add_resource(self.ecs_wsgi_service(
+            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
+        ))
+        template.add_resource(self.ecs_indexer_task(
+            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
+        ))
+        template.add_resource(self.ecs_indexer_service(
+            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
+        ))
+        template.add_resource(self.ecs_ingester_task(
+            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
+        ))
+        template.add_resource(self.ecs_ingester_service(
+            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
+        ))
         return template
 
-    @classmethod
-    def ecs_cluster(cls):
+    @staticmethod
+    def ecs_cluster():
         return Cluster(
             'CGAPDockerCluster'
         )
 
-    @classmethod
-    def ecs_lb_certificate(cls):
+    @staticmethod
+    def ecs_lb_certificate():
         return Parameter(
             "CertId",
             Description='This is the SSL Cert to attach to the LB',
             Type='String'
         )
 
-    @classmethod
-    def ecs_web_worker_port(cls):
+    @staticmethod
+    def ecs_desired_scale():
+        return Parameter(
+            'DesiredScale',
+            Description='Desired container instances count',
+            Type='Number',
+            Default='1',
+        )
+
+    @staticmethod
+    def ecs_max_scale():
+        return Parameter(
+            'MaxScale',
+            Description='Maximum container instances count',
+            Type='Number',
+            Default='3',
+        )
+
+    @staticmethod
+    def ecs_web_worker_port():
         return Parameter(
             'WebWorkerPort',
             Description="Web worker container exposed port",
@@ -113,48 +182,54 @@ class QCECSApplication(C4Part):
             Default="8000",  # should work for us
         )
 
-    @classmethod
-    def ecs_lb_security_group(cls):
+    def ecs_lb_security_group(self):
+        """ Allow both http and https traffic (for now) """
         return SecurityGroup(
             "ECSLBSSLSecurityGroup",
             GroupDescription="Web load balancer security group.",
-            VpcId=cls.cf_id('VPC'),
+            VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
             SecurityGroupIngress=[
                 SecurityGroupRule(
-                    IpProtocol="tcp",
-                    FromPort="443",
-                    ToPort="443",
+                    IpProtocol='tcp',
+                    FromPort='443',
+                    ToPort='443',
+                    CidrIp='0.0.0.0/0',
+                ),
+                SecurityGroupRule(
+                    IpProtocol='tcp',
+                    FromPort='80',
+                    ToPort='80',
                     CidrIp='0.0.0.0/0',
                 ),
             ],
         )
 
-    @classmethod
-    def ecs_load_balancer(cls):
+    def ecs_load_balancer(self):
         return elb.LoadBalancer(
             'ECSLoadBalancer',
-            Subnets=[
-                # TODO How to specify the 2 public subnets?
+            Subnets=[  # LB lives in the public subnets
+                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
+                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
             ],
-            SecurityGroups=[Ref(cls.ecs_lb_security_group())],
+            SecurityGroups=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.BEANSTALK_SECURITY_GROUP)],
             Listeners=[elb.Listener(
                 LoadBalancerPort=443,
                 InstanceProtocol='HTTP',
-                InstancePort=Ref(cls.ecs_web_worker_port()),
+                InstancePort=Ref(self.ecs_web_worker_port()),
                 Protocol='HTTPS',
-                SSLCertificateId=Ref(cls.ecs_lb_certificate()),
+                SSLCertificateId=Ref(self.ecs_lb_certificate()),
             )],
             HealthCheck=elb.HealthCheck(
-                Target=Join("", ["HTTP:", Ref(cls.ecs_web_worker_port()), "/health"]),
-                HealthyThreshold="2",
-                UnhealthyThreshold="2",
-                Interval="120",
-                Timeout="10",
+                Target=Join('', ['HTTP:', Ref(self.ecs_web_worker_port()), '/health']),
+                HealthyThreshold='2',
+                UnhealthyThreshold='2',
+                Interval='120',
+                Timeout='10',
             ),
         )
 
-    @classmethod
-    def ecs_container_instance_type(cls):
+    @staticmethod
+    def ecs_container_instance_type():
         return Parameter(
             'ContainerInstanceType',
             Description='The container instance type',
@@ -163,35 +238,33 @@ class QCECSApplication(C4Part):
             AllowedValues=['c5.large']  # configure more later
         )
 
-    @classmethod
-    def ecs_container_security_group(cls, public_subnet_cidr_1, public_subnet_cidr_2):
+    def ecs_container_security_group(self, public_subnet_cidr_1, public_subnet_cidr_2):
         return SecurityGroup(
             'ContainerSecurityGroup',
             GroupDescription='Container Security Group.',
-            VpcId=cls.cf_id('VPC'),
+            VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
             SecurityGroupIngress=[
                 # HTTP from web public subnets
                 SecurityGroupRule(
-                    IpProtocol="tcp",
-                    FromPort=Ref(cls.ecs_web_worker_port()),
-                    ToPort=Ref(cls.ecs_web_worker_port()),
+                    IpProtocol='tcp',
+                    FromPort=Ref(self.ecs_web_worker_port()),
+                    ToPort=Ref(self.ecs_web_worker_port()),
                     CidrIp=public_subnet_cidr_1,
                 ),
                 SecurityGroupRule(
-                    IpProtocol="tcp",
-                    FromPort=Ref(cls.ecs_web_worker_port()),
-                    ToPort=Ref(cls.ecs_web_worker_port()),
+                    IpProtocol='tcp',
+                    FromPort=Ref(self.ecs_web_worker_port()),
+                    ToPort=Ref(self.ecs_web_worker_port()),
                     CidrIp=public_subnet_cidr_2,
                 ),
             ]
         )
 
-    @classmethod
-    def ecs_container_instance_configuration(cls,
-                                             public_subnet_a,
-                                             public_subnet_b,
-                                             profile,
-                                             name='CGAPDockerWSGILaunchConfiguration'):
+    def ecs_container_instance_launch_configuration(self,
+                                                    private_subnet_a,
+                                                    private_subnet_b,
+                                                    profile,
+                                                    name='CGAPDockerWSGILaunchConfiguration'):
         """ Builds a launch configuration for the ecs container instance.
             This might be very wrong, but the general idea works for others.
         """
@@ -205,7 +278,7 @@ class QCECSApplication(C4Part):
                                 "#!/bin/bash\n",
                                 # Register the cluster
                                 "echo ECS_CLUSTER=",
-                                Ref(cls.ecs_cluster()),
+                                Ref(self.ecs_cluster()),
                                 " >> /etc/ecs/config\n",
                             ]))
                         ),
@@ -259,11 +332,12 @@ class QCECSApplication(C4Part):
                     )
                 ))
             ),
-            SecurityGroups=[Ref(cls.ecs_container_security_group(
-                '10.2.5.0/24', '10.2.7.0/24'  # TODO get via arguments
+            SecurityGroups=[Ref(self.ecs_container_security_group(
+                private_subnet_a, private_subnet_b,  # use private subnet for container
             ))],
-            InstanceType=Ref(cls.ecs_container_instance_type()),
+            InstanceType=Ref(self.ecs_container_instance_type()),
             IamInstanceProfile=Ref(profile),
+            ImageId='latest',
             UserData=Base64(Join('', [
                 "#!/bin/bash -xe\n",
                 "yum install -y aws-cfn-bootstrap\n",
@@ -293,21 +367,20 @@ class QCECSApplication(C4Part):
             Default='1',
         )
 
-    @classmethod
-    def ecs_autoscaling_group(cls, private_subnet_a, private_subnet_b,
+    def ecs_autoscaling_group(self, private_subnet_a, private_subnet_b,
                               public_subnet_a, public_subnet_b, instance_profile,
                               name='CGAPDockerECSAutoscalingGroup'):
         """ Builds an autoscaling group for the EC2s """
         return autoscaling.AutoScalingGroup(
             name,
-            VPCZoneIdentifier=[Ref(private_subnet_a), Ref(private_subnet_b)],
-            MinSize=Ref(cls.ecs_desired_container_instances()),
-            MaxSize=Ref(cls.ecs_max_container_instances()),
-            DesiredCapacity=Ref(cls.ecs_desired_container_instances()),
-            LaunchConfigurationName=Ref(cls.ecs_container_instance_configuration(public_subnet_a,
-                                                                                 public_subnet_b,
-                                                                                 instance_profile)),
-            LoadBalancerNames=[Ref(cls.ecs_load_balancer())],
+            VPCZoneIdentifier=[private_subnet_a, private_subnet_b],
+            MinSize=Ref(self.ecs_desired_container_instances()),
+            MaxSize=Ref(self.ecs_max_container_instances()),
+            DesiredCapacity=Ref(self.ecs_desired_container_instances()),
+            LaunchConfigurationName=Ref(self.ecs_container_instance_launch_configuration(public_subnet_a,
+                                                                                         public_subnet_b,
+                                                                                         instance_profile)),
+            LoadBalancerNames=[Ref(self.ecs_load_balancer())],
             # Since one instance within the group is a reserved slot
             # for rolling ECS service upgrade, it's not possible to rely
             # on a "dockerized" `ELB` health-check, else this reserved
@@ -334,34 +407,33 @@ class QCECSApplication(C4Part):
             Default='2048',
         )
 
-    @classmethod
-    def ecs_wsgi_task(cls, ecr, log_group, app_revision='latest'):
+    def ecs_wsgi_task(self, ecr, log_group, app_revision='latest'):
         """ Defines the WSGI Task (serve HTTP requests) """
         return TaskDefinition(
             'CGAPWSGI',
             ContainerDefinitions=[
                 ContainerDefinition(
                     Name='WSGI',
-                    Cpu=Ref(cls.ecs_web_worker_cpu()),
-                    Memory=Ref(cls.ecs_web_worker_memory()),
+                    Cpu=Ref(self.ecs_web_worker_cpu()),
+                    Memory=Ref(self.ecs_web_worker_memory()),
                     Essential=True,
                     Image=Join("", [
                         Ref(AWS_ACCOUNT_ID),
                         '.dkr.ecr.',
                         Ref(AWS_REGION),
                         '.amazonaws.com/',
-                        Ref(ecr),
+                        ecr,
                         ':',
                         app_revision,
                     ]),
                     PortMappings=[PortMapping(
-                        ContainerPort=Ref(cls.ecs_web_worker_port()),
-                        HostPort=Ref(cls.ecs_web_worker_port()),
+                        ContainerPort=Ref(self.ecs_web_worker_port()),
+                        HostPort=Ref(self.ecs_web_worker_port()),
                     )],
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
                         Options={
-                            'awslogs-group': Ref(log_group),
+                            'awslogs-group': log_group,
                             'awslogs-region': Ref(AWS_REGION),
                         }
                     ),
@@ -369,8 +441,7 @@ class QCECSApplication(C4Part):
             ],
         )
 
-    @classmethod
-    def ecs_indexer_task(cls, ecr, log_group, app_revision='latest'):
+    def ecs_indexer_task(self, ecr, log_group, app_revision='latest'):
         """ Defines the Indexer task (indexer app)
             TODO expand as needed
         """
@@ -379,8 +450,8 @@ class QCECSApplication(C4Part):
             ContainerDefinitions=[
                 ContainerDefinition(
                     Name='Indexer',
-                    Cpu=Ref(cls.ecs_web_worker_cpu()),
-                    Memory=Ref(cls.ecs_web_worker_memory()),
+                    Cpu=Ref(self.ecs_web_worker_cpu()),
+                    Memory=Ref(self.ecs_web_worker_memory()),
                     Essential=True,
                     Image=Join("", [
                         Ref(AWS_ACCOUNT_ID),
@@ -402,8 +473,7 @@ class QCECSApplication(C4Part):
             ],
         )
 
-    @classmethod
-    def ecs_ingester_task(cls, ecr, log_group, app_revision='latest'):
+    def ecs_ingester_task(self, ecr, log_group, app_revision='latest'):
         """ Defines the Ingester task (ingester app)
             TODO expand as needed
         """
@@ -412,15 +482,15 @@ class QCECSApplication(C4Part):
             ContainerDefinitions=[
                 ContainerDefinition(
                     Name='Indexer',
-                    Cpu=Ref(cls.ecs_web_worker_cpu()),
-                    Memory=Ref(cls.ecs_web_worker_memory()),
+                    Cpu=Ref(self.ecs_web_worker_cpu()),
+                    Memory=Ref(self.ecs_web_worker_memory()),
                     Essential=True,
                     Image=Join("", [
                         Ref(AWS_ACCOUNT_ID),
                         '.dkr.ecr.',
                         Ref(AWS_REGION),
                         '.amazonaws.com/',
-                        Ref(ecr),
+                        ecr,
                         ':',
                         app_revision,
                     ]),
@@ -435,25 +505,23 @@ class QCECSApplication(C4Part):
             ],
         )
 
-    @classmethod
-    def ecs_wsgi_service(cls, repo, log_group, role):
+    def ecs_wsgi_service(self, repo, log_group, role):
         """ Defines the WSGI service (manages WSGI Tasks) """
         return Service(
             "CGAPWSGIService",
-            Cluster=Ref(cls.ecs_cluster()),
+            Cluster=Ref(self.ecs_cluster()),
             DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
             DesiredCount='1',
             LoadBalancers=[LoadBalancer(
                 ContainerName='WSGILB',
-                ContainerPort=Ref(cls.ecs_web_worker_port()),
-                LoadBalancerName=Ref(cls.ecs_load_balancer()),
+                ContainerPort=Ref(self.ecs_web_worker_port()),
+                LoadBalancerName=Ref(self.ecs_load_balancer()),
             )],
-            TaskDefinition=Ref(cls.ecs_wsgi_task(repo, log_group)),
-            Role=Ref(role),
+            TaskDefinition=Ref(self.ecs_wsgi_task(repo, log_group)),
+            Role=role,
         )
 
-    @classmethod
-    def ecs_indexer_service(cls, repo, log_group, role):
+    def ecs_indexer_service(self, repo, log_group, role):
         """ Defines the Indexer service (manages Indexer Tasks)
             No open ports (for now)
             No LB
@@ -462,15 +530,14 @@ class QCECSApplication(C4Part):
         """
         return Service(
             "CGAPIndexerService",
-            Cluster=Ref(cls.ecs_cluster()),
+            Cluster=Ref(self.ecs_cluster()),
             DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
             DesiredCount='1',
-            TaskDefinition=Ref(cls.ecs_indexer_task(repo, log_group)),
+            TaskDefinition=Ref(self.ecs_indexer_task(repo, log_group)),
             Role=Ref(role),
         )
 
-    @classmethod
-    def ecs_ingester_service(cls, repo, log_group, role):
+    def ecs_ingester_service(self, repo, log_group, role):
         """ Defines the Ingester service (manages Ingestion Tasks)
             No open ports (for now)
             No LB
@@ -479,9 +546,9 @@ class QCECSApplication(C4Part):
         """
         return Service(
             "CGAPIngesterService",
-            Cluster=Ref(cls.ecs_cluster()),
+            Cluster=Ref(self.ecs_cluster()),
             DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
             DesiredCount='1',
-            TaskDefinition=Ref(cls.ecs_ingester_task(repo, log_group)),
+            TaskDefinition=Ref(self.ecs_ingester_task(repo, log_group)),
             Role=Ref(role),
         )
