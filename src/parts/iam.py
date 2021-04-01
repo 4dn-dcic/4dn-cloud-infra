@@ -1,4 +1,4 @@
-from troposphere import AWS_REGION, AWS_ACCOUNT_ID, Template, Ref, Output
+from troposphere import Region, AccountId, Template, Ref, Output, Join
 from troposphere.iam import Role, InstanceProfile, Policy
 from awacs.ecr import (
     GetAuthorizationToken,
@@ -34,6 +34,14 @@ class C4IAM(C4Part):
     INSTANCE_PROFILE_NAME = 'CGAPECSInstanceProfile'
     EXPORTS = C4IAMExports()
 
+    # XXX: refactor to helper/utils?
+    SQS_BASE_ARN = Join(
+        ':', ['arn', 'aws', 'sqs', Region, AccountId]
+    )
+    SECRETS_MANAGER_ARN = Join(
+        ':', ['arn', 'aws', 'secretsmanager', Region, AccountId, 'secret']
+    )
+
     def build_template(self, template: Template) -> Template:
         """ Builds current IAM template, currently just the ECS assumed IAM role
             and instance profile.
@@ -49,43 +57,64 @@ class C4IAM(C4Part):
         return template
 
     @staticmethod
-    def ecs_sqs_policy(prefix='cgap-dev'):
+    def build_sqs_arn(prefix):
+        return Join(
+            ':', ['arn', 'aws', 'sqs', Region, AccountId, prefix]
+        )
+
+    @staticmethod
+    def builds_secret_manager_arn(secret_name):
+        return Join(
+            ':', ['arn', 'aws', 'secretsmanager', Region, AccountId, 'secret', secret_name]
+        )
+
+    @staticmethod
+    def build_elasticsearch_arn(domain_name):
+        return Join(
+            ':', ['arn', 'aws', 'es', Region, AccountId, 'domain/' + domain_name]
+        )
+
+    @staticmethod
+    def build_logging_arn(log_group_name):
+        return Join(
+            ':', ['arn', 'aws', 'logs', Region, AccountId, 'log-group', log_group_name]
+        )
+
+    def ecs_sqs_policy(self, prefix='cgap-dev'):
         """ Grants ECS access to ElasticSearch.
             TODO: ensure cgaptriales is correct.
         """
         return Policy(
             PolicyName='ECSSQSAccessPolicy',
             PolicyDocument=dict(
+                Version='2012-10-17',
                 Statement=dict(
                     Effect='Allow',
                     Action=['sqs:*'],  # TODO: prune this slightly?
-                    Resource=['arn:aws:sqs:%s:%s:%s*' %
-                              (AWS_REGION, AWS_ACCOUNT_ID, prefix)]
-                    )
+                    Resource=[self.build_sqs_arn(prefix)]
+                )
             )
         )
 
-    @staticmethod
-    def ecs_es_policy(es_id='cgaptriales'):
+    def ecs_es_policy(self, domain_name='cgaptriales'):
         """ Grants ECS access to ElasticSearch.
             TODO: ensure cgaptriales is correct.
         """
         return Policy(
             PolicyName='ECSESAccessPolicy',
             PolicyDocument=dict(
+                Version='2012-10-17',
                 Statement=[dict(
                     Effect='Allow',
                     Action=[
                         'es:*',
                     ],
-                    Resource=['arn:aws:es:%s:%s:domain/%s' %
-                              (AWS_REGION, AWS_ACCOUNT_ID, es_id)]
+                    Resource=[self.build_elasticsearch_arn(domain_name)]
                 )],
             )
         )
 
-    @staticmethod
-    def ecs_secret_manager_policy(secret_name='dev/beanstalk/cgap-dev'):
+    def ecs_secret_manager_policy(self, secret_name='dev/beanstalk/cgap-dev'):
         """ Provides ECS access to the specified secret.
             The secret ID determines the environment name we are creating.
             TODO: Should this also be created here? Or manually uploaded?
@@ -93,13 +122,16 @@ class C4IAM(C4Part):
         return Policy(
             PolicyName='ECSSecretManagerPolicy',
             PolicyDocument=dict(
+                Version='2012-10-17',
                 Statement=[dict(
                     Effect='Allow',
                     Action=[
-                        'secretsmanager:GetSecretValue',
+                        'secretsmanager:GetSecretValue',  # at least this needed
+                        'secretsmanager:GetResourcePolicy',  # these might be overly permissive
+                        'secretsmanager:DescribeSecret',
+                        'secretsmanager:ListSecretVersionIds'
                     ],
-                    Resource=['arn:aws:secretsmanager:%s:%s:secret:%s*' %
-                              (AWS_REGION, AWS_ACCOUNT_ID, secret_name)]
+                    Resource=[self.builds_secret_manager_arn(secret_name)]
                 )],
             )
         )
@@ -110,6 +142,7 @@ class C4IAM(C4Part):
         return Policy(
             PolicyName='ECSAssumeIAMRolePolicy',
             PolicyDocument=dict(
+                Version='2012-10-17',
                 Statement=[dict(
                     Effect='Allow',
                     Action=[
@@ -125,6 +158,7 @@ class C4IAM(C4Part):
         return Policy(
             PolicyName='ECSManagementPolicy',
             PolicyDocument=dict(
+                Version='2012-10-17',
                 Statement=[dict(
                     Effect="Allow",
                     Action=[
@@ -136,19 +170,19 @@ class C4IAM(C4Part):
             ),
         )
 
-    @staticmethod
-    def ecs_log_policy():
+    def ecs_log_policy(self):
         """ Grants ECS container the ability to log things. """
         return Policy(
             PolicyName='ECSLoggingPolicy',
             PolicyDocument=dict(
+                Version='2012-10-17',
                 Statement=[dict(
                     Effect='Allow',
                     Action=[
                         'logs:Create*',
-                        'logs.PutLogEvents',
+                        'logs:PutLogEvents',
                     ],
-                    Resource='arn:aws:logs:*:*:*'  # XXX: Constrain further?
+                    Resource=self.build_logging_arn('*')  # XXX: Constrain further?
                 )]
             )
         )
@@ -158,6 +192,7 @@ class C4IAM(C4Part):
         return Policy(
             PolicyName='ECSECRPolicy',
             PolicyDocument=dict(
+                Version='2012-10-17',
                 Statement=[dict(
                     Effect='Allow',
                     Action=[
@@ -176,6 +211,7 @@ class C4IAM(C4Part):
         return Policy(
             PolicyName='ECSWebServicePolicy',
             PolicyDocument=dict(
+                Version='2012-10-17',
                 Statement=[dict(
                     Effect='Allow',
                     Action=[
@@ -204,12 +240,14 @@ class C4IAM(C4Part):
         return Role(
             self.ROLE_NAME,
             # Only allow ECS to assume this role
-            AssumeRolePolicyDocument=PolicyDocument(Statement=[Statement(
-                Effect='Allow',
-                Action=[
-                    Action('sts', 'AssumeRole')
-                ],
-                Principal=Principal('Service', 'ecs.amazonaws.com')
+            AssumeRolePolicyDocument=PolicyDocument(
+                Version='2012-10-17',
+                Statement=[Statement(
+                    Effect='Allow',
+                    Action=[
+                        Action('sts', 'AssumeRole')
+                    ],
+                    Principal=Principal('Service', 'ecs.amazonaws.com')
             )]),
             Policies=policies
         )
@@ -218,7 +256,7 @@ class C4IAM(C4Part):
         """ Builds an instance profile for the above ECS Role. """
         return InstanceProfile(
             self.INSTANCE_PROFILE_NAME,
-            Roles=[self.ecs_assumed_iam_role()]
+            Roles=[Ref(self.ecs_assumed_iam_role())]
         )
 
     def output_assumed_iam_role(self, resource: Role) -> Output:
