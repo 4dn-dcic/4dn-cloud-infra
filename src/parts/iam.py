@@ -34,14 +34,6 @@ class C4IAM(C4Part):
     INSTANCE_PROFILE_NAME = 'CGAPECSInstanceProfile'
     EXPORTS = C4IAMExports()
 
-    # XXX: refactor to helper/utils?
-    SQS_BASE_ARN = Join(
-        ':', ['arn', 'aws', 'sqs', Region, AccountId]
-    )
-    SECRETS_MANAGER_ARN = Join(
-        ':', ['arn', 'aws', 'secretsmanager', Region, AccountId, 'secret']
-    )
-
     def build_template(self, template: Template) -> Template:
         """ Builds current IAM template, currently just the ECS assumed IAM role
             and instance profile.
