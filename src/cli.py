@@ -35,6 +35,7 @@ class C4Client:
     ALPHA_LEAF_STACKS = ['iam', 'logging', 'network']  # stacks that only export values
     CREDENTIAL_DIR = '~/.aws_test'  # further parameterize
     CAPABILITY_IAM = 'CAPABILITY_IAM'
+    REQUIRES_CAPABILITY_IAM = ['iam']  # these stacks require CAPABILITY_IAM, just IAM for now
 
     @staticmethod
     def validate_cloudformation_template(file_path):
@@ -75,11 +76,13 @@ class C4Client:
     def build_changeset_flags():
         pass  # implement if needed
 
-    @staticmethod
-    def build_capability_param(stack, name=CAPABILITY_IAM):
+    @classmethod
+    def build_capability_param(cls, stack, name=CAPABILITY_IAM):
         caps = ''
-        if 'iam' in stack.name.stack_name:
-            caps = '--capabilities %s' % name
+        for possible in cls.REQUIRES_CAPABILITY_IAM:
+            if possible in stack.name.stack_name:
+                caps = '--capabilities %s' % name
+                break
         return caps
 
     @classmethod

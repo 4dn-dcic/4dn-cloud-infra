@@ -18,4 +18,11 @@ legacy:
 	@echo 'Validation Succeeded!'
 
 deploy-alpha:
-	@echo 'TODO Implement me when done'
+	@echo 'Uploading Templates for Alpha Configuration'
+	@echo 'ORDER: iam, logging, network, ecr, datastore, ecs'
+	./4dn-cloud-infra provision iam --validate --alpha --upload_change_set
+	./4dn-cloud-infra provision logging --validate --alpha --upload_change_set
+	./4dn-cloud-infra provision network --validate --alpha --upload_change_set
+	./4dn-cloud-infra provision ecr --validate --alpha --upload_change_set
+	./4dn-cloud-infra provision datastore --validate --alpha --upload_change_set
+	# ./4dn-cloud-infra provision ecs --validate --alpha --upload_change_set
