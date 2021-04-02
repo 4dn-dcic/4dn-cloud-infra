@@ -50,7 +50,7 @@ class QCContainerRegistry(C4Part):
         return template
 
     def build_assumed_role_arn(self):
-        return Join('', ['arn:', 'aws:', 'iam::', AccountId, ':user/',
+        return Join('', ['arn:', 'aws:', 'iam::', AccountId, ':role/',
                          self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
                          ]
                     )
