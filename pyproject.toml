@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "4dn-cloud-infra"
-version = "0.2.0"
+version = "0.2.1"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
 authors = ["Your Name <you@example.com>"]
 license = "MIT"
@@ -18,6 +18,7 @@ google-auth-httplib2 = "^0.0.4"
 google-auth-oauthlib = "^0.4.2"
 googleapis-common-protos = "^1.52.0"
 awacs = "^1.0.2"
+cfn-lint = "^0.48.1"  # a secondary check that catches more things than standard validate - Will 4/1/2021
 
 [tool.poetry.dev-dependencies]
 

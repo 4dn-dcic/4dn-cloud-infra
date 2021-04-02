@@ -34,6 +34,7 @@ class C4Client:
     SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-beanstalk-trial']
     ALPHA_LEAF_STACKS = ['iam', 'logging', 'network']  # stacks that only export values
     CREDENTIAL_DIR = '~/.aws_test'  # further parameterize
+    CAPABILITY_IAM = 'CAPABILITY_IAM'
 
     @staticmethod
     def validate_cloudformation_template(file_path):
@@ -60,16 +61,26 @@ class C4Client:
         return '--parameter-overrides "{param}={stack}"'.format(param=param_name, stack=value)
 
     @staticmethod
-    def build_flags(*, template_flag, stack_flag, parameter_flags, changeset_flag='--no-execute-changeset'):
-        return '{template_flag} {stack_flag} {parameter_flag} {changeset_flag}'.format(
+    def build_flags(*, template_flag, stack_flag, parameter_flags, changeset_flag='--no-execute-changeset',
+                    capability_flags):
+        return '{template_flag} {stack_flag} {parameter_flag} {changeset_flag} {capability_flags}'.format(
             template_flag=template_flag,
             stack_flag=stack_flag,
             parameter_flag=parameter_flags,
-            changeset_flag=changeset_flag)
+            changeset_flag=changeset_flag,
+            capability_flags=capability_flags
+        )
 
     @staticmethod
     def build_changeset_flags():
         pass  # implement if needed
+
+    @staticmethod
+    def build_capability_param(stack, name=CAPABILITY_IAM):
+        caps = ''
+        if 'iam' in stack.name.stack_name:
+            caps = '--capabilities %s' % name
+        return caps
 
     @classmethod
     def upload_cloudformation_template(cls, args, stack, file_path):
@@ -102,11 +113,12 @@ class C4Client:
             flags = cls.build_flags(
                 template_flag=cls.build_template_flag(file_path=file_path),
                 stack_flag=cls.build_stack_flag(stack_name=stack.name.stack_name),
-                parameter_flags=parameter_flags
+                parameter_flags=' '.join(parameter_flags),
+                capability_flags=cls.build_capability_param(stack)  # defaults to IAM
             )
 
         cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {flags}'.format(
-            mount_yaml='~/code/4dn-cloud-infra/out/templates:/root/out/templates',
+            mount_yaml=os.path.abspath(os.getcwd())+'/out/templates:/root/out/templates',
             mount_creds='~/.aws_test:/root/.aws',
             command='amazon/aws-cli cloudformation deploy',
             flags=flags,
