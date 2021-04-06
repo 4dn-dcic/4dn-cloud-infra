@@ -46,3 +46,8 @@ To get help:
 * `src/info/` - Contains scripts for getting info from AWS
 * `src/parts/` - Contains definitions of resources associated with each part (network, datastore etc)
 * `src/stacks/` - Contains files that define the stacks (using resources from `src/parts/`)
+
+
+## Customization
+
+TODO: spec config.json

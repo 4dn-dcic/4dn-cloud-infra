@@ -12,3 +12,4 @@ log/
 out/
 in/
 secrets.py
+config.json

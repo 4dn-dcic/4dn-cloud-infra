@@ -57,7 +57,6 @@ class QCContainerRegistry(C4Part):
 
     def ecr_push_acl(self):
         """ This statement gives the root user push/pull access to ECR.
-            TODO: 'root' is likely not correct.
         """
         return Statement(
             Sid='AllowPushPull',  # allow push/pull
@@ -105,11 +104,11 @@ class QCContainerRegistry(C4Part):
                       ], Version='2012-10-17',
         )
 
-    def repository(self):
+    def repository(self, name='cgap-mastertest'):
         """ Builds the ECR Repository. """
         return Repository(
             'cgapdocker',  # must be lowercase
-            RepositoryName='cgapdockerwsgi',  # might be we need many of these?
+            RepositoryName=name,  # might be we need many of these?
             RepositoryPolicyText=self.ecr_access_policy()
         )
 
