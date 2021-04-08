@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "4dn-cloud-infra"
-version = "0.2.1"
+version = "0.2.2"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
-authors = ["Your Name <you@example.com>"]
+authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
 
 [tool.poetry.dependencies]

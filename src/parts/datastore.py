@@ -37,7 +37,7 @@ class C4DatastoreExports(C4Exports):
     APPLICATION_BLOBS_BUCKET = 'ExportAppBlobsBucket'
 
     def __init__(self):
-        # The intention here is that beanstalk/ECR stacks will use these outputs and reduce amount
+        # The intention here is that Beanstalk/ECS stacks will use these outputs and reduce amount
         # of manual configuration
         parameter = 'DatastoreStackNameParameter'
         super().__init__(parameter)

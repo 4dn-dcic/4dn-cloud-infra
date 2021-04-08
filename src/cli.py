@@ -95,10 +95,12 @@ class C4Client:
                 parameter_flags=cls.build_parameter_override(param_name='NetworkStackNameParameter',
                                                              value=network_stack_name.stack_name)
             )
-        else:  # XXX: for now, do network, iam, ecr
+        else:
             network_stack_name, _ = c4_alpha_stack_trial_metadata(name='network')  # XXX: constants
             iam_stack_name, _ = c4_alpha_stack_trial_metadata(name='iam')
             ecr_stack_name, _ = c4_alpha_stack_trial_metadata(name='ecr')
+            # TODO incorporate datastore output to ECS stack
+            datastore_stack_name, _ = c4_alpha_stack_trial_metadata(name='datastore')
 
             # if we are building a leaf stack, our upload doesn't require these parameter overrides
             # since we are not importing values from other stacks
@@ -112,7 +114,9 @@ class C4Client:
                     cls.build_parameter_override(param_name='ECRStackNameParameter',
                                                  value=ecr_stack_name.stack_name),
                     cls.build_parameter_override(param_name='IAMStackNameParameter',
-                                                 value=iam_stack_name.stack_name)
+                                                 value=iam_stack_name.stack_name),
+                    # cls.build_parameter_override(param_name='DatastoreStackNameParameter',
+                    #                              value=datastore_stack_name.stack_name)
                 ]
             flags = cls.build_flags(
                 template_flag=cls.build_template_flag(file_path=file_path),
