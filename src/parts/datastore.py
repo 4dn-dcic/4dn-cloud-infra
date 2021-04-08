@@ -46,6 +46,23 @@ class C4Datastore(C4Part):
     EXPORTS = C4DatastoreExports()
     NETWORK_EXPORTS = C4NetworkExports()
 
+    # Buckets used by the Application layer we need to initialize as part of the datastore
+    # Intended to be .formatted with the deploying env_name
+    APPLICATION_LAYER_BUCKETS = [
+        'application-{}-system',
+        'application-{}-wfout',
+        'application-{}-files',
+        'application-{}-blobs'
+    ]
+
+    # Buckets used by the foursight layer
+    # Envs describing the global foursight configuration in this account (could be updated)
+    # Results bucket is the backing store for checks (they are also indexed into ES)
+    FOURSIGHT_LAYER_BUCKETS = [
+        'foursight-{}-envs',
+        'foursight-{}-results',
+    ]
+
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
         template.add_parameter(Parameter(
@@ -68,7 +85,9 @@ class C4Datastore(C4Part):
                   self.realtime_queue()]:
             template.add_resource(i)
 
-        # TODO Add production S3 buckets, outputs
+        # TODO Do we want outputs for these as well?
+        for production_bucket_name in self.APPLICATION_LAYER_BUCKETS + self.FOURSIGHT_LAYER_BUCKETS:
+            template.add_resource(self.build_s3_bucket(production_bucket_name.format('cgap-mastertest')))
 
         # TODO Add RDS outputs as needed
         template.add_output(self.output_es_url(es))
@@ -76,12 +95,13 @@ class C4Datastore(C4Part):
         return template
 
     @staticmethod
-    def s3_bucket(name, access_control=Private):
+    def build_s3_bucket(bucket_name, access_control=Private):
         """ Creates an S3 bucket under the given name/access control permissions.
             See troposphere.s3 for access control options.
         """
         return Bucket(
-            name,
+            ''.join(bucket_name.split('-')),  # Name != BucketName
+            BucketName=bucket_name,
             AccessControl=access_control
         )
 
@@ -245,15 +265,12 @@ class C4Datastore(C4Part):
         return Output(
             logical_id,
             Description='ES URL for this environment',
-            Value=Join(':', [
-                GetAtt(Ref(resource), 'DomainEndpoint'),
-                '443'  # always ssl
-            ])
+            Value=GetAtt(resource, 'DomainEndpoint'),
         )
 
-    def build_sqs_instance(self, logical_id_suffix, name_suffix, cgap_env='green') -> Queue:
+    def build_sqs_instance(self, logical_id_suffix, name_suffix, cgap_env='mastertest') -> Queue:
         """ Builds a SQS instance with the logical id suffix for CloudFormation and the given name_suffix for the queue
-            name. Uses 'green' as default cgap env. """
+            name. Uses 'mastertest' as default cgap env. """
         logical_name = self.name.logical_id(logical_id_suffix)
         queue_name = 'cgap-{env}-{suffix}'.format(env=cgap_env, suffix=name_suffix)  # TODO configurable cgap env
         return Queue(

@@ -59,7 +59,7 @@ class C4Client:
 
     @staticmethod
     def build_parameter_override(*, param_name, value):
-        return '--parameter-overrides "{param}={stack}"'.format(param=param_name, stack=value)
+        return '"{param}={stack}"'.format(param=param_name, stack=value)
 
     @staticmethod
     def build_flags(*, template_flag, stack_flag, parameter_flags, changeset_flag='--no-execute-changeset',
@@ -106,9 +106,10 @@ class C4Client:
                 parameter_flags = ''
             else:
                 parameter_flags = [
+                    '--parameter-overrides',  # the flag itself
                     cls.build_parameter_override(param_name='NetworkStackNameParameter',
                                                  value=network_stack_name.stack_name),
-                    cls.build_parameter_override(param_name='ECRRepoURL',
+                    cls.build_parameter_override(param_name='ECRStackNameParameter',
                                                  value=ecr_stack_name.stack_name),
                     cls.build_parameter_override(param_name='IAMStackNameParameter',
                                                  value=iam_stack_name.stack_name)
@@ -126,6 +127,7 @@ class C4Client:
             command='amazon/aws-cli cloudformation deploy',
             flags=flags,
         )
+        logger.info(cmd)
         logger.info('Uploading provisioned template and generating changeset...')
         if '--no-execute-changeset' not in cmd:
             raise CLIException(
