@@ -112,11 +112,12 @@ class QCContainerRegistry(C4Part):
             RepositoryPolicyText=self.ecr_access_policy()
         )
 
-    @staticmethod
-    def output_repo_url(resource: Repository):
+    def output_repo_url(self, resource: Repository):
         """ Generates repo URL output """
+        export_name = C4ECRExports.ECR_REPO_URL
+        logical_id = self.name.logical_id(export_name)
         return Output(
-            C4ECRExports.ECR_REPO_URL,
+            logical_id,
             Description='CGAPDocker Image Repository URL',
             Value=Join('', [
                 AccountId,
