@@ -1,0 +1,16 @@
+{
+  "Resources" : {
+    "APIHandler" : {
+      "Properties" : {
+        "Environment" : {
+          "Variables" : {
+            "CLIENT_ID" : "test",
+            "CLIENT_SECRET" : "test",
+            "DEV_SECRET" : "test",
+            "S3_ENCRYPT_KEY" : "test"
+          }
+        }
+      }
+    }
+  }
+}
