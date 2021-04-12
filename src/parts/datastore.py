@@ -37,6 +37,13 @@ class C4DatastoreExports(C4Exports):
     APPLICATION_FILES_BUCKET = 'ExportAppFilesBucket'
     APPLICATION_BLOBS_BUCKET = 'ExportAppBlobsBucket'
 
+    # Output SQS Queues
+    APPLICATION_INDEXER_PRIMARY_QUEUE = 'ExportApplicationIndexerPrimaryQueue'
+    APPLICATION_INDEXER_SECONDAY_QUEUE = 'ExportApplicationIndexerSecondaryQueue'
+    APPLICATION_INDEXER_DLQ = 'ExportApplicationIndexerDLQ'
+    APPLICATION_INGESTION_QUEUE = 'ExportApplicationIngestionQueue'
+    APPLICATION_INDEXER_REALTIME_QUEUE = 'ExportApplicationIndexerRealtimeQueue'  # unused
+
     def __init__(self):
         # The intention here is that Beanstalk/ECS stacks will use these outputs and reduce amount
         # of manual configuration
@@ -52,10 +59,10 @@ class C4Datastore(C4Part):
     # Buckets used by the Application layer we need to initialize as part of the datastore
     # Intended to be .formatted with the deploying env_name
     APPLICATION_LAYER_BUCKETS = [
-        'application-{}-system',
-        'application-{}-wfout',
+        'application-{}-blobs',
         'application-{}-files',
-        'application-{}-blobs'
+        'application-{}-wfout',
+        'application-{}-system',
     ]
 
     # Buckets used by the foursight layer
@@ -75,32 +82,50 @@ class C4Datastore(C4Part):
             Type='String',
         ))
 
-        # Adds RDS
-        for i in [self.rds_secret(), self.rds_parameter_group(), self.rds_instance(),
+        # Adds RDS primitives
+        for i in [self.rds_secret(), self.rds_parameter_group(),
                   self.rds_subnet_group(), self.rds_secret_attachment()]:
             template.add_resource(i)
 
-        # Adds Elasticsearch
+        # Add RDS itself + Outputs
+        rds = self.rds_instance()
+        template.add_resource(rds)
+        template.add_output(self.output_rds_url(rds))
+        template.add_output(self.output_rds_port(rds))
+        #template.add_output(self.output_rds_dbname(rds))  XXX: not accepted for some reason?
+
+        # Adds Elasticsearch + Outputs
         es = self.elasticsearch_instance()
         template.add_resource(es)
-
-        # Adds SQS Queues
-        # TODO these probably need outputs as well
-        for i in [self.primary_queue(), self.secondary_queue(), self.dead_letter_queue(), self.ingestion_queue(),
-                  self.realtime_queue()]:
-            template.add_resource(i)
-
-        # TODO Do we want outputs for the buckets here as well?
-        for production_bucket_name in self.APPLICATION_LAYER_BUCKETS + self.FOURSIGHT_LAYER_BUCKETS:
-            template.add_resource(self.build_s3_bucket(production_bucket_name.format('cgap-mastertest')))
-
-        # TODO Add RDS outputs as needed
         template.add_output(self.output_es_url(es))
+
+        # Adds SQS Queues + Outputs
+        for export_name, i in [(C4DatastoreExports.APPLICATION_INDEXER_PRIMARY_QUEUE, self.primary_queue()),
+                               (C4DatastoreExports.APPLICATION_INDEXER_SECONDAY_QUEUE, self.secondary_queue()),
+                               (C4DatastoreExports.APPLICATION_INDEXER_DLQ, self.dead_letter_queue()),
+                               (C4DatastoreExports.APPLICATION_INGESTION_QUEUE, self.ingestion_queue()),
+                               (C4DatastoreExports.APPLICATION_INDEXER_REALTIME_QUEUE, self.realtime_queue())]:
+            template.add_resource(i)
+            template.add_output(self.output_sqs_instance(export_name, i))
+
+        # Add/Export S3 buckets
+        for export_name, bucket_name in zip([C4DatastoreExports.APPLICATION_BLOBS_BUCKET,
+                                             C4DatastoreExports.APPLICATION_FILES_BUCKET,
+                                             C4DatastoreExports.APPLICATION_WFOUT_BUCKET,
+                                             C4DatastoreExports.APPLICATION_SYSTEM_BUCKET,
+                                             C4DatastoreExports.FOURSIGHT_ENV_BUCKET,
+                                             C4DatastoreExports.FOURSIGHT_RESULT_BUCKET,
+                                             C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET],
+                                            self.APPLICATION_LAYER_BUCKETS + self.FOURSIGHT_LAYER_BUCKETS):
+
+            bucket = self.build_s3_bucket(bucket_name.format('cgap-mastertest'))
+            template.add_resource(bucket)
+            template.add_output(self.output_s3_bucket(export_name, bucket_name.format('cgap-mastertest')))
 
         return template
 
     @staticmethod
-    def build_s3_bucket(bucket_name, access_control=Private):
+    def build_s3_bucket(bucket_name, access_control=Private) -> Bucket:
         """ Creates an S3 bucket under the given name/access control permissions.
             See troposphere.s3 for access control options.
         """
@@ -110,16 +135,16 @@ class C4Datastore(C4Part):
             AccessControl=access_control
         )
 
-    def output_s3_bucket(self, export_name, resource: Bucket):
+    def output_s3_bucket(self, export_name, bucket_name: str) -> Output:
         """ Builds an output for the given export_name/Bucket resource """
         logical_id = self.name.logical_id(export_name)
         return Output(
             logical_id,
-            Description='S3 Bucket name: %s' % export_name,
-            Value=Ref(resource)
+            Description='S3 Bucket name for: %s' % export_name,
+            Value=bucket_name
         )
 
-    def rds_secret(self):
+    def rds_secret(self) -> Secret:
         """ Returns the RDS secret, as generated and stored by AWS Secrets Manager """
         logical_id = self.name.logical_id(self.RDS_SECRET_STRING)
         return Secret(
@@ -135,7 +160,7 @@ class C4Datastore(C4Part):
             Tags=self.tags.cost_tag_array(),
         )
 
-    def rds_subnet_group(self):
+    def rds_subnet_group(self) -> DBSubnetGroup:
         """ Returns a subnet group for the single RDS instance in the infrastructure stack """
         logical_id = self.name.logical_id('DBSubnetGroup')
         return DBSubnetGroup(
@@ -150,7 +175,7 @@ class C4Datastore(C4Part):
 
     def rds_instance(self, instance_size='db.t3.medium',
                      az_zone='us-east-1a', storage_size=20, storage_type='standard',
-                     db_name='ebdb', postgres_version='11.9'):
+                     db_name='ebdb', postgres_version='11.9') -> DBInstance:
         """ Returns the single RDS instance for the infrastructure stack. """
         logical_id = self.name.logical_id('RDS')
         secret_string_logical_id = self.name.logical_id(self.RDS_SECRET_STRING)
@@ -181,6 +206,36 @@ class C4Datastore(C4Part):
                 ':SecretString:password}}'
             ]),
             Tags=self.tags.cost_tag_array(name=logical_id),
+        )
+
+    def output_rds_dbname(self, resource: DBInstance) -> Output:
+        """ Outputs RDS User """
+        export_name = C4DatastoreExports.RDS_DB
+        logical_id = self.name.logical_id(export_name)
+        return Output(
+            logical_id,
+            Description='RDS DBName for this environment',
+            Value=GetAtt(resource, 'DBName'),
+        )
+
+    def output_rds_url(self, resource: DBInstance) -> Output:
+        """ Outputs RDS URL """
+        export_name = C4DatastoreExports.RDS_URL
+        logical_id = self.name.logical_id(export_name)
+        return Output(
+            logical_id,
+            Description='RDS URL for this environment',
+            Value=GetAtt(resource, 'Endpoint.Address'),
+        )
+
+    def output_rds_port(self, resource: DBInstance) -> Output:
+        """ Outputs RDS Port """
+        export_name = C4DatastoreExports.RDS_PORT
+        logical_id = self.name.logical_id(export_name)
+        return Output(
+            logical_id,
+            Description='RDS Port for this environment',
+            Value=GetAtt(resource, 'Endpoint.Port'),
         )
 
     def rds_parameter_group(self) -> DBParameterGroup:
@@ -263,7 +318,7 @@ class C4Datastore(C4Part):
             **options,
         )
 
-    def output_es_url(self, resource: Domain):
+    def output_es_url(self, resource: Domain) -> Output:
         """ Outputs ES URL """
         export_name = C4DatastoreExports.ES_URL
         logical_id = self.name.logical_id(export_name)
@@ -286,6 +341,15 @@ class C4Datastore(C4Part):
             DelaySeconds=1,
             ReceiveMessageWaitTimeSeconds=2,
             Tags=Tags(*self.tags.cost_tag_array(name=queue_name)),  # special case
+        )
+
+    def output_sqs_instance(self, export_name: str, resource: Queue) -> Output:
+        """ Builds an output for SQS """
+        logical_id = self.name.logical_id(export_name)
+        return Output(
+            logical_id,
+            Value=Ref(resource),
+            Export=self.EXPORTS.export(export_name)
         )
 
     def primary_queue(self) -> Queue:
