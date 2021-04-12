@@ -29,6 +29,7 @@ class C4DatastoreExports(C4Exports):
     # Output envs bucket and result bucket
     FOURSIGHT_ENV_BUCKET = 'ExportFoursightEnvsBucket'
     FOURSIGHT_RESULT_BUCKET = 'ExportFoursightResultBucket'
+    FOURSIGHT_APPLICATION_VERSION_BUCKET = 'ExportFoursightApplicationVersionBucket'
 
     # Output production S3 bucket information
     APPLICATION_SYSTEM_BUCKET = 'ExportAppSystemBucket'
@@ -63,6 +64,7 @@ class C4Datastore(C4Part):
     FOURSIGHT_LAYER_BUCKETS = [
         'foursight-{}-envs',
         'foursight-{}-results',
+        'foursight-{}-application-versions'
     ]
 
     def build_template(self, template: Template) -> Template:
@@ -83,11 +85,12 @@ class C4Datastore(C4Part):
         template.add_resource(es)
 
         # Adds SQS Queues
+        # TODO these probably need outputs as well
         for i in [self.primary_queue(), self.secondary_queue(), self.dead_letter_queue(), self.ingestion_queue(),
                   self.realtime_queue()]:
             template.add_resource(i)
 
-        # TODO Do we want outputs for these as well?
+        # TODO Do we want outputs for the buckets here as well?
         for production_bucket_name in self.APPLICATION_LAYER_BUCKETS + self.FOURSIGHT_LAYER_BUCKETS:
             template.add_resource(self.build_s3_bucket(production_bucket_name.format('cgap-mastertest')))
 
