@@ -6,6 +6,7 @@ from src.info.aws_util import AWSUtil
 from src.exceptions import CLIException
 from src.stacks.trial import (
     c4_stack_trial_network, c4_stack_trial_network_metadata, c4_stack_trial_datastore, c4_stack_trial_beanstalk,
+    c4_stack_trial_foursight_cgap,
 )
 from src.stacks.trial_alpha import (
     c4_alpha_stack_trial_metadata,
@@ -23,7 +24,6 @@ logger = logging.getLogger(__name__)
 
 
 # TODO constants
-SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-beanstalk-trial']
 SUPPORTED_ECS_STACKS = ['c4-ecs-network-trial', 'c4-ecs-datastore-trial', 'c4-ecs-cluster-trial']
 CREDENTIAL_DIR = '~/.aws_test'  # further parameterize
 AWS_REGION = 'us-east-1'
@@ -31,7 +31,7 @@ AWS_REGION = 'us-east-1'
 
 class C4Client:
     """ Client class for interacting with and provisioning CGAP Infrastructure as Code. """
-    SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-beanstalk-trial']
+    SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-beanstalk-trial', 'c4-foursight-trial']
     ALPHA_LEAF_STACKS = ['iam', 'logging', 'network']  # stacks that only export values
     CREDENTIAL_DIR = '~/.aws_test'  # further parameterize
     CAPABILITY_IAM = 'CAPABILITY_IAM'
@@ -165,8 +165,11 @@ class C4Client:
             stack = c4_stack_trial_datastore()
         elif args.stack == 'c4-beanstalk-trial':
             stack = c4_stack_trial_beanstalk()
+        elif args.stack == 'c4-foursight-trial':
+            stack = c4_stack_trial_foursight_cgap()
         else:
-            raise CLIException('Unsupported stack {}. Supported Stacks: {}'.format(args.stack, SUPPORTED_STACKS))
+            raise CLIException('Unsupported stack {}. Supported Stacks: {}'.format(
+                args.stack, C4Client.SUPPORTED_STACKS))
         return stack
 
     @classmethod
@@ -202,6 +205,11 @@ class C4Client:
         else:
             stack = cls.resolve_alpha_stack(args)
 
+        if 'c4-foursight-trial' == args.stack:
+            stack.package(args)
+            print('foursight trial stack package')
+            return
+
         file_path = cls.write_and_validate_template(args, stack)  # could exit if stdout arg is provided
         cls.view_changes(args)  # does nothing as of right now
         if args.upload_change_set:
@@ -231,12 +239,19 @@ def cli():
     # Configure 'provision' command
     # TODO flag for log level
     parser_provision = subparsers.add_parser('provision', help='Provisions cloud resources for CGAP/4DN')
-    parser_provision.add_argument('stack', help='Select stack to operate on: {}'.format(SUPPORTED_STACKS))
+    parser_provision.add_argument('stack', help='Select stack to operate on: {}'.format(C4Client.SUPPORTED_STACKS))
     parser_provision.add_argument('--alpha', action='store_true', help='Triggers building of the Alpha (ECS) stack',
                                   default=False)
     parser_provision.add_argument('--stdout', action='store_true', help='Writes template to STDOUT only')
     parser_provision.add_argument('--validate', action='store_true', help='Verifies template')
     parser_provision.add_argument('--view_changes', action='store_true', help='TBD: view changes made to template')
+    parser_provision.add_argument('--stage', type=str, choices=['dev', 'prod'],
+                                  help="package stage. Must be one of 'prod' or 'dev' (foursight only)")
+    parser_provision.add_argument('--merge_template', type=str,
+                                  help='Location of a YAML template to be merged into the generated template \
+                                  (foursight only)')
+    parser_provision.add_argument('--output_file', type=str,
+                                  help='Location of a directory for output cloudformation (foursight only)')
     parser_provision.add_argument('--upload_change_set', action='store_true',
                                   help='Uploads template and provisions change set')
     parser_provision.set_defaults(func=C4Client.provision_stack)

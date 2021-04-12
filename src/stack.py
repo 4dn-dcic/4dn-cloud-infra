@@ -1,5 +1,7 @@
 from src.part import C4Name, C4Tags, C4Account, C4Part
+from chalicelib.package import PackageDeploy as PackageDeploy_from_cgap
 from troposphere import Template
+from os.path import dirname
 import os
 import sys
 import logging
@@ -70,19 +72,21 @@ class C4Stack(BaseC4Stack):
 
 
 class C4FoursightStack(BaseC4Stack):
-    # https://github.com/dbmi-bgm/foursight-cgap
     def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account):
-        self.url = 'https://github.com/dbmi-bgm/foursight-cgap.git'
-        self.foursight = 'foursight-cgap'
         super().__init__(description, name, tags, account)
 
-    def add_repo(self):
-        cmd = 'git clone {repo} ./out/{foursight}'.format(repo=self.url, foursight=self.foursight)
-        os.system(cmd)
+    def package(self, args):
+        self.PackageDeploy.build_config_and_package(args)
+
+    class PackageDeploy(PackageDeploy_from_cgap):
+
+        CONFIG_BASE = PackageDeploy_from_cgap.CONFIG_BASE
+        CONFIG_BASE['app_name'] = 'foursight-cgap-trial'
+
+        config_dir = dirname(dirname(__file__))
+        print(config_dir)
 
 
 class C4FoursightCGAPStack(C4FoursightStack):
     def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account):
-        self.url = 'https://github.com/4dn-dcic/foursight'
-        self.foursight = 'foursight'
         super().__init__(description, name, tags, account)
