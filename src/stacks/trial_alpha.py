@@ -7,7 +7,7 @@ from src.parts import network, datastore, ecr, iam, logging, ecs
 
 
 def c4_alpha_stack_trial_name(name):
-    return C4Name(name='c4-{}-trial-ecs'.format(name))
+    return C4Name(name='c4-{}-trial-alpha'.format(name))
 
 
 def c4_alpha_stack_trial_tags():
@@ -79,7 +79,7 @@ def c4_alpha_stack_trial_ecr():
         depends on IAM above (does that mean it needs both parts?)
     """
     name = 'ecr'
-    parts = [iam.C4IAM, ecr.QCContainerRegistry]
+    parts = [ecr.QCContainerRegistry]
     description = c4_alpha_stack_trial_description(name)
     return C4Stack(
         name=c4_alpha_stack_trial_name(name),
