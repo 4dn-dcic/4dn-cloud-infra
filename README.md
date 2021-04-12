@@ -6,10 +6,17 @@ Cloud Formation templates for 4dn-dcic AWS environments
 ```
 pyenv install 3.6.10
 # Builds or rebuilds the env, version found in `.python-version`
-pyenv exec python -m venv --clear venv
-. venv/bin/activate
+pyenv exec python -m venv --clear infraenv
+. infraenv/bin/activate
 pip install --upgrade pip
 pip install --upgrade poetry
+poetry install
+```
+
+## Updates
+
+```
+poetry update
 poetry install
 ```
 
