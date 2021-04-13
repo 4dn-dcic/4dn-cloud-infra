@@ -35,6 +35,7 @@ class C4Client:
     ALPHA_LEAF_STACKS = ['iam', 'logging', 'network']  # stacks that only export values
     CREDENTIAL_DIR = '~/.aws_test'  # further parameterize
     CAPABILITY_IAM = 'CAPABILITY_IAM'
+    REQUIRES_CAPABILITY_IAM = ['iam']  # these stacks require CAPABILITY_IAM, just IAM for now
 
     @staticmethod
     def validate_cloudformation_template(file_path):
@@ -58,7 +59,7 @@ class C4Client:
 
     @staticmethod
     def build_parameter_override(*, param_name, value):
-        return '--parameter-overrides "{param}={stack}"'.format(param=param_name, stack=value)
+        return '"{param}={stack}"'.format(param=param_name, stack=value)
 
     @staticmethod
     def build_flags(*, template_flag, stack_flag, parameter_flags, changeset_flag='--no-execute-changeset',
@@ -75,11 +76,13 @@ class C4Client:
     def build_changeset_flags():
         pass  # implement if needed
 
-    @staticmethod
-    def build_capability_param(stack, name=CAPABILITY_IAM):
+    @classmethod
+    def build_capability_param(cls, stack, name=CAPABILITY_IAM):
         caps = ''
-        if 'iam' in stack.name.stack_name:
-            caps = '--capabilities %s' % name
+        for possible in cls.REQUIRES_CAPABILITY_IAM:
+            if possible in stack.name.stack_name:
+                caps = '--capabilities %s' % name
+                break
         return caps
 
     @classmethod
@@ -92,10 +95,12 @@ class C4Client:
                 parameter_flags=cls.build_parameter_override(param_name='NetworkStackNameParameter',
                                                              value=network_stack_name.stack_name)
             )
-        else:  # XXX: for now, do network, iam, ecr
+        else:
             network_stack_name, _ = c4_alpha_stack_trial_metadata(name='network')  # XXX: constants
             iam_stack_name, _ = c4_alpha_stack_trial_metadata(name='iam')
             ecr_stack_name, _ = c4_alpha_stack_trial_metadata(name='ecr')
+            # TODO incorporate datastore output to ECS stack
+            datastore_stack_name, _ = c4_alpha_stack_trial_metadata(name='datastore')
 
             # if we are building a leaf stack, our upload doesn't require these parameter overrides
             # since we are not importing values from other stacks
@@ -103,12 +108,15 @@ class C4Client:
                 parameter_flags = ''
             else:
                 parameter_flags = [
+                    '--parameter-overrides',  # the flag itself
                     cls.build_parameter_override(param_name='NetworkStackNameParameter',
                                                  value=network_stack_name.stack_name),
-                    cls.build_parameter_override(param_name='ECRRepoURL',
+                    cls.build_parameter_override(param_name='ECRStackNameParameter',
                                                  value=ecr_stack_name.stack_name),
                     cls.build_parameter_override(param_name='IAMStackNameParameter',
-                                                 value=iam_stack_name.stack_name)
+                                                 value=iam_stack_name.stack_name),
+                    # cls.build_parameter_override(param_name='DatastoreStackNameParameter',
+                    #                              value=datastore_stack_name.stack_name)
                 ]
             flags = cls.build_flags(
                 template_flag=cls.build_template_flag(file_path=file_path),
@@ -123,6 +131,7 @@ class C4Client:
             command='amazon/aws-cli cloudformation deploy',
             flags=flags,
         )
+        logger.info(cmd)
         logger.info('Uploading provisioned template and generating changeset...')
         if '--no-execute-changeset' not in cmd:
             raise CLIException(

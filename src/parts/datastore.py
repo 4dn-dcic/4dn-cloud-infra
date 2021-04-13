@@ -1,4 +1,4 @@
-from troposphere import Join, Ref, Template, Tags, Parameter
+from troposphere import Join, Ref, Template, Tags, Parameter, Output, GetAtt
 from troposphere.elasticsearch import (Domain, ElasticsearchClusterConfig,
                                        EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions)
 try:
@@ -9,14 +9,63 @@ except ImportError:
 from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
+from troposphere.s3 import Bucket, Private
 from dcicutils.misc_utils import as_seconds
 from src.part import C4Part
+from src.exports import C4Exports
 from src.parts.network import C4NetworkExports
+
+
+class C4DatastoreExports(C4Exports):
+    """ Holds datastore export metadata. """
+    # Output ES URL for use by foursight/application
+    ES_URL = 'ExportElasticSearchURL'
+
+    # TODO add these as needed
+    RDS_URL = 'ExportRDSURL'
+    RDS_DB = 'ExportRDSDB'
+    RDS_PORT = 'ExportRDSPort'
+
+    # Output envs bucket and result bucket
+    FOURSIGHT_ENV_BUCKET = 'ExportFoursightEnvsBucket'
+    FOURSIGHT_RESULT_BUCKET = 'ExportFoursightResultBucket'
+    FOURSIGHT_APPLICATION_VERSION_BUCKET = 'ExportFoursightApplicationVersionBucket'
+
+    # Output production S3 bucket information
+    APPLICATION_SYSTEM_BUCKET = 'ExportAppSystemBucket'
+    APPLICATION_WFOUT_BUCKET = 'ExportAppWfoutBucket'
+    APPLICATION_FILES_BUCKET = 'ExportAppFilesBucket'
+    APPLICATION_BLOBS_BUCKET = 'ExportAppBlobsBucket'
+
+    def __init__(self):
+        # The intention here is that Beanstalk/ECS stacks will use these outputs and reduce amount
+        # of manual configuration
+        parameter = 'DatastoreStackNameParameter'
+        super().__init__(parameter)
 
 
 class C4Datastore(C4Part):
     RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names
+    EXPORTS = C4DatastoreExports()
     NETWORK_EXPORTS = C4NetworkExports()
+
+    # Buckets used by the Application layer we need to initialize as part of the datastore
+    # Intended to be .formatted with the deploying env_name
+    APPLICATION_LAYER_BUCKETS = [
+        'application-{}-system',
+        'application-{}-wfout',
+        'application-{}-files',
+        'application-{}-blobs'
+    ]
+
+    # Buckets used by the foursight layer
+    # Envs describing the global foursight configuration in this account (could be updated)
+    # Results bucket is the backing store for checks (they are also indexed into ES)
+    FOURSIGHT_LAYER_BUCKETS = [
+        'foursight-{}-envs',
+        'foursight-{}-results',
+        'foursight-{}-application-versions'
+    ]
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
@@ -32,14 +81,43 @@ class C4Datastore(C4Part):
             template.add_resource(i)
 
         # Adds Elasticsearch
-        template.add_resource(self.elasticsearch_instance())
+        es = self.elasticsearch_instance()
+        template.add_resource(es)
 
         # Adds SQS Queues
+        # TODO these probably need outputs as well
         for i in [self.primary_queue(), self.secondary_queue(), self.dead_letter_queue(), self.ingestion_queue(),
                   self.realtime_queue()]:
             template.add_resource(i)
 
+        # TODO Do we want outputs for the buckets here as well?
+        for production_bucket_name in self.APPLICATION_LAYER_BUCKETS + self.FOURSIGHT_LAYER_BUCKETS:
+            template.add_resource(self.build_s3_bucket(production_bucket_name.format('cgap-mastertest')))
+
+        # TODO Add RDS outputs as needed
+        template.add_output(self.output_es_url(es))
+
         return template
+
+    @staticmethod
+    def build_s3_bucket(bucket_name, access_control=Private):
+        """ Creates an S3 bucket under the given name/access control permissions.
+            See troposphere.s3 for access control options.
+        """
+        return Bucket(
+            ''.join(bucket_name.split('-')),  # Name != BucketName
+            BucketName=bucket_name,
+            AccessControl=access_control
+        )
+
+    def output_s3_bucket(self, export_name, resource: Bucket):
+        """ Builds an output for the given export_name/Bucket resource """
+        logical_id = self.name.logical_id(export_name)
+        return Output(
+            logical_id,
+            Description='S3 Bucket name: %s' % export_name,
+            Value=Ref(resource)
+        )
 
     def rds_secret(self):
         """ Returns the RDS secret, as generated and stored by AWS Secrets Manager """
@@ -70,8 +148,9 @@ class C4Datastore(C4Part):
             Tags=self.tags.cost_tag_array(),
         )
 
-    def rds_instance(
-            self, instance_size='db.t3.medium', az_zone='us-east-1a', storage_size=20, storage_type='standard'):
+    def rds_instance(self, instance_size='db.t3.medium',
+                     az_zone='us-east-1a', storage_size=20, storage_type='standard',
+                     db_name='ebdb', postgres_version='11.9'):
         """ Returns the single RDS instance for the infrastructure stack. """
         logical_id = self.name.logical_id('RDS')
         secret_string_logical_id = self.name.logical_id(self.RDS_SECRET_STRING)
@@ -80,9 +159,9 @@ class C4Datastore(C4Part):
             AllocatedStorage=storage_size,
             DBInstanceClass=instance_size,
             Engine='postgres',
-            EngineVersion='11.9',
+            EngineVersion=postgres_version,
             DBInstanceIdentifier=logical_id,
-            DBName='c4db',
+            DBName=db_name,
             DBParameterGroupName=Ref(self.rds_parameter_group()),
             DBSubnetGroupName=Ref(self.rds_subnet_group()),
             StorageEncrypted=True,  # TODO use KmsKeyId to configure KMS key (requires db replacement)
@@ -127,9 +206,10 @@ class C4Datastore(C4Part):
             TargetId=Ref(self.rds_instance()),
         )
 
-    def elasticsearch_instance(self, data_node_instance_type='c5.large.elasticsearch'):
+    def elasticsearch_instance(self, number_of_data_nodes=1, data_node_instance_type='c5.large.elasticsearch'):
         """ Returns an Elasticsearch domain with 1 data node, configurable via data_node_instance_type. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
+            TODO allow master node configuration
         """
         logical_id = self.name.logical_id('ES')
         domain_name = self.name.domain_name(logical_id)
@@ -162,7 +242,7 @@ class C4Datastore(C4Part):
             NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
             EncryptionAtRestOptions=EncryptionAtRestOptions(Enabled=True),  # TODO specify KMS key
             ElasticsearchClusterConfig=ElasticsearchClusterConfig(
-                InstanceCount=1,
+                InstanceCount=number_of_data_nodes,
                 InstanceType=data_node_instance_type,
             ),
             ElasticsearchVersion='6.8',
@@ -183,9 +263,19 @@ class C4Datastore(C4Part):
             **options,
         )
 
-    def build_sqs_instance(self, logical_id_suffix, name_suffix, cgap_env='green') -> Queue:
+    def output_es_url(self, resource: Domain):
+        """ Outputs ES URL """
+        export_name = C4DatastoreExports.ES_URL
+        logical_id = self.name.logical_id(export_name)
+        return Output(
+            logical_id,
+            Description='ES URL for this environment',
+            Value=GetAtt(resource, 'DomainEndpoint'),
+        )
+
+    def build_sqs_instance(self, logical_id_suffix, name_suffix, cgap_env='mastertest') -> Queue:
         """ Builds a SQS instance with the logical id suffix for CloudFormation and the given name_suffix for the queue
-            name. Uses 'green' as default cgap env. """
+            name. Uses 'mastertest' as default cgap env. """
         logical_name = self.name.logical_id(logical_id_suffix)
         queue_name = 'cgap-{env}-{suffix}'.format(env=cgap_env, suffix=name_suffix)  # TODO configurable cgap env
         return Queue(

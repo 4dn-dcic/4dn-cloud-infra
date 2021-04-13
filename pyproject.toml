@@ -2,7 +2,7 @@
 name = "4dn-cloud-infra"
 version = "0.2.2.1b0"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
-authors = ["Your Name <you@example.com>"]
+authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
@@ -10,7 +10,7 @@ python = "3.6"
 troposphere = "^2.6.3"
 boto3 = "^1.15.16"
 botocore = "^1.18.16"
-dcicutils = "^1.11.0"
+dcicutils = "^1.14.0"  # this version is the min as it contains first iteration of related utils
 google-api-core = "^1.23.0"
 google-api-python-client = "^1.12.5"
 google-auth = "^1.23.0"
@@ -24,6 +24,9 @@ foursight-core = "0.1.9.1b3"
 
 [tool.poetry.dev-dependencies]
 chalice = "^1.21.4"
+
+[tool.poetry.scripts]
+upload-application-version = "scripts.upload_application_version:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
