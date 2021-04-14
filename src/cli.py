@@ -261,6 +261,8 @@ def cli():
                                   (foursight only)')
     parser_provision.add_argument('--output_file', type=str,
                                   help='Location of a directory for output cloudformation (foursight only)')
+    parser_provision.add_argument('--trial', action='store_true',
+                                  help='Use TRIAL creds when building the config (foursight only; experimental)')
     parser_provision.add_argument('--upload_change_set', action='store_true',
                                   help='Uploads template and provisions change set')
     parser_provision.set_defaults(func=C4Client.provision_stack)

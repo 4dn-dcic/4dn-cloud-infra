@@ -71,7 +71,7 @@ class C4Stack(BaseC4Stack):
         return self.template, path, template_file
 
 
-class C4FoursightStack(BaseC4Stack):
+class C4FoursightCGAPStack(BaseC4Stack):
     def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account):
         super().__init__(description, name, tags, account)
 
@@ -81,12 +81,7 @@ class C4FoursightStack(BaseC4Stack):
     class PackageDeploy(PackageDeploy_from_cgap):
 
         CONFIG_BASE = PackageDeploy_from_cgap.CONFIG_BASE
-        CONFIG_BASE['app_name'] = 'foursight-cgap-trial'
+        CONFIG_BASE['app_name'] = 'foursight-trial'
 
         config_dir = dirname(dirname(__file__))
         print(config_dir)
-
-
-class C4FoursightCGAPStack(C4FoursightStack):
-    def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account):
-        super().__init__(description, name, tags, account)
