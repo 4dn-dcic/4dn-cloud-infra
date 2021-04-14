@@ -330,6 +330,7 @@ class C4Datastore(C4Part):
             logical_id,
             Description='ES URL for this environment',
             Value=GetAtt(resource, 'DomainEndpoint'),
+            Export=self.EXPORTS.export(export_name)
         )
 
     def build_sqs_instance(self, logical_id_suffix, name_suffix, cgap_env='mastertest') -> Queue:
