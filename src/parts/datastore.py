@@ -141,7 +141,8 @@ class C4Datastore(C4Part):
         return Output(
             logical_id,
             Description='S3 Bucket name for: %s' % export_name,
-            Value=bucket_name
+            Value=bucket_name,
+            Export=self.EXPORTS.export(export_name)
         )
 
     def rds_secret(self) -> Secret:
@@ -216,6 +217,7 @@ class C4Datastore(C4Part):
             logical_id,
             Description='RDS DBName for this environment',
             Value=GetAtt(resource, 'DBName'),
+            Export=self.EXPORTS.export(export_name)
         )
 
     def output_rds_url(self, resource: DBInstance) -> Output:
@@ -226,6 +228,7 @@ class C4Datastore(C4Part):
             logical_id,
             Description='RDS URL for this environment',
             Value=GetAtt(resource, 'Endpoint.Address'),
+            Export=self.EXPORTS.export(export_name)
         )
 
     def output_rds_port(self, resource: DBInstance) -> Output:
@@ -236,6 +239,7 @@ class C4Datastore(C4Part):
             logical_id,
             Description='RDS Port for this environment',
             Value=GetAtt(resource, 'Endpoint.Port'),
+            Export=self.EXPORTS.export(export_name)
         )
 
     def rds_parameter_group(self) -> DBParameterGroup:
@@ -349,6 +353,7 @@ class C4Datastore(C4Part):
         return Output(
             logical_id,
             Value=Ref(resource),
+            Description='SQS Endpoint for %s' % export_name,
             Export=self.EXPORTS.export(export_name)
         )
 
