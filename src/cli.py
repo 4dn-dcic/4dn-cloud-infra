@@ -4,6 +4,7 @@ import os
 
 from src.info.aws_util import AWSUtil
 from src.exceptions import CLIException
+from src.stack import C4FoursightCGAPStack
 from src.stacks.trial import (
     c4_stack_trial_network, c4_stack_trial_network_metadata, c4_stack_trial_datastore, c4_stack_trial_beanstalk,
     c4_stack_trial_foursight_cgap,
@@ -84,6 +85,12 @@ class C4Client:
                 caps = '--capabilities %s' % name
                 break
         return caps
+
+    @classmethod
+    def upload_chalice_package(cls, args, stack: C4FoursightCGAPStack):
+        """ Specific upload process for a chalice application, e.g. foursight. Assumes chalice package has been run. """
+        logger.info('Upload chalice package here')
+        pass
 
     @classmethod
     def upload_cloudformation_template(cls, args, stack, file_path):
@@ -214,15 +221,15 @@ class C4Client:
         else:
             stack = cls.resolve_alpha_stack(args)
 
-        if 'c4-foursight-trial' == args.stack:
+        if 'c4-foursight-trial' == args.stack:  # specific case for foursight template build + upload
             stack.package(args)
-            print('foursight trial stack package')
-            return
-
-        file_path = cls.write_and_validate_template(args, stack)  # could exit if stdout arg is provided
-        cls.view_changes(args)  # does nothing as of right now
-        if args.upload_change_set:
-            cls.upload_cloudformation_template(args, stack, file_path)  # if desired
+            if args.upload_change_set:
+                cls.upload_chalice_package(args, stack)
+        else:
+            file_path = cls.write_and_validate_template(args, stack)  # could exit if stdout arg is provided
+            cls.view_changes(args)  # does nothing as of right now
+            if args.upload_change_set:
+                cls.upload_cloudformation_template(args, stack, file_path)  # if desired
 
     @staticmethod
     def info(args):
