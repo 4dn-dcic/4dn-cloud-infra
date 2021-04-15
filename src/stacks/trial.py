@@ -79,7 +79,7 @@ def c4_stack_trial_beanstalk():
 
 
 def c4_stack_trial_foursight_cgap():
-    name = 'foursight_cgap'
+    name = 'foursight'
     description = c4_stack_trial_description(name)
     return C4FoursightCGAPStack(
         name=c4_stack_trial_name(name),

@@ -36,7 +36,7 @@ class C4Client:
     ALPHA_LEAF_STACKS = ['iam', 'logging', 'network']  # stacks that only export values
     CREDENTIAL_DIR = '~/.aws_test'  # further parameterize
     CAPABILITY_IAM = 'CAPABILITY_IAM'
-    REQUIRES_CAPABILITY_IAM = ['iam']  # these stacks require CAPABILITY_IAM, just IAM for now
+    REQUIRES_CAPABILITY_IAM = ['iam', 'foursight']  # these stacks require CAPABILITY_IAM
 
     @staticmethod
     def validate_cloudformation_template(file_path):
@@ -87,12 +87,65 @@ class C4Client:
         return caps
 
     @classmethod
-    def upload_chalice_package(cls, args, stack: C4FoursightCGAPStack):
-        """ Specific upload process for a chalice application, e.g. foursight. Assumes chalice package has been run. """
-        logger.info(args)
-        logger.info(stack)
-        logger.info('Upload chalice package here')
-        pass
+    def upload_chalice_package(cls, args, stack: C4FoursightCGAPStack,
+                               bucket='foursight-cgap-mastertest-application-versions'):
+        """ Specific upload process for a chalice application, e.g. foursight. Assumes chalice package has been run.
+            How this works:
+            1. Mounts the output_file directory to the docker image's execution directory (/root/aws)
+            2. Runs aws cloudformation package, which uploads the deploy artifact to the s3 bucket
+            3. This command generates a cloudformation template, which is saved to the local deploy artifact directory
+            4. Runs aws cloudformation deploy, which generates a changeset based on this generated cloudformation.
+        """
+
+        # Mounts the output_file directory to the docker image's execution directory (/root/aws)
+        mount_chalice_package = '{}/{}:/aws'.format(os.path.abspath(os.getcwd()), args.output_file)
+        # Creates mount point flags for creds and the chalice package
+        mount_points = ' '.join([
+                '-v',
+                '~/.aws_test:/root/.aws',
+                '-v',
+                mount_chalice_package,
+            ])
+
+        # flags for cloudformation package command
+        package_flags = ' '.join([
+            '--template-file ./sam.yaml',
+            '--s3-bucket',
+            bucket,
+            '--output-template-file sam-packaged.yaml',
+        ])
+        # construct package cmd
+        cmd_package = 'docker run --rm -it {mount_points} {cmd} {flags}'.format(
+            mount_points=mount_points,
+            cmd='amazon/aws-cli cloudformation package',
+            flags=package_flags,
+        )
+
+        # execute package cmd
+        logger.info('Uploading foursight package...')
+        logger.info(cmd_package)
+        os.system(cmd_package)  # results in sam-packaged.yaml being added to args.output_file
+
+        # flags for cloudformation deploy command (change set upload only, no template execution)
+        deploy_flags = ' '.join([
+            '--template-file ./sam-packaged.yaml',
+            '--s3-bucket',
+            bucket,
+            '--stack-name',
+            stack.name.stack_name,
+            cls.build_capability_param(stack),  # defaults to IAM
+            '--no-execute-changeset',  # creates a changeset, does not execute template
+        ])
+        # construct deploy cmd
+        cmd_deploy = 'docker run --rm -it {mount_points} {cmd} {flags}'.format(
+            mount_points=mount_points,
+            cmd='amazon/aws-cli cloudformation deploy',
+            flags=deploy_flags,
+        )
+
+        logger.info('Creating foursight changeset...')
+        logger.info(cmd_deploy)
+        os.system(cmd_deploy)
 
     @classmethod
     def upload_cloudformation_template(cls, args, stack, file_path):
