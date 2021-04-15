@@ -176,7 +176,7 @@ class C4Datastore(C4Part):
 
     def rds_instance(self, instance_size='db.t3.medium',
                      az_zone='us-east-1a', storage_size=20, storage_type='standard',
-                     db_name='ebdb', postgres_version='11.9') -> DBInstance:
+                     db_name='c4db', postgres_version='11.9') -> DBInstance:
         """ Returns the single RDS instance for the infrastructure stack. """
         logical_id = self.name.logical_id('RDS')
         secret_string_logical_id = self.name.logical_id(self.RDS_SECRET_STRING)
