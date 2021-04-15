@@ -89,6 +89,8 @@ class C4Client:
     @classmethod
     def upload_chalice_package(cls, args, stack: C4FoursightCGAPStack):
         """ Specific upload process for a chalice application, e.g. foursight. Assumes chalice package has been run. """
+        logger.info(args)
+        logger.info(stack)
         logger.info('Upload chalice package here')
         pass
 
@@ -96,11 +98,18 @@ class C4Client:
     def upload_cloudformation_template(cls, args, stack, file_path):
         if cls.is_legacy(args):
             network_stack_name, _ = c4_stack_trial_network_metadata()
+
+            parameter_flags = [
+                '--parameter-overrides',  # the flag itself
+                cls.build_parameter_override(param_name='NetworkStackNameParameter',
+                                             value=network_stack_name.stack_name)
+            ]
+
             flags = cls.build_flags(
                 template_flag=cls.build_template_flag(file_path=file_path),
                 stack_flag=cls.build_stack_flag(stack_name=stack.name.stack_name),
-                parameter_flags=cls.build_parameter_override(param_name='NetworkStackNameParameter',
-                                                             value=network_stack_name.stack_name)
+                parameter_flags=' '.join(parameter_flags),
+                capability_flags=cls.build_capability_param(stack)  # defaults to IAM
             )
         else:
             network_stack_name, _ = c4_alpha_stack_trial_metadata(name='network')  # XXX: constants
