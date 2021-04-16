@@ -73,7 +73,7 @@ class C4Beanstalk(C4Part):
             Name=logical_id,
             Scheme='internet-facing',
             SecurityGroups=[self.NETWORK_EXPORTS.import_value(
-                C4NetworkExports.BEANSTALK_SECURITY_GROUP)],
+                C4NetworkExports.APPLICATION_SECURITY_GROUP)],
             Subnets=[
                 self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
                 self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
@@ -193,7 +193,7 @@ class C4Beanstalk(C4Part):
                 Namespace='aws:autoscaling:launchconfiguration',
                 OptionName='SecurityGroups',  # TODO correct security groups
                 Value=Join(delimiter=',', values=[
-                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.BEANSTALK_SECURITY_GROUP),
+                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.APPLICATION_SECURITY_GROUP),
                     self.NETWORK_EXPORTS.import_value(C4NetworkExports.DB_SECURITY_GROUP)]),
             ),
         ]
@@ -442,7 +442,7 @@ class C4Beanstalk(C4Part):
             OptionSettings(
                 Namespace='aws:elbv2:loadbalancer',
                 OptionName='SecurityGroups',
-                Value=self.NETWORK_EXPORTS.import_value(C4NetworkExports.BEANSTALK_SECURITY_GROUP)
+                Value=self.NETWORK_EXPORTS.import_value(C4NetworkExports.APPLICATION_SECURITY_GROUP)
             ),
             # OptionSettings(
             #   Namespace='aws:elbv2:loadbalancer',
