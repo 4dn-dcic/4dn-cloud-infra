@@ -1,9 +1,24 @@
 import json
-from chalicelib.app import app_utils_obj, DEFAULT_ENV
+from chalicelib.app import DEFAULT_ENV
+from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
+from chalicelib.vars import FOURSIGHT_PREFIX
 from chalice import Chalice, Response
+from os.path import dirname
 
 # Minimal app.py; used to initially verify packaging scripts
 app = Chalice(app_name='foursight_cgap_trial')
+
+HOST = 'https://6kpcfpmbni.execute-api.us-east-1.amazonaws.com/api'
+
+
+class AppUtils(AppUtils_from_cgap):
+    # overwriting parent class
+    prefix = FOURSIGHT_PREFIX
+    FAVICON = 'https://cgap.hms.harvard.edu/static/img/favicon-fs.ico'
+    host = HOST
+    package_name = 'chalicelib'
+    check_setup_dir = dirname(__file__)
+    html_main_title = 'Foursight-CGAP-Trial'
 
 
 @app.route('/', methods=['GET'])
