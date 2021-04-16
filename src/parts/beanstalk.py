@@ -9,7 +9,7 @@ from troposphere.elasticloadbalancingv2 import LoadBalancer, LoadBalancerAttribu
 
 
 class C4Beanstalk(C4Part):
-    BEANSTALK_SOLUTION_STACK = '64bit Amazon Linux 2018.03 v2.9.18 running Python 3.6'
+    BEANSTALK_SOLUTION_STACK = '64bit Amazon Linux 2018.03 v2.9.20 running Python 3.6'
     APPLICATION_ENV_SECRET = 'dev/beanstalk/cgap-dev'  # name of secret in AWS Secret Manager; todo script initial add?
     NETWORK_EXPORTS = C4NetworkExports()
 
