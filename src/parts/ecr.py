@@ -126,4 +126,5 @@ class QCContainerRegistry(C4Part):
                 '.amazonaws.com/',
                 Ref(resource),
             ]),
+            Export=self.EXPORTS.export(export_name)
         )

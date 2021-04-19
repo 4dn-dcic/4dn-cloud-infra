@@ -30,7 +30,7 @@ deploy-alpha-p1:
 	./4dn-cloud-infra provision logging --validate --alpha --upload_change_set
 	./4dn-cloud-infra provision network --validate --alpha --upload_change_set
 	./4dn-cloud-infra provision ecr --validate --alpha --upload_change_set
-	# ./4dn-cloud-infra provision datastore --validate --alpha --upload_change_set
+	./4dn-cloud-infra provision datastore --validate --alpha --upload_change_set
 	# TODO deploy foursight
 
 deploy-alpha-p2:

@@ -10,7 +10,8 @@ from troposphere import (
     AWS_STACK_NAME,
     AWS_REGION,
     Base64,
-    Template
+    Template,
+    FindInMap
 )
 from troposphere.ecs import (
     Cluster,
@@ -27,7 +28,7 @@ from troposphere.ec2 import (
     SecurityGroupRule,
 )
 from src.part import C4Part
-from src.parts.network import C4NetworkExports
+from src.parts.network import C4NetworkExports, C4Network
 from src.parts.ecr import C4ECRExports
 from src.parts.iam import C4IAMExports
 from src.parts.logging import C4LoggingExports
@@ -55,6 +56,7 @@ class C4ECSApplication(C4Part):
     ECR_EXPORTS = C4ECRExports()
     IAM_EXPORTS = C4IAMExports()
     LOGGING_EXPORTS = C4LoggingExports()
+    AMI = 'ami-0be13a99cd970f6a9'  # latest amazon linux 2 ECS optimized
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
@@ -88,7 +90,7 @@ class C4ECSApplication(C4Part):
         template.add_parameter(self.ecs_container_instance_type())
         template.add_parameter(self.ecs_max_scale())
         template.add_parameter(self.ecs_desired_scale())
-        template.add_parameter(self.ecs_lb_certificate())  # TODO must be provisioned
+        # template.add_parameter(self.ecs_lb_certificate())  # TODO must be provisioned
         template.add_parameter(self.ecs_web_worker_memory())
         template.add_parameter(self.ecs_web_worker_cpu())
 
@@ -123,24 +125,25 @@ class C4ECSApplication(C4Part):
             self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
             self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
         ))
-        template.add_resource(self.ecs_indexer_task(
-            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
-        ))
-        template.add_resource(self.ecs_indexer_service(
-            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
-            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
-        ))
-        template.add_resource(self.ecs_ingester_task(
-            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
-        ))
-        template.add_resource(self.ecs_ingester_service(
-            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
-            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
-        ))
+        # TODO enable, configure later
+        # template.add_resource(self.ecs_indexer_task(
+        #     self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+        #     self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
+        # ))
+        # template.add_resource(self.ecs_indexer_service(
+        #     self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+        #     self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+        #     self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
+        # ))
+        # template.add_resource(self.ecs_ingester_task(
+        #     self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+        #     self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
+        # ))
+        # template.add_resource(self.ecs_ingester_service(
+        #     self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+        #     self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+        #     self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
+        # ))
         return template
 
     @staticmethod
@@ -163,7 +166,7 @@ class C4ECSApplication(C4Part):
             'DesiredScale',
             Description='Desired container instances count',
             Type='Number',
-            Default='1',
+            Default=1,
         )
 
     @staticmethod
@@ -172,7 +175,7 @@ class C4ECSApplication(C4Part):
             'MaxScale',
             Description='Maximum container instances count',
             Type='Number',
-            Default='3',
+            Default=1,
         )
 
     @staticmethod
@@ -218,8 +221,8 @@ class C4ECSApplication(C4Part):
                 LoadBalancerPort=443,
                 InstanceProtocol='HTTP',
                 InstancePort=Ref(self.ecs_web_worker_port()),
-                Protocol='HTTPS',
-                SSLCertificateId=Ref(self.ecs_lb_certificate()),
+                Protocol='HTTP',  # TODO change to HTTPS
+                #SSLCertificateId=Ref(self.ecs_lb_certificate()),
             )],
             HealthCheck=elb.HealthCheck(
                 Target=Join('', ['HTTP:', Ref(self.ecs_web_worker_port()), '/health']),
@@ -251,13 +254,13 @@ class C4ECSApplication(C4Part):
                     IpProtocol='tcp',
                     FromPort=Ref(self.ecs_web_worker_port()),
                     ToPort=Ref(self.ecs_web_worker_port()),
-                    CidrIp=public_subnet_cidr_1,
+                    CidrIp=C4Network.CIDR_BLOCK,  # VPC CIDR?
                 ),
                 SecurityGroupRule(
                     IpProtocol='tcp',
                     FromPort=Ref(self.ecs_web_worker_port()),
                     ToPort=Ref(self.ecs_web_worker_port()),
-                    CidrIp=public_subnet_cidr_2,
+                    CidrIp='0.0.0.0/0',  # no idea if this is correct
                 ),
             ]
         )
@@ -339,7 +342,7 @@ class C4ECSApplication(C4Part):
             ))],
             InstanceType=Ref(self.ecs_container_instance_type()),
             IamInstanceProfile=profile,
-            ImageId='latest',
+            ImageId=self.AMI,  # this is the AMI of the ec2 we want to use
             UserData=Base64(Join('', [
                 "#!/bin/bash -xe\n",
                 "yum install -y aws-cfn-bootstrap\n",
@@ -352,7 +355,7 @@ class C4ECSApplication(C4Part):
         )
 
     @staticmethod
-    def ecs_max_container_instances(max='1'):
+    def ecs_max_container_instances(max=1):
         return Parameter(
             'MaxScale',
             Description='Maximum container instances count',
@@ -366,7 +369,7 @@ class C4ECSApplication(C4Part):
             'DesiredScale',
             Description='Desired container instances count',
             Type='Number',
-            Default='1',
+            Default=1,
         )
 
     def ecs_autoscaling_group(self, private_subnet_a, private_subnet_b,
@@ -397,7 +400,7 @@ class C4ECSApplication(C4Part):
             'WebWorkerCPU',
             Description='Web worker CPU units',
             Type='Number',
-            Default='1024',  # 1 cpu
+            Default=1024,  # 1 cpu
         )
 
     @staticmethod
@@ -406,7 +409,7 @@ class C4ECSApplication(C4Part):
             'WebWorkerMemory',
             Description='Web worker memory',
             Type='Number',
-            Default='2048',
+            Default=2048,
         )
 
     def ecs_wsgi_task(self, ecr, log_group, app_revision='latest'):
@@ -513,12 +516,8 @@ class C4ECSApplication(C4Part):
             "CGAPWSGIService",
             Cluster=Ref(self.ecs_cluster()),
             DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
-            DesiredCount='1',
-            LoadBalancers=[LoadBalancer(
-                ContainerName='WSGILB',
-                ContainerPort=Ref(self.ecs_web_worker_port()),
-                LoadBalancerName=Ref(self.ecs_load_balancer()),
-            )],
+            DesiredCount=1,
+            LoadBalancers=[Ref(self.ecs_load_balancer())],
             TaskDefinition=Ref(self.ecs_wsgi_task(repo, log_group)),
             Role=role,
         )
@@ -534,7 +533,7 @@ class C4ECSApplication(C4Part):
             "CGAPIndexerService",
             Cluster=Ref(self.ecs_cluster()),
             DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
-            DesiredCount='1',
+            DesiredCount=1,
             TaskDefinition=Ref(self.ecs_indexer_task(repo, log_group)),
             Role=role,
         )
@@ -550,7 +549,7 @@ class C4ECSApplication(C4Part):
             "CGAPIngesterService",
             Cluster=Ref(self.ecs_cluster()),
             DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
-            DesiredCount='1',
+            DesiredCount=1,
             TaskDefinition=Ref(self.ecs_ingester_task(repo, log_group)),
             Role=role,
         )
