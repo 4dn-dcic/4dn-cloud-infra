@@ -14,7 +14,7 @@ app = Chalice(app_name='foursight_cgap_trial')
 
 HOST = 'https://6kpcfpmbni.execute-api.us-east-1.amazonaws.com/api'
 FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'
-DEFAULT_ENV = 'cgap'
+DEFAULT_ENV = 'cgap-trial'
 
 
 class AppUtils(AppUtils_from_cgap):
@@ -23,7 +23,7 @@ class AppUtils(AppUtils_from_cgap):
     FAVICON = 'https://cgap.hms.harvard.edu/static/img/favicon-fs.ico'
     host = HOST
     package_name = 'chalicelib'
-    # check_setup_dir = dirname(__file__)
+    check_setup_dir = '{}/src/parts'.format(dirname(__file__))
     html_main_title = 'Foursight-CGAP-Trial'
 
 
