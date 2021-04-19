@@ -295,7 +295,7 @@ develop = ["mock", "pytest (>=3.0.0)", "pytest-cov", "pytz", "coverage (<5.0.0)"
 
 [[package]]
 name = "foursight-cgap"
-version = "0.4.9.1b7"
+version = "0.4.9.1b8"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -517,7 +517,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 
 [[package]]
 name = "importlib-metadata"
-version = "3.10.1"
+version = "4.0.0"
 description = "Read metadata from Python packages"
 category = "main"
 optional = false
@@ -990,7 +990,7 @@ python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
 
 [[package]]
 name = "troposphere"
-version = "2.7.0"
+version = "2.7.1"
 description = "AWS CloudFormation creation library"
 category = "main"
 optional = false
@@ -1115,7 +1115,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=1.2.3)", "pytest-flake8", "pyt
 [metadata]
 lock-version = "1.1"
 python-versions = "3.6"
-content-hash = "1e8a2b0ff436e8fa57fb7519591231bef998a22e4048e785cd490aa2518aef85"
+content-hash = "84146a25e9afd88174bbb22a88a8f520ba9a3b246e85886fe513aa6c0605adde"
 
 [metadata.files]
 ansicon = [
@@ -1211,8 +1211,8 @@ elasticsearch-dsl = [
     {file = "elasticsearch_dsl-6.4.0-py2.py3-none-any.whl", hash = "sha256:f60aea7fd756ac1fbe7ce114bbf4949aefbf495dfe8896640e787c67344f12f6"},
 ]
 foursight-cgap = [
-    {file = "foursight-cgap-0.4.9.1b7.tar.gz", hash = "sha256:fcbd1f735df66552470ccaa9a35af9e04440b2f3308b7df11bc47c23e194e36d"},
-    {file = "foursight_cgap-0.4.9.1b7-py3-none-any.whl", hash = "sha256:9bd3d38129dcbd5d36cee8c92461b9d559585a54afd782b273432399316c7a8b"},
+    {file = "foursight-cgap-0.4.9.1b8.tar.gz", hash = "sha256:2780eb9ca5d431f3d02fe4ebe2ef59a26496f64b1483d6791478ec7537f0b61f"},
+    {file = "foursight_cgap-0.4.9.1b8-py3-none-any.whl", hash = "sha256:8dfd2b54a1f279b1463959d9fd50527f75fb272ef7ef5c1f4c17447a108a1016"},
 ]
 foursight-core = [
     {file = "foursight_core-0.1.9.1b7-py3-none-any.whl", hash = "sha256:a59d6506f3d08518bf4b10c9d3ae4423b1fe5929a9924f0bb07d8aa29dc423f7"},
@@ -1270,8 +1270,8 @@ idna = [
     {file = "idna-2.10.tar.gz", hash = "sha256:b307872f855b18632ce0c21c5e45be78c0ea7ae4c15c828c20788b26921eb3f6"},
 ]
 importlib-metadata = [
-    {file = "importlib_metadata-3.10.1-py3-none-any.whl", hash = "sha256:2ec0faae539743ae6aaa84b49a169670a465f7f5d64e6add98388cc29fd1f2f6"},
-    {file = "importlib_metadata-3.10.1.tar.gz", hash = "sha256:c9356b657de65c53744046fa8f7358afe0714a1af7d570c00c3835c2d724a7c1"},
+    {file = "importlib_metadata-4.0.0-py3-none-any.whl", hash = "sha256:19192b88d959336bfa6bdaaaef99aeafec179eca19c47c804e555703ee5f07ef"},
+    {file = "importlib_metadata-4.0.0.tar.gz", hash = "sha256:2e881981c9748d7282b374b68e759c87745c25427b67ecf0cc67fb6637a1bff9"},
 ]
 importlib-resources = [
     {file = "importlib_resources-3.3.1-py2.py3-none-any.whl", hash = "sha256:42068585cc5e8c2bf0a17449817401102a5125cbfbb26bb0f43cde1568f6f2df"},
@@ -1566,7 +1566,7 @@ toml = [
     {file = "toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f"},
 ]
 troposphere = [
-    {file = "troposphere-2.7.0.tar.gz", hash = "sha256:b0ab144b989e1e1c4698e601008bd5f7fbabd0629b4588cb57d3583f8aa6edc9"},
+    {file = "troposphere-2.7.1.tar.gz", hash = "sha256:ea2e5f2f82c224eaa1414a008b1939aae124c3e3e1dd993301968f155b333bd7"},
 ]
 typing = [
     {file = "typing-3.6.4-py2-none-any.whl", hash = "sha256:b2c689d54e1144bbcfd191b0832980a21c2dbcf7b5ff7a66248a60c90e951eb8"},

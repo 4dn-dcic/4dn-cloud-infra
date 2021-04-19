@@ -6,6 +6,8 @@
 .chalice/deployed/
 .chalice/venv/
 .chalice/config.json
+dist/
+requirements.txt
 *.pyc
 .DS_Store
 credentials.json
