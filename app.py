@@ -23,7 +23,7 @@ class AppUtils(AppUtils_from_cgap):
     FAVICON = 'https://cgap.hms.harvard.edu/static/img/favicon-fs.ico'
     host = HOST
     package_name = 'chalicelib'
-    check_setup_dir = '{}/src/parts'.format(dirname(__file__))
+    check_setup_dir = dirname(__file__)
     html_main_title = 'Foursight-CGAP-Trial'
 
 
