@@ -14,7 +14,7 @@ app = Chalice(app_name='foursight_cgap_trial')
 
 HOST = 'https://6kpcfpmbni.execute-api.us-east-1.amazonaws.com/api'
 FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'
-DEFAULT_ENV = 'cgap-trial'
+DEFAULT_ENV = 'cgap-mastertest'
 
 
 class AppUtils(AppUtils_from_cgap):
@@ -24,12 +24,12 @@ class AppUtils(AppUtils_from_cgap):
     host = HOST
     package_name = 'chalicelib'
     # check_setup_dir = dirname(__file__)  # This file is present in chalicelib
-    html_main_title = 'Foursight-CGAP-Trial'
+    html_main_title = 'Foursight-CGAP-Mastertest'
 
 
-logger.info('creating app utils object')
+logger.warning('creating app utils object')
 app_utils_obj = AppUtils()
-logger.info('got app utils object')
+logger.warning('got app utils object')
 
 
 @app.route('/', methods=['GET'])
@@ -39,7 +39,7 @@ def index():
     Non-protected route
     """
     domain, context = app_utils_obj.get_domain_and_context(app.current_request.to_dict())
-    logger.info('got domain and context for root route')
+    logger.warning('got domain and context for root route')
     resp_headers = {'Location': context + 'view/' + DEFAULT_ENV}
     return Response(status_code=302, body=json.dumps(resp_headers),
                     headers=resp_headers)
@@ -52,5 +52,5 @@ def view_route(environ):
     """
     req_dict = app.current_request.to_dict()
     domain, context = app_utils_obj.get_domain_and_context(req_dict)
-    logger.info('got domain and context for view: {}'.format(environ))
+    logger.warning('got domain and context for view: {}'.format(environ))
     return app_utils_obj.view_foursight(environ, app_utils_obj.check_authorization(req_dict, environ), domain, context)
