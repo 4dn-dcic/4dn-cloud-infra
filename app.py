@@ -1,9 +1,13 @@
 import json
+import logging
 from chalicelib.app import DEFAULT_ENV
 from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
 from chalicelib.vars import FOURSIGHT_PREFIX
 from chalice import Chalice, Response
 from os.path import dirname
+
+logging.basicConfig()
+logger = logging.getLogger(__name__)
 
 # Minimal app.py; used to initially verify packaging scripts
 app = Chalice(app_name='foursight_cgap_trial')
@@ -21,6 +25,10 @@ class AppUtils(AppUtils_from_cgap):
     html_main_title = 'Foursight-CGAP-Trial'
 
 
+app_utils_obj = AppUtils()
+logger.info('got app utils object')
+
+
 @app.route('/', methods=['GET'])
 def index():
     """
@@ -28,6 +36,7 @@ def index():
     Non-protected route
     """
     domain, context = app_utils_obj.get_domain_and_context(app.current_request.to_dict())
+    logger.info('got domain and context for root route')
     resp_headers = {'Location': context + 'view/' + DEFAULT_ENV}
     return Response(status_code=302, body=json.dumps(resp_headers),
                     headers=resp_headers)
@@ -40,4 +49,5 @@ def view_route(environ):
     """
     req_dict = app.current_request.to_dict()
     domain, context = app_utils_obj.get_domain_and_context(req_dict)
+    logger.info('got domain and context for view: {}'.format(environ))
     return app_utils_obj.view_foursight(environ, app_utils_obj.check_authorization(req_dict, environ), domain, context)
