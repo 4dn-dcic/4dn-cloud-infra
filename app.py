@@ -6,7 +6,7 @@ from chalicelib.vars import FOURSIGHT_PREFIX
 from chalice import Chalice, Response
 from os.path import dirname
 
-logging.basicConfig()
+logging.basicConfig(encoding='utf8', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Minimal app.py; used to initially verify packaging scripts
