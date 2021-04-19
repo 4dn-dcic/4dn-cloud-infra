@@ -2,7 +2,7 @@ import json
 import logging
 from chalicelib.app import DEFAULT_ENV
 from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
-from chalicelib.vars import FOURSIGHT_PREFIX
+# from chalicelib.vars import FOURSIGHT_PREFIX
 from chalice import Chalice, Response
 from os.path import dirname
 
@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 app = Chalice(app_name='foursight_cgap_trial')
 
 HOST = 'https://6kpcfpmbni.execute-api.us-east-1.amazonaws.com/api'
+FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'
 
 
 class AppUtils(AppUtils_from_cgap):
@@ -25,6 +26,7 @@ class AppUtils(AppUtils_from_cgap):
     html_main_title = 'Foursight-CGAP-Trial'
 
 
+logger.info('creating app utils object')
 app_utils_obj = AppUtils()
 logger.info('got app utils object')
 
