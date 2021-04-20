@@ -231,6 +231,10 @@ class C4IAM(C4Part):
         ]
         return Role(
             self.ROLE_NAME,
+            # IMPORTANT: Required for EC2s to associate with ECS
+            ManagedPolicyArns=[
+                "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
+            ],
             # Only allow ECS to assume this role
             AssumeRolePolicyDocument=PolicyDocument(
                 Version='2012-10-17',

@@ -3,6 +3,7 @@ from troposphere import (
     Join,
     Ref,
     elasticloadbalancing as elb,
+    elasticloadbalancingv2 as elbv2,
     autoscaling,
     cloudformation,
     AWS_ACCOUNT_ID,
@@ -11,7 +12,6 @@ from troposphere import (
     AWS_REGION,
     Base64,
     Template,
-    FindInMap
 )
 from troposphere.ecs import (
     Cluster,
@@ -184,7 +184,24 @@ class C4ECSApplication(C4Part):
             'WebWorkerPort',
             Description="Web worker container exposed port",
             Type="Number",
-            Default="8000",  # should work for us
+            Default=8000,  # should work for us
+        )
+
+    def ecs_lbv2_target_group(self) -> elbv2.TargetGroup:
+        """ Creates LBv2 target group.
+            Unused, should probably be used as current setup is 'classic'
+        """
+        return elbv2.TargetGroup(
+            'TargetGroupWebWorker',
+            HealthCheckProtocol='HTTP',
+            HealthCheckTimeoutSeconds='20',
+            HealthyThresholdCount='1',
+            Matcher=elbv2.Matcher(HttpCode='200'),
+            Name='WebWorkerTarget',
+            Port=Ref(self.ecs_web_worker_port()),
+            Protocol='HTTP',
+            UnhealthyThresholdCount='1',
+            VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
         )
 
     def ecs_lb_security_group(self):
@@ -217,13 +234,23 @@ class C4ECSApplication(C4Part):
                 self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
             ],
             SecurityGroups=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.APPLICATION_SECURITY_GROUP)],
-            Listeners=[elb.Listener(
-                LoadBalancerPort=443,
-                InstanceProtocol='HTTP',
-                InstancePort=Ref(self.ecs_web_worker_port()),
-                Protocol='HTTP',  # TODO change to HTTPS
-                #SSLCertificateId=Ref(self.ecs_lb_certificate()),
-            )],
+            Listeners=[
+                # Forward HTTPS on 443 to HTTP on the web port
+                elb.Listener(
+                    LoadBalancerPort=443,
+                    InstanceProtocol='HTTP',
+                    InstancePort=Ref(self.ecs_web_worker_port()),
+                    Protocol='HTTP',  # TODO change to HTTPS
+                    #  SSLCertificateId=Ref(self.ecs_lb_certificate()),
+                    ),
+                # Forward HTTP on 80 to HTTP on web port
+                elb.Listener(
+                    LoadBalancerPort=80,
+                    InstanceProtocol='HTTP',
+                    InstancePort=Ref(self.ecs_web_worker_port()),
+                    Protocol='HTTP',
+                )
+            ],
             HealthCheck=elb.HealthCheck(
                 Target=Join('', ['HTTP:', Ref(self.ecs_web_worker_port()), '/health']),
                 HealthyThreshold='2',
@@ -379,9 +406,9 @@ class C4ECSApplication(C4Part):
         return autoscaling.AutoScalingGroup(
             name,
             VPCZoneIdentifier=[private_subnet_a, private_subnet_b],
-            MinSize=Ref(self.ecs_desired_container_instances()),
-            MaxSize=Ref(self.ecs_max_container_instances()),
-            DesiredCapacity=Ref(self.ecs_desired_container_instances()),
+            MinSize=1,
+            MaxSize=1,
+            DesiredCapacity=1,
             LaunchConfigurationName=Ref(self.ecs_container_instance_launch_configuration(public_subnet_a,
                                                                                          public_subnet_b,
                                                                                          instance_profile)),
@@ -517,7 +544,12 @@ class C4ECSApplication(C4Part):
             Cluster=Ref(self.ecs_cluster()),
             DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
             DesiredCount=1,
-            LoadBalancers=[Ref(self.ecs_load_balancer())],
+            LoadBalancers=[
+                LoadBalancer(
+                    ContainerName='WSGI',  # this must match Name in TaskDefinition (ContainerDefinition)
+                    ContainerPort=Ref(self.ecs_web_worker_port()),
+                    LoadBalancerName=Ref(self.ecs_load_balancer()))
+            ],
             TaskDefinition=Ref(self.ecs_wsgi_task(repo, log_group)),
             Role=role,
         )
