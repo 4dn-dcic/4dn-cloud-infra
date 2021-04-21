@@ -32,7 +32,7 @@ app_utils_obj = AppUtils()
 logger.warning('got app utils object')
 
 
-@app.route('/api', methods=['GET'])
+@app.route('/', methods=['GET'])
 def index():
     """
     Redirect with 302 to view page of DEFAULT_ENV
@@ -45,7 +45,7 @@ def index():
                     headers=resp_headers)
 
 
-@app.route('/api/view/{environ}', methods=['GET'])
+@app.route('/view/{environ}', methods=['GET'])
 def view_route(environ):
     """
     Non-protected route
