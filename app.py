@@ -1,5 +1,6 @@
 import json
 import logging
+# from chalicelib.app import app
 # from chalicelib.app import DEFAULT_ENV
 from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
 # from chalicelib.vars import FOURSIGHT_PREFIX
@@ -32,6 +33,16 @@ app_utils_obj = AppUtils()
 logger.warning('got app utils object')
 
 
+@app.route('/callback')
+def auth0_callback():
+    """
+    Special callback route, only to be used as a callback from auth0
+    Will return a redirect to view on error/any missing callback info.
+    """
+    request = app.current_request
+    return app_utils_obj.auth0_callback(request, DEFAULT_ENV)
+
+
 @app.route('/', methods=['GET'])
 def index():
     """
@@ -40,7 +51,7 @@ def index():
     """
     domain, context = app_utils_obj.get_domain_and_context(app.current_request.to_dict())
     logger.warning('got domain and context for root route')
-    resp_headers = {'Location': context + 'view/' + DEFAULT_ENV}
+    resp_headers = {'Location': context + 'api/view/' + DEFAULT_ENV}  # special casing 'api' for the chalice app root
     return Response(status_code=302, body=json.dumps(resp_headers),
                     headers=resp_headers)
 
