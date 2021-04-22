@@ -516,8 +516,6 @@ class C4Network(C4Part):
             Tags=self.tags.cost_tag_array(name=instance_name),
             ImageId='ami-0742b4e673072066f',
             InstanceType='t2.nano',
-            SubnetId=Ref(self.public_subnet_a()),
-            SecurityGroups=[Ref(self.application_security_group())],
             NetworkInterfaces=[NetworkInterfaceProperty(
                 network_interface_logical_id,
                 AssociatePublicIpAddress=True,
