@@ -111,7 +111,7 @@ class C4Beanstalk(C4Part):
             env is passed through the options settings for parameterized change. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-beanstalk-environment.html
         """
-        env_name = 'cgap-{}'.format(env.lower())  # TODO change?
+        env_name = 'fourfront-cgap{}'.format(env.lower())  # TODO change?
         logical_id = self.name.logical_id('{}Environment'.format(env))
 
         # TODO replace with docker specific env changes -- VersionLabel to demo application, SolutionStackName change
