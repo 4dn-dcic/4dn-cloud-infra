@@ -525,4 +525,5 @@ class C4Network(C4Part):
                 GroupSet=[Ref(self.application_security_group())],
                 SubnetId=Ref(self.public_subnet_a()),
             )],
+            KeyName='trial-ssh-key-01',  # TODO parameterize
         )
