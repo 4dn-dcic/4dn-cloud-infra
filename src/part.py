@@ -36,6 +36,10 @@ class C4Name:
     def __str__(self):
         return self.name
 
+    def instance_name(self, suffix):
+        """ Build an instance name for an EC2 instance, given a suffix """
+        return '{0}-{1}'.format(self.name, suffix)
+
     def logical_id(self, resource):
         """ Build the Cloud Formation 'Logical Id' for a resource.
             Takes string s and returns s with uniform resource prefix added.

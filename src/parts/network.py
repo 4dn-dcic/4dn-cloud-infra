@@ -1,7 +1,7 @@
 from troposphere import Ref, GetAtt, Output, Template
 from troposphere.ec2 import (
     InternetGateway, Route, RouteTable, SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
-    Subnet, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment, NatGateway, EIP
+    Subnet, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment, NatGateway, EIP, Instance, NetworkInterfaceProperty,
 )
 from src.part import C4Part
 from src.exports import C4Exports
@@ -86,6 +86,9 @@ class C4Network(C4Part):
         # Add Application security rules
         for i in self.application_security_rules():
             template.add_resource(i)
+
+        # Add Bastion Host
+        template.add_resource(self.bastion_host())
 
         return template
 
@@ -502,5 +505,24 @@ class C4Network(C4Part):
         ]
 
     def bastion_host(self):
-        """ TODO: Defines a bastion host in public subnet a of the vpc """
-        pass
+        """ Defines a bastion host in public subnet a of the vpc. Ref:
+            https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_EC2.html
+        """
+        logical_id = self.name.logical_id('BastionHost')
+        network_interface_logical_id = self.name.logical_id('BastionHostNetworkInterface')
+        instance_name = self.name.instance_name('bastion-host')
+        return Instance(
+            logical_id,
+            Tags=self.tags.cost_tag_array(name=instance_name),
+            ImageId='ami-0742b4e673072066f',
+            InstanceType='t2.nano',
+            SubnetId=Ref(self.public_subnet_a()),
+            SecurityGroups=[Ref(self.application_security_group())],
+            NetworkInterfaces=[NetworkInterfaceProperty(
+                network_interface_logical_id,
+                AssociatePublicIpAddress=True,
+                DeviceIndex=0,
+                GroupSet=[Ref(self.application_security_group())],
+                SubnetId=Ref(self.public_subnet_a()),
+            )],
+        )
