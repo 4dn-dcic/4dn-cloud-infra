@@ -32,7 +32,8 @@ class C4Beanstalk(C4Part):
 
     def beanstalk_application_version(self,
                                       bucket='elasticbeanstalk-us-east-1-645819926742',
-                                      key='C4BeanstalkTrialApplication/2021-04-21-berg_trial_deploy.zip'):
+                                      key='C4BeanstalkTrialApplication/2021-04-22-berg_trial_deploy.zip'):
+
         """ An existing application version source bundle. TODO: application version upload process """
         logical_id = self.name.logical_id('ApplicationVersion')
         return ApplicationVersion(
