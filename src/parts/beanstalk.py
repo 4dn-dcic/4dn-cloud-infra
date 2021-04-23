@@ -455,6 +455,7 @@ class C4Beanstalk(C4Part):
     def rolling_options():
         """ Returns list of OptionsSettings for beanstalk rolling updates. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-autoscalingupdatepolicyrollingupdate
+            https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elasticbeanstalkcommand
         """
         return [
             OptionSettings(
@@ -465,6 +466,11 @@ class C4Beanstalk(C4Part):
             OptionSettings(
                 Namespace='aws:autoscaling:updatepolicy:rollingupdate',
                 OptionName='RollingUpdateType',
+                Value='Immutable'
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:command',
+                OptionName='DeploymentPolicy',
                 Value='Immutable'
             ),
         ]
