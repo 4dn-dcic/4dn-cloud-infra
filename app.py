@@ -8,6 +8,7 @@ from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming conven
 from chalice import Chalice, Response, Cron
 from foursight_core.deploy import Deploy
 from dcicutils.misc_utils import environ_bool
+from dcicutils.ff_utils import get_metadata
 import traceback
 
 
@@ -129,8 +130,8 @@ def view_route(environ):
 
     # testing the auth
     for env_info in app_utils_obj.init_environments(environ).values():
-        user_res = ff_utils.get_metadata('users/' + payload.get('email').lower(),
-                                         ff_env=env_info['ff_env'], add_on='frame=object')
+        user_res = get_metadata('users/' + payload.get('email').lower(),
+                                ff_env=env_info['ff_env'], add_on='frame=object')
         logger.error(env_info)
         logger.error(user_res)
 
