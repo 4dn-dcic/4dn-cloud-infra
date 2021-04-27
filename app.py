@@ -116,7 +116,10 @@ def view_route(environ):
     logger.warning(req_dict)
     domain, context = app_utils_obj.get_domain_and_context(req_dict)
     logger.warning('domain, context in /view/{environ}')
-    return app_utils_obj.view_foursight(environ, app_utils_obj.check_authorization(req_dict, environ), domain, context)
+    logger.warning('result of check authorization')
+    check_authorization = app_utils_obj.check_authorization(req_dict, environ)
+    logger.warning(check_authorization)
+    return app_utils_obj.view_foursight(environ, app_utils_obj.check_authorization, domain, context)
 
 
 @app.route('/view/{environ}/{check}/{uuid}', methods=['GET'])
