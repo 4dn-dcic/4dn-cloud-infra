@@ -93,20 +93,20 @@ wcwidth = ">=0.1.4"
 
 [[package]]
 name = "boto3"
-version = "1.17.57"
+version = "1.17.58"
 description = "The AWS SDK for Python"
 category = "main"
 optional = false
 python-versions = ">= 2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
 
 [package.dependencies]
-botocore = ">=1.20.57,<1.21.0"
+botocore = ">=1.20.58,<1.21.0"
 jmespath = ">=0.7.1,<1.0.0"
 s3transfer = ">=0.4.0,<0.5.0"
 
 [[package]]
 name = "botocore"
-version = "1.20.57"
+version = "1.20.58"
 description = "Low-level, data-driven core of boto 3."
 category = "main"
 optional = false
@@ -296,7 +296,7 @@ develop = ["mock", "pytest (>=3.0.0)", "pytest-cov", "pytz", "coverage (<5.0.0)"
 
 [[package]]
 name = "foursight-cgap"
-version = "0.4.9.1b8"
+version = "0.4.9.1b9"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -307,7 +307,7 @@ click = ">=7.1.2,<8.0.0"
 dcicutils = ">=1.7.0,<2.0.0"
 elasticsearch = ">=6.8.1,<7.0.0"
 elasticsearch-dsl = ">=6.4.0,<7.0.0"
-foursight-core = "0.1.9.1b7"
+foursight-core = "0.1.9.1b8"
 fuzzywuzzy = "0.17.0"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
@@ -321,7 +321,7 @@ pytz = ">=2020.1,<2021.0"
 
 [[package]]
 name = "foursight-core"
-version = "0.1.9.1b7"
+version = "0.1.9.1b8"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -439,7 +439,7 @@ uritemplate = ">=3.0.0,<4dev"
 
 [[package]]
 name = "google-auth"
-version = "1.29.0"
+version = "1.30.0"
 description = "Google Authentication Library"
 category = "main"
 optional = false
@@ -1131,7 +1131,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=1.2.3)", "pytest-flake8", "pyt
 [metadata]
 lock-version = "1.1"
 python-versions = "3.6"
-content-hash = "84146a25e9afd88174bbb22a88a8f520ba9a3b246e85886fe513aa6c0605adde"
+content-hash = "de58c7a7de4ad55d6939a124d2ace1f0d045e309e64b8efe97161e97201d4044"
 
 [metadata.files]
 ansicon = [
@@ -1168,12 +1168,12 @@ blessed = [
     {file = "blessed-1.17.6.tar.gz", hash = "sha256:a9a774fc6eda05248735b0d86e866d640ca2fef26038878f7e4d23f7749a1e40"},
 ]
 boto3 = [
-    {file = "boto3-1.17.57-py2.py3-none-any.whl", hash = "sha256:2783947ec34dd84fc36093e8fc8a9a24679cf912a97bc9a0c47f4966ed059a29"},
-    {file = "boto3-1.17.57.tar.gz", hash = "sha256:6b4a79691a48740816f03c4cb1e8ef46f8335ad2019d9c4a95da73eb5cb98f05"},
+    {file = "boto3-1.17.58-py2.py3-none-any.whl", hash = "sha256:fcd1a0318919bddf4efd0a8858214ed07d08a870d79d20f9b2d6df5d3092b8d8"},
+    {file = "boto3-1.17.58.tar.gz", hash = "sha256:4caf01511a07e229855b964d43ddbc6b3db1fd88a3747a4a7ca6d398ce04f3d3"},
 ]
 botocore = [
-    {file = "botocore-1.20.57-py2.py3-none-any.whl", hash = "sha256:fa430bc773363a3d332c11c55bd8c0c0a5819d576121eb6990528a1bdaa89bcd"},
-    {file = "botocore-1.20.57.tar.gz", hash = "sha256:ae4ac72921f23d35ad54a5fb0989fc00c6fff8a39e24f26128b9315cc6209fec"},
+    {file = "botocore-1.20.58-py2.py3-none-any.whl", hash = "sha256:0de54af6af58d59237377f1bbe43edc4395d88848cddbe00f546703d4026c638"},
+    {file = "botocore-1.20.58.tar.gz", hash = "sha256:2830596e0d92d82abaf78a7926e49a3b7a80c93cdc75e95717a1dd4ea9027283"},
 ]
 cachetools = [
     {file = "cachetools-4.2.1-py3-none-any.whl", hash = "sha256:1d9d5f567be80f7c07d765e21b814326d78c61eb0c3a637dffc0e5d1796cb2e2"},
@@ -1227,12 +1227,12 @@ elasticsearch-dsl = [
     {file = "elasticsearch_dsl-6.4.0-py2.py3-none-any.whl", hash = "sha256:f60aea7fd756ac1fbe7ce114bbf4949aefbf495dfe8896640e787c67344f12f6"},
 ]
 foursight-cgap = [
-    {file = "foursight-cgap-0.4.9.1b8.tar.gz", hash = "sha256:2780eb9ca5d431f3d02fe4ebe2ef59a26496f64b1483d6791478ec7537f0b61f"},
-    {file = "foursight_cgap-0.4.9.1b8-py3-none-any.whl", hash = "sha256:8dfd2b54a1f279b1463959d9fd50527f75fb272ef7ef5c1f4c17447a108a1016"},
+    {file = "foursight-cgap-0.4.9.1b9.tar.gz", hash = "sha256:790eee6cbc11b3a47f6712bccba194d9a80ad3f0543ee5c8a741cb835e7d3096"},
+    {file = "foursight_cgap-0.4.9.1b9-py3-none-any.whl", hash = "sha256:eac18c89efb60ef7838b71b17eec7568cb3ffd7f1f86f757ef442cc1351f446d"},
 ]
 foursight-core = [
-    {file = "foursight_core-0.1.9.1b7-py3-none-any.whl", hash = "sha256:a59d6506f3d08518bf4b10c9d3ae4423b1fe5929a9924f0bb07d8aa29dc423f7"},
-    {file = "foursight_core-0.1.9.1b7.tar.gz", hash = "sha256:b9eda05dfb47e80297ac619103ca5804b12a5099eac228ebe85028c6d2839bed"},
+    {file = "foursight_core-0.1.9.1b8-py3-none-any.whl", hash = "sha256:7214c87fa507656a3fb0ae1c42e6129edafbbc715b62406f6fedabde7df07bfe"},
+    {file = "foursight_core-0.1.9.1b8.tar.gz", hash = "sha256:07e8cfa1107b3dcf329c6cf0a79acfddd74f6bde56adb5ccf71125e106f911b9"},
 ]
 future = [
     {file = "future-0.18.2.tar.gz", hash = "sha256:b1bead90b70cf6ec3f0710ae53a525360fa360d306a86583adc6bf83a4db537d"},
@@ -1262,8 +1262,8 @@ google-api-python-client = [
     {file = "google_api_python_client-1.12.8-py2.py3-none-any.whl", hash = "sha256:3c4c4ca46b5c21196bec7ee93453443e477d82cbfa79234d1ce0645f81170eaf"},
 ]
 google-auth = [
-    {file = "google-auth-1.29.0.tar.gz", hash = "sha256:010f011c4e27d3d5eb01106fba6aac39d164842dfcd8709955c4638f5b11ccf8"},
-    {file = "google_auth-1.29.0-py2.py3-none-any.whl", hash = "sha256:f30a672a64d91cc2e3137765d088c5deec26416246f7a9e956eaf69a8d7ed49c"},
+    {file = "google-auth-1.30.0.tar.gz", hash = "sha256:9ad25fba07f46a628ad4d0ca09f38dcb262830df2ac95b217f9b0129c9e42206"},
+    {file = "google_auth-1.30.0-py2.py3-none-any.whl", hash = "sha256:588bdb03a41ecb4978472b847881e5518b5d9ec6153d3d679aa127a55e13b39f"},
 ]
 google-auth-httplib2 = [
     {file = "google-auth-httplib2-0.0.4.tar.gz", hash = "sha256:8d092cc60fb16517b12057ec0bba9185a96e3b7169d86ae12eae98e645b7bc39"},
