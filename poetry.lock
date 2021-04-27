@@ -93,20 +93,20 @@ wcwidth = ">=0.1.4"
 
 [[package]]
 name = "boto3"
-version = "1.17.55"
+version = "1.17.57"
 description = "The AWS SDK for Python"
 category = "main"
 optional = false
 python-versions = ">= 2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
 
 [package.dependencies]
-botocore = ">=1.20.55,<1.21.0"
+botocore = ">=1.20.57,<1.21.0"
 jmespath = ">=0.7.1,<1.0.0"
 s3transfer = ">=0.4.0,<0.5.0"
 
 [[package]]
 name = "botocore"
-version = "1.20.55"
+version = "1.20.57"
 description = "Low-level, data-driven core of boto 3."
 category = "main"
 optional = false
@@ -169,7 +169,7 @@ six = ">=1.11"
 
 [[package]]
 name = "chalice"
-version = "1.22.3"
+version = "1.22.4"
 description = "Microframework"
 category = "dev"
 optional = false
@@ -943,7 +943,7 @@ pyasn1 = ">=0.1.3"
 
 [[package]]
 name = "s3transfer"
-version = "0.4.1"
+version = "0.4.2"
 description = "An Amazon S3 Transfer Manager"
 category = "main"
 optional = false
@@ -1168,12 +1168,12 @@ blessed = [
     {file = "blessed-1.17.6.tar.gz", hash = "sha256:a9a774fc6eda05248735b0d86e866d640ca2fef26038878f7e4d23f7749a1e40"},
 ]
 boto3 = [
-    {file = "boto3-1.17.55-py2.py3-none-any.whl", hash = "sha256:5910c868c2cf0d30b6c9caed1d38a2b2c2c83e9713eadae0f43de4f42bfe863f"},
-    {file = "boto3-1.17.55.tar.gz", hash = "sha256:d0d1e8ca76a8e1b74f87a8324f97001d60bd8bbe6cca35a8e9e7b9abe5aa9ddb"},
+    {file = "boto3-1.17.57-py2.py3-none-any.whl", hash = "sha256:2783947ec34dd84fc36093e8fc8a9a24679cf912a97bc9a0c47f4966ed059a29"},
+    {file = "boto3-1.17.57.tar.gz", hash = "sha256:6b4a79691a48740816f03c4cb1e8ef46f8335ad2019d9c4a95da73eb5cb98f05"},
 ]
 botocore = [
-    {file = "botocore-1.20.55-py2.py3-none-any.whl", hash = "sha256:94a62f7f848b37757c3419193727e183bccdf5cb74167df30bafee5d8d649b7a"},
-    {file = "botocore-1.20.55.tar.gz", hash = "sha256:5632c129e6c1c1a15e273fd3ec6f4431490e99ec61b6cff833538f456202e833"},
+    {file = "botocore-1.20.57-py2.py3-none-any.whl", hash = "sha256:fa430bc773363a3d332c11c55bd8c0c0a5819d576121eb6990528a1bdaa89bcd"},
+    {file = "botocore-1.20.57.tar.gz", hash = "sha256:ae4ac72921f23d35ad54a5fb0989fc00c6fff8a39e24f26128b9315cc6209fec"},
 ]
 cachetools = [
     {file = "cachetools-4.2.1-py3-none-any.whl", hash = "sha256:1d9d5f567be80f7c07d765e21b814326d78c61eb0c3a637dffc0e5d1796cb2e2"},
@@ -1191,8 +1191,8 @@ cfn-lint = [
     {file = "cfn_lint-0.48.3-py3-none-any.whl", hash = "sha256:8ccfa5b2d6b688854653015d0c7ecfa1572801c14f8600c9cdba09c215db8c9a"},
 ]
 chalice = [
-    {file = "chalice-1.22.3-py2.py3-none-any.whl", hash = "sha256:895e6c79fca35a59a512b12261d3017a923239a67d8ab547385c533aa0b359c1"},
-    {file = "chalice-1.22.3.tar.gz", hash = "sha256:5a84a73c4a8d8b22bb64e06ff99060d7f222097db4237e58749dcad5165f082d"},
+    {file = "chalice-1.22.4-py2.py3-none-any.whl", hash = "sha256:35a3ae531c29359bab98cdc3f09e2015856473a24c9774203a20f57386715e57"},
+    {file = "chalice-1.22.4.tar.gz", hash = "sha256:acfaaf0b2c7bf79bf0dcf93428e730f4f46e598ac1b0424c8d99008db816b87d"},
 ]
 chardet = [
     {file = "chardet-4.0.0-py2.py3-none-any.whl", hash = "sha256:f864054d66fd9118f2e67044ac8981a54775ec5b67aed0441892edb553d21da5"},
@@ -1562,8 +1562,8 @@ rsa = [
     {file = "rsa-4.7.2.tar.gz", hash = "sha256:9d689e6ca1b3038bc82bf8d23e944b6b6037bc02301a574935b2dd946e0353b9"},
 ]
 s3transfer = [
-    {file = "s3transfer-0.4.1-py2.py3-none-any.whl", hash = "sha256:b5130849df909773254099d085790456665f8d7e0032bbef6e3407f28adb1ad9"},
-    {file = "s3transfer-0.4.1.tar.gz", hash = "sha256:81b7b3516739b0cfbecaa9077a1baf783e7a790c0e49261fcc6ceda468765efa"},
+    {file = "s3transfer-0.4.2-py2.py3-none-any.whl", hash = "sha256:9b3752887a2880690ce628bc263d6d13a3864083aeacff4890c1c9839a5eb0bc"},
+    {file = "s3transfer-0.4.2.tar.gz", hash = "sha256:cb022f4b16551edebbb31a377d3f09600dbada7363d8c5db7976e7f47732e1b2"},
 ]
 six = [
     {file = "six-1.15.0-py2.py3-none-any.whl", hash = "sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced"},
