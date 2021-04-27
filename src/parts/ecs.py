@@ -252,7 +252,7 @@ class C4ECSApplication(C4Part):
                 )
             ],
             HealthCheck=elb.HealthCheck(
-                Target=Join('', ['HTTP:', Ref(self.ecs_web_worker_port()), '/health']),
+                Target=Join('', ['HTTP:', Ref(self.ecs_web_worker_port()), '/health?format=json']),
                 HealthyThreshold='2',
                 UnhealthyThreshold='2',
                 Interval='120',
@@ -405,7 +405,7 @@ class C4ECSApplication(C4Part):
         """ Builds an autoscaling group for the EC2s """
         return autoscaling.AutoScalingGroup(
             name,
-            VPCZoneIdentifier=[private_subnet_a, private_subnet_b],
+            VPCZoneIdentifier=[public_subnet_a, public_subnet_b],  # XXX: changed to public for now
             MinSize=1,
             MaxSize=1,
             DesiredCapacity=1,
@@ -419,6 +419,7 @@ class C4ECSApplication(C4Part):
             # instance will be flagged as `unhealthy` and won't stop respawning'
             HealthCheckType="EC2",
             HealthCheckGracePeriod=300,
+
         )
 
     @staticmethod

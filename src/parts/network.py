@@ -80,8 +80,7 @@ class C4Network(C4Part):
         template.add_resource(private_b_nat_gateway)
 
         # Add Internet Gateway to public route table, NAT Gateway to private route table
-        for i in [self.route_internet_gateway(), self.route_nat_gateway(public_a_nat_gateway),
-                  self.route_nat_gateway(public_b_nat_gateway)]:
+        for i in [self.route_internet_gateway(), self.route_nat_gateway(public_a_nat_gateway)]:
             template.add_resource(i)
 
         # Add subnet-to-route-table associations
