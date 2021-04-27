@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 # from chalicelib.app import app
@@ -5,22 +6,26 @@ import logging
 from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
 # from chalicelib.vars import FOURSIGHT_PREFIX
 from chalice import Chalice, Response, Cron
-from os.path import dirname
-from os import environ
+from foursight_core.deploy import Deploy
 from dcicutils.misc_utils import environ_bool
 import traceback
 
+
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(levelname)-8s %(message)s')
 logger = logging.getLogger(__name__)
+
 
 DEBUG_CHALICE = environ_bool('DEBUG_CHALICE', default=False)
 if DEBUG_CHALICE:
     logger.warning('debug mode on...')
 
+
 # Minimal app.py; used to initially verify packaging scripts
 app = Chalice(app_name='foursight_cgap_trial')
 
-HOST = 'https://6kpcfpmbni.execute-api.us-east-1.amazonaws.com/api'
+
+# XXX: acquire through args?
+HOST = 'https://vpc-c4datastoretriales-nm4mam24al26aalf5o3dxervde.us-east-1.es.amazonaws.com/'
 FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'
 DEFAULT_ENV = 'cgap-mastertest'
 
@@ -51,7 +56,7 @@ if DEBUG_CHALICE:
 
 @app.schedule(effectively_never())
 def manual_checks():
-    queue_scheduled_checks('all', 'manual_checks')
+    app_utils_obj.queue_scheduled_checks('all', 'manual_checks')
 
 
 @app.route('/callback')
@@ -242,11 +247,11 @@ def check_runner(event, context):
         return
     app_utils_obj.run_check_runner(event)
 
+
 ######### MISC UTILITY FUNCTIONS #########
 
 
 def set_stage(stage):
-    from deploy import Deploy
     if stage != 'test' and stage not in Deploy.CONFIG_BASE['stages']:
         print('ERROR! Input stage is not valid. Must be one of: %s' % str(list(Deploy.CONFIG_BASE['stages'].keys()).extend('test')))
     os.environ['chalice_stage'] = stage
