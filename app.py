@@ -27,7 +27,7 @@ DEFAULT_ENV = 'cgap-mastertest'
 
 def effectively_never():
     """Every February 31st, a.k.a. 'never'."""
-    return Cron('0', '0', '31', '2', '?', '?')
+    return Cron('0', '0', '31', '2', '*', '*')
 
 
 class AppUtils(AppUtils_from_cgap):
