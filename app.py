@@ -129,6 +129,8 @@ def view_route(environ):
     logger.warning(check_authorization)
 
     # testing the auth
+    import jwt
+    from base64 import b64decode
     token = self.get_jwt(req_dict)
     auth0_client = os.environ.get('CLIENT_ID', None)
     auth0_secret = os.environ.get('CLIENT_SECRET', None)
