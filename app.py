@@ -121,9 +121,19 @@ def view_route(environ):
     logger.warning(req_dict)
     domain, context = app_utils_obj.get_domain_and_context(req_dict)
     logger.warning('domain, context in /view/{environ}')
+    logger.warning(domain)
+    logger.warning(context)
     logger.warning('result of check authorization')
     check_authorization = app_utils_obj.check_authorization(req_dict, environ)
     logger.warning(check_authorization)
+
+    # testing the auth
+    for env_info in app_utils_obj.init_environments(environ).values():
+        user_res = ff_utils.get_metadata('users/' + payload.get('email').lower(),
+                                         ff_env=env_info['ff_env'], add_on='frame=object')
+        logger.error(env_info)
+        logger.error(user_res)
+
     return app_utils_obj.view_foursight(environ, app_utils_obj.check_authorization, domain, context)
 
 
