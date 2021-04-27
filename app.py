@@ -32,7 +32,7 @@ DEFAULT_ENV = 'cgap-mastertest'
 
 def effectively_never():
     """Every February 31st, a.k.a. 'never'."""
-    return Cron('0', '0', '31', '2', '?', '?')
+    return Cron('0', '0', '31', '2', '?', '*')
 
 
 class AppUtils(AppUtils_from_cgap):
@@ -117,8 +117,14 @@ def view_route(environ):
     Non-protected route
     """
     req_dict = app.current_request.to_dict()
+    logger.warning('req_dict in /view/{environ}')
+    logger.warning(req_dict)
     domain, context = app_utils_obj.get_domain_and_context(req_dict)
-    return app_utils_obj.view_foursight(environ, app_utils_obj.check_authorization(req_dict, environ), domain, context)
+    logger.warning('domain, context in /view/{environ}')
+    logger.warning('result of check authorization')
+    check_authorization = app_utils_obj.check_authorization(req_dict, environ)
+    logger.warning(check_authorization)
+    return app_utils_obj.view_foursight(environ, app_utils_obj.check_authorization, domain, context)
 
 
 @app.route('/view/{environ}/{check}/{uuid}', methods=['GET'])
