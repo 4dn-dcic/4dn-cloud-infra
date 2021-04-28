@@ -243,7 +243,8 @@ class C4IAM(C4Part):
                     Action=[
                         Action('sts', 'AssumeRole')
                     ],
-                    Principal=Principal('Service', 'ecs.amazonaws.com')
+                    Principal=[Principal('Service', 'ecs.amazonaws.com'),
+                               Principal('Service', 'ec2.amazonaws.com')]
             )]),
             Policies=policies
         )
