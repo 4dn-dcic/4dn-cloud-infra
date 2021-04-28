@@ -394,7 +394,7 @@ class C4ECSApplication(C4Part):
                 "yum install -y aws-cfn-bootstrap\n",
 
                 "/opt/aws/bin/cfn-init -v ",
-                "         --template ", Ref(AWS_STACK_NAME),
+                "         --stack ", Ref(AWS_STACK_NAME),
                 "         --resource %s " % name,
                 "         --region ", Ref(AWS_REGION), "\n",
             ])),
@@ -424,7 +424,7 @@ class C4ECSApplication(C4Part):
         """ Builds an autoscaling group for the EC2s """
         return autoscaling.AutoScalingGroup(
             name,
-            VPCZoneIdentifier=[public_subnet_a, public_subnet_b],  # XXX: changed to public for now
+            VPCZoneIdentifier=[private_subnet_a, private_subnet_b],
             MinSize=1,
             MaxSize=1,
             DesiredCapacity=1,

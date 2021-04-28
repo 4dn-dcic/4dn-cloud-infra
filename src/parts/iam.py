@@ -235,7 +235,7 @@ class C4IAM(C4Part):
             ManagedPolicyArns=[
                 "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
             ],
-            # Only allow ECS to assume this role
+            # IMPORTANT: BOTH ECS and EC2 need AssumeRole
             AssumeRolePolicyDocument=PolicyDocument(
                 Version='2012-10-17',
                 Statement=[Statement(
@@ -243,8 +243,13 @@ class C4IAM(C4Part):
                     Action=[
                         Action('sts', 'AssumeRole')
                     ],
-                    Principal=[Principal('Service', 'ecs.amazonaws.com'),
-                               Principal('Service', 'ec2.amazonaws.com')]
+                    Principal=Principal('Service', 'ecs.amazonaws.com')
+            ), Statement(
+                    Effect='Allow',
+                    Action=[
+                        Action('sts', 'AssumeRole')
+                    ],
+                    Principal=Principal('Service', 'ec2.amazonaws.com')
             )]),
             Policies=policies
         )
