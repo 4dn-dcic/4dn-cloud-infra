@@ -93,6 +93,7 @@ class C4ECSApplication(C4Part):
         # template.add_parameter(self.ecs_lb_certificate())  # TODO must be provisioned
         template.add_parameter(self.ecs_web_worker_memory())
         template.add_parameter(self.ecs_web_worker_cpu())
+        template.add_parameter(self.ecs_container_ssh_key())  # TODO open ssh ports
 
         # ECS Components
         template.add_resource(self.ecs_cluster())
@@ -185,6 +186,17 @@ class C4ECSApplication(C4Part):
             Description="Web worker container exposed port",
             Type="Number",
             Default=8000,  # should work for us
+        )
+
+    @staticmethod
+    def ecs_container_ssh_key():
+        """ SSH key attached """
+        return Parameter(
+            'ECSContainerInstanceSSHAccessKey',
+            Description='Name of an existing EC2 Keypair to enable SSH access '
+                        'to the ECS container instances.',
+            Type="String",
+            Default='trial-ssh-key-01'  # XXX: needs passing
         )
 
     def ecs_lbv2_target_group(self) -> elbv2.TargetGroup:
@@ -289,6 +301,12 @@ class C4ECSApplication(C4Part):
                     ToPort=Ref(self.ecs_web_worker_port()),
                     CidrIp='0.0.0.0/0',  # no idea if this is correct
                 ),
+                SecurityGroupRule(
+                    IpProtocol='tcp',
+                    FromPort=22,
+                    ToPort=22,
+                    CidrIp=C4Network.CIDR_BLOCK,
+                ),
             ]
         )
 
@@ -370,6 +388,7 @@ class C4ECSApplication(C4Part):
             InstanceType=Ref(self.ecs_container_instance_type()),
             IamInstanceProfile=profile,
             ImageId=self.AMI,  # this is the AMI of the ec2 we want to use
+            KeyName=Ref(self.ecs_container_ssh_key()),
             UserData=Base64(Join('', [
                 "#!/bin/bash -xe\n",
                 "yum install -y aws-cfn-bootstrap\n",
