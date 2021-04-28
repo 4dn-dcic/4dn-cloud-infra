@@ -1,6 +1,11 @@
 import hashlib
+import logging
+import os
+import re
 from datetime import datetime
-from troposphere import Tag, Template
+from troposphere import Tag, Tags, Template
+
+logger = logging.getLogger(__name__)
 
 
 class C4Tags:
@@ -9,6 +14,14 @@ class C4Tags:
         self.env = env
         self.project = project
         self.owner = owner
+
+    def cost_tag_obj(self, name=None):
+        """ Build a Tags object given the three cost allocation tags: env, project, and owner, along with the optional
+            Name tag, if name is provided. This is used by some, but not all, troposphere classes. """
+        if name:
+            return Tags(env=self.env, project=self.project, owner=self.owner, Name=name)
+        else:
+            return Tags(env=self.env, project=self.project, owner=self.owner)
 
     def cost_tag_array(self, name=None):
         """ Build a Tag array given the three cost allocation tags: env, project, and owner. This can be appended
@@ -22,8 +35,19 @@ class C4Tags:
 
 class C4Account:
     """ Helper class for working with an AWS account """
-    def __init__(self, account_number):
+    def __init__(self, account_number, creds_dir='~/.aws_test', creds_file='~/.aws_test/test_creds.sh'):
         self.account_number = str(account_number)
+        self.creds_dir = creds_dir
+        self.creds_file = creds_file
+
+    def command_with_creds(self, cmd):
+        """ Builds a command that begins with sourcing the correct creds """
+        return 'source {creds_file} && {cmd}'.format(creds_file=self.creds_file, cmd=cmd)
+
+    def run_command(self, cmd):
+        """ Runs cmd, properly sourcing this account's creds beforehand """
+        command_with_creds = self.command_with_creds(cmd)
+        os.system(command_with_creds)
 
 
 class C4Name:
@@ -41,6 +65,11 @@ class C4Name:
             Takes string s and returns s with uniform resource prefix added.
             Can also be used to construct Name tags for resources. """
         return '{0}{1}'.format(self.logical_id_prefix, resource)
+
+    @staticmethod
+    def bucket_name_from_logical_id(logical_id):
+        """ Builds bucket name from a given logical id """
+        return '-'.join([a.lower() for a in re.split(r'([A-Z][a-z]*\d*)', logical_id) if a])
 
     @staticmethod
     def domain_name(name):

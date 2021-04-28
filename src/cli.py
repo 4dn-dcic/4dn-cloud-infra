@@ -5,7 +5,12 @@ import os
 from src.info.aws_util import AWSUtil
 from src.exceptions import CLIException
 from src.stacks.trial import (
-    c4_stack_trial_network, c4_stack_trial_network_metadata, c4_stack_trial_datastore, c4_stack_trial_beanstalk,
+    c4_stack_trial_account,
+    c4_stack_trial_network,
+    c4_stack_trial_network_metadata,
+    c4_stack_trial_datastore,
+    c4_stack_trial_beanstalk,
+    c4_stack_trial_tibanna,
 )
 from src.stacks.trial_alpha import (
     c4_alpha_stack_trial_metadata,
@@ -23,26 +28,23 @@ logger = logging.getLogger(__name__)
 
 
 # TODO constants
-SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-beanstalk-trial']
+SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-beanstalk-trial', 'c4-tibanna-trial']
 SUPPORTED_ECS_STACKS = ['c4-ecs-network-trial', 'c4-ecs-datastore-trial', 'c4-ecs-cluster-trial']
-CREDENTIAL_DIR = '~/.aws_test'  # further parameterize
 AWS_REGION = 'us-east-1'
 
 
 class C4Client:
     """ Client class for interacting with and provisioning CGAP Infrastructure as Code. """
-    SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-beanstalk-trial']
     ALPHA_LEAF_STACKS = ['iam', 'logging', 'network']  # stacks that only export values
-    CREDENTIAL_DIR = '~/.aws_test'  # further parameterize
+    ACCOUNT = c4_stack_trial_account()  # uses creds for trial account access
     CAPABILITY_IAM = 'CAPABILITY_IAM'
     REQUIRES_CAPABILITY_IAM = ['iam']  # these stacks require CAPABILITY_IAM, just IAM for now
 
-    @staticmethod
-    def validate_cloudformation_template(file_path):
+    def validate_cloudformation_template(self, file_path):
         """ Validates CloudFormation template at file_path """
         cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {args}'.format(
             mount_yaml=os.path.abspath(os.getcwd())+'/out/templates:/root/out/templates',
-            mount_creds='{test_creds}:/root/.aws'.format(test_creds=CREDENTIAL_DIR),
+            mount_creds='{creds_dir}:/root/.aws'.format(creds_dir=self.ACCOUNT.creds_dir),
             command='amazon/aws-cli cloudformation validate-template',
             args='--template-body file://{file_path}'.format(file_path=file_path),
         )
@@ -134,7 +136,7 @@ class C4Client:
 
         cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {flags}'.format(
             mount_yaml=os.path.abspath(os.getcwd())+'/out/templates:/root/out/templates',
-            mount_creds='~/.aws_test:/root/.aws',
+            mount_creds='{creds_dir}:/root/.aws'.format(creds_dir=stack.account.creds_dir),
             command='amazon/aws-cli cloudformation deploy',
             flags=flags,
         )
@@ -181,6 +183,10 @@ class C4Client:
             stack = c4_stack_trial_datastore()
         elif args.stack == 'c4-beanstalk-trial':
             stack = c4_stack_trial_beanstalk()
+        elif args.stack == 'c4-tibanna-trial':
+            stack = c4_stack_trial_tibanna()
+        elif args.stack in SUPPORTED_STACKS:
+            raise CLIException('Supported stack {} requires a resolver in `resolve_legacy_stack`'.format(args.stack))
         else:
             raise CLIException('Unsupported stack {}. Supported Stacks: {}'.format(args.stack, SUPPORTED_STACKS))
         return stack
@@ -223,6 +229,12 @@ class C4Client:
         if args.upload_change_set:
             cls.upload_cloudformation_template(args, stack, file_path)  # if desired
 
+    @classmethod
+    def manage_tibanna(cls, args):
+        """ Implements 'tibanna' command. """
+        cmd = 'tibanna --help'
+        os.system(cmd)
+
     @staticmethod
     def info(args):
         """ Implements 'info' command """
@@ -258,6 +270,11 @@ def cli():
     parser_provision.set_defaults(func=C4Client.provision_stack)
 
     # TODO command for Cloud Formation deploy flow: execute_change_set
+
+    # Configure 'tibanna' command, for managing a tibanna installation on cloud infrastructure
+    parser_tibanna = subparsers.add_parser('tibanna', help='Helps manage and provision tibanna for CGAP/4DN')
+    parser_tibanna.add_argument('exec', help='Runs the tibanna command-line for the trial account')
+    parser_tibanna.set_defaults(func=C4Client.manage_tibanna)
 
     # Configure 'info' command
     parser_info = subparsers.add_parser('info', help='Generate informational summaries for 4DN accounts')
