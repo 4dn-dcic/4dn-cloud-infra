@@ -329,7 +329,7 @@ class C4ECSApplication(C4Part):
                                 # Register the cluster
                                 "echo ECS_CLUSTER=",
                                 Ref(self.ecs_cluster()),
-                                " >> /etc/ecs/config\n",
+                                " >> /etc/ecs/ecs.config\n",
                             ]))
                         ),
                         files=cloudformation.InitFiles({
