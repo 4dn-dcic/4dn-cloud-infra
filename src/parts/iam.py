@@ -123,7 +123,7 @@ class C4IAM(C4Part):
                         'secretsmanager:DescribeSecret',
                         'secretsmanager:ListSecretVersionIds'
                     ],
-                    Resource=[self.builds_secret_manager_arn(secret_name)]
+                    Resource=['*']  # XXX: should be self.builds_secret_manager_arn(secret_name) but doesn't work
                 )],
             )
         )
