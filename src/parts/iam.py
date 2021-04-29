@@ -57,7 +57,7 @@ class C4IAM(C4Part):
     @staticmethod
     def builds_secret_manager_arn(secret_name):
         return Join(
-            ':', ['arn', 'aws', 'secretsmanager', Region, AccountId, 'secret', secret_name]
+            ':', ['arn', 'aws', 'secretsmanager', Region, AccountId, 'secret', secret_name, '-*']
         )
 
     @staticmethod

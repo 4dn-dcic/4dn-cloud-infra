@@ -99,10 +99,7 @@ class C4ECSApplication(C4Part):
         template.add_resource(self.ecs_cluster())
         template.add_resource(self.ecs_lb_security_group())
         template.add_resource(self.ecs_load_balancer())
-        template.add_resource(self.ecs_container_security_group(  # container runs in private subnets
-            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
-        ))
+        template.add_resource(self.ecs_container_security_group())
         template.add_resource(self.ecs_autoscaling_group(
             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
@@ -282,7 +279,7 @@ class C4ECSApplication(C4Part):
             AllowedValues=['c5.large']  # configure more later
         )
 
-    def ecs_container_security_group(self, public_subnet_cidr_1, public_subnet_cidr_2):
+    def ecs_container_security_group(self) -> SecurityGroup:
         return SecurityGroup(
             'ContainerSecurityGroup',
             GroupDescription='Container Security Group.',
@@ -314,7 +311,7 @@ class C4ECSApplication(C4Part):
                                                     private_subnet_a,
                                                     private_subnet_b,
                                                     profile,
-                                                    name='CGAPDockerWSGILaunchConfiguration'):
+                                                    name='CGAPDockerWSGILaunchConfiguration') -> autoscaling.LaunchConfiguration:
         """ Builds a launch configuration for the ecs container instance.
             This might be very wrong, but the general idea works for others.
         """
@@ -356,7 +353,7 @@ class C4ECSApplication(C4Part):
                                     % name,
                                     "Metadata.AWS::CloudFormation::Init\n",
                                     "action=/opt/aws/bin/cfn-init -v ",
-                                    "         --template ",
+                                    "         --stack ",
                                     Ref(AWS_STACK_NAME),
                                     "         --resource %s"
                                     % name,
@@ -382,9 +379,7 @@ class C4ECSApplication(C4Part):
                     )
                 ))
             ),
-            SecurityGroups=[Ref(self.ecs_container_security_group(
-                private_subnet_a, private_subnet_b,  # use private subnet for container
-            ))],
+            SecurityGroups=[Ref(self.ecs_container_security_group())],
             InstanceType=Ref(self.ecs_container_instance_type()),
             IamInstanceProfile=profile,
             ImageId=self.AMI,  # this is the AMI of the ec2 we want to use
@@ -470,11 +465,7 @@ class C4ECSApplication(C4Part):
                     Memory=Ref(self.ecs_web_worker_memory()),
                     Essential=True,
                     Image=Join("", [
-                        Ref(AWS_ACCOUNT_ID),
-                        '.dkr.ecr.',
-                        Ref(AWS_REGION),
-                        '.amazonaws.com/',
-                        ecr,
+                        '645819926742.dkr.ecr.us-east-1.amazonaws.com/cgap-mastertest',  # XXX: get from args
                         ':',
                         app_revision,
                     ]),
@@ -506,10 +497,6 @@ class C4ECSApplication(C4Part):
                     Memory=Ref(self.ecs_web_worker_memory()),
                     Essential=True,
                     Image=Join("", [
-                        Ref(AWS_ACCOUNT_ID),
-                        '.dkr.ecr.',
-                        Ref(AWS_REGION),
-                        '.amazonaws.com/',
                         ecr,
                         ':',
                         app_revision,
@@ -538,10 +525,6 @@ class C4ECSApplication(C4Part):
                     Memory=Ref(self.ecs_web_worker_memory()),
                     Essential=True,
                     Image=Join("", [
-                        Ref(AWS_ACCOUNT_ID),
-                        '.dkr.ecr.',
-                        Ref(AWS_REGION),
-                        '.amazonaws.com/',
                         ecr,
                         ':',
                         app_revision,
