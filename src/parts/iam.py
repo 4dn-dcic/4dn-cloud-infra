@@ -101,7 +101,7 @@ class C4IAM(C4Part):
                     Action=[
                         'es:*',
                     ],
-                    Resource=[self.build_elasticsearch_arn(domain_name)]
+                    Resource=['*']  # XXX should be: self.build_elasticsearch_arn(domain_name) but doesn't work
                 )],
             )
         )
