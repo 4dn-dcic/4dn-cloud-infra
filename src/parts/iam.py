@@ -72,9 +72,8 @@ class C4IAM(C4Part):
             ':', ['arn', 'aws', 'logs', Region, AccountId, 'log-group', log_group_name]
         )
 
-    def ecs_sqs_policy(self, prefix='cgap-dev'):
+    def ecs_sqs_policy(self, prefix='cgap-mastertest*'):
         """ Grants ECS access to ElasticSearch.
-            TODO: ensure cgaptriales is correct.
         """
         return Policy(
             PolicyName='ECSSQSAccessPolicy',
@@ -88,9 +87,8 @@ class C4IAM(C4Part):
             )
         )
 
-    def ecs_es_policy(self, domain_name='cgaptriales'):
+    def ecs_es_policy(self, domain_name='c4datastore*'):
         """ Grants ECS access to ElasticSearch.
-            TODO: ensure cgaptriales is correct.
         """
         return Policy(
             PolicyName='ECSESAccessPolicy',
@@ -101,7 +99,7 @@ class C4IAM(C4Part):
                     Action=[
                         'es:*',
                     ],
-                    Resource=['*']  # XXX should be: self.build_elasticsearch_arn(domain_name) but doesn't work
+                    Resource=[self.build_elasticsearch_arn(domain_name)]
                 )],
             )
         )

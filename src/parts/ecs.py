@@ -242,7 +242,7 @@ class C4ECSApplication(C4Part):
                 self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
                 self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
             ],
-            SecurityGroups=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.APPLICATION_SECURITY_GROUP)],
+            SecurityGroups=[Ref(self.ecs_lb_security_group())],
             Listeners=[
                 # Forward HTTPS on 443 to HTTP on the web port
                 elb.Listener(
@@ -484,9 +484,8 @@ class C4ECSApplication(C4Part):
             ],
         )
 
-    def ecs_indexer_task(self, ecr, log_group, app_revision='latest'):
+    def ecs_indexer_task(self, ecr, log_group, app_revision='latest-indexer'):
         """ Defines the Indexer task (indexer app)
-            TODO expand as needed
         """
         return TaskDefinition(
             'CGAPIndexer',
@@ -497,7 +496,7 @@ class C4ECSApplication(C4Part):
                     Memory=Ref(self.ecs_web_worker_memory()),
                     Essential=True,
                     Image=Join("", [
-                        ecr,
+                        '645819926742.dkr.ecr.us-east-1.amazonaws.com/cgap-mastertest',  # XXX: get from args
                         ':',
                         app_revision,
                     ]),
