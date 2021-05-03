@@ -3,7 +3,7 @@ from troposphere import (
     Join,
     Ref,
     elasticloadbalancing as elb,
-    elasticloadbalancingv2 as elbv2,
+    elasticloadbalancingv2 as elbv2,  # Listener, Action, RedirectConfig
     autoscaling,
     cloudformation,
     AWS_ACCOUNT_ID,
@@ -12,6 +12,8 @@ from troposphere import (
     AWS_REGION,
     Base64,
     Template,
+    Output,
+    GetAtt
 )
 from troposphere.ecs import (
     Cluster,
@@ -22,7 +24,7 @@ from troposphere.ecs import (
     Service,
     LoadBalancer,
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
-    SCHEDULING_STRATEGY_DAEMON  # use for EC2
+    SCHEDULING_STRATEGY_DAEMON  # use for EC2 ?
 )
 from troposphere.ec2 import (
     SecurityGroup,
@@ -58,6 +60,7 @@ class C4ECSApplication(C4Part):
     IAM_EXPORTS = C4IAMExports()
     LOGGING_EXPORTS = C4LoggingExports()
     AMI = 'ami-0be13a99cd970f6a9'  # latest amazon linux 2 ECS optimized
+    LB_NAME = 'ECSApplicationLoadBalancer'
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
@@ -96,34 +99,20 @@ class C4ECSApplication(C4Part):
         template.add_parameter(self.ecs_web_worker_cpu())
         template.add_parameter(self.ecs_container_ssh_key())  # TODO open ssh ports
 
-        # ECS Components
+        # ECS
         template.add_resource(self.ecs_cluster())
-        template.add_resource(self.ecs_lb_security_group())
-        template.add_resource(self.ecs_load_balancer())
-        template.add_resource(self.ecs_container_security_group())
-        template.add_resource(self.ecs_autoscaling_group(
-            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
-            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
-            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
-            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_INSTANCE_PROFILE)
-        ))
-        template.add_resource(self.ecs_container_instance_launch_configuration(
-            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
-            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_INSTANCE_PROFILE),
-        ))
 
         # ECS Task/Services
         template.add_resource(self.ecs_wsgi_task(
             self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
             self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
         ))
-        template.add_resource(self.ecs_wsgi_service(
+        wsgi = self.ecs_wsgi_service(
             self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
             self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
             self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
-        ))
+        )
+        template.add_resource(wsgi)
         template.add_resource(self.ecs_indexer_task(
             self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
             self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
@@ -143,6 +132,34 @@ class C4ECSApplication(C4Part):
         #     self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
         #     self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
         # ))
+
+        # Add load balancer for WSGI
+        # LB (old commented out)
+        # template.add_resource(self.ecs_load_balancer())
+        template.add_resource(self.ecs_lb_security_group())
+        template.add_resource(self.ecs_container_security_group())
+        target_group = self.ecs_lbv2_target_group()
+        template.add_resource(target_group)
+        template.add_resource(self.ecs_application_load_balancer_listener(target_group))
+        template.add_resource(self.ecs_application_load_balancer())
+
+        # Add Autoscaling group, EC2 Container launch configuration
+        template.add_resource(self.ecs_autoscaling_group(
+            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
+            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
+            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
+            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_INSTANCE_PROFILE),
+            wsgi
+        ))
+        template.add_resource(self.ecs_container_instance_launch_configuration(
+            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
+            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_INSTANCE_PROFILE),
+        ))
+
+        # Add outputs
+        template.add_output(self.output_application_url())
         return template
 
     @staticmethod
@@ -197,25 +214,36 @@ class C4ECSApplication(C4Part):
             Default='trial-ssh-key-01'  # XXX: needs passing
         )
 
-    def ecs_lbv2_target_group(self) -> elbv2.TargetGroup:
-        """ Creates LBv2 target group.
-            Unused, should probably be used as current setup is 'classic'
-        """
-        return elbv2.TargetGroup(
-            'TargetGroupWebWorker',
-            HealthCheckProtocol='HTTP',
-            HealthCheckTimeoutSeconds='20',
-            HealthyThresholdCount='1',
-            Matcher=elbv2.Matcher(HttpCode='200'),
-            Name='WebWorkerTarget',
-            Port=Ref(self.ecs_web_worker_port()),
-            Protocol='HTTP',
-            UnhealthyThresholdCount='1',
+    def ecs_container_security_group(self) -> SecurityGroup:
+        return SecurityGroup(
+            'ContainerSecurityGroup',
+            GroupDescription='Container Security Group.',
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
+            SecurityGroupIngress=[
+                # HTTP from web public subnets
+                SecurityGroupRule(
+                    IpProtocol='tcp',
+                    FromPort=Ref(self.ecs_web_worker_port()),
+                    ToPort=Ref(self.ecs_web_worker_port()),
+                    CidrIp=C4Network.CIDR_BLOCK,  # VPC CIDR?
+                ),
+                SecurityGroupRule(
+                    IpProtocol='tcp',
+                    FromPort=Ref(self.ecs_web_worker_port()),
+                    ToPort=Ref(self.ecs_web_worker_port()),
+                    CidrIp='0.0.0.0/0',  # no idea if this is correct
+                ),
+                SecurityGroupRule(
+                    IpProtocol='tcp',
+                    FromPort=22,
+                    ToPort=22,
+                    CidrIp=C4Network.CIDR_BLOCK,
+                ),
+            ]
         )
 
     def ecs_lb_security_group(self) -> SecurityGroup:
-        """ Allow both http and https traffic (for now) """
+        """ Allow both http, https traffic """
         return SecurityGroup(
             "ECSLBSSLSecurityGroup",
             GroupDescription="Web load balancer security group.",
@@ -223,20 +251,59 @@ class C4ECSApplication(C4Part):
             SecurityGroupIngress=[
                 SecurityGroupRule(
                     IpProtocol='tcp',
-                    FromPort='443',
-                    ToPort='443',
+                    FromPort=443,
+                    ToPort=443,
                     CidrIp='0.0.0.0/0',
                 ),
                 SecurityGroupRule(
                     IpProtocol='tcp',
-                    FromPort='80',
-                    ToPort='80',
+                    FromPort=80,
+                    ToPort=80,
                     CidrIp='0.0.0.0/0',
                 ),
             ],
         )
 
+    def ecs_application_load_balancer_listener(self, target_group: elbv2.TargetGroup) -> elbv2.Listener:
+        return elbv2.Listener(
+            'ECSLBListener',
+            Port=80,
+            Protocol='HTTP',
+            LoadBalancerArn=Ref(self.ecs_application_load_balancer()),
+            DefaultActions=[
+                elbv2.Action(Type='forward', TargetGroupArn=Ref(target_group))
+            ]
+        )
+
+    def ecs_application_load_balancer(self) -> elbv2.LoadBalancer:
+        logical_id = self.name.logical_id('ECSLB')
+        return elbv2.LoadBalancer(
+            logical_id,
+            IpAddressType='ipv4',
+            Name=logical_id,
+            Scheme='internet-facing',
+            SecurityGroups=[
+                Ref(self.ecs_lb_security_group())
+            ],
+            Subnets=[
+                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
+                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
+            ],
+            Tags=self.tags.cost_tag_array(name=logical_id),
+            Type='application',
+        )
+
+    def output_application_url(self) -> Output:
+        return Output(
+            'ECSApplicationURL',
+            Description='URL of CGAP-Portal.',
+            Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer(), 'DNSName')])
+        )
+
     def ecs_load_balancer(self) -> elb.LoadBalancer:
+        """ DEPRECATED.
+            Classic load balancer. Does not support >1 host per container.
+        """
         return elb.LoadBalancer(
             'ECSLoadBalancer',
             Subnets=[  # LB lives in the public subnets
@@ -275,37 +342,24 @@ class C4ECSApplication(C4Part):
         return Parameter(
             'ContainerInstanceType',
             Description='The container instance type',
-            Type="String",
-            Default="c5.large",
+            Type='String',
+            Default='c5.large',
             AllowedValues=['c5.large']  # configure more later
         )
 
-    def ecs_container_security_group(self) -> SecurityGroup:
-        return SecurityGroup(
-            'ContainerSecurityGroup',
-            GroupDescription='Container Security Group.',
+    def ecs_lbv2_target_group(self) -> elbv2.TargetGroup:
+        """ Creates LBv2 target group.
+            Unused, should probably be used as current setup is 'classic'
+        """
+        return elbv2.TargetGroup(
+            'TargetGroupApplication',
+            HealthCheckProtocol='HTTP',
+            HealthCheckTimeoutSeconds=20,
+            Matcher=elbv2.Matcher(HttpCode='200'),
+            Name='TargetGroupApplication',
+            Port=Ref(self.ecs_web_worker_port()),
+            Protocol='HTTP',
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
-            SecurityGroupIngress=[
-                # HTTP from web public subnets
-                SecurityGroupRule(
-                    IpProtocol='tcp',
-                    FromPort=Ref(self.ecs_web_worker_port()),
-                    ToPort=Ref(self.ecs_web_worker_port()),
-                    CidrIp=C4Network.CIDR_BLOCK,  # VPC CIDR?
-                ),
-                SecurityGroupRule(
-                    IpProtocol='tcp',
-                    FromPort=Ref(self.ecs_web_worker_port()),
-                    ToPort=Ref(self.ecs_web_worker_port()),
-                    CidrIp='0.0.0.0/0',  # no idea if this is correct
-                ),
-                SecurityGroupRule(
-                    IpProtocol='tcp',
-                    FromPort=22,
-                    ToPort=22,
-                    CidrIp=C4Network.CIDR_BLOCK,
-                ),
-            ]
         )
 
     def ecs_container_instance_launch_configuration(self,
@@ -415,24 +469,20 @@ class C4ECSApplication(C4Part):
         )
 
     def ecs_autoscaling_group(self, private_subnet_a, private_subnet_b,
-                              public_subnet_a, public_subnet_b, instance_profile,
+                              public_subnet_a, public_subnet_b, instance_profile, wsgi,
                               name='CGAPDockerECSAutoscalingGroup') -> autoscaling.AutoScalingGroup:
         """ Builds an autoscaling group for the EC2s """
         return autoscaling.AutoScalingGroup(
             name,
             VPCZoneIdentifier=[private_subnet_a, private_subnet_b],
-            MinSize=1,
-            MaxSize=1,
-            DesiredCapacity=1,
+            MinSize='1',
+            MaxSize='1',
+            DesiredCapacity='1',
             LaunchConfigurationName=Ref(self.ecs_container_instance_launch_configuration(public_subnet_a,
                                                                                          public_subnet_b,
                                                                                          instance_profile)),
-            LoadBalancerNames=[Ref(self.ecs_load_balancer())],
-            # Since one instance within the group is a reserved slot
-            # for rolling ECS service upgrade, it's not possible to rely
-            # on a "dockerized" `ELB` health-check, else this reserved
-            # instance will be flagged as `unhealthy` and won't stop respawning'
-            HealthCheckType="EC2",
+            TargetGroupARNs=[Ref(self.ecs_lbv2_target_group())],
+            HealthCheckType='EC2',
             HealthCheckGracePeriod=300,
 
         )
@@ -447,7 +497,7 @@ class C4ECSApplication(C4Part):
             'WebWorkerCPU',
             Description='Web worker CPU units',
             Type='Number',
-            Default=2048,
+            Default=256,
         )
 
     @staticmethod
@@ -460,7 +510,7 @@ class C4ECSApplication(C4Part):
             'WebWorkerMemory',
             Description='Web worker memory',
             Type='Number',
-            Default=4096,
+            Default=512,
         )
 
     def ecs_wsgi_task(self, ecr, log_group, cpus='256', mem='512', app_revision='latest') -> TaskDefinition:
@@ -478,8 +528,6 @@ class C4ECSApplication(C4Part):
             ContainerDefinitions=[
                 ContainerDefinition(
                     Name='WSGI',
-                    Cpu=cpus,
-                    Memory=mem,
                     Essential=True,
                     Image=Join("", [
                         '645819926742.dkr.ecr.us-east-1.amazonaws.com/cgap-mastertest',  # XXX: get from args
@@ -488,7 +536,7 @@ class C4ECSApplication(C4Part):
                     ]),
                     PortMappings=[PortMapping(
                         ContainerPort=Ref(self.ecs_web_worker_port()),
-                        HostPort=Ref(self.ecs_web_worker_port()),
+                        HostPort=0,  # dynamic port mappings
                     )],
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
@@ -499,8 +547,8 @@ class C4ECSApplication(C4Part):
                     ),
                 )
             ],
-            Cpu=Ref(self.ecs_web_worker_cpu()),
-            Memory=Ref(self.ecs_web_worker_memory())
+            Cpu=cpus,
+            Memory=mem
         )
 
     def ecs_indexer_task(self, ecr, log_group, cpus='256', mem='512', app_revision='latest-indexer') -> TaskDefinition:
@@ -518,8 +566,6 @@ class C4ECSApplication(C4Part):
             ContainerDefinitions=[
                 ContainerDefinition(
                     Name='Indexer',
-                    Cpu=cpus,
-                    Memory=mem,
                     Essential=True,
                     Image=Join('', [
                         '645819926742.dkr.ecr.us-east-1.amazonaws.com/cgap-mastertest',  # XXX: get from args
@@ -535,8 +581,8 @@ class C4ECSApplication(C4Part):
                     ),
                 )
             ],
-            Cpu=Ref(self.ecs_web_worker_cpu()),
-            Memory=Ref(self.ecs_web_worker_memory())
+            Cpu=cpus,
+            Memory=mem
         )
 
     def ecs_ingester_task(self, ecr, log_group, cpus='256', mem='512', app_revision='latest') -> TaskDefinition:
@@ -554,8 +600,6 @@ class C4ECSApplication(C4Part):
             ContainerDefinitions=[
                 ContainerDefinition(
                     Name='Indexer',
-                    Cpu=cpus,
-                    Memory=mem,
                     Essential=True,
                     Image=Join("", [
                         ecr,
@@ -571,8 +615,8 @@ class C4ECSApplication(C4Part):
                     ),
                 )
             ],
-            Cpu=Ref(self.ecs_web_worker_cpu()),
-            Memory=Ref(self.ecs_web_worker_memory())
+            Cpu=cpus,
+            Memory=mem
         )
 
     def ecs_wsgi_service(self, repo, log_group, role) -> Service:
@@ -580,13 +624,13 @@ class C4ECSApplication(C4Part):
         return Service(
             "CGAPWSGIService",
             Cluster=Ref(self.ecs_cluster()),
-            DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
-            DesiredCount=4,
+            DependsOn=['CGAPDockerECSAutoscalingGroup', 'ECSLBListener'],  # XXX: Hardcoded, important!
+            DesiredCount=2,
             LoadBalancers=[
                 LoadBalancer(
                     ContainerName='WSGI',  # this must match Name in TaskDefinition (ContainerDefinition)
                     ContainerPort=Ref(self.ecs_web_worker_port()),
-                    LoadBalancerName=Ref(self.ecs_load_balancer()))
+                    TargetGroupArn=Ref(self.ecs_lbv2_target_group()))
             ],
             TaskDefinition=Ref(self.ecs_wsgi_task(repo, log_group)),
             Role=role,
