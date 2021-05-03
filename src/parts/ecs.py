@@ -17,11 +17,12 @@ from troposphere.ecs import (
     Cluster,
     TaskDefinition,
     ContainerDefinition,
-    Environment,
     LogConfiguration,
     PortMapping,
     Service,
-    LoadBalancer
+    LoadBalancer,
+    SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
+    SCHEDULING_STRATEGY_DAEMON  # use for EC2
 )
 from troposphere.ec2 import (
     SecurityGroup,
@@ -123,16 +124,16 @@ class C4ECSApplication(C4Part):
             self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
             self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
         ))
+        template.add_resource(self.ecs_indexer_task(
+            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
+        ))
+        template.add_resource(self.ecs_indexer_service(
+            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
+        ))
         # TODO enable, configure later
-        # template.add_resource(self.ecs_indexer_task(
-        #     self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-        #     self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
-        # ))
-        # template.add_resource(self.ecs_indexer_service(
-        #     self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-        #     self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
-        #     self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
-        # ))
         # template.add_resource(self.ecs_ingester_task(
         #     self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
         #     self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
@@ -145,13 +146,13 @@ class C4ECSApplication(C4Part):
         return template
 
     @staticmethod
-    def ecs_cluster():
+    def ecs_cluster() -> Cluster:
         return Cluster(
             'CGAPDockerCluster'
         )
 
     @staticmethod
-    def ecs_lb_certificate():
+    def ecs_lb_certificate() -> Parameter:
         return Parameter(
             "CertId",
             Description='This is the SSL Cert to attach to the LB',
@@ -159,7 +160,7 @@ class C4ECSApplication(C4Part):
         )
 
     @staticmethod
-    def ecs_desired_scale():
+    def ecs_desired_scale() -> Parameter:
         return Parameter(
             'DesiredScale',
             Description='Desired container instances count',
@@ -168,7 +169,7 @@ class C4ECSApplication(C4Part):
         )
 
     @staticmethod
-    def ecs_max_scale():
+    def ecs_max_scale() -> Parameter:
         return Parameter(
             'MaxScale',
             Description='Maximum container instances count',
@@ -177,7 +178,7 @@ class C4ECSApplication(C4Part):
         )
 
     @staticmethod
-    def ecs_web_worker_port():
+    def ecs_web_worker_port() -> Parameter:
         return Parameter(
             'WebWorkerPort',
             Description="Web worker container exposed port",
@@ -186,7 +187,7 @@ class C4ECSApplication(C4Part):
         )
 
     @staticmethod
-    def ecs_container_ssh_key():
+    def ecs_container_ssh_key() -> Parameter:
         """ SSH key attached """
         return Parameter(
             'ECSContainerInstanceSSHAccessKey',
@@ -213,7 +214,7 @@ class C4ECSApplication(C4Part):
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
         )
 
-    def ecs_lb_security_group(self):
+    def ecs_lb_security_group(self) -> SecurityGroup:
         """ Allow both http and https traffic (for now) """
         return SecurityGroup(
             "ECSLBSSLSecurityGroup",
@@ -235,7 +236,7 @@ class C4ECSApplication(C4Part):
             ],
         )
 
-    def ecs_load_balancer(self):
+    def ecs_load_balancer(self) -> elb.LoadBalancer:
         return elb.LoadBalancer(
             'ECSLoadBalancer',
             Subnets=[  # LB lives in the public subnets
@@ -270,7 +271,7 @@ class C4ECSApplication(C4Part):
         )
 
     @staticmethod
-    def ecs_container_instance_type():
+    def ecs_container_instance_type() -> Parameter:
         return Parameter(
             'ContainerInstanceType',
             Description='The container instance type',
@@ -396,7 +397,7 @@ class C4ECSApplication(C4Part):
         )
 
     @staticmethod
-    def ecs_max_container_instances(max=1):
+    def ecs_max_container_instances(max=1) -> Parameter:
         return Parameter(
             'MaxScale',
             Description='Maximum container instances count',
@@ -405,7 +406,7 @@ class C4ECSApplication(C4Part):
         )
 
     @staticmethod
-    def ecs_desired_container_instances():
+    def ecs_desired_container_instances() -> Parameter:
         return Parameter(
             'DesiredScale',
             Description='Desired container instances count',
@@ -415,7 +416,7 @@ class C4ECSApplication(C4Part):
 
     def ecs_autoscaling_group(self, private_subnet_a, private_subnet_b,
                               public_subnet_a, public_subnet_b, instance_profile,
-                              name='CGAPDockerECSAutoscalingGroup'):
+                              name='CGAPDockerECSAutoscalingGroup') -> autoscaling.AutoScalingGroup:
         """ Builds an autoscaling group for the EC2s """
         return autoscaling.AutoScalingGroup(
             name,
@@ -437,32 +438,48 @@ class C4ECSApplication(C4Part):
         )
 
     @staticmethod
-    def ecs_web_worker_cpu():
+    def ecs_web_worker_cpu() -> Parameter:
+        """ GLOBAL CPU count for container runtimes (EC2s).
+            Note that this value must match counts for underlying instance type!
+            See vCPU values: https://aws.amazon.com/ec2/instance-types/c5/
+        """
         return Parameter(
             'WebWorkerCPU',
             Description='Web worker CPU units',
             Type='Number',
-            Default=1024,  # 1 cpu
+            Default=2048,
         )
 
     @staticmethod
-    def ecs_web_worker_memory():
+    def ecs_web_worker_memory() -> Parameter:
+        """ GLOBAL Memory count for container runtimes (EC2s).
+            Note that this value must match counts for underlying instance type!
+            See Memory values: https://aws.amazon.com/ec2/instance-types/c5/
+        """
         return Parameter(
             'WebWorkerMemory',
             Description='Web worker memory',
             Type='Number',
-            Default=2048,
+            Default=4096,
         )
 
-    def ecs_wsgi_task(self, ecr, log_group, app_revision='latest'):
-        """ Defines the WSGI Task (serve HTTP requests) """
+    def ecs_wsgi_task(self, ecr, log_group, cpus='256', mem='512', app_revision='latest') -> TaskDefinition:
+        """ Defines the WSGI Task (serve HTTP requests).
+            See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
+
+            :param ecr: reference to ECR
+            :param log_group: reference to log group
+            :param cpus: CPU value to assign to this task, default 256 (play with this value)
+            :param mem: Memory amount for this task, default to 512 (play with this value)
+            :param app_revision: Tag on ECR for the image we'd like to run
+        """
         return TaskDefinition(
             'CGAPWSGI',
             ContainerDefinitions=[
                 ContainerDefinition(
                     Name='WSGI',
-                    Cpu=Ref(self.ecs_web_worker_cpu()),
-                    Memory=Ref(self.ecs_web_worker_memory()),
+                    Cpu=cpus,
+                    Memory=mem,
                     Essential=True,
                     Image=Join("", [
                         '645819926742.dkr.ecr.us-east-1.amazonaws.com/cgap-mastertest',  # XXX: get from args
@@ -482,20 +499,29 @@ class C4ECSApplication(C4Part):
                     ),
                 )
             ],
+            Cpu=Ref(self.ecs_web_worker_cpu()),
+            Memory=Ref(self.ecs_web_worker_memory())
         )
 
-    def ecs_indexer_task(self, ecr, log_group, app_revision='latest-indexer'):
-        """ Defines the Indexer task (indexer app)
+    def ecs_indexer_task(self, ecr, log_group, cpus='256', mem='512', app_revision='latest-indexer') -> TaskDefinition:
+        """ Defines the Indexer task (indexer app).
+            See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
+
+            :param ecr: reference to ECR
+            :param log_group: reference to log group
+            :param cpus: CPU value to assign to this task, default 256 (play with this value)
+            :param mem: Memory amount for this task, default to 512 (play with this value)
+            :param app_revision: Tag on ECR for the image we'd like to run
         """
         return TaskDefinition(
             'CGAPIndexer',
             ContainerDefinitions=[
                 ContainerDefinition(
                     Name='Indexer',
-                    Cpu=Ref(self.ecs_web_worker_cpu()),
-                    Memory=Ref(self.ecs_web_worker_memory()),
+                    Cpu=cpus,
+                    Memory=mem,
                     Essential=True,
-                    Image=Join("", [
+                    Image=Join('', [
                         '645819926742.dkr.ecr.us-east-1.amazonaws.com/cgap-mastertest',  # XXX: get from args
                         ':',
                         app_revision,
@@ -509,19 +535,27 @@ class C4ECSApplication(C4Part):
                     ),
                 )
             ],
+            Cpu=Ref(self.ecs_web_worker_cpu()),
+            Memory=Ref(self.ecs_web_worker_memory())
         )
 
-    def ecs_ingester_task(self, ecr, log_group, app_revision='latest'):
-        """ Defines the Ingester task (ingester app)
-            TODO expand as needed
+    def ecs_ingester_task(self, ecr, log_group, cpus='256', mem='512', app_revision='latest') -> TaskDefinition:
+        """ Defines the Ingester task (ingester app).
+            See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
+
+            :param ecr: reference to ECR
+            :param log_group: reference to log group
+            :param cpus: CPU value to assign to this task, default 256 (play with this value)
+            :param mem: Memory amount for this task, default to 512 (play with this value)
+            :param app_revision: Tag on ECR for the image we'd like to run
         """
         return TaskDefinition(
             'CGAPIngester',
             ContainerDefinitions=[
                 ContainerDefinition(
                     Name='Indexer',
-                    Cpu=Ref(self.ecs_web_worker_cpu()),
-                    Memory=Ref(self.ecs_web_worker_memory()),
+                    Cpu=cpus,
+                    Memory=mem,
                     Essential=True,
                     Image=Join("", [
                         ecr,
@@ -537,15 +571,17 @@ class C4ECSApplication(C4Part):
                     ),
                 )
             ],
+            Cpu=Ref(self.ecs_web_worker_cpu()),
+            Memory=Ref(self.ecs_web_worker_memory())
         )
 
-    def ecs_wsgi_service(self, repo, log_group, role):
+    def ecs_wsgi_service(self, repo, log_group, role) -> Service:
         """ Defines the WSGI service (manages WSGI Tasks) """
         return Service(
             "CGAPWSGIService",
             Cluster=Ref(self.ecs_cluster()),
             DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
-            DesiredCount=1,
+            DesiredCount=4,
             LoadBalancers=[
                 LoadBalancer(
                     ContainerName='WSGI',  # this must match Name in TaskDefinition (ContainerDefinition)
@@ -554,14 +590,12 @@ class C4ECSApplication(C4Part):
             ],
             TaskDefinition=Ref(self.ecs_wsgi_task(repo, log_group)),
             Role=role,
+            SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
         )
 
-    def ecs_indexer_service(self, repo, log_group, role):
+    def ecs_indexer_service(self, repo, log_group, role) -> Service:
         """ Defines the Indexer service (manages Indexer Tasks)
-            No open ports (for now)
-            No LB
-            TODO customize?
-            TODO SQS trigger?
+            TODO SQS Trigger?
         """
         return Service(
             "CGAPIndexerService",
@@ -569,15 +603,13 @@ class C4ECSApplication(C4Part):
             DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
             DesiredCount=1,
             TaskDefinition=Ref(self.ecs_indexer_task(repo, log_group)),
-            Role=role,
+            SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
         )
 
-    def ecs_ingester_service(self, repo, log_group, role):
+    def ecs_ingester_service(self, repo, log_group, role) -> Service:
         """ Defines the Ingester service (manages Ingestion Tasks)
-            No open ports (for now)
-            No LB
-            TODO customize?
-            TODO SQS trigger?
+            TODO push ingestion listener image
+            TODO SQS Trigger?
         """
         return Service(
             "CGAPIngesterService",
@@ -585,5 +617,5 @@ class C4ECSApplication(C4Part):
             DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
             DesiredCount=1,
             TaskDefinition=Ref(self.ecs_ingester_task(repo, log_group)),
-            Role=role,
+            SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
         )
