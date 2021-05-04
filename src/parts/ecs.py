@@ -2,15 +2,8 @@ from troposphere import (
     Parameter,
     Join,
     Ref,
-    elasticloadbalancing as elb,
-    elasticloadbalancingv2 as elbv2,  # Listener, Action, RedirectConfig
-    autoscaling,
-    cloudformation,
-    AWS_ACCOUNT_ID,
-    AWS_STACK_ID,
-    AWS_STACK_NAME,
+    elasticloadbalancingv2 as elbv2,
     AWS_REGION,
-    Base64,
     Template,
     Output,
     GetAtt
@@ -112,25 +105,26 @@ class C4ECSApplication(C4Part):
             self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
         )
         template.add_resource(wsgi)
-        # TODO enable, configure later
-        # template.add_resource(self.ecs_indexer_task(
-        #     self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-        #     self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
-        # ))
-        # template.add_resource(self.ecs_indexer_service(
-        #     self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-        #     self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
-        #     self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
-        # ))
-        # template.add_resource(self.ecs_ingester_task(
-        #     self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-        #     self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
-        # ))
-        # template.add_resource(self.ecs_ingester_service(
-        #     self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-        #     self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
-        #     self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
-        # ))
+        template.add_resource(self.ecs_indexer_task(
+            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
+        ))
+        template.add_resource(self.ecs_indexer_service(
+            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
+        ))
+        template.add_resource(self.ecs_ingester_task(
+            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
+        ))
+        template.add_resource(self.ecs_ingester_service(
+            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
+        ))
 
         # Add load balancer for WSGI
         # LB (old commented out)
@@ -336,7 +330,8 @@ class C4ECSApplication(C4Part):
             ],
         )
 
-    def ecs_indexer_task(self, ecr, log_group, cpus='256', mem='512', app_revision='latest-indexer') -> TaskDefinition:
+    def ecs_indexer_task(self, ecr, log_group, role, cpus='256', mem='512',
+                         app_revision='latest-indexer') -> TaskDefinition:
         """ Defines the Indexer task (indexer app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
@@ -348,6 +343,12 @@ class C4ECSApplication(C4Part):
         """
         return TaskDefinition(
             'CGAPIndexer',
+            RequiresCompatibilities=['FARGATE'],
+            Cpu=cpus,
+            Memory=mem,
+            TaskRoleArn=role,
+            ExecutionRoleArn=role,
+            NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
                     Name='Indexer',
@@ -362,15 +363,15 @@ class C4ECSApplication(C4Part):
                         Options={
                             'awslogs-group': log_group,
                             'awslogs-region': Ref(AWS_REGION),
+                            'awslogs-stream-prefix': 'cgap-indexer'
                         }
                     ),
                 )
             ],
-            Cpu=cpus,
-            Memory=mem
         )
 
-    def ecs_ingester_task(self, ecr, log_group, cpus='256', mem='512', app_revision='latest') -> TaskDefinition:
+    # TODO update to ingester
+    def ecs_ingester_task(self, ecr, log_group, role, cpus='256', mem='512', app_revision='latest-indexer') -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
@@ -382,9 +383,15 @@ class C4ECSApplication(C4Part):
         """
         return TaskDefinition(
             'CGAPIngester',
+            RequiresCompatibilities=['FARGATE'],
+            Cpu=cpus,
+            Memory=mem,
+            TaskRoleArn=role,
+            ExecutionRoleArn=role,
+            NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
-                    Name='Indexer',
+                    Name='Ingester',
                     Essential=True,
                     Image=Join("", [
                         ecr,
@@ -396,12 +403,11 @@ class C4ECSApplication(C4Part):
                         Options={
                             'awslogs-group': log_group,
                             'awslogs-region': Ref(AWS_REGION),
+                            'awslogs-stream-prefix': 'cgap-ingester'
                         }
                     ),
                 )
             ],
-            Cpu=cpus,
-            Memory=mem
         )
 
     def ecs_wsgi_service(self, repo, log_group, role) -> Service:
@@ -438,10 +444,17 @@ class C4ECSApplication(C4Part):
         return Service(
             "CGAPIndexerService",
             Cluster=Ref(self.ecs_cluster()),
-            DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
             DesiredCount=1,
-            TaskDefinition=Ref(self.ecs_indexer_task(repo, log_group)),
+            LaunchType='FARGATE',
+            TaskDefinition=Ref(self.ecs_indexer_task(repo, log_group, role)),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
+            NetworkConfiguration=NetworkConfiguration(
+                AwsvpcConfiguration=AwsvpcConfiguration(
+                    Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
+                    SecurityGroups=[Ref(self.ecs_container_security_group())],
+                )
+            ),
         )
 
     def ecs_ingester_service(self, repo, log_group, role) -> Service:
@@ -452,8 +465,15 @@ class C4ECSApplication(C4Part):
         return Service(
             "CGAPIngesterService",
             Cluster=Ref(self.ecs_cluster()),
-            DependsOn=['CGAPDockerECSAutoscalingGroup'],  # XXX: Hardcoded
             DesiredCount=1,
-            TaskDefinition=Ref(self.ecs_ingester_task(repo, log_group)),
+            LaunchType='FARGATE',
+            TaskDefinition=Ref(self.ecs_ingester_task(repo, log_group, role)),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
+            NetworkConfiguration=NetworkConfiguration(
+                AwsvpcConfiguration=AwsvpcConfiguration(
+                    Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
+                    SecurityGroups=[Ref(self.ecs_container_security_group())],
+                )
+            ),
         )
