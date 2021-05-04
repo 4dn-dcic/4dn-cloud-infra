@@ -330,7 +330,37 @@ class C4ECSApplication(C4Part):
             ],
         )
 
-    def ecs_indexer_task(self, ecr, log_group, role, cpus='256', mem='512',
+    def ecs_wsgi_service(self, repo, log_group, role) -> Service:
+        """ Defines the WSGI service (manages WSGI Tasks)
+            Note dependencies: https://stackoverflow.com/questions/53971873/the-target-group-does-not-have-an-associated-load-balancer
+
+            Defined by the ECR Image tag 'latest'.
+        """
+        return Service(
+            "CGAPWSGIService",
+            Cluster=Ref(self.ecs_cluster()),
+            DependsOn=['ECSLBListener'],  # XXX: Hardcoded, important!
+            DesiredCount=2,
+            LoadBalancers=[
+                LoadBalancer(
+                    ContainerName='WSGI',  # this must match Name in TaskDefinition (ContainerDefinition)
+                    ContainerPort=Ref(self.ecs_web_worker_port()),
+                    TargetGroupArn=Ref(self.ecs_lbv2_target_group()))
+            ],
+            LaunchType='FARGATE',
+            TaskDefinition=Ref(self.ecs_wsgi_task(repo, log_group, role)),
+            SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
+            NetworkConfiguration=NetworkConfiguration(
+                AwsvpcConfiguration=AwsvpcConfiguration(
+                    Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
+                    SecurityGroups=[Ref(self.ecs_container_security_group())],
+                )
+            ),
+        )
+
+    @staticmethod
+    def ecs_indexer_task(ecr, log_group, role, cpus='256', mem='512',
                          app_revision='latest-indexer') -> TaskDefinition:
         """ Defines the Indexer task (indexer app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
@@ -370,8 +400,30 @@ class C4ECSApplication(C4Part):
             ],
         )
 
-    # TODO update to ingester
-    def ecs_ingester_task(self, ecr, log_group, role, cpus='256', mem='512', app_revision='latest-ingester') -> TaskDefinition:
+    def ecs_indexer_service(self, repo, log_group, role) -> Service:
+        """ Defines the Indexer service (manages Indexer Tasks)
+            TODO SQS autoscaling trigger?
+
+            Defined by the ECR Image tag 'latest-indexer'.
+        """
+        return Service(
+            "CGAPIndexerService",
+            Cluster=Ref(self.ecs_cluster()),
+            DesiredCount=1,
+            LaunchType='FARGATE',
+            TaskDefinition=Ref(self.ecs_indexer_task(repo, log_group, role)),
+            SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
+            NetworkConfiguration=NetworkConfiguration(
+                AwsvpcConfiguration=AwsvpcConfiguration(
+                    Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
+                    SecurityGroups=[Ref(self.ecs_container_security_group())],
+                )
+            ),
+        )
+
+    @staticmethod
+    def ecs_ingester_task(ecr, log_group, role, cpus='256', mem='512', app_revision='latest-ingester') -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
@@ -410,55 +462,10 @@ class C4ECSApplication(C4Part):
             ],
         )
 
-    def ecs_wsgi_service(self, repo, log_group, role) -> Service:
-        """ Defines the WSGI service (manages WSGI Tasks)
-            Note dependencies: https://stackoverflow.com/questions/53971873/the-target-group-does-not-have-an-associated-load-balancer
-        """
-        return Service(
-            "CGAPWSGIService",
-            Cluster=Ref(self.ecs_cluster()),
-            DependsOn=['ECSLBListener'],  # XXX: Hardcoded, important!
-            DesiredCount=2,
-            LoadBalancers=[
-                LoadBalancer(
-                    ContainerName='WSGI',  # this must match Name in TaskDefinition (ContainerDefinition)
-                    ContainerPort=Ref(self.ecs_web_worker_port()),
-                    TargetGroupArn=Ref(self.ecs_lbv2_target_group()))
-            ],
-            LaunchType='FARGATE',
-            TaskDefinition=Ref(self.ecs_wsgi_task(repo, log_group, role)),
-            SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
-            NetworkConfiguration=NetworkConfiguration(
-                AwsvpcConfiguration=AwsvpcConfiguration(
-                    Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
-                    SecurityGroups=[Ref(self.ecs_container_security_group())],
-                )
-            ),
-        )
-
-    def ecs_indexer_service(self, repo, log_group, role) -> Service:
-        """ Defines the Indexer service (manages Indexer Tasks)
-            TODO SQS Trigger?
-        """
-        return Service(
-            "CGAPIndexerService",
-            Cluster=Ref(self.ecs_cluster()),
-            DesiredCount=1,
-            LaunchType='FARGATE',
-            TaskDefinition=Ref(self.ecs_indexer_task(repo, log_group, role)),
-            SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
-            NetworkConfiguration=NetworkConfiguration(
-                AwsvpcConfiguration=AwsvpcConfiguration(
-                    Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
-                    SecurityGroups=[Ref(self.ecs_container_security_group())],
-                )
-            ),
-        )
-
     def ecs_ingester_service(self, repo, log_group, role) -> Service:
         """ Defines the Ingester service (manages Ingestion Tasks)
+
+            Defined by the ECR Image tag 'latest-ingester'
             TODO push ingestion listener image
             TODO SQS Trigger?
         """
@@ -468,6 +475,73 @@ class C4ECSApplication(C4Part):
             DesiredCount=1,
             LaunchType='FARGATE',
             TaskDefinition=Ref(self.ecs_ingester_task(repo, log_group, role)),
+            SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
+            NetworkConfiguration=NetworkConfiguration(
+                AwsvpcConfiguration=AwsvpcConfiguration(
+                    Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
+                    SecurityGroups=[Ref(self.ecs_container_security_group())],
+                )
+            ),
+        )
+
+    @staticmethod
+    def ecs_deployment_task(ecr, log_group, role, cpus='256', mem='512',
+                          app_revision='latest-deployment') -> TaskDefinition:
+        """ Defines the Ingester task (ingester app).
+            See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
+
+            :param ecr: reference to ECR
+            :param log_group: reference to log group
+            :param cpus: CPU value to assign to this task, default 256 (play with this value)
+            :param mem: Memory amount for this task, default to 512 (play with this value)
+            :param app_revision: Tag on ECR for the image we'd like to run
+        """
+        return TaskDefinition(
+            'CGAPDeployment',
+            RequiresCompatibilities=['FARGATE'],
+            Cpu=cpus,
+            Memory=mem,
+            TaskRoleArn=role,
+            ExecutionRoleArn=role,
+            NetworkMode='awsvpc',  # required for Fargate
+            ContainerDefinitions=[
+                ContainerDefinition(
+                    Name='Deployment Action',
+                    Essential=True,
+                    Image=Join("", [
+                        ecr,
+                        ':',
+                        app_revision,
+                    ]),
+                    LogConfiguration=LogConfiguration(
+                        LogDriver='awslogs',
+                        Options={
+                            'awslogs-group': log_group,
+                            'awslogs-region': Ref(AWS_REGION),
+                            'awslogs-stream-prefix': 'cgap-deployment'
+                        }
+                    ),
+                )
+            ],
+        )
+
+    def ecs_deployment_service(self, repo, log_group, role) -> Service:
+        """ Defines the Deployment service to trigger the actions we currently associate with deployment, namely:
+                1. Runs clear-db-es-contents. Ensure env.name is configured appropriately!
+                2. Runs create-mapping-on-deploy.
+                3. Runs load-data.
+                4. Runs load-access-keys.
+
+            Defined by the ECR Image tag 'latest-deployment'.
+            TODO foursight Trigger?
+        """
+        return Service(
+            "CGAPDeploymentService",
+            Cluster=Ref(self.ecs_cluster()),
+            DesiredCount=0,  # Explicitly triggered
+            LaunchType='FARGATE',
+            TaskDefinition=Ref(self.ecs_deployment_task(repo, log_group, role)),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
