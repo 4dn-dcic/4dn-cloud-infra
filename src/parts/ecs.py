@@ -371,7 +371,7 @@ class C4ECSApplication(C4Part):
         )
 
     # TODO update to ingester
-    def ecs_ingester_task(self, ecr, log_group, role, cpus='256', mem='512', app_revision='latest-indexer') -> TaskDefinition:
+    def ecs_ingester_task(self, ecr, log_group, role, cpus='256', mem='512', app_revision='latest-ingester') -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
