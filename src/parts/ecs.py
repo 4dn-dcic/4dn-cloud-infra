@@ -23,6 +23,8 @@ from troposphere.ecs import (
     PortMapping,
     Service,
     LoadBalancer,
+    AwsvpcConfiguration,
+    NetworkConfiguration,
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
     SCHEDULING_STRATEGY_DAEMON  # use for EC2 ?
 )
@@ -113,16 +115,16 @@ class C4ECSApplication(C4Part):
             self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
         )
         template.add_resource(wsgi)
-        template.add_resource(self.ecs_indexer_task(
-            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
-        ))
-        template.add_resource(self.ecs_indexer_service(
-            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
-            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
-        ))
         # TODO enable, configure later
+        # template.add_resource(self.ecs_indexer_task(
+        #     self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+        #     self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
+        # ))
+        # template.add_resource(self.ecs_indexer_service(
+        #     self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+        #     self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+        #     self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
+        # ))
         # template.add_resource(self.ecs_ingester_task(
         #     self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
         #     self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
@@ -225,13 +227,7 @@ class C4ECSApplication(C4Part):
                     IpProtocol='tcp',
                     FromPort=Ref(self.ecs_web_worker_port()),
                     ToPort=Ref(self.ecs_web_worker_port()),
-                    CidrIp=C4Network.CIDR_BLOCK,  # VPC CIDR?
-                ),
-                SecurityGroupRule(
-                    IpProtocol='tcp',
-                    FromPort=Ref(self.ecs_web_worker_port()),
-                    ToPort=Ref(self.ecs_web_worker_port()),
-                    CidrIp='0.0.0.0/0',  # no idea if this is correct
+                    CidrIp=C4Network.CIDR_BLOCK,
                 ),
                 SecurityGroupRule(
                     IpProtocol='tcp',
@@ -353,11 +349,13 @@ class C4ECSApplication(C4Part):
         """
         return elbv2.TargetGroup(
             'TargetGroupApplication',
+            HealthCheckPath='/health?format=json',
             HealthCheckProtocol='HTTP',
             HealthCheckTimeoutSeconds=20,
             Matcher=elbv2.Matcher(HttpCode='200'),
             Name='TargetGroupApplication',
             Port=Ref(self.ecs_web_worker_port()),
+            TargetType='instance',
             Protocol='HTTP',
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
         )
@@ -484,7 +482,6 @@ class C4ECSApplication(C4Part):
             TargetGroupARNs=[Ref(self.ecs_lbv2_target_group())],
             HealthCheckType='EC2',
             HealthCheckGracePeriod=300,
-
         )
 
     @staticmethod
@@ -525,6 +522,10 @@ class C4ECSApplication(C4Part):
         """
         return TaskDefinition(
             'CGAPWSGI',
+            RequiresCompatibilities=['FARGATE'],
+            Cpu=cpus,
+            Memory=mem,
+            NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
                     Name='WSGI',
@@ -547,8 +548,6 @@ class C4ECSApplication(C4Part):
                     ),
                 )
             ],
-            Cpu=cpus,
-            Memory=mem
         )
 
     def ecs_indexer_task(self, ecr, log_group, cpus='256', mem='512', app_revision='latest-indexer') -> TaskDefinition:
@@ -620,7 +619,9 @@ class C4ECSApplication(C4Part):
         )
 
     def ecs_wsgi_service(self, repo, log_group, role) -> Service:
-        """ Defines the WSGI service (manages WSGI Tasks) """
+        """ Defines the WSGI service (manages WSGI Tasks)
+            Note dependencies: https://stackoverflow.com/questions/53971873/the-target-group-does-not-have-an-associated-load-balancer
+        """
         return Service(
             "CGAPWSGIService",
             Cluster=Ref(self.ecs_cluster()),
@@ -632,9 +633,17 @@ class C4ECSApplication(C4Part):
                     ContainerPort=Ref(self.ecs_web_worker_port()),
                     TargetGroupArn=Ref(self.ecs_lbv2_target_group()))
             ],
+            LaunchType='FARGATE',
             TaskDefinition=Ref(self.ecs_wsgi_task(repo, log_group)),
             Role=role,
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
+            NetworkConfiguration=NetworkConfiguration(
+                AwsvpcConfiguration=AwsvpcConfiguration(
+                    Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
+                    SecurityGroups=[Ref(self.ecs_container_security_group())],
+                )
+            ),
         )
 
     def ecs_indexer_service(self, repo, log_group, role) -> Service:
