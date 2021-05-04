@@ -93,13 +93,9 @@ class C4ECSApplication(C4Part):
 
         # ECS Params
         template.add_parameter(self.ecs_web_worker_port())
-        template.add_parameter(self.ecs_container_instance_type())
-        template.add_parameter(self.ecs_max_scale())
-        template.add_parameter(self.ecs_desired_scale())
         # template.add_parameter(self.ecs_lb_certificate())  # TODO must be provisioned
         template.add_parameter(self.ecs_web_worker_memory())
         template.add_parameter(self.ecs_web_worker_cpu())
-        template.add_parameter(self.ecs_container_ssh_key())  # TODO open ssh ports
 
         # ECS
         template.add_resource(self.ecs_cluster())
@@ -107,7 +103,8 @@ class C4ECSApplication(C4Part):
         # ECS Task/Services
         template.add_resource(self.ecs_wsgi_task(
             self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP)
+            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
         ))
         wsgi = self.ecs_wsgi_service(
             self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
@@ -145,21 +142,6 @@ class C4ECSApplication(C4Part):
         template.add_resource(self.ecs_application_load_balancer_listener(target_group))
         template.add_resource(self.ecs_application_load_balancer())
 
-        # Add Autoscaling group, EC2 Container launch configuration
-        template.add_resource(self.ecs_autoscaling_group(
-            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
-            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
-            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
-            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_INSTANCE_PROFILE),
-            wsgi
-        ))
-        template.add_resource(self.ecs_container_instance_launch_configuration(
-            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-            self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
-            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_INSTANCE_PROFILE),
-        ))
-
         # Add outputs
         template.add_output(self.output_application_url())
         return template
@@ -179,41 +161,12 @@ class C4ECSApplication(C4Part):
         )
 
     @staticmethod
-    def ecs_desired_scale() -> Parameter:
-        return Parameter(
-            'DesiredScale',
-            Description='Desired container instances count',
-            Type='Number',
-            Default=1,
-        )
-
-    @staticmethod
-    def ecs_max_scale() -> Parameter:
-        return Parameter(
-            'MaxScale',
-            Description='Maximum container instances count',
-            Type='Number',
-            Default=1,
-        )
-
-    @staticmethod
     def ecs_web_worker_port() -> Parameter:
         return Parameter(
             'WebWorkerPort',
             Description="Web worker container exposed port",
             Type="Number",
-            Default=8000,  # should work for us
-        )
-
-    @staticmethod
-    def ecs_container_ssh_key() -> Parameter:
-        """ SSH key attached """
-        return Parameter(
-            'ECSContainerInstanceSSHAccessKey',
-            Description='Name of an existing EC2 Keypair to enable SSH access '
-                        'to the ECS container instances.',
-            Type="String",
-            Default='trial-ssh-key-01'  # XXX: needs passing
+            Default=8000,  # port exposed by WSGI container
         )
 
     def ecs_container_security_group(self) -> SecurityGroup:
@@ -272,6 +225,7 @@ class C4ECSApplication(C4Part):
         )
 
     def ecs_application_load_balancer(self) -> elbv2.LoadBalancer:
+        """ Application load balancer for the WSGI ECS Task. """
         logical_id = self.name.logical_id('ECSLB')
         return elbv2.LoadBalancer(
             logical_id,
@@ -290,57 +244,11 @@ class C4ECSApplication(C4Part):
         )
 
     def output_application_url(self) -> Output:
+        """ Outputs URL to access WSGI. """
         return Output(
             'ECSApplicationURL',
             Description='URL of CGAP-Portal.',
             Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer(), 'DNSName')])
-        )
-
-    def ecs_load_balancer(self) -> elb.LoadBalancer:
-        """ DEPRECATED.
-            Classic load balancer. Does not support >1 host per container.
-        """
-        return elb.LoadBalancer(
-            'ECSLoadBalancer',
-            Subnets=[  # LB lives in the public subnets
-                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
-                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
-            ],
-            SecurityGroups=[Ref(self.ecs_lb_security_group())],
-            Listeners=[
-                # Forward HTTPS on 443 to HTTP on the web port
-                elb.Listener(
-                    LoadBalancerPort=443,
-                    InstanceProtocol='HTTP',
-                    InstancePort=Ref(self.ecs_web_worker_port()),
-                    Protocol='HTTP',  # TODO change to HTTPS
-                    #  SSLCertificateId=Ref(self.ecs_lb_certificate()),
-                    ),
-                # Forward HTTP on 80 to HTTP on web port
-                elb.Listener(
-                    LoadBalancerPort=80,
-                    InstanceProtocol='HTTP',
-                    InstancePort=Ref(self.ecs_web_worker_port()),
-                    Protocol='HTTP',
-                )
-            ],
-            HealthCheck=elb.HealthCheck(
-                Target=Join('', ['HTTP:', Ref(self.ecs_web_worker_port()), '/health?format=json']),
-                HealthyThreshold='2',
-                UnhealthyThreshold='2',
-                Interval='120',
-                Timeout='10',
-            ),
-        )
-
-    @staticmethod
-    def ecs_container_instance_type() -> Parameter:
-        return Parameter(
-            'ContainerInstanceType',
-            Description='The container instance type',
-            Type='String',
-            Default='c5.large',
-            AllowedValues=['c5.large']  # configure more later
         )
 
     def ecs_lbv2_target_group(self) -> elbv2.TargetGroup:
@@ -355,138 +263,14 @@ class C4ECSApplication(C4Part):
             Matcher=elbv2.Matcher(HttpCode='200'),
             Name='TargetGroupApplication',
             Port=Ref(self.ecs_web_worker_port()),
-            TargetType='instance',
+            TargetType='ip',
             Protocol='HTTP',
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
         )
 
-    def ecs_container_instance_launch_configuration(self,
-                                                    private_subnet_a,
-                                                    private_subnet_b,
-                                                    profile,
-                                                    name='CGAPDockerWSGILaunchConfiguration') -> autoscaling.LaunchConfiguration:
-        """ Builds a launch configuration for the ecs container instance.
-            This might be very wrong, but the general idea works for others.
-        """
-        return autoscaling.LaunchConfiguration(
-            name,
-            Metadata=autoscaling.Metadata(
-                cloudformation.Init(dict(
-                    config=cloudformation.InitConfig(
-                        commands=dict(
-                            register_cluster=dict(command=Join("", [
-                                "#!/bin/bash\n",
-                                # Register the cluster
-                                "echo ECS_CLUSTER=",
-                                Ref(self.ecs_cluster()),
-                                " >> /etc/ecs/ecs.config\n",
-                            ]))
-                        ),
-                        files=cloudformation.InitFiles({
-                            "/etc/cfn/cfn-hup.conf": cloudformation.InitFile(
-                                content=Join("", [
-                                    "[main]\n",
-                                    "template=",
-                                    Ref(AWS_STACK_ID),
-                                    "\n",
-                                    "region=",
-                                    Ref(AWS_REGION),
-                                    "\n",
-                                ]),
-                                mode="000400",
-                                owner="root",
-                                group="root",
-                            ),
-                            "/etc/cfn/hooks.d/cfn-auto-reload.conf":
-                            cloudformation.InitFile(
-                                content=Join("", [
-                                    "[cfn-auto-reloader-hook]\n",
-                                    "triggers=post.update\n",
-                                    "path=Resources.%s."
-                                    % name,
-                                    "Metadata.AWS::CloudFormation::Init\n",
-                                    "action=/opt/aws/bin/cfn-init -v ",
-                                    "         --stack ",
-                                    Ref(AWS_STACK_NAME),
-                                    "         --resource %s"
-                                    % name,
-                                    "         --region ",
-                                    Ref("AWS::Region"),
-                                    "\n",
-                                    "runas=root\n",
-                                ])
-                            )
-                        }),
-                        services=dict(
-                            sysvinit=cloudformation.InitServices({
-                                'cfn-hup': cloudformation.InitService(
-                                    enabled=True,
-                                    ensureRunning=True,
-                                    files=[
-                                        "/etc/cfn/cfn-hup.conf",
-                                        "/etc/cfn/hooks.d/cfn-auto-reloader.conf",
-                                    ]
-                                ),
-                            })
-                        )
-                    )
-                ))
-            ),
-            SecurityGroups=[Ref(self.ecs_container_security_group())],
-            InstanceType=Ref(self.ecs_container_instance_type()),
-            IamInstanceProfile=profile,
-            ImageId=self.AMI,  # this is the AMI of the ec2 we want to use
-            KeyName=Ref(self.ecs_container_ssh_key()),
-            UserData=Base64(Join('', [
-                "#!/bin/bash -xe\n",
-                "yum install -y aws-cfn-bootstrap\n",
-
-                "/opt/aws/bin/cfn-init -v ",
-                "         --stack ", Ref(AWS_STACK_NAME),
-                "         --resource %s " % name,
-                "         --region ", Ref(AWS_REGION), "\n",
-            ])),
-        )
-
-    @staticmethod
-    def ecs_max_container_instances(max=1) -> Parameter:
-        return Parameter(
-            'MaxScale',
-            Description='Maximum container instances count',
-            Type='Number',
-            Default=max,  # XXX: How to best set this?
-        )
-
-    @staticmethod
-    def ecs_desired_container_instances() -> Parameter:
-        return Parameter(
-            'DesiredScale',
-            Description='Desired container instances count',
-            Type='Number',
-            Default=1,
-        )
-
-    def ecs_autoscaling_group(self, private_subnet_a, private_subnet_b,
-                              public_subnet_a, public_subnet_b, instance_profile, wsgi,
-                              name='CGAPDockerECSAutoscalingGroup') -> autoscaling.AutoScalingGroup:
-        """ Builds an autoscaling group for the EC2s """
-        return autoscaling.AutoScalingGroup(
-            name,
-            VPCZoneIdentifier=[private_subnet_a, private_subnet_b],
-            MinSize='1',
-            MaxSize='1',
-            DesiredCapacity='1',
-            LaunchConfigurationName=Ref(self.ecs_container_instance_launch_configuration(public_subnet_a,
-                                                                                         public_subnet_b,
-                                                                                         instance_profile)),
-            TargetGroupARNs=[Ref(self.ecs_lbv2_target_group())],
-            HealthCheckType='EC2',
-            HealthCheckGracePeriod=300,
-        )
-
     @staticmethod
     def ecs_web_worker_cpu() -> Parameter:
-        """ GLOBAL CPU count for container runtimes (EC2s).
+        """ TODO: figure out how to best use
             Note that this value must match counts for underlying instance type!
             See vCPU values: https://aws.amazon.com/ec2/instance-types/c5/
         """
@@ -499,7 +283,7 @@ class C4ECSApplication(C4Part):
 
     @staticmethod
     def ecs_web_worker_memory() -> Parameter:
-        """ GLOBAL Memory count for container runtimes (EC2s).
+        """ TODO: figure out how to best use
             Note that this value must match counts for underlying instance type!
             See Memory values: https://aws.amazon.com/ec2/instance-types/c5/
         """
@@ -510,7 +294,7 @@ class C4ECSApplication(C4Part):
             Default=512,
         )
 
-    def ecs_wsgi_task(self, ecr, log_group, cpus='256', mem='512', app_revision='latest') -> TaskDefinition:
+    def ecs_wsgi_task(self, ecr, log_group, role, cpus='256', mem='512', app_revision='latest') -> TaskDefinition:
         """ Defines the WSGI Task (serve HTTP requests).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
@@ -525,6 +309,8 @@ class C4ECSApplication(C4Part):
             RequiresCompatibilities=['FARGATE'],
             Cpu=cpus,
             Memory=mem,
+            TaskRoleArn=role,
+            ExecutionRoleArn=role,
             NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
@@ -537,13 +323,13 @@ class C4ECSApplication(C4Part):
                     ]),
                     PortMappings=[PortMapping(
                         ContainerPort=Ref(self.ecs_web_worker_port()),
-                        HostPort=0,  # dynamic port mappings
                     )],
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
                         Options={
                             'awslogs-group': log_group,
                             'awslogs-region': Ref(AWS_REGION),
+                            'awslogs-stream-prefix': 'cgap-wsgi'
                         }
                     ),
                 )
@@ -625,7 +411,7 @@ class C4ECSApplication(C4Part):
         return Service(
             "CGAPWSGIService",
             Cluster=Ref(self.ecs_cluster()),
-            DependsOn=['CGAPDockerECSAutoscalingGroup', 'ECSLBListener'],  # XXX: Hardcoded, important!
+            DependsOn=['ECSLBListener'],  # XXX: Hardcoded, important!
             DesiredCount=2,
             LoadBalancers=[
                 LoadBalancer(
@@ -634,8 +420,7 @@ class C4ECSApplication(C4Part):
                     TargetGroupArn=Ref(self.ecs_lbv2_target_group()))
             ],
             LaunchType='FARGATE',
-            TaskDefinition=Ref(self.ecs_wsgi_task(repo, log_group)),
-            Role=role,
+            TaskDefinition=Ref(self.ecs_wsgi_task(repo, log_group, role)),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(

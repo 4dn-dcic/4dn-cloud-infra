@@ -172,7 +172,7 @@ class C4IAM(C4Part):
                         'logs:Create*',
                         'logs:PutLogEvents',
                     ],
-                    Resource=self.build_logging_arn('*')  # XXX: Constrain further?
+                    Resource='*'  # XXX: Constrain further? Must match WRT log group and AWS logs
                 )]
             )
         )
@@ -217,7 +217,9 @@ class C4IAM(C4Part):
         )
 
     def ecs_assumed_iam_role(self):
-        """ Builds an IAM role for assumption by ECS containers. """
+        """ Builds a general purpose IAM role for use with ECS.
+            TODO: split into several rolls?
+        """
         policies = [
             self.ecs_secret_manager_policy(),  # to get env configuration
             self.ecs_access_policy(),  # to manage ECS
@@ -248,6 +250,12 @@ class C4IAM(C4Part):
                         Action('sts', 'AssumeRole')
                     ],
                     Principal=Principal('Service', 'ec2.amazonaws.com')
+            ), Statement(
+                    Effect='Allow',
+                    Action=[
+                        Action('sts', 'AssumeRole')
+                    ],
+                    Principal=Principal('Service', 'ecs-tasks.amazonaws.com')
             )]),
             Policies=policies
         )
