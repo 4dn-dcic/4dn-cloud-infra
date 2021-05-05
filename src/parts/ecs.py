@@ -222,9 +222,7 @@ class C4ECSApplication(C4Part):
         )
 
     def ecs_lbv2_target_group(self) -> elbv2.TargetGroup:
-        """ Creates LBv2 target group.
-            Unused, should probably be used as current setup is 'classic'
-        """
+        """ Creates LBv2 target group (intended for use with WSGI Service). """
         return elbv2.TargetGroup(
             'TargetGroupApplication',
             HealthCheckPath='/health?format=json',

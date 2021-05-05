@@ -1,6 +1,6 @@
 default: info
 
-.PHONY: alpha legacy deploy-alpha-p1 deploy-alpha-p2
+.PHONY: alpha legacy deploy-alpha-p1 deploy-alpha-p2 info
 
 alpha:
 	@echo 'Validating CGAP-Portal Alpha'
@@ -31,11 +31,12 @@ deploy-alpha-p1:
 	./4dn-cloud-infra provision network --validate --alpha --upload_change_set
 	./4dn-cloud-infra provision ecr --validate --alpha --upload_change_set
 	./4dn-cloud-infra provision datastore --validate --alpha --upload_change_set
-	# TODO deploy foursight
+	# TODO deploy foursight ? might belong in next step
 
 deploy-alpha-p2:
-	python scripts/upload_application_version.py
-	# ./4dn-cloud-infra provision ecs --validate --alpha --upload_change_set
+	@echo 'To upload application version, see: src/deploy/docker/production/Makefile'
+	@echo -n "Confirm you have done so for all required images with 'y' [y/N] " && read ans && [ $${ans:-N} = y ]
+	./4dn-cloud-infra provision ecs --validate --alpha --upload_change_set
 
 info:
 	@: $(info Here are some 'make' options:)
