@@ -18,8 +18,8 @@ from troposphere.ecs import (
     LoadBalancer,
     AwsvpcConfiguration,
     NetworkConfiguration,
+    Environment,
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
-    SCHEDULING_STRATEGY_DAEMON  # use for EC2 ?
 )
 from troposphere.ec2 import (
     SecurityGroup,
@@ -35,20 +35,13 @@ from src.parts.logging import C4LoggingExports
 class C4ECSApplication(C4Part):
     """ Configures the ECS Cluster Application for CGAP
         This class contains everything necessary for running CGAP on ECS, including:
-            * The Cluster itself (done)
-            * The Load Balancer that forwards traffic to the Cluster
-            * Container instance
-            * Autoscaling Group
-            * ECS Tasks
+            * Cluster
+            * Application Load Balancer (Fargate compatible)
+            * ECS Tasks/Services
                 * WSGI
                 * Indexer
                 * Ingester
-            * ECS Services
-                * WSGI
-                * Indexer
-                * Ingester
-
-        Note: application upload handling is still TODO
+            * TODO: Autoscaling
     """
     NETWORK_EXPORTS = C4NetworkExports()
     ECR_EXPORTS = C4ECRExports()
@@ -93,42 +86,17 @@ class C4ECSApplication(C4Part):
         # ECS
         template.add_resource(self.ecs_cluster())
 
-        # ECS Task/Services
-        template.add_resource(self.ecs_wsgi_task(
-            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
-            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
-        ))
-        wsgi = self.ecs_wsgi_service(
-            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
-            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
-        )
-        template.add_resource(wsgi)
-        template.add_resource(self.ecs_indexer_task(
-            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
-            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
-        ))
-        template.add_resource(self.ecs_indexer_service(
-            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
-            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
-        ))
-        template.add_resource(self.ecs_ingester_task(
-            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
-            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
-        ))
-        template.add_resource(self.ecs_ingester_service(
-            self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
-            self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
-            self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)
-        ))
+        # ECS Tasks/Services
+        template.add_resource(self.ecs_wsgi_task())
+        template.add_resource(self.ecs_wsgi_service())
+        template.add_resource(self.ecs_indexer_task())
+        template.add_resource(self.ecs_indexer_service())
+        template.add_resource(self.ecs_ingester_task())
+        template.add_resource(self.ecs_ingester_service())
+        template.add_resource(self.ecs_deployment_task())
+        template.add_resource(self.ecs_deployment_service())
 
         # Add load balancer for WSGI
-        # LB (old commented out)
-        # template.add_resource(self.ecs_load_balancer())
         template.add_resource(self.ecs_lb_security_group())
         template.add_resource(self.ecs_container_security_group())
         target_group = self.ecs_lbv2_target_group()
@@ -142,12 +110,14 @@ class C4ECSApplication(C4Part):
 
     @staticmethod
     def ecs_cluster() -> Cluster:
+        """ Creates an ECS cluster for use with this portal deployment. """
         return Cluster(
             'CGAPDockerCluster'
         )
 
     @staticmethod
     def ecs_lb_certificate() -> Parameter:
+        """ Allows us to eventually pass this as an argument and configure application LB to use it. """
         return Parameter(
             "CertId",
             Description='This is the SSL Cert to attach to the LB',
@@ -156,14 +126,16 @@ class C4ECSApplication(C4Part):
 
     @staticmethod
     def ecs_web_worker_port() -> Parameter:
+        """ Parameter for the WSGI port - by default 8000 (requires change to nginx config on cgap-portal to modify) """
         return Parameter(
             'WebWorkerPort',
-            Description="Web worker container exposed port",
-            Type="Number",
+            Description='Web worker container exposed port',
+            Type='Number',
             Default=8000,  # port exposed by WSGI container
         )
 
     def ecs_container_security_group(self) -> SecurityGroup:
+        """ Security group for the container runtime. """
         return SecurityGroup(
             'ContainerSecurityGroup',
             GroupDescription='Container Security Group.',
@@ -176,6 +148,7 @@ class C4ECSApplication(C4Part):
                     ToPort=Ref(self.ecs_web_worker_port()),
                     CidrIp=C4Network.CIDR_BLOCK,
                 ),
+                # SSH access - not usable on Fargate (?) - Will 5/5/21
                 SecurityGroupRule(
                     IpProtocol='tcp',
                     FromPort=22,
@@ -186,7 +159,9 @@ class C4ECSApplication(C4Part):
         )
 
     def ecs_lb_security_group(self) -> SecurityGroup:
-        """ Allow both http, https traffic """
+        """ Security group for the load balancer, allowing traffic on ports 80/443.
+            TODO: configure for HTTPS.
+        """
         return SecurityGroup(
             "ECSLBSSLSecurityGroup",
             GroupDescription="Web load balancer security group.",
@@ -208,6 +183,7 @@ class C4ECSApplication(C4Part):
         )
 
     def ecs_application_load_balancer_listener(self, target_group: elbv2.TargetGroup) -> elbv2.Listener:
+        """ Listener for the application load balancer, forwards traffic to the target group (containing WSGI). """
         return elbv2.Listener(
             'ECSLBListener',
             Port=80,
@@ -264,10 +240,7 @@ class C4ECSApplication(C4Part):
 
     @staticmethod
     def ecs_web_worker_cpu() -> Parameter:
-        """ TODO: figure out how to best use
-            Note that this value must match counts for underlying instance type!
-            See vCPU values: https://aws.amazon.com/ec2/instance-types/c5/
-        """
+        """ TODO: figure out how to best use - should probably be per service? """
         return Parameter(
             'WebWorkerCPU',
             Description='Web worker CPU units',
@@ -277,10 +250,7 @@ class C4ECSApplication(C4Part):
 
     @staticmethod
     def ecs_web_worker_memory() -> Parameter:
-        """ TODO: figure out how to best use
-            Note that this value must match counts for underlying instance type!
-            See Memory values: https://aws.amazon.com/ec2/instance-types/c5/
-        """
+        """ TODO: figure out how to best use - should probably be per service? """
         return Parameter(
             'WebWorkerMemory',
             Description='Web worker memory',
@@ -288,30 +258,30 @@ class C4ECSApplication(C4Part):
             Default=512,
         )
 
-    def ecs_wsgi_task(self, ecr, log_group, role, cpus='256', mem='512', app_revision='latest') -> TaskDefinition:
+    def ecs_wsgi_task(self, cpus='256', mem='512', app_revision='latest',
+                      identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the WSGI Task (serve HTTP requests).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
-            :param ecr: reference to ECR
-            :param log_group: reference to log group
             :param cpus: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
             :param app_revision: Tag on ECR for the image we'd like to run
+            :param identity: name of secret containing the identity information for this environment
         """
         return TaskDefinition(
             'CGAPWSGI',
             RequiresCompatibilities=['FARGATE'],
             Cpu=cpus,
             Memory=mem,
-            TaskRoleArn=role,
-            ExecutionRoleArn=role,
+            TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
+            ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
                     Name='WSGI',
                     Essential=True,
                     Image=Join("", [
-                        '645819926742.dkr.ecr.us-east-1.amazonaws.com/cgap-mastertest',  # XXX: get from args
+                        self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
                         ':',
                         app_revision,
                     ]),
@@ -321,16 +291,26 @@ class C4ECSApplication(C4Part):
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
                         Options={
-                            'awslogs-group': log_group,
+                            'awslogs-group': self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'cgap-wsgi'
                         }
                     ),
+                    Environment=[
+                        # VERY IMPORTANT - this environment variable determines which identity in the secrets manager to use
+                        # If this secret does not exist, things will not start up correctly - this is ok in the short term,
+                        # but shortly after orchestration the secret value should be set.
+                        # Note this applies to all other tasks as well.
+                        Environment(
+                            Name='IDENTITY',
+                            Value=identity
+                        )
+                    ]
                 )
             ],
         )
 
-    def ecs_wsgi_service(self, repo, log_group, role) -> Service:
+    def ecs_wsgi_service(self) -> Service:
         """ Defines the WSGI service (manages WSGI Tasks)
             Note dependencies: https://stackoverflow.com/questions/53971873/the-target-group-does-not-have-an-associated-load-balancer
 
@@ -348,7 +328,7 @@ class C4ECSApplication(C4Part):
                     TargetGroupArn=Ref(self.ecs_lbv2_target_group()))
             ],
             LaunchType='FARGATE',
-            TaskDefinition=Ref(self.ecs_wsgi_task(repo, log_group, role)),
+            TaskDefinition=Ref(self.ecs_wsgi_task()),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
@@ -359,48 +339,52 @@ class C4ECSApplication(C4Part):
             ),
         )
 
-    @staticmethod
-    def ecs_indexer_task(ecr, log_group, role, cpus='256', mem='512',
-                         app_revision='latest-indexer') -> TaskDefinition:
+    def ecs_indexer_task(self, cpus='256', mem='512', app_revision='latest-indexer',
+                         identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the Indexer task (indexer app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
-            :param ecr: reference to ECR
-            :param log_group: reference to log group
             :param cpus: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
             :param app_revision: Tag on ECR for the image we'd like to run
+            :param identity: name of secret containing the identity information for this environment
         """
         return TaskDefinition(
             'CGAPIndexer',
             RequiresCompatibilities=['FARGATE'],
             Cpu=cpus,
             Memory=mem,
-            TaskRoleArn=role,
-            ExecutionRoleArn=role,
+            TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
+            ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
                     Name='Indexer',
                     Essential=True,
                     Image=Join('', [
-                        '645819926742.dkr.ecr.us-east-1.amazonaws.com/cgap-mastertest',  # XXX: get from args
+                        self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
                         ':',
                         app_revision,
                     ]),
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
                         Options={
-                            'awslogs-group': log_group,
+                            'awslogs-group': self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'cgap-indexer'
                         }
                     ),
+                    Environment=[
+                        Environment(
+                            Name='IDENTITY',
+                            Value=identity
+                        )
+                    ]
                 )
             ],
         )
 
-    def ecs_indexer_service(self, repo, log_group, role) -> Service:
+    def ecs_indexer_service(self) -> Service:
         """ Defines the Indexer service (manages Indexer Tasks)
             TODO SQS autoscaling trigger?
 
@@ -411,7 +395,7 @@ class C4ECSApplication(C4Part):
             Cluster=Ref(self.ecs_cluster()),
             DesiredCount=1,
             LaunchType='FARGATE',
-            TaskDefinition=Ref(self.ecs_indexer_task(repo, log_group, role)),
+            TaskDefinition=Ref(self.ecs_indexer_task()),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
@@ -422,47 +406,52 @@ class C4ECSApplication(C4Part):
             ),
         )
 
-    @staticmethod
-    def ecs_ingester_task(ecr, log_group, role, cpus='256', mem='512', app_revision='latest-ingester') -> TaskDefinition:
+    def ecs_ingester_task(self, cpus='256', mem='512', app_revision='latest-ingester',
+                          identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
-            :param ecr: reference to ECR
-            :param log_group: reference to log group
             :param cpus: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
             :param app_revision: Tag on ECR for the image we'd like to run
+            :param identity: name of secret containing the identity information for this environment
         """
         return TaskDefinition(
             'CGAPIngester',
             RequiresCompatibilities=['FARGATE'],
             Cpu=cpus,
             Memory=mem,
-            TaskRoleArn=role,
-            ExecutionRoleArn=role,
+            TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
+            ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
                     Name='Ingester',
                     Essential=True,
                     Image=Join("", [
-                        ecr,
+                        self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
                         ':',
                         app_revision,
                     ]),
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
                         Options={
-                            'awslogs-group': log_group,
+                            'awslogs-group': self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'cgap-ingester'
                         }
                     ),
+                    Environment=[
+                        Environment(
+                            Name='IDENTITY',
+                            Value=identity
+                        )
+                    ]
                 )
             ],
         )
 
-    def ecs_ingester_service(self, repo, log_group, role) -> Service:
+    def ecs_ingester_service(self) -> Service:
         """ Defines the Ingester service (manages Ingestion Tasks)
 
             Defined by the ECR Image tag 'latest-ingester'
@@ -474,7 +463,7 @@ class C4ECSApplication(C4Part):
             Cluster=Ref(self.ecs_cluster()),
             DesiredCount=1,
             LaunchType='FARGATE',
-            TaskDefinition=Ref(self.ecs_ingester_task(repo, log_group, role)),
+            TaskDefinition=Ref(self.ecs_ingester_task()),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
@@ -485,48 +474,52 @@ class C4ECSApplication(C4Part):
             ),
         )
 
-    @staticmethod
-    def ecs_deployment_task(ecr, log_group, role, cpus='256', mem='512',
-                          app_revision='latest-deployment') -> TaskDefinition:
+    def ecs_deployment_task(self, cpus='256', mem='512', app_revision='latest-deployment',
+                            identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
-            :param ecr: reference to ECR
-            :param log_group: reference to log group
             :param cpus: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
             :param app_revision: Tag on ECR for the image we'd like to run
+            :param identity: name of secret containing the identity information for this environment
         """
         return TaskDefinition(
             'CGAPDeployment',
             RequiresCompatibilities=['FARGATE'],
             Cpu=cpus,
             Memory=mem,
-            TaskRoleArn=role,
-            ExecutionRoleArn=role,
+            TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
+            ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
-                    Name='Deployment Action',
+                    Name='DeploymentAction',
                     Essential=True,
                     Image=Join("", [
-                        ecr,
+                        self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
                         ':',
                         app_revision,
                     ]),
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
                         Options={
-                            'awslogs-group': log_group,
+                            'awslogs-group': self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'cgap-deployment'
                         }
                     ),
+                    Environment=[
+                        Environment(
+                            Name='IDENTITY',
+                            Value=identity
+                        )
+                    ]
                 )
             ],
         )
 
-    def ecs_deployment_service(self, repo, log_group, role) -> Service:
+    def ecs_deployment_service(self) -> Service:
         """ Defines the Deployment service to trigger the actions we currently associate with deployment, namely:
                 1. Runs clear-db-es-contents. Ensure env.name is configured appropriately!
                 2. Runs create-mapping-on-deploy.
@@ -541,7 +534,7 @@ class C4ECSApplication(C4Part):
             Cluster=Ref(self.ecs_cluster()),
             DesiredCount=0,  # Explicitly triggered
             LaunchType='FARGATE',
-            TaskDefinition=Ref(self.ecs_deployment_task(repo, log_group, role)),
+            TaskDefinition=Ref(self.ecs_deployment_task()),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
