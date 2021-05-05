@@ -51,8 +51,9 @@ To get help:
 
 ## Customization
 
-To customize the deployment of CGAP, you need to write a Python file in `src/` called `secrets.py`. This
-file will contain secrets - take care not to leak this file. The relevant properties are described below.
+To customize the deployment of CGAP, you need to create a JSON secret in AWS SecretsManager, ideally given
+the name of the environment you'd like to create (cgap-mastertest for example). The below values at a minimum 
+must be present.
 
     # Required props for deployment
     deploying_iam_user = "the admin IAM user who is orchestrating the infrastructure"
@@ -64,6 +65,11 @@ file will contain secrets - take care not to leak this file. The relevant proper
     ENCODED_ES_SERVER = "XXX: output from datastore"
     ENCODED_SECRET = "Unused?"
     ENCODED_VERSION = "Should get picked up from application version"
+    ENCODED_FILES_BUCKET = name_of_files_bucket, for example application-cgap-mastertest-files
+    ENCODED_WFOUT_BUCKET = name_of_wfout_bucket, for example application-cgap-mastertest-wfout
+    ENCODED_BLOBS_BUCKET = name_of_blobs_bucket, for example application-cgap-mastertest-blobs,
+    ENCODED_SYSTEM_BUCKET = name_of_system_bucket, for example application-cgap-mastertest-system
+    ENCODED_METADATA_BUNDLE_BUCKET = name_of_metadata_bundle_bucket, for example application-cgap-mastertest-metadata-bundles
     LANG = "en_US.UTF-8"
     LC_ALL = "en_US.UTF-8"
     RDS_HOSTNAME = "XXX: output from datastore"
@@ -75,14 +81,4 @@ file will contain secrets - take care not to leak this file. The relevant proper
     SENTRY_DSN = "add if you want sentry"
     reCaptchaSecret = "for reCaptcha in production"
 
-    # Customization Options (unused for now, needs refactoring so they are used)
-    # TO BE EXPANDED MORE
-    RDS_INSTANCE_SIZE = 'db.t3.medium'
-    RDS_AZ = 'us-east-1a'
-    RDS_STORAGE_SIZE = 20
-    
-    # Prod ES Configuration
-    ES_DATA_NODE_COUNT = 2
-    ES_DATA_NODE_SIZE = 'r5.2xlarge.elasticsearch'
-    ES_MASTER_NODE_COUNT = 3
-    ES_MASTER_NODE_TYPE = 'c5.large.elasticsearch'
+TODO: customize other stacks (RDS, ES size)
