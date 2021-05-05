@@ -48,6 +48,30 @@ To get help:
 * `src/parts/` - Contains definitions of resources associated with each part (network, datastore etc)
 * `src/stacks/` - Contains files that define the stacks (using resources from `src/parts/`)
 
+## Tibanna Setup
+
+Each tibanna command is wrapped on execution, so the environment vars required for the tibanna cli configuration are
+sourced with the command's execution. This requires a `test_creds.sh` file in `~/.aws_test/test_creds.sh` by default.
+
+This file can look like this, with IAM creds to the correct account filled in:
+
+```
+export AWS_ACCESS_KEY_ID=<ACCESS_KEY_HERE>
+export AWS_SECRET_ACCESS_KEY=<SECRET_HERE>
+export AWS_DEFAULT_REGION=us-east-1
+# only if you're using a forked tibanna repo
+export TIBANNA_REPO_NAME=4dn-dcic/tibanna  # (default: 4dn-dcic/tibanna)
+export TIBANNA_REPO_BRANCH=master  # (default: master)
+# contains default usergroup being used
+export TIBANNA_DEFAULT_STEP_FUNCTION_NAME=tibanna_unicorn_tibanna_unicorn_trial_02
+```
+
+To view the tibanna commands, use: `./4dn-cloud-infra tibanna --help`
+
+To view the tibanna cli help message itself, use: `./4dn-cloud-infra tibanna help`
+
+For more information on tibanna itself, see: https://tibanna.readthedocs.io/en/latest/
+
 
 ## Customization
 
