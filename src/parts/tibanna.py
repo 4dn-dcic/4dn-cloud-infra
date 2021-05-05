@@ -1,7 +1,3 @@
-"""
-cloud-infra tibanna --init
-cloud-infra tibanna --verify
-"""
 import logging
 from troposphere import Template
 from troposphere.s3 import Bucket, Private
@@ -19,6 +15,10 @@ class C4Tibanna(C4Part):
 
     @staticmethod
     def bucket_names(bucket_id=TRIAL_ID):
+        """ Data and log buckets. Defaults:
+            data: c4-tibanna-trial-data-id52303648-bucket
+            log: c4-tibanna-trial-log-id52303648-bucket
+        """
         data_bucket = 'c4-tibanna-trial-data-id{}-bucket'.format(bucket_id)
         log_bucket = 'c4-tibanna-trial-log-id{}-bucket'.format(bucket_id)
         return data_bucket, log_bucket
@@ -30,6 +30,13 @@ class C4Tibanna(C4Part):
             usergroup=usergroup, buckets=','.join([data_bucket, log_bucket]))
         if dry_run:
             logger.warning('initial_deploy would run: {tibanna_cmd}'.format(tibanna_cmd=tibanna_cmd))
+        else:
+            self.account.run_command(tibanna_cmd)
+
+    def tibanna_run(self, input, dry_run=True):
+        tibanna_cmd = 'tibanna run_workflow --input-json={input}'.format(input=input)
+        if dry_run:
+            logger.warning('tibanna_run would run: {tibanna_cmd}'.format(tibanna_cmd=tibanna_cmd))
         else:
             self.account.run_command(tibanna_cmd)
 

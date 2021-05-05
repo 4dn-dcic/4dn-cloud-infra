@@ -240,6 +240,9 @@ class C4Client:
             dry_run = True
         if args.init_tibanna:  # runs initial tibanna setup
             c4_tibanna_part.initial_deploy(dry_run=dry_run)
+        elif args.tibanna_run:  # runs a workflow on tibanna
+            logger.warning('tibanna run on {}'.format(args.tibanna_run))
+            c4_tibanna_part.tibanna_run(input=args.tibanna_run, dry_run=dry_run)
         elif args.cmd == [] or args.cmd[0] == 'help':  # displays tibanna help
             c4_tibanna_part.run_tibanna_cmd(['--help'])
         else:  # runs given tibanna command directly
@@ -287,6 +290,9 @@ def cli():
                                 help='Runs the tibanna command-line for the trial account')
     parser_tibanna.add_argument('--init_tibanna', action='store_true',
                                 help='Initializes tibanna group with private buckets. Requires c4-tibanna-trial.')
+    parser_tibanna.add_argument('--tibanna_run', nargs='?', default=None,
+                                const='tibanna_inputs/trial_tibanna_test_input.json',
+                                help='Runs a sample tibanna input using private buckets. Requires c4-tibanna-trial.')
     parser_tibanna.add_argument('--confirm', action='store_true',
                                 help='Confirms this command will run in the configured account. Defaults to false.')
     parser_tibanna.set_defaults(func=C4Client.manage_tibanna)

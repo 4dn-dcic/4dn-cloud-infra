@@ -1,0 +1,23 @@
+{
+  "args": {
+    "app_name": "md5",
+    "app_version": "0.2.6",
+    "cwl_directory_url": "https://raw.githubusercontent.com/4dn-dcic/pipelines-cwl/0.2.6/cwl_awsem_v1/",
+    "cwl_main_filename": "md5.cwl",
+    "cwl_version": "v1",
+    "input_files": {
+      "input_file": {
+        "bucket_name": "c4-tibanna-trial-data-id52303648-bucket",
+        "object_key": "somefastqfile.fastq.gz"
+      }
+    },
+    "output_S3_bucket": "c4-tibanna-trial-data-id52303648-bucket",
+    "output_target": {
+      "report": "my_outdir/report"
+    }
+  },
+  "config": {
+    "run_name": "md5-private-test",
+    "log_bucket": "c4-tibanna-trial-log-id52303648-bucket"
+  }
+}
