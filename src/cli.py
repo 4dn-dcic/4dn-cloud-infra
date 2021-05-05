@@ -232,8 +232,18 @@ class C4Client:
     @classmethod
     def manage_tibanna(cls, args):
         """ Implements 'tibanna' command. """
-        cmd = 'tibanna --help'
-        os.system(cmd)
+        c4_tibanna = c4_stack_trial_tibanna()
+        c4_tibanna_part = c4_tibanna.parts[0]  # better way to reference tibanna part
+        if args.confirm:
+            dry_run = False
+        else:
+            dry_run = True
+        if args.init_tibanna:  # runs initial tibanna setup
+            c4_tibanna_part.initial_deploy(dry_run=dry_run)
+        elif args.cmd == [] or args.cmd[0] == 'help':  # displays tibanna help
+            c4_tibanna_part.run_tibanna_cmd(['--help'])
+        else:  # runs given tibanna command directly
+            c4_tibanna_part.run_tibanna_cmd(args.cmd, dry_run=dry_run)
 
     @staticmethod
     def info(args):
@@ -273,7 +283,12 @@ def cli():
 
     # Configure 'tibanna' command, for managing a tibanna installation on cloud infrastructure
     parser_tibanna = subparsers.add_parser('tibanna', help='Helps manage and provision tibanna for CGAP/4DN')
-    parser_tibanna.add_argument('exec', help='Runs the tibanna command-line for the trial account')
+    parser_tibanna.add_argument('cmd', type=str, nargs='*',
+                                help='Runs the tibanna command-line for the trial account')
+    parser_tibanna.add_argument('--init_tibanna', action='store_true',
+                                help='Initializes tibanna group with private buckets. Requires c4-tibanna-trial.')
+    parser_tibanna.add_argument('--confirm', action='store_true',
+                                help='Confirms this command will run in the configured account. Defaults to false.')
     parser_tibanna.set_defaults(func=C4Client.manage_tibanna)
 
     # Configure 'info' command
