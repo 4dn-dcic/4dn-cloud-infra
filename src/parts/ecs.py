@@ -19,6 +19,7 @@ from troposphere.ecs import (
     AwsvpcConfiguration,
     NetworkConfiguration,
     Environment,
+    CapacityProviderStrategyItem,
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
 from troposphere.ec2 import (
@@ -112,7 +113,8 @@ class C4ECSApplication(C4Part):
     def ecs_cluster() -> Cluster:
         """ Creates an ECS cluster for use with this portal deployment. """
         return Cluster(
-            'CGAPDockerCluster'
+            'CGAPDockerCluster',
+            CapacityProviders=['FARGATE', 'FARGATE_SPOT']
         )
 
     @staticmethod
@@ -308,17 +310,19 @@ class C4ECSApplication(C4Part):
             ],
         )
 
-    def ecs_wsgi_service(self) -> Service:
+    def ecs_wsgi_service(self, concurrency=2) -> Service:
         """ Defines the WSGI service (manages WSGI Tasks)
             Note dependencies: https://stackoverflow.com/questions/53971873/the-target-group-does-not-have-an-associated-load-balancer
 
             Defined by the ECR Image tag 'latest'.
+
+            :param concurrency: # of concurrent tasks to run
         """
         return Service(
             "CGAPWSGIService",
             Cluster=Ref(self.ecs_cluster()),
             DependsOn=['ECSLBListener'],  # XXX: Hardcoded, important!
-            DesiredCount=2,
+            DesiredCount=concurrency,
             LoadBalancers=[
                 LoadBalancer(
                     ContainerName='WSGI',  # this must match Name in TaskDefinition (ContainerDefinition)
@@ -326,6 +330,19 @@ class C4ECSApplication(C4Part):
                     TargetGroupArn=Ref(self.ecs_lbv2_target_group()))
             ],
             LaunchType='FARGATE',
+            # Run WSGI service on Fargate Spot
+            CapacityProviderStrategy=[
+                CapacityProviderStrategyItem(
+                    CapacityProvider='FARGATE',
+                    Base=0,
+                    Weight=0
+                ),
+                CapacityProviderStrategyItem(
+                    CapacityProvider='FARGATE_SPOT',
+                    Base=concurrency,
+                    Weight=1
+                )
+            ],
             TaskDefinition=Ref(self.ecs_wsgi_task()),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
@@ -393,6 +410,19 @@ class C4ECSApplication(C4Part):
             Cluster=Ref(self.ecs_cluster()),
             DesiredCount=1,
             LaunchType='FARGATE',
+            # Run indexer service on normal Fargate (so it cannot be interrupted and cause SQS instability)
+            CapacityProviderStrategy=[
+                CapacityProviderStrategyItem(
+                    CapacityProvider='FARGATE',
+                    Base=1,
+                    Weight=1
+                ),
+                CapacityProviderStrategyItem(
+                    CapacityProvider='FARGATE_SPOT',
+                    Base=0,
+                    Weight=0
+                )
+            ],
             TaskDefinition=Ref(self.ecs_indexer_task()),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
@@ -470,6 +500,19 @@ class C4ECSApplication(C4Part):
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
+            # Run ingester service on normal Fargate as this could be even more long running than indexing
+            CapacityProviderStrategy=[
+                CapacityProviderStrategyItem(
+                    CapacityProvider='FARGATE',
+                    Base=1,
+                    Weight=1
+                ),
+                CapacityProviderStrategyItem(
+                    CapacityProvider='FARGATE_SPOT',
+                    Base=0,
+                    Weight=0
+                )
+            ],
         )
 
     def ecs_deployment_task(self, cpus='256', mem='512', app_revision='latest-deployment',
@@ -532,6 +575,19 @@ class C4ECSApplication(C4Part):
             Cluster=Ref(self.ecs_cluster()),
             DesiredCount=0,  # Explicitly triggered
             LaunchType='FARGATE',
+            # deployments should happen fast enough to tolerate potential interruption
+            CapacityProviderStrategy=[
+                CapacityProviderStrategyItem(
+                    CapacityProvider='FARGATE',
+                    Base=0,
+                    Weight=0
+                ),
+                CapacityProviderStrategyItem(
+                    CapacityProvider='FARGATE_SPOT',
+                    Base=1,
+                    Weight=1
+                )
+            ],
             TaskDefinition=Ref(self.ecs_deployment_task()),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
