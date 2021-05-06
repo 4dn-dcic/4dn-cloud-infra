@@ -215,10 +215,10 @@ class C4ECSApplication(C4Part):
             Type='application',
         )
 
-    def output_application_url(self) -> Output:
+    def output_application_url(self, env='cgap-mastertest') -> Output:
         """ Outputs URL to access WSGI. """
         return Output(
-            'ECSApplicationURL',
+            'ECSApplicationURL%s' % env.replace('-', ''),
             Description='URL of CGAP-Portal.',
             Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer(), 'DNSName')])
         )
