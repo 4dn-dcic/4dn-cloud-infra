@@ -356,7 +356,7 @@ class C4ECSApplication(C4Part):
         """ Scalable Target for the WSGI Service. """
         return ScalableTarget(
             'WSGIScalableTarget',
-            RoleARN=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
+            RoleARN=self.IAM_EXPORTS.import_value(C4IAMExports.AUTOSCALING_IAM_ROLE),
             ResourceId=Ref(wsgi),
             ServiceNamespace='ecs',
             ScalableDimension='ecs:service:DesiredCount',
