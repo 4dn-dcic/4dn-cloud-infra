@@ -49,7 +49,8 @@ class C4IAM(C4Part):
 
         # add outputs
         template.add_output(self.output_assumed_iam_role(iam_role))
-        template.add_output(self.output_assumed_iam_role(autoscaling_iam_role))
+        template.add_output(self.output_assumed_iam_role(autoscaling_iam_role,
+                                                         export_name=C4IAMExports.AUTOSCALING_IAM_ROLE))
         template.add_output(self.output_instance_profile(instance_profile))
         return template
 
