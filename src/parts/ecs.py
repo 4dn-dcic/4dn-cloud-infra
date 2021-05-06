@@ -22,10 +22,8 @@ from troposphere.ecs import (
     CapacityProviderStrategyItem,
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
-from troposphere.ec2 import (
-    SecurityGroup,
-    SecurityGroupRule,
-)
+from troposphere.ec2 import SecurityGroup, SecurityGroupRule
+from troposphere.applicationautoscaling import ScalableTarget, ScalingPolicy, PredefinedMetricSpecification
 from src.part import C4Part
 from src.parts.network import C4NetworkExports, C4Network
 from src.parts.ecr import C4ECRExports
@@ -354,6 +352,33 @@ class C4ECSApplication(C4Part):
             ),
         )
 
+    def ecs_wsgi_scalable_target(self, wsgi: Service, max_concurrency=8) -> ScalableTarget:
+        """ Scalable Target for the WSGI Service. """
+        return ScalableTarget(
+            'WSGIScalableTarget',
+            RoleARN=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
+            ResourceId=Ref(wsgi),
+            ServiceNamespace='ecs',
+            ScalableDimension='ecs:service:DesiredCount',
+            MinCapacity=2,  # this should match 'concurrency'
+            MaxCapacity=max_concurrency  # scale up to 8 WSGI workers if needed
+        )
+
+    def ecs_wsgi_scaling_policy(self, scalable_target: ScalableTarget):
+        """ Determines the policy from which a scaling event should occur for WSGI.
+            Right now, does something simple, like: scale up once average application server CPU reaches 80%
+            Note that by increasing vCPU allocation we can reduce how often this occurs.
+        """
+        return ScalingPolicy(
+            'WSGIScalingPolicy',
+            PolicyType='TargetTrackingScaling',
+            ScalingTargetId=Ref(scalable_target),
+            TargetTrackingScalingPolicyConfiguration=PredefinedMetricSpecification(
+                PredefinedMetricType='ECSServiceAverageCPUUtilization'
+            ),
+            TargetValue=80.0
+        )
+
     def ecs_indexer_task(self, cpus='256', mem='512', app_revision='latest-indexer',
                          identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the Indexer task (indexer app).
@@ -432,6 +457,18 @@ class C4ECSApplication(C4Part):
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
+        )
+
+    def ecs_indexer_scalable_target(self, indexer: Service, max_concurrency=16) -> ScalableTarget:
+        """ Scalable Target for the Indexer Service. """
+        return ScalableTarget(
+            'IndexerScalableTarget',
+            RoleARN=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
+            ResourceId=Ref(indexer),
+            ServiceNamespace='ecs',
+            ScalableDimension='ecs:service:DesiredCount',
+            MinCapacity=1,
+            MaxCapacity=max_concurrency  # scale indexing to 16 workers if needed
         )
 
     def ecs_ingester_task(self, cpus='256', mem='512', app_revision='latest-ingester',
@@ -513,6 +550,18 @@ class C4ECSApplication(C4Part):
                     Weight=0
                 )
             ],
+        )
+
+    def ecs_ingester_scalable_target(self, ingester: Service, max_concurrency=4) -> ScalableTarget:
+        """ Scalable Target for the Indexer Service. """
+        return ScalableTarget(
+            'IngesterScalableTarget',
+            RoleARN=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
+            ResourceId=Ref(ingester),
+            ServiceNamespace='ecs',
+            ScalableDimension='ecs:service:DesiredCount',
+            MinCapacity=1,
+            MaxCapacity=max_concurrency  # scale ingester to 4 workers if needed
         )
 
     def ecs_deployment_task(self, cpus='256', mem='512', app_revision='latest-deployment',

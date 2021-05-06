@@ -19,6 +19,7 @@ class C4IAMExports(C4Exports):
     """
     ECS_ASSUMED_IAM_ROLE = 'ExportECSAssumedIAMRole'
     ECS_INSTANCE_PROFILE = 'ExportECSInstanceProfile'
+    AUTOSCALING_IAM_ROLE = 'ExportECSAutoscalingIAMRole'
 
     def __init__(self):
         parameter = 'IAMStackNameParameter'
@@ -32,6 +33,7 @@ class C4IAM(C4Part):
     """
     ROLE_NAME = 'CGAPECSRole'
     INSTANCE_PROFILE_NAME = 'CGAPECSInstanceProfile'
+    AUTOSCALING_ROLE_NAME = 'CGAPECSAutoscalingRole'
     EXPORTS = C4IAMExports()
 
     def build_template(self, template: Template) -> Template:
@@ -42,9 +44,12 @@ class C4IAM(C4Part):
         template.add_resource(iam_role)
         instance_profile = self.ecs_instance_profile()
         template.add_resource(instance_profile)
+        autoscaling_iam_role = self.ecs_autoscaling_role()
+        template.add_resource(autoscaling_iam_role)
 
         # add outputs
         template.add_output(self.output_assumed_iam_role(iam_role))
+        template.add_output(self.output_assumed_iam_role(autoscaling_iam_role))
         template.add_output(self.output_instance_profile(instance_profile))
         return template
 
@@ -216,6 +221,27 @@ class C4IAM(C4Part):
             ),
         )
 
+    @staticmethod
+    def ecs_autoscaling_access_policy():
+        """ Contains policies needed for the IAM role assumed by the autoscaling service. """
+        return Policy(
+            PolicyName='CGAPAutoscalingPolicy',
+            PolicyDocument=dict(
+                Version='2012-10-17',
+                Statement=[dict(
+                    Effect='Allow',
+                    Action=[
+                        'ecs:DescribeServices',
+                        'ecs:UpdateService',
+                        'cloudwatch:PutMetricAlarm',
+                        'cloudwatch:DescribeAlarms',
+                        'cloudwatch:DeleteAlarms',
+                    ],
+                    Resource='*',  # XXX: constrain further?
+                )],
+            )
+        )
+
     def ecs_assumed_iam_role(self):
         """ Builds a general purpose IAM role for use with ECS.
             TODO: split into several rolls?
@@ -260,6 +286,23 @@ class C4IAM(C4Part):
             Policies=policies
         )
 
+    def ecs_autoscaling_role(self):
+        """ Assumed IAM Role for autoscaling. """
+        return Role(
+            self.AUTOSCALING_ROLE_NAME,
+            AssumeRolePolicyDocument=PolicyDocument(
+                Version='2012-10-17',
+                Statement=[Statement(
+                    Effect='Allow',
+                    Action=[
+                        Action('sts', 'AssumeRole')
+                    ],
+                    Principal=Principal('Service', 'application-autoscaling.amazonaws.com')
+                )]
+            ),
+            Policies=[self.ecs_autoscaling_access_policy()]
+        )
+
     def ecs_instance_profile(self):
         """ Builds an instance profile for the above ECS Role. """
         return InstanceProfile(
@@ -267,9 +310,8 @@ class C4IAM(C4Part):
             Roles=[Ref(self.ecs_assumed_iam_role())]
         )
 
-    def output_assumed_iam_role(self, resource: Role) -> Output:
+    def output_assumed_iam_role(self, resource: Role, export_name=C4IAMExports.ECS_ASSUMED_IAM_ROLE) -> Output:
         """ Creates output for ECS assumed IAM role """
-        export_name = C4IAMExports.ECS_ASSUMED_IAM_ROLE
         logical_id = self.name.logical_id(export_name)
         return Output(
             logical_id,
