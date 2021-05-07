@@ -1,7 +1,6 @@
 from src.stack import C4Stack, C4Name, C4Tags, C4Account, C4FoursightCGAPStack
 from src.parts import network, datastore, ecr, beanstalk
 
-
 # Helper methods for construction of trial stacks
 
 
@@ -16,7 +15,7 @@ def c4_stack_trial_tags():
 
 
 def c4_stack_trial_account():
-    return C4Account(account_number='645819926742')
+    return C4Account(account_number='645819926742', creds_dir='~/.aws_test', creds_file='~/.aws_test/test_creds.sh')
 
 
 def c4_stack_trial_description(stack):
@@ -85,6 +84,19 @@ def c4_stack_trial_foursight_cgap():
         name=c4_stack_trial_name(name),
         tags=c4_stack_trial_tags(),
         account=c4_stack_trial_account(),
+        description=description,
+    )
+
+
+def c4_stack_trial_tibanna():
+    name = 'tibanna'
+    description = 'tibanna trial stack'
+    parts = [tibanna.C4Tibanna]
+    return C4Stack(
+        name=c4_stack_trial_name(name),
+        tags=c4_stack_trial_tags(),
+        account=c4_stack_trial_account(),
+        parts=parts,
         description=description,
     )
 
