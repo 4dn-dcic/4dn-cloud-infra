@@ -40,6 +40,8 @@ class C4Client:
     ACCOUNT = c4_stack_trial_account()  # uses creds for trial account access
     CAPABILITY_IAM = 'CAPABILITY_IAM'
     REQUIRES_CAPABILITY_IAM = ['iam', 'foursight']  # these stacks require CAPABILITY_IAM
+    SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-tibanna-trial', 'c4-foursight-trial',
+                        'c4-beanstalk-trial']
 
     def validate_cloudformation_template(self, file_path):
         """ Validates CloudFormation template at file_path """
@@ -249,7 +251,7 @@ class C4Client:
             stack = c4_stack_trial_foursight_cgap()
         elif args.stack == 'c4-tibanna-trial':
             stack = c4_stack_trial_tibanna()
-        elif args.stack in SUPPORTED_STACKS:
+        elif args.stack in C4Client.SUPPORTED_STACKS:
             raise CLIException('Supported stack {} requires a resolver in `resolve_legacy_stack`'.format(args.stack))
         else:
             raise CLIException('Unsupported stack {}. Supported Stacks: {}'.format(
