@@ -248,6 +248,26 @@ class C4IAM(C4Part):
         )
 
     @staticmethod
+    def ecs_s3_policy():
+        """ Gives s3 read/write access. """
+        return Policy(
+            PolicyName='ECSS3Policy',
+            PolicyDocument=dict(
+                Version='2012-10-17',
+                Statement=[dict(
+                    Effect='Allow',
+                    Action=[
+                        's3:ListBucket',
+                        's3:PutObject',
+                        's3:GetObject',
+                        's3:DeleteObject',
+                    ],
+                    Resource='*',  # XXX: constrain further?
+                )],
+            ),
+        )
+
+    @staticmethod
     def ecs_autoscaling_access_policy():
         """ Contains policies needed for the IAM role assumed by the autoscaling service. """
         return Policy(
@@ -270,7 +290,7 @@ class C4IAM(C4Part):
 
     def ecs_assumed_iam_role(self):
         """ Builds a general purpose IAM role for use with ECS.
-            TODO: split into several rolls?
+            TODO: split into several roles?
         """
         policies = [
             self.ecs_secret_manager_policy(),  # to get env configuration
@@ -280,6 +300,7 @@ class C4IAM(C4Part):
             self.ecs_log_policy(),  # to log things
             self.ecs_ecr_policy(),  # to pull down container images
             self.ecs_cfn_policy(),  # to pull ECS Service URL from Cloudformation
+            self.ecs_s3_policy(),  # for handling raw files
             self.ecs_web_service_policy(),  # permissions for service
         ]
         return Role(
