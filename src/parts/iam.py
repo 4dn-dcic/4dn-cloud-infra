@@ -151,6 +151,7 @@ class C4IAM(C4Part):
 
     @staticmethod
     def ecs_access_policy():
+        """ Give ECS access to itself (and loadbalancing APIs). """
         return Policy(
             PolicyName='ECSManagementPolicy',
             PolicyDocument=dict(
@@ -166,7 +167,8 @@ class C4IAM(C4Part):
             ),
         )
 
-    def ecs_log_policy(self):
+    @staticmethod
+    def ecs_log_policy():
         """ Grants ECS container the ability to log things. """
         return Policy(
             PolicyName='ECSLoggingPolicy',
@@ -185,6 +187,7 @@ class C4IAM(C4Part):
 
     @staticmethod
     def ecs_ecr_policy():
+        """ Policy allowing ECS to pull ECR images. """
         return Policy(
             PolicyName='ECSECRPolicy',
             PolicyDocument=dict(
@@ -204,6 +207,7 @@ class C4IAM(C4Part):
 
     @staticmethod
     def ecs_web_service_policy():
+        """ Policy needed by load balancer to allow target group registration. """
         return Policy(
             PolicyName='ECSWebServicePolicy',
             PolicyDocument=dict(
@@ -216,6 +220,27 @@ class C4IAM(C4Part):
                         'elasticloadbalancing:RegisterInstancesWithLoadBalancer',
                         'ec2:Describe*',
                         'ec2:AuthorizeSecurityGroupIngress',
+                    ],
+                    Resource='*',  # XXX: constrain further?
+                )],
+            ),
+        )
+
+    @staticmethod
+    def ecs_cfn_policy():
+        """ Gives access to the DescribeStacks API of cloudformation so that Application services can
+            read outputs from stacks.
+
+            Associated API: get_ecs_real_url
+        """
+        return Policy(
+            PolicyName='ECSCfnPolicy',
+            PolicyDocument=dict(
+                Version='2012-10-17',
+                Statement=[dict(
+                    Effect='Allow',
+                    Action=[
+                        'cloudformation:DescribeStacks',
                     ],
                     Resource='*',  # XXX: constrain further?
                 )],
@@ -254,7 +279,8 @@ class C4IAM(C4Part):
             self.ecs_sqs_policy(),  # to access SQS
             self.ecs_log_policy(),  # to log things
             self.ecs_ecr_policy(),  # to pull down container images
-            self.ecs_web_service_policy()  # permissions for service
+            self.ecs_cfn_policy(),  # to pull ECS Service URL from Cloudformation
+            self.ecs_web_service_policy(),  # permissions for service
         ]
         return Role(
             self.ROLE_NAME,

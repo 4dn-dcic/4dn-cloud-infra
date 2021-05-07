@@ -23,7 +23,7 @@ from troposphere.ecs import (
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
-from troposphere.applicationautoscaling import ScalableTarget, ScalingPolicy, PredefinedMetricSpecification
+from troposphere.applicationautoscaling import ScalableTarget, ScalingPolicy, PredefinedMetricSpecification, TargetTrackingScalingPolicyConfiguration
 from src.part import C4Part
 from src.parts.network import C4NetworkExports, C4Network
 from src.parts.ecr import C4ECRExports
@@ -87,11 +87,12 @@ class C4ECSApplication(C4Part):
 
         # ECS Tasks/Services
         template.add_resource(self.ecs_wsgi_task())
-        template.add_resource(self.ecs_wsgi_service())
+        wsgi = self.ecs_wsgi_service()
+        template.add_resource(wsgi)
         template.add_resource(self.ecs_indexer_task())
-        template.add_resource(self.ecs_indexer_service())
+        indexer = template.add_resource(self.ecs_indexer_service())
         template.add_resource(self.ecs_ingester_task())
-        template.add_resource(self.ecs_ingester_service())
+        ingester = template.add_resource(self.ecs_ingester_service())
         template.add_resource(self.ecs_deployment_task())
         template.add_resource(self.ecs_deployment_service())
 
@@ -102,6 +103,18 @@ class C4ECSApplication(C4Part):
         template.add_resource(target_group)
         template.add_resource(self.ecs_application_load_balancer_listener(target_group))
         template.add_resource(self.ecs_application_load_balancer())
+
+        # TODO Enable WSGI, Indexer, Ingester autoscaling
+        # wsgi_scalable_target = self.ecs_wsgi_scalable_target(wsgi)
+        # template.add_resource(wsgi_scalable_target)
+        # template.add_resource(self.ecs_wsgi_scaling_policy(wsgi_scalable_target))
+        # indexer_scalable_target = self.ecs_indexer_scalable_target(indexer)
+        # template.add_resource(indexer_scalable_target)
+        # use wsgi scaling policy for others as well (for now)
+        # template.add_resource(self.ecs_wsgi_scaling_policy(indexer_scalable_target))
+        # ingester_scalable_target = self.ecs_ingester_scalable_target(ingester)
+        # template.add_resource(ingester_scalable_target)
+        # template.add_resource(self.ecs_wsgi_scaling_policy(ingester_scalable_target))
 
         # Add outputs
         template.add_output(self.output_application_url())
@@ -373,8 +386,11 @@ class C4ECSApplication(C4Part):
             'WSGIScalingPolicy',
             PolicyType='TargetTrackingScaling',
             ScalingTargetId=Ref(scalable_target),
-            TargetTrackingScalingPolicyConfiguration=PredefinedMetricSpecification(
-                PredefinedMetricType='ECSServiceAverageCPUUtilization'
+            TargetTrackingScalingPolicyConfiguration=TargetTrackingScalingPolicyConfiguration(
+                PredefinedMetricSpecification(
+                    'CPUUtilization',
+                    PredefinedMetricType='ECSServiceAverageCPUUtilization'
+                )
             ),
             TargetValue=80.0
         )
