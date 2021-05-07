@@ -1,5 +1,5 @@
 from src.stack import C4Stack, C4Name, C4Tags, C4Account, C4FoursightCGAPStack
-from src.parts import network, datastore, ecr, beanstalk
+from src.parts import network, datastore, ecr, beanstalk, tibanna
 
 # Helper methods for construction of trial stacks
 
