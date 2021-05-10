@@ -488,7 +488,7 @@ class C4ECSApplication(C4Part):
             MaxCapacity=max_concurrency  # scale indexing to 16 workers if needed
         )
 
-    def ecs_ingester_task(self, cpus='256', mem='512', app_revision='latest-ingester',
+    def ecs_ingester_task(self, cpus='1024', mem='2048', app_revision='latest-ingester',
                           identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
