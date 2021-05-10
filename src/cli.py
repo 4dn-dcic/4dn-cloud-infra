@@ -108,6 +108,7 @@ class C4Client:
             network_stack_name, _ = c4_alpha_stack_trial_metadata(name='network')  # XXX: constants
             iam_stack_name, _ = c4_alpha_stack_trial_metadata(name='iam')
             ecr_stack_name, _ = c4_alpha_stack_trial_metadata(name='ecr')
+            logging_stack_name, _ = c4_alpha_stack_trial_metadata(name='logging')
             # TODO incorporate datastore output to ECS stack
             datastore_stack_name, _ = c4_alpha_stack_trial_metadata(name='datastore')
 
@@ -124,6 +125,8 @@ class C4Client:
                                                  value=ecr_stack_name.stack_name),
                     cls.build_parameter_override(param_name='IAMStackNameParameter',
                                                  value=iam_stack_name.stack_name),
+                    cls.build_parameter_override(param_name='LoggingStackNameParameter',
+                                                 value=logging_stack_name.stack_name),
                     # cls.build_parameter_override(param_name='DatastoreStackNameParameter',
                     #                              value=datastore_stack_name.stack_name)
                 ]

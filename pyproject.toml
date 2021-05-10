@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "4dn-cloud-infra"
-version = "0.2.2"
+version = "0.2.3"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
 authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
@@ -19,6 +19,7 @@ google-auth-oauthlib = "^0.4.2"
 googleapis-common-protos = "^1.52.0"
 awacs = "^1.0.2"
 cfn-lint = "^0.48.1"  # a secondary check that catches more things than standard validate - Will 4/1/2021
+submit-cgap = "^0.7.3"
 tibanna = "^1.2.2"
 
 [tool.poetry.dev-dependencies]

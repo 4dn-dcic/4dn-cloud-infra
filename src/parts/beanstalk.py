@@ -73,7 +73,7 @@ class C4Beanstalk(C4Part):
             Name=logical_id,
             Scheme='internet-facing',
             SecurityGroups=[self.NETWORK_EXPORTS.import_value(
-                C4NetworkExports.BEANSTALK_SECURITY_GROUP)],
+                C4NetworkExports.APPLICATION_SECURITY_GROUP)],
             Subnets=[
                 self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
                 self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),

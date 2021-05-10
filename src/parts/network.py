@@ -44,24 +44,44 @@ class C4Network(C4Part):
         # Add VPC output
         template.add_output(self.output_virtual_private_cloud())
 
-        # Create NAT gateway
-        for i in [self.nat_eip(), self.nat_gateway()]:
-            template.add_resource(i)
-
         # Add route tables
         for i in [self.main_route_table(), self.private_route_table(), self.public_route_table()]:
             template.add_resource(i)
 
-        # Add Internet Gateway to public route table, NAT Gateway to private route table
-        for i in [self.route_internet_gateway(), self.route_nat_gateway()]:
-            template.add_resource(i)
-
         # Add subnets
-        for i in [self.public_subnet_a(), self.public_subnet_b(), self.private_subnet_a(), self.private_subnet_b()]:
-            template.add_resource(i)
+        public_subnet_a, public_subnet_b, \
+        private_subnet_a, private_subnet_b = self.public_subnet_a(), self.public_subnet_b(), \
+                                             self.private_subnet_a(), self.private_subnet_b()
+        template.add_resource(public_subnet_a)
+        template.add_resource(public_subnet_b)
+        template.add_resource(private_subnet_a)
+        template.add_resource(private_subnet_b)
+
         # Add subnet outputs
         for i in self.subnet_outputs():
             template.add_output(i)
+
+        # Create NAT gateways
+        public_a_nat_eip = self.nat_eip('PublicSubnetAEIP')
+        public_a_nat_gateway = self.nat_gateway(public_a_nat_eip, public_subnet_a)
+        template.add_resource(public_a_nat_eip)
+        template.add_resource(public_a_nat_gateway)
+        public_b_nat_eip = self.nat_eip('PublicSubnetBEIP')
+        public_b_nat_gateway = self.nat_gateway(public_b_nat_eip, public_subnet_b)
+        template.add_resource(public_b_nat_eip)
+        template.add_resource(public_b_nat_gateway)
+        private_a_nat_eip = self.nat_eip('PrivateSubnetAEIP')
+        private_a_nat_gateway = self.nat_gateway(private_a_nat_eip, private_subnet_a)
+        template.add_resource(private_a_nat_eip)
+        template.add_resource(private_a_nat_gateway)
+        private_b_nat_eip = self.nat_eip('PrivateSubnetBEIP')
+        private_b_nat_gateway = self.nat_gateway(private_b_nat_eip, private_subnet_b)
+        template.add_resource(private_b_nat_eip)
+        template.add_resource(private_b_nat_gateway)
+
+        # Add Internet Gateway to public route table, NAT Gateway to private route table
+        for i in [self.route_internet_gateway(), self.route_nat_gateway(public_a_nat_gateway)]:
+            template.add_resource(i)
 
         # Add subnet-to-route-table associations
         for i in self.subnet_associations():
@@ -135,26 +155,26 @@ class C4Network(C4Part):
             InternetGatewayId=Ref(self.internet_gateway()),
         )
 
-    def nat_eip(self) -> EIP:
+    def nat_eip(self, name) -> EIP:
         """ Define an Elastic IP for a NAT gateway. Ref:
         https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-eip.html
         """
-        logical_id = self.name.logical_id('NatPublicIP')
+        logical_id = self.name.logical_id(name)
         return EIP(
             logical_id,
             Domain='vpc',
         )
 
-    def nat_gateway(self) -> NatGateway:
+    def nat_gateway(self, eip: EIP, subnet: Subnet) -> NatGateway:
         """ Define a NAT Gateway. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-natgateway.html
         """
-        logical_id = self.name.logical_id('NatGateway')
+        logical_id = self.name.logical_id(subnet.title)
         return NatGateway(
             logical_id,
-            DependsOn=self.nat_eip().title,
-            AllocationId=GetAtt(self.nat_eip(), 'AllocationId'),
-            SubnetId=Ref(self.public_subnet_a()),
+            DependsOn=eip.title,
+            AllocationId=GetAtt(eip, 'AllocationId'),
+            SubnetId=Ref(subnet),
             Tags=self.tags.cost_tag_array(name=logical_id),
         )
 
@@ -204,16 +224,16 @@ class C4Network(C4Part):
             # DependsOn -- TODO needed? see example in src/beanstalk.py
         )
 
-    def route_nat_gateway(self):
+    def route_nat_gateway(self, public_subnet_nat_gateway: NatGateway):
         """ Defines NAT Gateway route to Private Route Table Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route.html
         """
-        logical_id = self.name.logical_id('NatGatewayRoute')
+        logical_id = self.name.logical_id(public_subnet_nat_gateway.title)
         return Route(
             logical_id,
             RouteTableId=Ref(self.private_route_table()),
             DestinationCidrBlock='0.0.0.0/0',
-            NatGatewayId=Ref(self.nat_gateway())
+            NatGatewayId=Ref(public_subnet_nat_gateway)
             # DependsOn -- TODO needed? see example in src/beanstalk.py
         )
 

@@ -38,7 +38,6 @@ def build_tag_push_image_to_ecr(docker_utils, ecr_utils, ecr_pass):
                                 'username': 'AWS',
                                 'password': ecr_pass
                             })
-    pass
 
 
 def main():
