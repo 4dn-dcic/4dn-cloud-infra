@@ -100,27 +100,29 @@ class C4Datastore(C4Part):
         template.add_output(self.output_es_url(es))
 
         # Adds SQS Queues + Outputs
-        for export_name, i in [(C4DatastoreExports.APPLICATION_INDEXER_PRIMARY_QUEUE, self.primary_queue()),
-                               (C4DatastoreExports.APPLICATION_INDEXER_SECONDAY_QUEUE, self.secondary_queue()),
-                               (C4DatastoreExports.APPLICATION_INDEXER_DLQ, self.dead_letter_queue()),
-                               (C4DatastoreExports.APPLICATION_INGESTION_QUEUE, self.ingestion_queue()),
-                               (C4DatastoreExports.APPLICATION_INDEXER_REALTIME_QUEUE, self.realtime_queue())]:
-            template.add_resource(i)
-            template.add_output(self.output_sqs_instance(export_name, i))
+        # TODO re-enable
+        # for export_name, i in [(C4DatastoreExports.APPLICATION_INDEXER_PRIMARY_QUEUE, self.primary_queue()),
+        #                        (C4DatastoreExports.APPLICATION_INDEXER_SECONDAY_QUEUE, self.secondary_queue()),
+        #                        (C4DatastoreExports.APPLICATION_INDEXER_DLQ, self.dead_letter_queue()),
+        #                        (C4DatastoreExports.APPLICATION_INGESTION_QUEUE, self.ingestion_queue()),
+        #                        (C4DatastoreExports.APPLICATION_INDEXER_REALTIME_QUEUE, self.realtime_queue())]:
+        #     template.add_resource(i)
+        #     template.add_output(self.output_sqs_instance(export_name, i))
 
         # Add/Export S3 buckets
-        for export_name, bucket_name in zip([C4DatastoreExports.APPLICATION_BLOBS_BUCKET,
-                                             C4DatastoreExports.APPLICATION_FILES_BUCKET,
-                                             C4DatastoreExports.APPLICATION_WFOUT_BUCKET,
-                                             C4DatastoreExports.APPLICATION_SYSTEM_BUCKET,
-                                             C4DatastoreExports.FOURSIGHT_ENV_BUCKET,
-                                             C4DatastoreExports.FOURSIGHT_RESULT_BUCKET,
-                                             C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET],
-                                            self.APPLICATION_LAYER_BUCKETS + self.FOURSIGHT_LAYER_BUCKETS):
-
-            bucket = self.build_s3_bucket(bucket_name.format('cgap-mastertest'))
-            template.add_resource(bucket)
-            template.add_output(self.output_s3_bucket(export_name, bucket_name.format('cgap-mastertest')))
+        # TODO re-enable
+        # for export_name, bucket_name in zip([C4DatastoreExports.APPLICATION_BLOBS_BUCKET,
+        #                                      C4DatastoreExports.APPLICATION_FILES_BUCKET,
+        #                                      C4DatastoreExports.APPLICATION_WFOUT_BUCKET,
+        #                                      C4DatastoreExports.APPLICATION_SYSTEM_BUCKET,
+        #                                      C4DatastoreExports.FOURSIGHT_ENV_BUCKET,
+        #                                      C4DatastoreExports.FOURSIGHT_RESULT_BUCKET,
+        #                                      C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET],
+        #                                     self.APPLICATION_LAYER_BUCKETS + self.FOURSIGHT_LAYER_BUCKETS):
+        #
+        #     bucket = self.build_s3_bucket(bucket_name.format('cgap-mastertest'))
+        #     template.add_resource(bucket)
+        #     template.add_output(self.output_s3_bucket(export_name, bucket_name.format('cgap-mastertest')))
 
         return template
 
