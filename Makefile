@@ -57,6 +57,9 @@ test:
 	@echo 'Phase 1: Metadata Bundle Submission for Demo Case NA 12879'
 	@echo 'NOTE: This test is intended to be run on the Trial Account ECS only (for now)'
 	poetry run submit-metadata-bundle test_data/na_12879/na12879_accessioning.xlsx --s http://c4ecstrialalphaecslb-2115269186.us-east-1.elb.amazonaws.com
+	@echo 'NOTE: Bypassing Bioinformatics by uploading raw VCF directly.'
+	python scripts/upload_file_processed.py
+	docker run --rm -v ~./aws_test:/root/.aws amazon/aws-cli s3 cp test_data/na_12879/GAPFI9V6TEQA.vcf.gz s3://application-cgap-mastertest-wfout/3535ce97-b8e6-4ed2-b4fc-dcab7aebcc0f/GAPFI9V6TEQA.vcf.gz
 	@echo 'Sleeping for 30 seconds to give metadata time to index'
 	@sleep 30
 	# upload VCF file
