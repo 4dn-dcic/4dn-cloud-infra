@@ -104,7 +104,7 @@ class C4ECSApplication(C4Part):
         template.add_resource(self.ecs_application_load_balancer_listener(target_group))
         template.add_resource(self.ecs_application_load_balancer())
 
-        # TODO Enable WSGI, Indexer, Ingester autoscaling
+        # TODO: Enable WSGI, Indexer, Ingester autoscaling
         # wsgi_scalable_target = self.ecs_wsgi_scalable_target(wsgi)
         # template.add_resource(wsgi_scalable_target)
         # template.add_resource(self.ecs_wsgi_scaling_policy(wsgi_scalable_target))
@@ -209,7 +209,7 @@ class C4ECSApplication(C4Part):
 
     def ecs_application_load_balancer(self) -> elbv2.LoadBalancer:
         """ Application load balancer for the WSGI ECS Task. """
-        logical_id = self.name.logical_id('ECSLB')
+        logical_id = self.name.logical_id('ECSCGAPLB')
         return elbv2.LoadBalancer(
             logical_id,
             IpAddressType='ipv4',
@@ -238,9 +238,10 @@ class C4ECSApplication(C4Part):
         """ Creates LBv2 target group (intended for use with WSGI Service). """
         return elbv2.TargetGroup(
             'TargetGroupApplication',
+            HealthCheckIntervalSeconds=60,
             HealthCheckPath='/health?format=json',
             HealthCheckProtocol='HTTP',
-            HealthCheckTimeoutSeconds=20,
+            HealthCheckTimeoutSeconds=10,
             Matcher=elbv2.Matcher(HttpCode='200'),
             Name='TargetGroupApplication',
             Port=Ref(self.ecs_web_worker_port()),

@@ -48,6 +48,22 @@ six = ">=1.15,<2.0"
 dev = ["coverage (>=5.3,<6.0)", "flake8 (>=3.8.4,<3.9.0)", "tox (>=3.20.1,<3.21.0)", "pytest-cov (>=2.10.1,<2.11.0)", "pylint (>=1.7.2,<2.0)", "pyyaml (>=5.3.1,<5.4.0)", "mock (>=3.0.5,<4.0.0)", "parameterized (>=0.7.4,<0.8.0)", "click (>=7.1,<8.0)", "dateparser (>=0.7,<1.0)", "requests (>=2.24.0,<2.25.0)", "docopt (>=0.6.2,<0.7.0)", "pathlib2 (>=2.3.5)", "pytest (>=4.6.11,<4.7.0)", "pytest (>=6.1.1,<6.2.0)", "black (==20.8b1)"]
 
 [[package]]
+name = "awscli"
+version = "1.19.46"
+description = "Universal Command Line Environment for AWS."
+category = "main"
+optional = false
+python-versions = ">= 2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
+
+[package.dependencies]
+botocore = "1.20.46"
+colorama = ">=0.2.5,<0.4.4"
+docutils = ">=0.10,<0.16"
+PyYAML = ">=3.10,<5.5"
+rsa = {version = ">=3.1.2,<4.8", markers = "python_version > \"2.7\""}
+s3transfer = ">=0.3.0,<0.4.0"
+
+[[package]]
 name = "beautifulsoup4"
 version = "4.9.3"
 description = "Screen-scraping library"
@@ -155,6 +171,14 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
+name = "colorama"
+version = "0.4.3"
+description = "Cross-platform colored terminal text."
+category = "main"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
+
+[[package]]
 name = "dcicutils"
 version = "1.14.0"
 description = "Utility package for interacting with the 4DN Data Portal and other 4DN resources"
@@ -201,6 +225,14 @@ websocket-client = ">=0.32.0"
 [package.extras]
 ssh = ["paramiko (>=2.4.2)"]
 tls = ["pyOpenSSL (>=17.5.0)", "cryptography (>=1.3.4)", "idna (>=2.0.0)"]
+
+[[package]]
+name = "docutils"
+version = "0.15.2"
+description = "Docutils -- Python Documentation Utilities"
+category = "main"
+optional = false
+python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
 
 [[package]]
 name = "elasticsearch"
@@ -668,6 +700,20 @@ docs = ["sphinx", "twisted"]
 tests = ["coverage", "freezegun (>=0.2.8)", "pretend", "pytest (>=3.3.0)", "simplejson", "python-rapidjson"]
 
 [[package]]
+name = "submit-cgap"
+version = "0.7.3"
+description = "Support for uploading file submissions to the Clinical Genomics Analysis Platform (CGAP)."
+category = "main"
+optional = false
+python-versions = ">=3.6,<3.8"
+
+[package.dependencies]
+awscli = ">=1.18.174"
+boto3 = ">=1.16.14,<2"
+dcicutils = ">=1.8.0,<2"
+requests = ">=2.24.0,<3"
+
+[[package]]
 name = "toml"
 version = "0.10.2"
 description = "Python Library for Tom's Obvious, Minimal Language"
@@ -786,7 +832,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=1.2.3)", "pytest-flake8", "pyt
 [metadata]
 lock-version = "1.1"
 python-versions = "3.6"
-content-hash = "c1b6c18995ce13196291cc83e454a600be3f61135e4607a5ae5fff71d37a9917"
+content-hash = "f535fc264bda93d2c68ae2e3b7b0921cd90f4b8f0797cff87a7107ef1c40d769"
 
 [metadata.files]
 attrs = [
@@ -804,6 +850,10 @@ aws-sam-translator = [
     {file = "aws-sam-translator-1.35.0.tar.gz", hash = "sha256:5cf7faab3566843f3b44ef1a42a9c106ffb50809da4002faab818076dcc7bff8"},
     {file = "aws_sam_translator-1.35.0-py2-none-any.whl", hash = "sha256:2f8904fd4a631752bc441a8fd928c444ed98ceb86b94d25ed7b84982e2eff1cd"},
     {file = "aws_sam_translator-1.35.0-py3-none-any.whl", hash = "sha256:c35075e7e804490d6025598ed4878ad3ab8668e37cafb7ae75120b1c37a6d212"},
+]
+awscli = [
+    {file = "awscli-1.19.46-py2.py3-none-any.whl", hash = "sha256:5af897905a388834b83fc1a1f38ee746b32e2cd591d3e83963c6d9fbdc5dab4b"},
+    {file = "awscli-1.19.46.tar.gz", hash = "sha256:0acf953a06d6ff1d6fb2030f8141ba3d196a65cbf31d0088458b91e80b1260fe"},
 ]
 beautifulsoup4 = [
     {file = "beautifulsoup4-4.9.3-py2-none-any.whl", hash = "sha256:4c98143716ef1cb40bf7f39a8e3eec8f8b009509e74904ba3a7b315431577e35"},
@@ -841,6 +891,10 @@ click = [
     {file = "click-7.1.2-py2.py3-none-any.whl", hash = "sha256:dacca89f4bfadd5de3d7489b7c8a566eee0d3676333fbb50030263894c38c0dc"},
     {file = "click-7.1.2.tar.gz", hash = "sha256:d2b5255c7c6349bc1bd1e59e08cd12acbbd63ce649f2588755783aa94dfb6b1a"},
 ]
+colorama = [
+    {file = "colorama-0.4.3-py2.py3-none-any.whl", hash = "sha256:7d73d2a99753107a36ac6b455ee49046802e59d9d076ef8e47b61499fa29afff"},
+    {file = "colorama-0.4.3.tar.gz", hash = "sha256:e96da0d330793e2cb9485e9ddfd918d456036c7149416295932478192f4436a1"},
+]
 dcicutils = [
     {file = "dcicutils-1.14.0-py3-none-any.whl", hash = "sha256:2092ee1eb41c01edaf99778e4ad1fc0054c721ac0f5d43543bb10a863ee7bbdc"},
     {file = "dcicutils-1.14.0.tar.gz", hash = "sha256:d26e789d5c2102af85ff64005e5e7592b954218458102ccf48a009293689ed53"},
@@ -852,6 +906,11 @@ decorator = [
 docker = [
     {file = "docker-4.4.4-py2.py3-none-any.whl", hash = "sha256:f3607d5695be025fa405a12aca2e5df702a57db63790c73b927eb6a94aac60af"},
     {file = "docker-4.4.4.tar.gz", hash = "sha256:d3393c878f575d3a9ca3b94471a3c89a6d960b35feb92f033c0de36cc9d934db"},
+]
+docutils = [
+    {file = "docutils-0.15.2-py2-none-any.whl", hash = "sha256:9e4d7ecfc600058e07ba661411a2b7de2fd0fafa17d1a7f7361cd47b1175c827"},
+    {file = "docutils-0.15.2-py3-none-any.whl", hash = "sha256:6c4f696463b79f1fb8ba0c594b63840ebd41f059e92b31957c46b74a4599b6d0"},
+    {file = "docutils-0.15.2.tar.gz", hash = "sha256:a2aeea129088da402665e92e0b25b04b073c04b2dce4ab65caaa38b7ce2e1a99"},
 ]
 elasticsearch = [
     {file = "elasticsearch-6.8.1-py2.py3-none-any.whl", hash = "sha256:540d633afcc0a32972e4b489c4559c9a96e294850853238f7a18b1cbd267c2ed"},
@@ -1080,6 +1139,10 @@ soupsieve = [
 structlog = [
     {file = "structlog-19.2.0-py2.py3-none-any.whl", hash = "sha256:6640e6690fc31d5949bc614c1a630464d3aaa625284aeb7c6e486c3010d73e12"},
     {file = "structlog-19.2.0.tar.gz", hash = "sha256:4287058cf4ce1a59bc5dea290d6386d37f29a37529c9a51cdf7387e51710152b"},
+]
+submit-cgap = [
+    {file = "submit_cgap-0.7.3-py3-none-any.whl", hash = "sha256:c47a0e962d8a80840eb887e39bd654e90c003582459b4b3a420eb2cbc55cb6ba"},
+    {file = "submit_cgap-0.7.3.tar.gz", hash = "sha256:2152cacccf4079350515c58ff5aafad3249e8804b57cd19b8291a8c109638e33"},
 ]
 toml = [
     {file = "toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"},
