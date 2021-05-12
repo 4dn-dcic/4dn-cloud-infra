@@ -581,6 +581,24 @@ class C4ECSApplication(C4Part):
             MaxCapacity=max_concurrency  # scale ingester to 4 workers if needed
         )
 
+    # def ecs_ingester_scaling_policy(self, scalable_target: ScalableTarget):
+    #     """ Determines the policy from which a scaling event should occur for the ingester.
+    #         Right now, does something simple, like: scale up once average application server CPU reaches 80%
+    #         Note that by increasing vCPU allocation we can reduce how often this occurs.
+    #     """
+    #     return ScalingPolicy(
+    #         'WSGIScalingPolicy',
+    #         PolicyType='TargetTrackingScaling',
+    #         ScalingTargetId=Ref(scalable_target),
+    #         TargetTrackingConfiguration=TargetTrackingConfiguration(
+    #             PredefinedMetricSpecification(
+    #                 'CPUUtilization',
+    #                 PredefinedMetricType='ECSServiceAverageCPUUtilization'
+    #             )
+    #         ),
+    #         TargetValue=80.0
+    #     )
+
     def ecs_deployment_task(self, cpus='256', mem='512', app_revision='latest-deployment',
                             identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the Ingester task (ingester app).

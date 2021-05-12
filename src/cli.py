@@ -36,15 +36,16 @@ AWS_REGION = 'us-east-1'
 class C4Client:
     """ Client class for interacting with and provisioning CGAP Infrastructure as Code. """
     ALPHA_LEAF_STACKS = ['iam', 'logging', 'network']  # stacks that only export values
-    ACCOUNT = c4_stack_trial_account()  # uses creds for trial account access
+    ACCOUNT = c4_stack_trial_account()  # uses creds for trial account access XXX: does not work
     CAPABILITY_IAM = 'CAPABILITY_IAM'
     REQUIRES_CAPABILITY_IAM = ['iam']  # these stacks require CAPABILITY_IAM, just IAM for now
 
-    def validate_cloudformation_template(self, file_path):
+    @classmethod
+    def validate_cloudformation_template(cls, file_path):
         """ Validates CloudFormation template at file_path """
         cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {args}'.format(
             mount_yaml=os.path.abspath(os.getcwd())+'/out/templates:/root/out/templates',
-            mount_creds='{creds_dir}:/root/.aws'.format(creds_dir=self.ACCOUNT.creds_dir),
+            mount_creds='{creds_dir}:/root/.aws'.format(creds_dir='~/.aws_test'),
             command='amazon/aws-cli cloudformation validate-template',
             args='--template-body file://{file_path}'.format(file_path=file_path),
         )
@@ -207,7 +208,7 @@ class C4Client:
             file_path = ''.join(['/root/', path, template_name])
             logger.info('Written template to {}'.format(file_path))
             if args.validate:
-                cls.validate_cloudformation_template(file_path)
+                cls.validate_cloudformation_template(file_path=file_path)
             return file_path
 
     @staticmethod

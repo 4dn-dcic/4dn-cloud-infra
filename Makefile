@@ -36,14 +36,14 @@ deploy-alpha-p1:
 	@echo '    1. Uploading your application images to ECR.'
 	@echo '       To upload application versions to ECR, see cgap-portal: src/deploy/docker/production/Makefile'
 	@echo '       Required Image Tags: "latest", "latest-indexer", "latest-ingester", "latest-deployment"'
-	@echo '    2. Upload base environment configuration to global application s3 bucket.'
-	@echo '    3. Writing your environment configuration in secretsmanager.'
+	@echo '    2. Writing your environment configuration in secretsmanager.'
 	# TODO deploy foursight ? might belong in next step
 
 deploy-alpha-p2:
-	@echo -n "Confirm you have done the 3 required steps after deploy-alpha-p1 with 'y' [y/N] " && read ans && [ $${ans:-N} = y ]
+	@echo -n "Confirm you have done the 2 required steps after deploy-alpha-p1 with 'y' [y/N] " && read ans && [ $${ans:-N} = y ]
 	./4dn-cloud-infra provision ecs --validate --alpha --upload_change_set
-	@echo 'Phase 2 of Orchestration Complete.'
+	@echo 'ECS may take up to 10 minutes to come online. Once it has, examine the stack output for the URL.'
+	@echo 'Next, upload base environment configuration to global application s3 bucket.'
 	@echo 'Phase 3 is triggering deployment, which for now is done manually from the ECS console.'
 	@echo 'Feel free to skip this step if you do not wish to run the deployment.'
 	@echo 'Instructions:'
@@ -60,10 +60,8 @@ test:
 	@echo 'NOTE: Bypassing Bioinformatics by uploading raw VCF directly.'
 	python scripts/upload_file_processed.py
 	docker run --rm -v ~./aws_test:/root/.aws amazon/aws-cli s3 cp test_data/na_12879/GAPFI9V6TEQA.vcf.gz s3://application-cgap-mastertest-wfout/3535ce97-b8e6-4ed2-b4fc-dcab7aebcc0f/GAPFI9V6TEQA.vcf.gz
-	@echo 'Sleeping for 30 seconds to give metadata time to index'
-	@sleep 30
-	# upload VCF file
-	# queue for ingestion
+	python scripts/queue_ingestion.py
+	@echo 'Ingestion queued - see CloudWatch Ingester logs'
 
 info:
 	@: $(info Here are some 'make' options:)
