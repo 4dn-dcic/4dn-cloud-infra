@@ -12,3 +12,4 @@ log/
 out/
 in/
 secrets.py
+test_data/knowledge_base/temp-local-inserts/*

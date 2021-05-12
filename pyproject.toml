@@ -21,6 +21,7 @@ awacs = "^1.0.2"
 cfn-lint = "^0.48.1"  # a secondary check that catches more things than standard validate - Will 4/1/2021
 submit-cgap = "^0.7.3"
 tibanna = "^1.2.2"
+tqdm = "^4.60.0"
 
 [tool.poetry.dev-dependencies]
 

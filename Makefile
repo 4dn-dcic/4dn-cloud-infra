@@ -52,6 +52,9 @@ deploy-alpha-p2:
 	@echo '    * Attach the Application and DB Security groups.'
 	@echo 'Once the deployment container is online, logs will immediately stream to the task/Cloudwatch.'
 
+provision-knowledge-base:
+	@echo 'Loading knowledge base information'
+
 test:
 	@echo 'Running end-to-end test'
 	@echo 'Phase 1: Metadata Bundle Submission for Demo Case NA 12879'
