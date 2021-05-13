@@ -322,13 +322,14 @@ class C4ECSApplication(C4Part):
             ],
         )
 
-    def ecs_wsgi_service(self, concurrency=2) -> Service:
+    def ecs_wsgi_service(self, concurrency=8) -> Service:
         """ Defines the WSGI service (manages WSGI Tasks)
             Note dependencies: https://stackoverflow.com/questions/53971873/the-target-group-does-not-have-an-associated-load-balancer
 
             Defined by the ECR Image tag 'latest'.
 
-            :param concurrency: # of concurrent tasks to run
+            :param concurrency: # of concurrent tasks to run - since this setup is intended for use with
+                                production, this value is 8, approximately matching our current resources.
         """
         return Service(
             "CGAPWSGIService",
@@ -441,28 +442,31 @@ class C4ECSApplication(C4Part):
             ],
         )
 
-    def ecs_indexer_service(self) -> Service:
+    def ecs_indexer_service(self, concurrency=4) -> Service:
         """ Defines the Indexer service (manages Indexer Tasks)
             TODO SQS autoscaling trigger?
 
             Defined by the ECR Image tag 'latest-indexer'.
+
+            :param concurrency: # of concurrent tasks to run - since this setup is intended for use with
+                                production, this value is 4, approximately matching our current resources.
         """
         return Service(
             "CGAPIndexerService",
             Cluster=Ref(self.ecs_cluster()),
-            DesiredCount=1,
+            DesiredCount=concurrency,
             LaunchType='FARGATE',
-            # Run indexer service on normal Fargate (so it cannot be interrupted and cause SQS instability)
+            # XXX: let's see how indexing does on Fargate Spot
             CapacityProviderStrategy=[
                 CapacityProviderStrategyItem(
                     CapacityProvider='FARGATE',
-                    Base=1,
-                    Weight=1
+                    Base=0,
+                    Weight=0
                 ),
                 CapacityProviderStrategyItem(
                     CapacityProvider='FARGATE_SPOT',
-                    Base=0,
-                    Weight=0
+                    Base=concurrency,
+                    Weight=1
                 )
             ],
             TaskDefinition=Ref(self.ecs_indexer_task()),
