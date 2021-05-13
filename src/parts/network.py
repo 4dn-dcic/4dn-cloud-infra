@@ -81,9 +81,9 @@ class C4Network(C4Part):
         # template.add_resource(private_b_nat_gateway)
 
         # Add Internet Gateway to public route table, NAT Gateway to private route table
+        # XXX: why is this only possible with public_a_nat_gateway?
         for i in [self.route_internet_gateway(),
-                  self.route_nat_gateway(public_a_nat_gateway),
-                  self.route_nat_gateway(public_b_nat_gateway)]:
+                  self.route_nat_gateway(public_a_nat_gateway)]:
             template.add_resource(i)
 
         # Add subnet-to-route-table associations
@@ -115,8 +115,9 @@ class C4Network(C4Part):
         # See: aws ec2 describe-vpc-endpoint-services
         template.add_resource(self.create_vpc_interface_endpoint('sqs',
                                                                  'com.amazonaws.us-east-1.sqs'))
-        # template.add_resource(self.create_vpc_interface_endpoint('s3',
-        #                                                          'com.amazonaws.us-east-1.s3'))
+        template.add_resource(self.create_vpc_interface_endpoint('s3',
+                                                                 'com.amazonaws.us-east-1.s3',
+                                                                 dns=False))
         template.add_resource(self.create_vpc_interface_endpoint('ecrapi',
                                                                  'com.amazonaws.us-east-1.ecr.api'))
         template.add_resource(self.create_vpc_interface_endpoint('ecrdkr',
@@ -127,6 +128,12 @@ class C4Network(C4Part):
                                                                  'com.amazonaws.us-east-1.ecs-agent'))
         template.add_resource(self.create_vpc_interface_endpoint('ecstelemetry',
                                                                  'com.amazonaws.us-east-1.ecs-telemetry'))
+        template.add_resource(self.create_vpc_interface_endpoint('secretsmanager',
+                                                                 'com.amazonaws.us-east-1.secretsmanager'))
+        template.add_resource(self.create_vpc_interface_endpoint('ssm',
+                                                                 'com.amazonaws.us-east-1.ssm'))
+        template.add_resource(self.create_vpc_interface_endpoint('logs',
+                                                                 'com.amazonaws.us-east-1.logs'))
 
         return template
 
@@ -192,7 +199,7 @@ class C4Network(C4Part):
         """ Define a NAT Gateway. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-natgateway.html
         """
-        logical_id = self.name.logical_id(subnet.title + 'NATGateway')
+        logical_id = self.name.logical_id(subnet.title)  # + 'NATGateway')
         return NatGateway(
             logical_id,
             DependsOn=eip.title,
@@ -548,15 +555,23 @@ class C4Network(C4Part):
         """ TODO: Defines a bastion host in public subnet of the vpc """
         pass
 
-    def create_vpc_interface_endpoint(self, identifier, service_name) -> VPCEndpoint:
-        """ Creates a (interface) VPC endpoint for the given service_name (in private subnets). """
+    def create_vpc_interface_endpoint(self, identifier, service_name, dns=True) -> VPCEndpoint:
+        """ Creates a (interface) VPC endpoint for the given service_name (in private subnets).
+            This is to allow tasks running in private subnet to access needed AWS Services. See below explanation.
+            https://stackoverflow.com/questions/61265108/aws-ecs-fargate-resourceinitializationerror-unable-to-pull-secrets-or-registry?noredirect=1&lq=1
+
+            :param identifier: a name to be used in the logical ID for this VPC Interface Endpoint
+            :param service_name: the aws service name for this endpoint, see aws ec2 describe-vpc-endpoint-services
+            :param dns: boolean on whether or not to provide private DNS (must be disabled for s3)
+        """
         # com.amazonaws.us-east-1.sqs -> sqs
         logical_id = self.name.logical_id('%sVPCEndpoint' % identifier)
         return VPCEndpoint(
             logical_id,
             VpcId=Ref(self.virtual_private_cloud()),
             VpcEndpointType='Interface',
-            PrivateDnsEnabled=True,
+            PrivateDnsEnabled=dns,
             ServiceName=service_name,
-            SubnetIds=[Ref(self.private_subnet_a()), Ref(self.private_subnet_b())]
+            SubnetIds=[Ref(self.private_subnet_a()), Ref(self.private_subnet_b())],
+            SecurityGroupIds=[Ref(self.application_security_group())]
         )
