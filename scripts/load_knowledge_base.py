@@ -8,6 +8,7 @@ from dcicutils import ff_utils
 PATH_TO_CREDS = os.path.expanduser('~/.cgap-keys.json')
 PATH_TO_KNOWLEDGE_BASE = 'test_data/knowledge_base/temp-local-inserts'
 SERVER = 'http://c4ecstrialalphaecslb-2115269186.us-east-1.elb.amazonaws.com'
+CURRENT_BASE = ['variant_consequence.json', 'gene.json']  # ['gene.json', 'disorder.json', 'phenotype.json']
 
 
 def main():
@@ -23,12 +24,12 @@ def main():
     if keys is None:
         raise Exception('Did not locate specified server, check creds file.')
 
-    for file in ['gene.json', 'disorder.json', 'phenotype.json']:
+    for file in CURRENT_BASE:
         with io.open('/'.join([PATH_TO_KNOWLEDGE_BASE, file])) as collection_meta:
             items = json.load(collection_meta)
             for item in tqdm(items):
                 try:
-                    ff_utils.post_metadata(item, file.split('.')[0].title(), key=keys)
+                    ff_utils.post_metadata(item, file.split('.')[0].title().replace('_', ''), key=keys)
                 except Exception as e:
                     print(e)
 

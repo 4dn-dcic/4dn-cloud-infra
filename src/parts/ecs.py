@@ -209,7 +209,7 @@ class C4ECSApplication(C4Part):
 
     def ecs_application_load_balancer(self) -> elbv2.LoadBalancer:
         """ Application load balancer for the WSGI ECS Task. """
-        logical_id = self.name.logical_id('ECSCGAPLB')
+        logical_id = self.name.logical_id('ECSLB')
         return elbv2.LoadBalancer(
             logical_id,
             IpAddressType='ipv4',
