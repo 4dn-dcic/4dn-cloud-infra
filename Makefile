@@ -51,9 +51,13 @@ deploy-alpha-p2:
 	@echo '    * Invoke this task in the newly created VPC and private subnets.'
 	@echo '    * Attach the Application and DB Security groups.'
 	@echo 'Once the deployment container is online, logs will immediately stream to the task/Cloudwatch.'
+	@echo 'After the deployment is complete, if this is the first deploy, load the knowledge base'
+	@echo 'With: "make provision-knowledge-base".'
 
 provision-knowledge-base:
-	@echo 'Loading knowledge base information'
+	@echo 'Loading knowledge base information (variant_consequences and genes)'
+	python scripts/load_knowledge_base.py
+	@echo 'Knowledge base loaded, ready for end-to-end test.'
 
 test:
 	@echo 'Running end-to-end test'
