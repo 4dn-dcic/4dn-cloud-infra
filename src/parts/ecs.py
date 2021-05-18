@@ -1,3 +1,4 @@
+import os
 from troposphere import (
     Parameter,
     Join,
@@ -24,6 +25,7 @@ from troposphere.ecs import (
 )
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
 from troposphere.applicationautoscaling import ScalableTarget, ScalingPolicy, PredefinedMetricSpecification, TargetTrackingScalingPolicyConfiguration
+from src.constants import ENV_NAME
 from src.part import C4Part
 from src.parts.network import C4NetworkExports, C4Network
 from src.parts.ecr import C4ECRExports
@@ -47,7 +49,7 @@ class C4ECSApplication(C4Part):
     IAM_EXPORTS = C4IAMExports()
     LOGGING_EXPORTS = C4LoggingExports()
     AMI = 'ami-0be13a99cd970f6a9'  # latest amazon linux 2 ECS optimized
-    LB_NAME = 'ECSApplicationLoadBalancer'
+    LB_NAME = 'AppLB'
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
@@ -123,9 +125,9 @@ class C4ECSApplication(C4Part):
     def ecs_cluster(self) -> Cluster:
         """ Creates an ECS cluster for use with this portal deployment. """
         return Cluster(
-            'CGAPDockerCluster',
+            os.environ.get(ENV_NAME, 'CGAPDockerCluster').replace('-', ''),  # Fallback, but should always be set
             CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
-            Tags=self.tags.cost_tag_array()
+            # Tags=self.tags.cost_tag_array() XXX: bug in troposphere - does not take tags array
         )
 
     @staticmethod
@@ -211,7 +213,10 @@ class C4ECSApplication(C4Part):
 
     def ecs_application_load_balancer(self) -> elbv2.LoadBalancer:
         """ Application load balancer for the WSGI ECS Task. """
-        logical_id = self.name.logical_id('ECSLB')
+        env_identifier = os.environ.get(ENV_NAME).replace('-', '')
+        if not env_identifier:
+            raise Exception('Did not set required key in .env! Should never get here.')
+        logical_id = self.name.logical_id(env_identifier)
         return elbv2.LoadBalancer(
             logical_id,
             IpAddressType='ipv4',
@@ -323,7 +328,7 @@ class C4ECSApplication(C4Part):
                     ]
                 )
             ],
-            Tags=self.tags.cost_tag_array(),
+            # Tags=self.tags.cost_tag_array(),  # XXX: bug in troposphere - does not take tags array
         )
 
     def ecs_wsgi_service(self, concurrency=8) -> Service:
@@ -369,7 +374,7 @@ class C4ECSApplication(C4Part):
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
-            Tags=self.tags.cost_tag_array()
+            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
     def ecs_wsgi_scalable_target(self, wsgi: Service, max_concurrency=8) -> ScalableTarget:
@@ -445,7 +450,7 @@ class C4ECSApplication(C4Part):
                     ]
                 )
             ],
-            Tags=self.tags.cost_tag_array()
+            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
     def ecs_indexer_service(self, concurrency=4) -> Service:
@@ -484,7 +489,7 @@ class C4ECSApplication(C4Part):
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
-            Tags=self.tags.cost_tag_array()
+            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
     def ecs_indexer_scalable_target(self, indexer: Service, max_concurrency=16) -> ScalableTarget:
@@ -542,7 +547,7 @@ class C4ECSApplication(C4Part):
                     ]
                 )
             ],
-            Tags=self.tags.cost_tag_array()
+            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
     def ecs_ingester_service(self) -> Service:
@@ -578,7 +583,7 @@ class C4ECSApplication(C4Part):
                     Weight=0
                 )
             ],
-            Tags=self.tags.cost_tag_array()
+            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
     def ecs_ingester_scalable_target(self, ingester: Service, max_concurrency=4) -> ScalableTarget:
@@ -654,7 +659,7 @@ class C4ECSApplication(C4Part):
                     ]
                 )
             ],
-            Tags=self.tags.cost_tag_array()
+            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
     def ecs_deployment_service(self) -> Service:
@@ -694,5 +699,5 @@ class C4ECSApplication(C4Part):
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
-            Tags=self.tags.cost_tag_array()
+            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )

@@ -60,6 +60,7 @@ class C4DatastoreExports(C4Exports):
 
 
 class C4Datastore(C4Part):
+    """ Defines the datastore stack - see resources created in build_template method. """
     APPLICATION_SECRET_STRING = 'ApplicationConfiguration'
     RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names
     EXPORTS = C4DatastoreExports()
