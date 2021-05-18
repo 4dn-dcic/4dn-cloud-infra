@@ -28,7 +28,12 @@ from troposphere.applicationautoscaling import (
     ScalableTarget, ScalingPolicy, PredefinedMetricSpecification,
     TargetTrackingScalingPolicyConfiguration,
 )
-from src.constants import ENV_NAME
+from src.constants import (
+    ENV_NAME,
+    ECS_WSGI_COUNT, ECS_WSGI_CPU, ECS_WSGI_MEM,
+    ECS_INDEXER_COUNT, ECS_INDEXER_CPU, ECS_INDEXER_MEM,
+    ECS_INGESTER_COUNT, ECS_INGESTER_CPU, ECS_INGESTER_MEM
+)
 from src.part import C4Part
 from src.parts.network import C4NetworkExports, C4Network
 from src.parts.ecr import C4ECRExports
@@ -84,8 +89,6 @@ class C4ECSApplication(C4Part):
         # ECS Params
         template.add_parameter(self.ecs_web_worker_port())
         # template.add_parameter(self.ecs_lb_certificate())  # TODO must be provisioned
-        template.add_parameter(self.ecs_web_worker_memory())
-        template.add_parameter(self.ecs_web_worker_cpu())
 
         # ECS
         template.add_resource(self.ecs_cluster())
@@ -262,26 +265,6 @@ class C4ECSApplication(C4Part):
             Tags=self.tags.cost_tag_array()
         )
 
-    @staticmethod
-    def ecs_web_worker_cpu() -> Parameter:
-        """ TODO: figure out how to best use - should probably be per service? """
-        return Parameter(
-            'WebWorkerCPU',
-            Description='Web worker CPU units',
-            Type='Number',
-            Default=256,
-        )
-
-    @staticmethod
-    def ecs_web_worker_memory() -> Parameter:
-        """ TODO: figure out how to best use - should probably be per service? """
-        return Parameter(
-            'WebWorkerMemory',
-            Description='Web worker memory',
-            Type='Number',
-            Default=512,
-        )
-
     def ecs_wsgi_task(self, cpus='256', mem='512', app_revision='latest',
                       identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the WSGI Task (serve HTTP requests).
@@ -295,8 +278,8 @@ class C4ECSApplication(C4Part):
         return TaskDefinition(
             'CGAPWSGI',
             RequiresCompatibilities=['FARGATE'],
-            Cpu=cpus,
-            Memory=mem,
+            Cpu=os.environ.get(ECS_WSGI_CPU) or cpus,
+            Memory=os.environ.get(ECS_WSGI_MEM) or mem,
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
@@ -348,7 +331,7 @@ class C4ECSApplication(C4Part):
             "CGAPWSGIService",
             Cluster=Ref(self.ecs_cluster()),
             DependsOn=['ECSLBListener'],  # XXX: Hardcoded, important!
-            DesiredCount=concurrency,
+            DesiredCount=os.environ.get(ECS_WSGI_COUNT) or concurrency,
             LoadBalancers=[
                 LoadBalancer(
                     ContainerName='WSGI',  # this must match Name in TaskDefinition (ContainerDefinition)
@@ -424,8 +407,8 @@ class C4ECSApplication(C4Part):
         return TaskDefinition(
             'CGAPIndexer',
             RequiresCompatibilities=['FARGATE'],
-            Cpu=cpus,
-            Memory=mem,
+            Cpu=os.environ.get(ECS_INDEXER_CPU) or cpus,
+            Memory=os.environ.get(ECS_INDEXER_MEM) or mem,
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
@@ -469,7 +452,7 @@ class C4ECSApplication(C4Part):
         return Service(
             "CGAPIndexerService",
             Cluster=Ref(self.ecs_cluster()),
-            DesiredCount=concurrency,
+            DesiredCount=os.environ.get(ECS_INDEXER_COUNT) or concurrency,
             LaunchType='FARGATE',
             CapacityProviderStrategy=[
                 CapacityProviderStrategyItem(
@@ -520,8 +503,8 @@ class C4ECSApplication(C4Part):
         return TaskDefinition(
             'CGAPIngester',
             RequiresCompatibilities=['FARGATE'],
-            Cpu=cpus,
-            Memory=mem,
+            Cpu=os.environ.get(ECS_INGESTER_CPU) or cpus,
+            Memory=os.environ.get(ECS_INGESTER_MEM) or mem,
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
@@ -562,7 +545,7 @@ class C4ECSApplication(C4Part):
         return Service(
             "CGAPIngesterService",
             Cluster=Ref(self.ecs_cluster()),
-            DesiredCount=1,
+            DesiredCount=os.environ.get(ECS_INGESTER_COUNT) or 1,
             LaunchType='FARGATE',
             TaskDefinition=Ref(self.ecs_ingester_task()),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
