@@ -122,12 +122,6 @@ class C4Network(C4Part):
                                                                  'com.amazonaws.us-east-1.ecr.api'))
         template.add_resource(self.create_vpc_interface_endpoint('ecrdkr',
                                                                  'com.amazonaws.us-east-1.ecr.dkr'))
-        template.add_resource(self.create_vpc_interface_endpoint('ecs',
-                                                                 'com.amazonaws.us-east-1.ecs'))
-        template.add_resource(self.create_vpc_interface_endpoint('ecsagent',
-                                                                 'com.amazonaws.us-east-1.ecs-agent'))
-        template.add_resource(self.create_vpc_interface_endpoint('ecstelemetry',
-                                                                 'com.amazonaws.us-east-1.ecs-telemetry'))
         template.add_resource(self.create_vpc_interface_endpoint('secretsmanager',
                                                                  'com.amazonaws.us-east-1.secretsmanager'))
         template.add_resource(self.create_vpc_interface_endpoint('ssm',
