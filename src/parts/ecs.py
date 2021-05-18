@@ -238,6 +238,7 @@ class C4ECSApplication(C4Part):
 
     def output_application_url(self, env='cgap-mastertest') -> Output:
         """ Outputs URL to access WSGI. """
+        env = os.environ.get(ENV_NAME) or env
         return Output(
             'ECSApplicationURL%s' % env.replace('-', ''),
             Description='URL of CGAP-Portal.',
