@@ -1,3 +1,9 @@
+# This file contains constants mapping to the environment variables
+# that contain the desired information. Setting any of these values
+# in config.json will have the effect of setting the configuration
+# option for the orchestration. The only options listed that are
+# currently unavailable are: ES_MASTER_COUNT, ES_MASTER_TYPE, IDENTITY
+
 # General constants
 DEPLOYING_IAM_USER = 'deploying_iam_user'
 ENV_NAME = 'ENCODED_BS_ENV'
@@ -25,3 +31,4 @@ ECS_INDEXER_MEM = 'ecs.indexer.mem'
 ECS_INGESTER_COUNT = 'ecs.ingester.count'
 ECS_INGESTER_CPU = 'ecs.ingester.cpu'
 ECS_INGESTER_MEM = 'ecs.ingester.mem'
+IDENTITY = 'identity'

@@ -40,6 +40,7 @@ To get help:
 
 * `src/secrets.py` - .gitignore'd file that contains required customization options, see Customization below
 * `src/cli.py` - Command-line interface for the `4dn-cloud-infra` script
+* `src/constants.py` - Contains infrastructure configurable options
 * `src/part.py` - Contains C4Part, an abstraction for building an AWS resource
 * `src/stack.py` - Contains C4Stack, an abstraction for building a CloudFormation Stack
 * `src/exports.py` - Contains C4Exports, an abstraction for defining export values from stacks
@@ -96,7 +97,8 @@ In order to orchestrate, you must first write a config.json file at repo top lev
         "ecs.indexer.mem": "512",
         "ecs.ingester.count": 1,
         "ecs.ingester.cpu": "512",
-        "ecs.ingester.mem": "1024"
+        "ecs.ingester.mem": "1024",
+        "identity": name of AWS Secret containing application configuration
     }
 
 
