@@ -22,7 +22,11 @@ from dcicutils.misc_utils import as_seconds
 from src.part import C4Part
 from src.exports import C4Exports
 from src.parts.network import C4NetworkExports
-from src.constants import DEPLOYING_IAM_USER, ENV_NAME
+from src.constants import (
+    DEPLOYING_IAM_USER, ENV_NAME,
+    RDS_AZ, RDS_DB_NAME, RDS_STORAGE_SIZE, RDS_INSTANCE_SIZE,
+    ES_DATA_TYPE, ES_DATA_COUNT, ES_MASTER_COUNT, ES_MASTER_TYPE
+)
 
 
 class C4DatastoreExports(C4Exports):
@@ -266,18 +270,18 @@ class C4Datastore(C4Part):
 
     def rds_instance(self, instance_size='db.t3.medium',
                      az_zone='us-east-1a', storage_size=20, storage_type='standard',
-                     db_name='ebdb', postgres_version='11.9') -> DBInstance:
+                     db_name='ebdb', postgres_version='12.6') -> DBInstance:
         """ Returns the single RDS instance for the infrastructure stack. """
-        logical_id = self.name.logical_id('RDS')
+        logical_id = self.name.logical_id('RDS%s') % os.environ.get(ENV_NAME, '').replace('-', '')
         secret_string_logical_id = self.name.logical_id(self.RDS_SECRET_STRING)
         return DBInstance(
             logical_id,
-            AllocatedStorage=storage_size,
-            DBInstanceClass=instance_size,
+            AllocatedStorage=os.environ.get(RDS_STORAGE_SIZE) or storage_size,
+            DBInstanceClass=os.environ.get(RDS_INSTANCE_SIZE) or instance_size,
             Engine='postgres',
             EngineVersion=postgres_version,
             DBInstanceIdentifier=logical_id,
-            DBName=db_name,
+            DBName=os.environ.get(RDS_DB_NAME) or db_name,
             DBParameterGroupName=Ref(self.rds_parameter_group()),
             DBSubnetGroupName=Ref(self.rds_subnet_group()),
             StorageEncrypted=True,  # TODO use KmsKeyId to configure KMS key (requires db replacement)
@@ -349,7 +353,7 @@ class C4Datastore(C4Part):
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
             TODO allow master node configuration
         """
-        logical_id = self.name.logical_id('ES')
+        logical_id = self.name.logical_id('ES%s' % os.environ.get(ENV_NAME, '').replace('-', ''))
         domain_name = self.name.domain_name(logical_id)
         options = {}
         try:  # feature not yet supported by troposphere
@@ -360,6 +364,7 @@ class C4Datastore(C4Part):
             logical_id,
             DomainName=domain_name,
             AccessPolicies={
+                # XXX: this policy needs revising - Will 5/18/21
                 'Version': '2012-10-17',
                 'Statement': [
                     {
@@ -380,8 +385,8 @@ class C4Datastore(C4Part):
             NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
             EncryptionAtRestOptions=EncryptionAtRestOptions(Enabled=True),  # TODO specify KMS key
             ElasticsearchClusterConfig=ElasticsearchClusterConfig(
-                InstanceCount=number_of_data_nodes,
-                InstanceType=data_node_instance_type,
+                InstanceCount=os.environ.get(ES_DATA_COUNT) or number_of_data_nodes,
+                InstanceType=os.environ.get(ES_DATA_TYPE) or data_node_instance_type,
             ),
             ElasticsearchVersion='6.8',
             EBSOptions=EBSOptions(

@@ -75,14 +75,18 @@ For more information on tibanna itself, see: https://tibanna.readthedocs.io/en/l
 
 ## Preparing for Deployment
 
-In order to orchestrate, you must first write a config.json file with the following information (in JSON form). Note that you DO NOT and SHOULD NOT put AWS Keys in this file!
+In order to orchestrate, you must first write a config.json file - use the below structure as a template. Note that you DO NOT and SHOULD NOT put AWS Keys in this file!
 
     {
-        'deploying_iam_user': <your IAM user>,
-        'elasticsearch.master_node_count': 3,
-        'elasticsearch.master_node_type': 'c5.large.elasticsearch'
-        'elasticsearch.data_node_count': 2,
-        'elasticsearch.data_node_type': 'c5.2xlarge.elasticsearch'
+        "deploying_iam_user": <your IAM user>,
+        "rds.instance_size": "db.t3.xlarge",
+        "rds.strorage_size": 20,
+        "rds.db_name": "ebdb",
+        "rds.az": "us-east-1a",
+        "elasticsearch.master_node_count": 3,  # XXX: Not enabled currently
+        "elasticsearch.master_node_type": "c5.large.elasticsearch",
+        "elasticsearch.data_node_count": 2,  # current prod data node configuration
+        "elasticsearch.data_node_type": "c5.2xlarge.elasticsearch",
     }
 
 
