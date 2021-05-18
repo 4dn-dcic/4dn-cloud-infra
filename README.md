@@ -75,7 +75,7 @@ For more information on tibanna itself, see: https://tibanna.readthedocs.io/en/l
 
 ## Preparing for Deployment
 
-In order to orchestrate, you must first write a config.json file - use the below structure as a template. Note that you DO NOT and SHOULD NOT put AWS Keys in this file!
+In order to orchestrate, you must first write a config.json file at repo top level - use the below structure as a template. Note that you DO NOT and SHOULD NOT put AWS Keys in this file!
 
     {
         "deploying_iam_user": <your IAM user>,
@@ -102,7 +102,7 @@ To configure the CGAP infrastructure (post-orchestration), you need to modify a 
     ENV_NAME = "desired env_name, for example: cgap-mastertest"
     ENCODED_BS_ENV = "same as above"
     ENCODED_DATA_SET = "specifies load_data behavior: one of 'prod', 'test'"
-    ENCODED_ES_SERVER = "Get output from datastore stack"
+    ENCODED_ES_SERVER = "Get output from datastore stack, include port 443"
     ENCODED_VERSION = "Should get picked up from application version"
     ENCODED_FILES_BUCKET = Get output from datastore stack, for example application-cgap-mastertest-files
     ENCODED_WFOUT_BUCKET = name_of_wfout_bucket, for example application-cgap-mastertest-wfout

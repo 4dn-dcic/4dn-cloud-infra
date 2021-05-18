@@ -43,7 +43,7 @@ class C4Client:
     ACCOUNT = c4_stack_trial_account()  # uses creds for trial account access XXX: does not work
     CAPABILITY_IAM = 'CAPABILITY_IAM'
     REQUIRES_CAPABILITY_IAM = ['iam']  # these stacks require CAPABILITY_IAM, just IAM for now
-    CONFIGURATION = 'config.json'
+    CONFIGURATION = 'config.json'  # path to config file, top level by default
 
     @classmethod
     def validate_cloudformation_template(cls, file_path):
