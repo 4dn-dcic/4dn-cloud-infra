@@ -88,7 +88,7 @@ In order to orchestrate, you must first write a config.json file at repo top lev
         "elasticsearch.data_node_count": 2,  # current prod data node configuration
         "elasticsearch.data_node_type": "c5.2xlarge.elasticsearch",
         "elasticsearch.volume_size": 20,
-        "ecs.wsgi_count": 8,
+        "ecs.wsgi.count": 8,
         "ecs.wsgi.cpu": "256",
         "ecs.wsgi.mem": "512",
         "ecs.indexer.count": 4,
