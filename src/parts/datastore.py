@@ -2,7 +2,7 @@ import os
 import json
 from troposphere import (
     Join, Ref, Template, Tags, Parameter, Output, GetAtt,
-    AWS_ACCOUNT_ID
+    AccountId
 )
 from troposphere.elasticsearch import (
     Domain, ElasticsearchClusterConfig,
@@ -217,16 +217,18 @@ class C4Datastore(C4Part):
             logical_id,
             Description='Key for encrypting sensitive S3 files for CGAP Ecosystem',
             KeyPolicy={
-                'Sid': 'Enable IAM Policies',
-                'Effect': 'Allow',
-                'Principal': {
-                    'AWS': [
-                        'arn:aws:iam::%s:%s' % (AWS_ACCOUNT_ID, 'root'),
-                        'arn:aws:iam::%s:%s' % (AWS_ACCOUNT_ID, os.environ.get(DEPLOYING_IAM_USER)),
-                    ]
-                },
-                'Action': 'kms:*',  # XXX: constrain further?
-                'Resource': '*S3ENCRYPTKEY'  # in case there are other secrets
+                'Version': '2012-10-17',
+                'Statement': [{
+                    'Sid': 'Enable IAM Policies',
+                    'Effect': 'Allow',
+                    'Principal': {
+                        'AWS': [
+                            Join('', ['arn:aws:iam::', AccountId, ':user/', os.environ.get(DEPLOYING_IAM_USER)]),
+                        ]
+                    },
+                    'Action': 'kms:*',  # XXX: constrain further?
+                    'Resource': '*'
+                }]
             },
             KeySpec='SYMMETRIC_DEFAULT',  # (AES-256-GCM)
             Tags=self.tags.cost_tag_array()
