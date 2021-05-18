@@ -120,12 +120,12 @@ class C4ECSApplication(C4Part):
         template.add_output(self.output_application_url())
         return template
 
-    @staticmethod
-    def ecs_cluster() -> Cluster:
+    def ecs_cluster(self) -> Cluster:
         """ Creates an ECS cluster for use with this portal deployment. """
         return Cluster(
             'CGAPDockerCluster',
-            CapacityProviders=['FARGATE', 'FARGATE_SPOT']
+            CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
+            Tags=self.tags.cost_tag_array()
         )
 
     @staticmethod
@@ -168,7 +168,8 @@ class C4ECSApplication(C4Part):
                     ToPort=22,
                     CidrIp=C4Network.CIDR_BLOCK,
                 ),
-            ]
+            ],
+            Tags=self.tags.cost_tag_array()
         )
 
     def ecs_lb_security_group(self) -> SecurityGroup:
@@ -193,6 +194,7 @@ class C4ECSApplication(C4Part):
                     CidrIp='0.0.0.0/0',
                 ),
             ],
+            Tags=self.tags.cost_tag_array()
         )
 
     def ecs_application_load_balancer_listener(self, target_group: elbv2.TargetGroup) -> elbv2.Listener:
@@ -248,6 +250,7 @@ class C4ECSApplication(C4Part):
             TargetType='ip',
             Protocol='HTTP',
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
+            Tags=self.tags.cost_tag_array()
         )
 
     @staticmethod
@@ -320,6 +323,7 @@ class C4ECSApplication(C4Part):
                     ]
                 )
             ],
+            Tags=self.tags.cost_tag_array(),
         )
 
     def ecs_wsgi_service(self, concurrency=8) -> Service:
@@ -365,6 +369,7 @@ class C4ECSApplication(C4Part):
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
+            Tags=self.tags.cost_tag_array()
         )
 
     def ecs_wsgi_scalable_target(self, wsgi: Service, max_concurrency=8) -> ScalableTarget:
@@ -440,6 +445,7 @@ class C4ECSApplication(C4Part):
                     ]
                 )
             ],
+            Tags=self.tags.cost_tag_array()
         )
 
     def ecs_indexer_service(self, concurrency=4) -> Service:
@@ -478,6 +484,7 @@ class C4ECSApplication(C4Part):
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
+            Tags=self.tags.cost_tag_array()
         )
 
     def ecs_indexer_scalable_target(self, indexer: Service, max_concurrency=16) -> ScalableTarget:
@@ -535,6 +542,7 @@ class C4ECSApplication(C4Part):
                     ]
                 )
             ],
+            Tags=self.tags.cost_tag_array()
         )
 
     def ecs_ingester_service(self) -> Service:
@@ -570,6 +578,7 @@ class C4ECSApplication(C4Part):
                     Weight=0
                 )
             ],
+            Tags=self.tags.cost_tag_array()
         )
 
     def ecs_ingester_scalable_target(self, ingester: Service, max_concurrency=4) -> ScalableTarget:
@@ -645,6 +654,7 @@ class C4ECSApplication(C4Part):
                     ]
                 )
             ],
+            Tags=self.tags.cost_tag_array()
         )
 
     def ecs_deployment_service(self) -> Service:
@@ -684,4 +694,5 @@ class C4ECSApplication(C4Part):
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
+            Tags=self.tags.cost_tag_array()
         )

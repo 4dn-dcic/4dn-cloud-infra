@@ -1,0 +1,2 @@
+DEPLOYING_IAM_USER = 'deploying_iam_user'
+ENV_NAME = 'ENCODED_BS_ENV'

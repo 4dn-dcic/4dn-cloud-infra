@@ -1,6 +1,13 @@
-from troposphere import Join, Ref, Template, Tags, Parameter, Output, GetAtt
-from troposphere.elasticsearch import (Domain, ElasticsearchClusterConfig,
-                                       EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions)
+import os
+import json
+from troposphere import (
+    Join, Ref, Template, Tags, Parameter, Output, GetAtt,
+    AWS_ACCOUNT_ID
+)
+from troposphere.elasticsearch import (
+    Domain, ElasticsearchClusterConfig,
+    EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions
+)
 try:
     from troposphere.elasticsearch import DomainEndpointOptions  # noQA
 except ImportError:
@@ -10,10 +17,12 @@ from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
 from troposphere.s3 import Bucket, Private
+from troposphere.kms import Key
 from dcicutils.misc_utils import as_seconds
 from src.part import C4Part
 from src.exports import C4Exports
 from src.parts.network import C4NetworkExports
+from src.constants import DEPLOYING_IAM_USER, ENV_NAME
 
 
 class C4DatastoreExports(C4Exports):
@@ -21,9 +30,8 @@ class C4DatastoreExports(C4Exports):
     # Output ES URL for use by foursight/application
     ES_URL = 'ExportElasticSearchURL'
 
-    # TODO add these as needed
+    # RDS Exports
     RDS_URL = 'ExportRDSURL'
-    RDS_DB = 'ExportRDSDB'
     RDS_PORT = 'ExportRDSPort'
 
     # Output envs bucket and result bucket
@@ -52,6 +60,7 @@ class C4DatastoreExports(C4Exports):
 
 
 class C4Datastore(C4Part):
+    APPLICATION_SECRET_STRING = 'ApplicationConfiguration'
     RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names
     EXPORTS = C4DatastoreExports()
     NETWORK_EXPORTS = C4NetworkExports()
@@ -74,6 +83,34 @@ class C4Datastore(C4Part):
         'foursight-{}-application-versions'
     ]
 
+    # Contains application configuration template, written to secrets manager
+    # NOTE: this configuration is NOT valid by default - it must be manually updated
+    # with values not available at orchestration time.
+    CONFIGURATION_PLACEHOLDER = 'XXX: ENTER VALUE'
+    APPLICATION_CONFIGURATION_TEMPLATE = {
+        'deploying_iam_user': CONFIGURATION_PLACEHOLDER,
+        'Auth0Client': CONFIGURATION_PLACEHOLDER,
+        'ENV_NAME': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_BS_ENV': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_DATA_SET': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_ES_SERVER': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_FILES_BUCKET': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_WFOUT_BUCKET': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_BLOBS_BUCKET': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_SYSTEM_BUCKET': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_METADATA_BUNDLE_BUCKET': CONFIGURATION_PLACEHOLDER,
+        'LANG': 'en_US.UTF-8',
+        'LC_ALL': 'en_US.UTF-8',
+        'RDS_HOSTNAME': CONFIGURATION_PLACEHOLDER,
+        'RDS_DB_NAME': CONFIGURATION_PLACEHOLDER,
+        'RDS_PORT': CONFIGURATION_PLACEHOLDER,
+        'RDS_USERNAME': CONFIGURATION_PLACEHOLDER,
+        'RDS_PASSWORD': CONFIGURATION_PLACEHOLDER,
+        'S3_ENCRYPT_KEY': CONFIGURATION_PLACEHOLDER,
+        'SENTRY_DSN': CONFIGURATION_PLACEHOLDER,
+        'reCaptchaSecret': CONFIGURATION_PLACEHOLDER,
+    }
+
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
         template.add_parameter(Parameter(
@@ -92,12 +129,15 @@ class C4Datastore(C4Part):
         template.add_resource(rds)
         template.add_output(self.output_rds_url(rds))
         template.add_output(self.output_rds_port(rds))
-        #template.add_output(self.output_rds_dbname(rds))  XXX: not accepted for some reason?
 
         # Adds Elasticsearch + Outputs
         es = self.elasticsearch_instance()
         template.add_resource(es)
         template.add_output(self.output_es_url(es))
+
+        # Add S3_ENCRYPT_KEY, application configuration template
+        template.add_resource(self.s3_encrypt_key())
+        template.add_resource(self.application_configuration_secret())
 
         # Adds SQS Queues + Outputs
         # TODO re-enable
@@ -163,6 +203,51 @@ class C4Datastore(C4Part):
             Tags=self.tags.cost_tag_array(),
         )
 
+    def s3_encrypt_key(self) -> Key:
+        """ Uses AWS KMS to generate an AES-256 GCM Encryption Key for encryption when
+            uploading sensitive information to S3. This value should be written to the
+            application configuration and also passed to Foursight/Tibanna.
+        """
+        deploying_iam_user = os.environ.get(DEPLOYING_IAM_USER)
+        env_identifier = os.environ.get(ENV_NAME).replace('-', '')
+        if not deploying_iam_user or not env_identifier:
+            raise Exception('Did not set required key in .env! Should never get here.')
+        logical_id = self.name.logical_id('S3ENCRYPTKEY') + env_identifier
+        return Key(
+            logical_id,
+            Description='Key for encrypting sensitive S3 files for CGAP Ecosystem',
+            KeyPolicy={
+                'Sid': 'Enable IAM Policies',
+                'Effect': 'Allow',
+                'Principal': {
+                    'AWS': [
+                        'arn:aws:iam::%s:%s' % (AWS_ACCOUNT_ID, 'root'),
+                        'arn:aws:iam::%s:%s' % (AWS_ACCOUNT_ID, os.environ.get(DEPLOYING_IAM_USER)),
+                    ]
+                },
+                'Action': 'kms:*',  # XXX: constrain further?
+                'Resource': '*S3ENCRYPTKEY'  # in case there are other secrets
+            },
+            KeySpec='SYMMETRIC_DEFAULT',  # (AES-256-GCM)
+            Tags=self.tags.cost_tag_array()
+        )
+
+    def application_configuration_secret(self) -> Secret:
+        """ Returns the application configuration secret. Note that this pushes up just a
+            template - you must fill it out according to the specification in the README.
+        """
+        env_identifier = os.environ.get(ENV_NAME).replace('-', '')
+        if not env_identifier:
+            raise Exception('Did not set required key in .env! Should never get here.')
+        logical_id = self.name.logical_id(self.APPLICATION_SECRET_STRING) + env_identifier
+        return Secret(
+            logical_id,
+            Name=logical_id,
+            Description='This secret defines the application configuration for the orchestrated environment.',
+            SecretString=json.dumps(self.APPLICATION_CONFIGURATION_TEMPLATE),
+            Tags=self.tags.cost_tag_array()
+        )
+
     def rds_subnet_group(self) -> DBSubnetGroup:
         """ Returns a subnet group for the single RDS instance in the infrastructure stack """
         logical_id = self.name.logical_id('DBSubnetGroup')
@@ -209,17 +294,6 @@ class C4Datastore(C4Part):
                 ':SecretString:password}}'
             ]),
             Tags=self.tags.cost_tag_array(name=logical_id),
-        )
-
-    def output_rds_dbname(self, resource: DBInstance) -> Output:
-        """ Outputs RDS User """
-        export_name = C4DatastoreExports.RDS_DB
-        logical_id = self.name.logical_id(export_name)
-        return Output(
-            logical_id,
-            Description='RDS DBName for this environment',
-            Value=GetAtt(resource, 'DBName'),
-            Export=self.EXPORTS.export(export_name)
         )
 
     def output_rds_url(self, resource: DBInstance) -> Output:
@@ -361,7 +435,7 @@ class C4Datastore(C4Part):
         )
 
     def primary_queue(self) -> Queue:
-        return self.build_sqs_instance('PrimaryQueue', 'indexer-queue-primary')
+        return self.build_sqs_instance('PrimaryQueue', 'indexer-queue')
 
     def secondary_queue(self) -> Queue:
         return self.build_sqs_instance('SecondaryQueue', 'indexer-queue-secondary')

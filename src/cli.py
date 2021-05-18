@@ -1,7 +1,11 @@
 import argparse
 import logging
 import os
+import json
+from contextlib import contextmanager
+from dcicutils.qa_utils import override_environ
 
+from src.constants import DEPLOYING_IAM_USER, ENV_NAME
 from src.info.aws_util import AWSUtil
 from src.exceptions import CLIException
 from src.stacks.trial import (
@@ -39,6 +43,7 @@ class C4Client:
     ACCOUNT = c4_stack_trial_account()  # uses creds for trial account access XXX: does not work
     CAPABILITY_IAM = 'CAPABILITY_IAM'
     REQUIRES_CAPABILITY_IAM = ['iam']  # these stacks require CAPABILITY_IAM, just IAM for now
+    CONFIGURATION = 'config.json'
 
     @classmethod
     def validate_cloudformation_template(cls, file_path):
@@ -221,17 +226,34 @@ class C4Client:
             logger.info('I do nothing right now!')  # dcic_utils.diff_utils.
 
     @classmethod
+    @contextmanager
+    def validate_and_source_configuration(cls):
+        """ Validates that required keys are in config.json and overrides the environ for the
+            invocation of the infra build. Yields control once the environment has been
+            adjusted, transferring back to the caller - see provision_stack.
+        """
+        if not os.path.exists(cls.CONFIGURATION):
+            raise CLIException('Required configuration file not present! Write config.json')
+        config = json.load(open(cls.CONFIGURATION))
+        for required_key in [DEPLOYING_IAM_USER]:
+            if required_key not in config:
+                raise CLIException('Required key in configuration file not present: %s' % required_key)
+        with override_environ(**config):
+            yield
+
+    @classmethod
     def provision_stack(cls, args):
         """ Implements 'provision' command. """
-        if cls.is_legacy(args):
-            stack = cls.resolve_legacy_stack(args)
-        else:
-            stack = cls.resolve_alpha_stack(args)
+        with cls.validate_and_source_configuration():
+            if cls.is_legacy(args):
+                stack = cls.resolve_legacy_stack(args)
+            else:
+                stack = cls.resolve_alpha_stack(args)
 
-        file_path = cls.write_and_validate_template(args, stack)  # could exit if stdout arg is provided
-        cls.view_changes(args)  # does nothing as of right now
-        if args.upload_change_set:
-            cls.upload_cloudformation_template(args, stack, file_path)  # if desired
+            file_path = cls.write_and_validate_template(args, stack)  # could exit if stdout arg is provided
+            cls.view_changes(args)  # does nothing as of right now
+            if args.upload_change_set:
+                cls.upload_cloudformation_template(args, stack, file_path)  # if desired
 
     @classmethod
     def manage_tibanna(cls, args):
