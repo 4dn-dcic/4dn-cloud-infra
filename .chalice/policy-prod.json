@@ -38,7 +38,7 @@
         "iam:GetRole",
         "iam:PassRole"
       ],
-      "Resource": "arn:aws:iam::643366669028:role/S3Roll",
+      "Resource": "arn:aws:iam::645819926742:role/S3Roll",
       "Effect": "Allow"
     }
   ]
