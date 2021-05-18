@@ -10,7 +10,7 @@ RDS_AZ = 'rds.az'
 
 # ES Configuration Options
 ES_MASTER_COUNT = 'elasticsearch.master_node_count'
-ES_MASTER_TYPE = 'c5.large.elasticsearch'
+ES_MASTER_TYPE = 'elasticsearch.master_node_type'
 ES_DATA_COUNT = 'elasticsearch.data_node_count'
 ES_DATA_TYPE = 'elasticsearch.data_node_type'
 ES_VOLUME_SIZE = 'elasticsearch.volume_size'
