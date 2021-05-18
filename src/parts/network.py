@@ -70,15 +70,6 @@ class C4Network(C4Part):
         public_b_nat_gateway = self.nat_gateway(public_b_nat_eip, public_subnet_b)
         template.add_resource(public_b_nat_eip)
         template.add_resource(public_b_nat_gateway)
-        # XXX: These I dont think should be needed?
-        # private_a_nat_eip = self.nat_eip('PrivateSubnetAEIP')
-        # private_a_nat_gateway = self.nat_gateway(private_a_nat_eip, private_subnet_a)
-        # template.add_resource(private_a_nat_eip)
-        # template.add_resource(private_a_nat_gateway)
-        # private_b_nat_eip = self.nat_eip('PrivateSubnetBEIP')
-        # private_b_nat_gateway = self.nat_gateway(private_b_nat_eip, private_subnet_b)
-        # template.add_resource(private_b_nat_eip)
-        # template.add_resource(private_b_nat_gateway)
 
         # Add Internet Gateway to public route table, NAT Gateway to private route table
         # XXX: why is this only possible with public_a_nat_gateway?

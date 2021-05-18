@@ -24,7 +24,10 @@ from troposphere.ecs import (
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
-from troposphere.applicationautoscaling import ScalableTarget, ScalingPolicy, PredefinedMetricSpecification, TargetTrackingScalingPolicyConfiguration
+from troposphere.applicationautoscaling import (
+    ScalableTarget, ScalingPolicy, PredefinedMetricSpecification,
+    TargetTrackingScalingPolicyConfiguration,
+)
 from src.constants import ENV_NAME
 from src.part import C4Part
 from src.parts.network import C4NetworkExports, C4Network
@@ -467,7 +470,6 @@ class C4ECSApplication(C4Part):
             Cluster=Ref(self.ecs_cluster()),
             DesiredCount=concurrency,
             LaunchType='FARGATE',
-            # XXX: let's see how indexing does on Fargate Spot
             CapacityProviderStrategy=[
                 CapacityProviderStrategyItem(
                     CapacityProvider='FARGATE',
@@ -587,7 +589,9 @@ class C4ECSApplication(C4Part):
         )
 
     def ecs_ingester_scalable_target(self, ingester: Service, max_concurrency=4) -> ScalableTarget:
-        """ Scalable Target for the Indexer Service. """
+        """ Scalable Target for the Indexer Service.
+            TODO: determine scaling trigger
+        """
         return ScalableTarget(
             'IngesterScalableTarget',
             RoleARN=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
@@ -597,24 +601,6 @@ class C4ECSApplication(C4Part):
             MinCapacity=1,
             MaxCapacity=max_concurrency  # scale ingester to 4 workers if needed
         )
-
-    # def ecs_ingester_scaling_policy(self, scalable_target: ScalableTarget):
-    #     """ Determines the policy from which a scaling event should occur for the ingester.
-    #         Right now, does something simple, like: scale up once average application server CPU reaches 80%
-    #         Note that by increasing vCPU allocation we can reduce how often this occurs.
-    #     """
-    #     return ScalingPolicy(
-    #         'WSGIScalingPolicy',
-    #         PolicyType='TargetTrackingScaling',
-    #         ScalingTargetId=Ref(scalable_target),
-    #         TargetTrackingConfiguration=TargetTrackingConfiguration(
-    #             PredefinedMetricSpecification(
-    #                 'CPUUtilization',
-    #                 PredefinedMetricType='ECSServiceAverageCPUUtilization'
-    #             )
-    #         ),
-    #         TargetValue=80.0
-    #     )
 
     def ecs_deployment_task(self, cpus='256', mem='512', app_revision='latest-deployment',
                             identity='dev/beanstalk/cgap-dev') -> TaskDefinition:

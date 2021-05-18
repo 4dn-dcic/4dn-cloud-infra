@@ -80,13 +80,14 @@ In order to orchestrate, you must first write a config.json file - use the below
     {
         "deploying_iam_user": <your IAM user>,
         "rds.instance_size": "db.t3.xlarge",
-        "rds.strorage_size": 20,
+        "rds.storage_size": 20,
         "rds.db_name": "ebdb",
         "rds.az": "us-east-1a",
         "elasticsearch.master_node_count": 3,  # XXX: Not enabled currently
         "elasticsearch.master_node_type": "c5.large.elasticsearch",
         "elasticsearch.data_node_count": 2,  # current prod data node configuration
         "elasticsearch.data_node_type": "c5.2xlarge.elasticsearch",
+        "elasticsearch.volume_size": 20
     }
 
 

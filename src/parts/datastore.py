@@ -391,7 +391,7 @@ class C4Datastore(C4Part):
             ElasticsearchVersion='6.8',
             EBSOptions=EBSOptions(
                 EBSEnabled=True,
-                VolumeSize=10,
+                VolumeSize=os.environ.get(ES_VOLUME_SIZE, 10),
                 VolumeType='gp2',  # gp3?
             ),
             VPCOptions=VPCOptions(
