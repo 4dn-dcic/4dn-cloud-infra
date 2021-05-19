@@ -80,5 +80,5 @@ To deploy foursight, use this command:
 
 ::
     source ~/.aws_test/test_creds.sh
-    GLOBAL_BUCKET_ENV=foursight-cgap-mastertest-envs ./4dn-cloud-infra provision --trial --output_file out/foursight-dev-tmp/ --stage dev c4-foursight-trial --upload_change_set
+    GLOBAL_BUCKET_ENV=foursight-cgap-mastertest-envs ./4dn-cloud-infra provision --trial --output_file out/foursight-dev-tmp/ --stage dev foursight --alpha --upload_change_set
 
