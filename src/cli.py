@@ -21,6 +21,7 @@ from src.stacks.trial_alpha import (
     c4_alpha_stack_trial_iam,
     c4_alpha_stack_trial_ecr,
     c4_alpha_stack_trial_logging,
+    c4_alpha_stack_trial_foursight_cgap,
     c4_alpha_stack_trial_ecs
 )
 
@@ -236,6 +237,8 @@ class C4Client:
             stack = c4_alpha_stack_trial_logging()
         elif 'ecs' in args.stack:
             stack = c4_alpha_stack_trial_ecs()
+        elif 'foursight' in args.stack:
+            stack = c4_alpha_stack_trial_foursight_cgap()
         elif args.stack == 'all':
             raise NotImplementedError('TODO')
         else:
@@ -294,7 +297,7 @@ class C4Client:
         else:
             stack = cls.resolve_alpha_stack(args)
 
-        if 'c4-foursight-trial' == args.stack:  # specific case for foursight template build + upload
+        if 'foursight' in args.stack:  # specific case for foursight template build + upload
             stack.package(args)
             if args.upload_change_set:
                 cls.upload_chalice_package(args, stack)
