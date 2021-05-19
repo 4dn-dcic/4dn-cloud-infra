@@ -480,7 +480,7 @@ class C4Network(C4Part):
             SecurityGroupEgress(
                 self.name.logical_id('ApplicationWebOutboundAllAccess'),
                 CidrIp='0.0.0.0/0',
-                Description='allows outbound traffic on tcp port 443',
+                Description='allows outbound traffic on tcp port 80',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
                 FromPort=80,
