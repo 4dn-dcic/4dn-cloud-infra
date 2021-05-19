@@ -71,14 +71,10 @@ As part of the datastore provisioning, your new S3 buckets are online. There's a
 referenced in C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET. The name of your C4 deployment's global
 application bucket can be found on the 'Outputs' tab of your datastore CloudFormation stack.
 
-Upload a global env configuration to enable foursight. Automated upload script to follow. For example:
+Upload a global env configuration to enable foursight. Automated upload script to follow. TODO.
 
-::
-
-  { "fourfront": "http://fourfront-cgapdev.eba-78e5hhvz.us-east-1.elasticbeanstalk.com/",
-    "es": "https://vpc-c4datastoretriales-nm4mam24al26aalf5o3dxervde.us-east-1.es.amazonaws.com/",
-    "ff_env": "fourfront-cgap-mastertest"
-  }
+Currently, you can upload the file `.chalice/cgap-mastertest` to the global bucket env, which, on the trial account, is
+`s3://foursight-cgap-mastertest-envs/cgap-mastertest`.
 
 To deploy foursight, use this command:
 
