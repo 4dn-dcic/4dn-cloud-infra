@@ -65,14 +65,14 @@ dev = ["coverage (>=5.3,<6.0)", "flake8 (>=3.8.4,<3.9.0)", "tox (>=3.20.1,<3.21.
 
 [[package]]
 name = "awscli"
-version = "1.19.74"
+version = "1.19.75"
 description = "Universal Command Line Environment for AWS."
 category = "main"
 optional = false
 python-versions = ">= 2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
 
 [package.dependencies]
-botocore = "1.20.74"
+botocore = "1.20.75"
 colorama = ">=0.2.5,<0.4.4"
 docutils = ">=0.10,<0.16"
 PyYAML = ">=3.10,<5.5"
@@ -117,20 +117,20 @@ wcwidth = ">=0.1.4"
 
 [[package]]
 name = "boto3"
-version = "1.17.74"
+version = "1.17.75"
 description = "The AWS SDK for Python"
 category = "main"
 optional = false
 python-versions = ">= 2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
 
 [package.dependencies]
-botocore = ">=1.20.74,<1.21.0"
+botocore = ">=1.20.75,<1.21.0"
 jmespath = ">=0.7.1,<1.0.0"
 s3transfer = ">=0.4.0,<0.5.0"
 
 [[package]]
 name = "botocore"
-version = "1.20.74"
+version = "1.20.75"
 description = "Low-level, data-driven core of boto 3."
 category = "main"
 optional = false
@@ -328,7 +328,7 @@ develop = ["mock", "pytest (>=3.0.0)", "pytest-cov", "pytz", "coverage (<5.0.0)"
 
 [[package]]
 name = "foursight-cgap"
-version = "0.4.9.1b10"
+version = "0.4.9.1b11"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -339,7 +339,7 @@ click = ">=7.1.2,<8.0.0"
 dcicutils = ">=1.7.0,<2.0.0"
 elasticsearch = ">=6.8.1,<7.0.0"
 elasticsearch-dsl = ">=6.4.0,<7.0.0"
-foursight-core = "0.1.9.1b9"
+foursight-core = "0.1.9.1b10"
 fuzzywuzzy = "0.17.0"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
@@ -353,7 +353,7 @@ pytz = ">=2020.1,<2021.0"
 
 [[package]]
 name = "foursight-core"
-version = "0.1.9.1b9"
+version = "0.1.9.1b10"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -1057,7 +1057,7 @@ requests = ">=2.24.0,<3"
 
 [[package]]
 name = "tibanna"
-version = "1.2.6"
+version = "1.2.7"
 description = "Tibanna runs portable pipelines (in CWL/WDL) on the AWS Cloud."
 category = "main"
 optional = false
@@ -1203,7 +1203,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=1.2.3)", "pytest-flake8", "pyt
 [metadata]
 lock-version = "1.1"
 python-versions = "3.6"
-content-hash = "4f141a270647ed9696e47a9c6c0faf8b0f5a73611b51a565b9379eae89eaa607"
+content-hash = "7fc3aba60c19bf9650f8c3799c82eb2efd30a5d8ba656bfd560ad41e3087d9bd"
 
 [metadata.files]
 ansicon = [
@@ -1231,8 +1231,8 @@ aws-sam-translator = [
     {file = "aws_sam_translator-1.35.0-py3-none-any.whl", hash = "sha256:c35075e7e804490d6025598ed4878ad3ab8668e37cafb7ae75120b1c37a6d212"},
 ]
 awscli = [
-    {file = "awscli-1.19.74-py2.py3-none-any.whl", hash = "sha256:b6f448dd952b199bbb6abaa72b3deff29d26c7cb8a086f580c86bf59345b1e66"},
-    {file = "awscli-1.19.74.tar.gz", hash = "sha256:b563051d485d2c8d594825a52d799f0966d282d48d1918776aced9ec387618fc"},
+    {file = "awscli-1.19.75-py2.py3-none-any.whl", hash = "sha256:7109e1ed7ec56bf543e1b67295483f1598661629a11a9ee8859180f63ac0a105"},
+    {file = "awscli-1.19.75.tar.gz", hash = "sha256:4fc068907c15371a6debcede01674e7391116e922d34b31142763717f1e0da57"},
 ]
 beautifulsoup4 = [
     {file = "beautifulsoup4-4.9.3-py2-none-any.whl", hash = "sha256:4c98143716ef1cb40bf7f39a8e3eec8f8b009509e74904ba3a7b315431577e35"},
@@ -1249,12 +1249,12 @@ blessed = [
     {file = "blessed-1.17.6.tar.gz", hash = "sha256:a9a774fc6eda05248735b0d86e866d640ca2fef26038878f7e4d23f7749a1e40"},
 ]
 boto3 = [
-    {file = "boto3-1.17.74-py2.py3-none-any.whl", hash = "sha256:c83a33fff7d20027386552967355508ce71fb7406ab0cc8e627e257c94754d43"},
-    {file = "boto3-1.17.74.tar.gz", hash = "sha256:0a21893db156c0938d0a06b622c3dd3d2da2dcd9d06d343c8f9536ac9de4ec7f"},
+    {file = "boto3-1.17.75-py2.py3-none-any.whl", hash = "sha256:7059b3dbb6b474c6ef836aa3bb53eb7b3e474133f3e4cb2a3a3adcc55e2b2b9d"},
+    {file = "boto3-1.17.75.tar.gz", hash = "sha256:bc8b6e98375f71dde0f51e08d415a72e3d8389042ea07d216ac82c98060e7149"},
 ]
 botocore = [
-    {file = "botocore-1.20.74-py2.py3-none-any.whl", hash = "sha256:2061cf3d17615aa4114c91dbed8917adc5287a88354a7693c96aa8e9f9dedd6e"},
-    {file = "botocore-1.20.74.tar.gz", hash = "sha256:6937954ce6dabc00eb157e9fbd21edd45b4dfe3de738e68dbca4c042bfda0954"},
+    {file = "botocore-1.20.75-py2.py3-none-any.whl", hash = "sha256:80fc9a463bcc6368ed95d4b10717f5bb87288b930b3ccf96ce480d1c65e20e5c"},
+    {file = "botocore-1.20.75.tar.gz", hash = "sha256:ab1bd5d5f86a4fdd194129a6102e5193209d3c4676dd76881769d6894bbaab7e"},
 ]
 cachetools = [
     {file = "cachetools-4.2.2-py3-none-any.whl", hash = "sha256:2cc0b89715337ab6dbba85b5b50effe2b0c74e035d83ee8ed637cf52f12ae001"},
@@ -1313,12 +1313,12 @@ elasticsearch-dsl = [
     {file = "elasticsearch_dsl-6.4.0-py2.py3-none-any.whl", hash = "sha256:f60aea7fd756ac1fbe7ce114bbf4949aefbf495dfe8896640e787c67344f12f6"},
 ]
 foursight-cgap = [
-    {file = "foursight-cgap-0.4.9.1b10.tar.gz", hash = "sha256:50b39a47dfcfd6b1618245395acf4a54dbe146548e4e5598f4eb376922078cb1"},
-    {file = "foursight_cgap-0.4.9.1b10-py3-none-any.whl", hash = "sha256:90aa5b06d31bb9c492a731579ed93dcafa2f8d8d627fb0bcb601e1a09cef0bf8"},
+    {file = "foursight-cgap-0.4.9.1b11.tar.gz", hash = "sha256:6f385b763af95764cbd3e1e3182970fb407481e61e6d6a7088d59d0bedcaa25f"},
+    {file = "foursight_cgap-0.4.9.1b11-py3-none-any.whl", hash = "sha256:62da139de0015de11ae484ef2c50cf4170b9f8fffc788eae7163bcc3cc5dc4c0"},
 ]
 foursight-core = [
-    {file = "foursight_core-0.1.9.1b9-py3-none-any.whl", hash = "sha256:fe3fdedbffb77f0303e3db85e7c12361275432f1cbbebc465a3487e25c2a3913"},
-    {file = "foursight_core-0.1.9.1b9.tar.gz", hash = "sha256:af111d4db9ea69546e0760a2f4546d17f61f32d5df41fbf59821f9246c22ff85"},
+    {file = "foursight_core-0.1.9.1b10-py3-none-any.whl", hash = "sha256:735dbba831ba5b0197a0f0ac200c2f832d3dfe46fee99796cce45be818ca5b2c"},
+    {file = "foursight_core-0.1.9.1b10.tar.gz", hash = "sha256:d3c147f3db12ddd25aa560e15f2e966c001b923640230d2602532d27404daf2e"},
 ]
 future = [
     {file = "future-0.18.2.tar.gz", hash = "sha256:b1bead90b70cf6ec3f0710ae53a525360fa360d306a86583adc6bf83a4db537d"},
@@ -1680,9 +1680,9 @@ submit-cgap = [
     {file = "submit_cgap-0.7.3.tar.gz", hash = "sha256:2152cacccf4079350515c58ff5aafad3249e8804b57cd19b8291a8c109638e33"},
 ]
 tibanna = [
-    {file = "tibanna-1.2.6-py3-none-any.whl", hash = "sha256:f03c42f33fc08db655d21625fac4538e388225f9b4f242fb38a40fde82226064"},
-    {file = "tibanna-1.2.6-py3.6.egg", hash = "sha256:8fcdbf71b7d7bdc9be64ccfd1882bfacf210240d5aa7b0b1a82aaae46ed20e22"},
-    {file = "tibanna-1.2.6.tar.gz", hash = "sha256:735eef3f86a19ab7be2d9c14cba36ac2b05a843dceff1ed98cd37b49881df25d"},
+    {file = "tibanna-1.2.7-py3-none-any.whl", hash = "sha256:339acc2d615e0c249b782f793cf026f7b75115a2a399c8fa89fd87d78b2e482c"},
+    {file = "tibanna-1.2.7-py3.6.egg", hash = "sha256:e60cbd5abfe1afdeeef76b1af1d1e6d7739aa513c114c7b85cbc7591dbfb6a88"},
+    {file = "tibanna-1.2.7.tar.gz", hash = "sha256:7172545f2676f05992d461ea149fdf1b16288918f04de59865fa0b5f0c716a85"},
 ]
 toml = [
     {file = "toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"},
