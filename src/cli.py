@@ -235,7 +235,7 @@ class C4Client:
         if not os.path.exists(cls.CONFIGURATION):
             raise CLIException('Required configuration file not present! Write config.json')
         config = json.load(open(cls.CONFIGURATION))
-        for required_key in [DEPLOYING_IAM_USER]:
+        for required_key in [DEPLOYING_IAM_USER, ENV_NAME]:
             if required_key not in config:
                 raise CLIException('Required key in configuration file not present: %s' % required_key)
         with override_environ(**config):

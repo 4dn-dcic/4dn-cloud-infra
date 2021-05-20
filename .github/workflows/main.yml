@@ -29,6 +29,6 @@ jobs:
 
       - name: Validate
         run: |
-          echo {\"deploying_iam_user\": \"test\"} > config.json
+          echo {\"deploying_iam_user\": \"test\", \"ENCODED_BS_ENV\": \"cgap-build\"} > config.json
           touch src/secrets.py
           make alpha

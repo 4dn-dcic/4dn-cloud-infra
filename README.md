@@ -108,7 +108,7 @@ In order to orchestrate, you must first write a config.json file at repo top lev
 
 ## Application Configuration
 
-To configure the CGAP infrastructure (post-orchestration), you need to modify a JSON secret in AWS SecretsManager, identified by the stack prefix. At minimum, the values below must be present. These values will all have a placeholders in the generated application configuration secret. The comments below seek to guide the user on where to find each value.
+To configure the CGAP infrastructure (post-orchestration), you need to modify a JSON secret in AWS SecretsManager, identified by the stack prefix. At minimum, the values below must be present. These values will all have a placeholders in the generated application configuration secret. Some values need to be retrieved from the administrator configuring the system. Note that Auth0 configuration is NOT part of the setup at this time - it assumes an existing Auth0 application and that the orchestrating user has access. Comments seek to guide the user on where to find each value.
 
     # Required props for deployment
     deploying_iam_user = "the power IAM user who is orchestrating the infrastructure"
