@@ -23,7 +23,9 @@ jobs:
           python-version: '3.6'
 
       - name: Install
-        run: poetry install
+        run: |
+          pip install poetry
+          poetry install
 
       - name: Validate
         run: make alpha
