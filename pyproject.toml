@@ -6,7 +6,7 @@ authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "3.6"
+python = ">=3.6.10,<3.7"
 troposphere = "^2.6.3"
 boto3 = "^1.15.16"
 botocore = "^1.18.16"
