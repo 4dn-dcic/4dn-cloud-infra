@@ -30,4 +30,5 @@ jobs:
       - name: Validate
         run: |
           echo "{"deploying_iam_user": "test"}" > config.json
+          touch src/secrets.py
           make alpha
