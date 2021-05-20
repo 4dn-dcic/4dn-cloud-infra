@@ -29,6 +29,7 @@ jobs:
 
       - name: Validate
         run: |
+          # Write a suitable config.json for (primitive) testing
           echo {\"deploying_iam_user\": \"test\", \"ENCODED_BS_ENV\": \"cgap-build\"} > config.json
           touch src/secrets.py
           make alpha

@@ -21,6 +21,7 @@ def main():
     for keydict in creds.values():
         if keydict['server'].rstrip('/') == server_to_find:
             keys = keydict
+            break
     if keys is None:
         raise Exception('Did not locate specified server, check creds file.')
 
