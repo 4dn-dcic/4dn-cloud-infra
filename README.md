@@ -76,7 +76,11 @@ For more information on tibanna itself, see: https://tibanna.readthedocs.io/en/l
 
 ## Preparing for Deployment
 
-In order to orchestrate, you must first write a config.json file at repo top level - use the below structure as a template. Note that you DO NOT and SHOULD NOT put AWS Keys in this file!
+In order to orchestrate, you must first write a config.json file at repo top level - use the JSON structure below as a template.
+
+* You'll need to remove the comments because, unlike Python, `.json` dictionary files have no comment syntax.
+* Note that you DO NOT and SHOULD NOT put AWS Keys in this file!
+
 
     {
         "deploying_iam_user": <your IAM user>,
