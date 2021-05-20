@@ -4,21 +4,21 @@ default: info
 
 alpha:
 	@echo 'Validating CGAP-Portal Alpha'
-	./4dn-cloud-infra provision network --validate --alpha
-	./4dn-cloud-infra provision datastore --validate --alpha
-	./4dn-cloud-infra provision iam --validate --alpha
-	./4dn-cloud-infra provision ecr --validate --alpha
-	./4dn-cloud-infra provision logging --validate --alpha
-	./4dn-cloud-infra provision ecs --validate --alpha
+	poetry run cli provision network --validate --alpha
+	poetry run cli provision datastore --validate --alpha
+	poetry run cli provision iam --validate --alpha
+	poetry run cli provision ecr --validate --alpha
+	poetry run cli provision logging --validate --alpha
+	poetry run cli provision ecs --validate --alpha
 	# TODO provision foursight
 	# TODO provision Tibanna
 	@echo 'Validation Succeeded! Note that this does NOT mean the stacks will build - consider a "light check".'
 
 legacy:
 	@echo 'Validating CGAP-Portal Legacy'
-	./4dn-cloud-infra provision c4-network-trial --validate
-	./4dn-cloud-infra provision c4-datastore-trial --validate
-	./4dn-cloud-infra provision c4-beanstalk-trial --validate
+	poetry run cli provision c4-network-trial --validate
+	poetry run cli provision c4-datastore-trial --validate
+	poetry run cli provision c4-beanstalk-trial --validate
 	# TODO provision foursight
 	# TODO provision Tibanna
 	@echo 'Validation Succeeded!'
@@ -26,11 +26,11 @@ legacy:
 deploy-alpha-p1:
 	@echo 'CGAP Orchestration Phase 1: Uploading Base Templates'
 	@echo 'ORDER: iam, logging, network, ecr, datastore'
-	./4dn-cloud-infra provision iam --validate --alpha --upload_change_set
-	./4dn-cloud-infra provision logging --validate --alpha --upload_change_set
-	./4dn-cloud-infra provision network --validate --alpha --upload_change_set
-	./4dn-cloud-infra provision ecr --validate --alpha --upload_change_set
-	./4dn-cloud-infra provision datastore --validate --alpha --upload_change_set
+	poetry run cli provision iam --validate --alpha --upload_change_set
+	poetry run cli provision logging --validate --alpha --upload_change_set
+	poetry run cli provision network --validate --alpha --upload_change_set
+	poetry run cli provision ecr --validate --alpha --upload_change_set
+	poetry run cli provision datastore --validate --alpha --upload_change_set
 	@echo 'Datastore stacks takes ~15 minutes to come online.'
 	@echo 'While this happens, you should be:'
 	@echo '    1. Uploading your application images to ECR.'
@@ -41,7 +41,7 @@ deploy-alpha-p1:
 
 deploy-alpha-p2:
 	@echo -n "Confirm you have done the 2 required steps after deploy-alpha-p1 with 'y' [y/N] " && read ans && [ $${ans:-N} = y ]
-	./4dn-cloud-infra provision ecs --validate --alpha --upload_change_set
+	poetry run cli provision ecs --validate --alpha --upload_change_set
 	@echo 'ECS may take up to 10 minutes to come online. Once it has, examine the stack output for the URL.'
 	@echo 'Next, upload base environment configuration to global application s3 bucket.'
 	@echo 'Phase 3 is triggering deployment, which for now is done manually from the ECS console.'
@@ -56,7 +56,7 @@ deploy-alpha-p2:
 
 provision-knowledge-base:
 	@echo 'Loading knowledge base information (variant_consequences and genes)'
-	python scripts/load_knowledge_base.py
+	poetry run load-knowledge-base
 	@echo 'Knowledge base loaded, ready for end-to-end test.'
 	@echo 'Start with: "make submission".'
 

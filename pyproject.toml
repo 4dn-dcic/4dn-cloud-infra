@@ -4,6 +4,9 @@ version = "0.2.4"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
 authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
+packages = [
+    { include="src" }
+]
 
 [tool.poetry.dependencies]
 python = ">=3.6.10,<3.7"
@@ -26,6 +29,8 @@ tqdm = "^4.60.0"
 [tool.poetry.dev-dependencies]
 
 [tool.poetry.scripts]
+cli = "src.cli:cli"
+load-knowledge-base = "scripts.load_knowledge_base:main"
 queue-ingestion = "scripts.queue_ingestion:main"
 upload-application-version = "scripts.upload_application_version:main"
 upload-file-processed = "scripts.upload_file_processed:main"
