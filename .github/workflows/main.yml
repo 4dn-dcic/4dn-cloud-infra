@@ -28,4 +28,6 @@ jobs:
           poetry install
 
       - name: Validate
-        run: make alpha
+        run: |
+          echo "{"deploying_iam_user": "test"}" > config.json
+          make alpha

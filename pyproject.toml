@@ -25,6 +25,7 @@ cfn-lint = "^0.48.1"  # a secondary check that catches more things than standard
 submit-cgap = "^0.7.3"
 tibanna = "^1.2.2"
 tqdm = "^4.60.0"
+pytest = "^6.2.4"
 
 [tool.poetry.dev-dependencies]
 
