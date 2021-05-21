@@ -76,8 +76,9 @@ def index():
     Redirect with 302 to view page of DEFAULT_ENV
     Non-protected route
     """
+    logger.warning('in root route')
     domain, context = app_utils_obj.get_domain_and_context(app.current_request.to_dict())
-    logger.warning('got domain and context for root route')
+    logger.warning('got domain and context')
     resp_headers = {'Location': context + 'api/view/' + DEFAULT_ENV}  # special casing 'api' for the chalice app root
     return Response(status_code=302, body=json.dumps(resp_headers),
                     headers=resp_headers)
@@ -88,6 +89,7 @@ def introspect(environ):
     """
     Test route
     """
+    logger.warning('in introspect route')
     auth = app_utils_obj.check_authorization(app.current_request.to_dict(), environ)
     if auth:
         return Response(status_code=200, body=json.dumps(app.current_request.to_dict()))
@@ -100,6 +102,7 @@ def view_run_route(environ, check, method):
     """
     Protected route
     """
+    logger.warning('in view_run route for {} {} {}'.format(environ, check, method))
     req_dict = app.current_request.to_dict()
     domain, context = app_utils_obj.get_domain_and_context(req_dict)
     query_params = req_dict.get('query_params', {})
