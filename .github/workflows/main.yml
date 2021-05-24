@@ -1,0 +1,35 @@
+# Build for 4dn-cloud-infra
+
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Validate 4dn-cloud-infra stacks build successfully
+
+    runs-on: ubuntu-18.04
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.6'
+
+      - name: Install
+        run: |
+          pip install poetry
+          poetry install
+
+      - name: Validate
+        run: |
+          # Write a suitable config.json for (primitive) testing
+          echo {\"deploying_iam_user\": \"test\", \"ENCODED_BS_ENV\": \"cgap-build\"} > config.json
+          touch src/secrets.py
+          make alpha

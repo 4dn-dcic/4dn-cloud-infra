@@ -1,6 +1,13 @@
-from troposphere import Join, Ref, Template, Tags, Parameter, Output, GetAtt
-from troposphere.elasticsearch import (Domain, ElasticsearchClusterConfig,
-                                       EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions)
+import os
+import json
+from troposphere import (
+    Join, Ref, Template, Tags, Parameter, Output, GetAtt,
+    AccountId
+)
+from troposphere.elasticsearch import (
+    Domain, ElasticsearchClusterConfig,
+    EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions
+)
 try:
     from troposphere.elasticsearch import DomainEndpointOptions  # noQA
 except ImportError:
@@ -10,10 +17,16 @@ from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
 from troposphere.s3 import Bucket, Private
+from troposphere.kms import Key
 from dcicutils.misc_utils import as_seconds
 from src.part import C4Part
 from src.exports import C4Exports
 from src.parts.network import C4NetworkExports
+from src.constants import (
+    DEPLOYING_IAM_USER, ENV_NAME,
+    RDS_AZ, RDS_DB_NAME, RDS_STORAGE_SIZE, RDS_INSTANCE_SIZE,
+    ES_DATA_TYPE, ES_DATA_COUNT, ES_MASTER_COUNT, ES_MASTER_TYPE, ES_VOLUME_SIZE
+)
 
 
 class C4DatastoreExports(C4Exports):
@@ -21,9 +34,8 @@ class C4DatastoreExports(C4Exports):
     # Output ES URL for use by foursight/application
     ES_URL = 'ExportElasticSearchURL'
 
-    # TODO add these as needed
+    # RDS Exports
     RDS_URL = 'ExportRDSURL'
-    RDS_DB = 'ExportRDSDB'
     RDS_PORT = 'ExportRDSPort'
 
     # Output envs bucket and result bucket
@@ -52,6 +64,8 @@ class C4DatastoreExports(C4Exports):
 
 
 class C4Datastore(C4Part):
+    """ Defines the datastore stack - see resources created in build_template method. """
+    APPLICATION_SECRET_STRING = 'ApplicationConfiguration'
     RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names
     EXPORTS = C4DatastoreExports()
     NETWORK_EXPORTS = C4NetworkExports()
@@ -74,6 +88,34 @@ class C4Datastore(C4Part):
         'foursight-{}-application-versions'
     ]
 
+    # Contains application configuration template, written to secrets manager
+    # NOTE: this configuration is NOT valid by default - it must be manually updated
+    # with values not available at orchestration time.
+    CONFIGURATION_PLACEHOLDER = 'XXX: ENTER VALUE'
+    APPLICATION_CONFIGURATION_TEMPLATE = {
+        'deploying_iam_user': CONFIGURATION_PLACEHOLDER,
+        'Auth0Client': CONFIGURATION_PLACEHOLDER,
+        'ENV_NAME': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_BS_ENV': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_DATA_SET': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_ES_SERVER': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_FILES_BUCKET': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_WFOUT_BUCKET': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_BLOBS_BUCKET': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_SYSTEM_BUCKET': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_METADATA_BUNDLE_BUCKET': CONFIGURATION_PLACEHOLDER,
+        'LANG': 'en_US.UTF-8',
+        'LC_ALL': 'en_US.UTF-8',
+        'RDS_HOSTNAME': CONFIGURATION_PLACEHOLDER,
+        'RDS_DB_NAME': CONFIGURATION_PLACEHOLDER,
+        'RDS_PORT': CONFIGURATION_PLACEHOLDER,
+        'RDS_USERNAME': CONFIGURATION_PLACEHOLDER,
+        'RDS_PASSWORD': CONFIGURATION_PLACEHOLDER,
+        'S3_ENCRYPT_KEY': CONFIGURATION_PLACEHOLDER,
+        'SENTRY_DSN': CONFIGURATION_PLACEHOLDER,
+        'reCaptchaSecret': CONFIGURATION_PLACEHOLDER,
+    }
+
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
         template.add_parameter(Parameter(
@@ -92,12 +134,15 @@ class C4Datastore(C4Part):
         template.add_resource(rds)
         template.add_output(self.output_rds_url(rds))
         template.add_output(self.output_rds_port(rds))
-        #template.add_output(self.output_rds_dbname(rds))  XXX: not accepted for some reason?
 
         # Adds Elasticsearch + Outputs
         es = self.elasticsearch_instance()
         template.add_resource(es)
         template.add_output(self.output_es_url(es))
+
+        # Add S3_ENCRYPT_KEY, application configuration template
+        template.add_resource(self.s3_encrypt_key())
+        template.add_resource(self.application_configuration_secret())
 
         # Adds SQS Queues + Outputs
         # TODO re-enable
@@ -163,6 +208,53 @@ class C4Datastore(C4Part):
             Tags=self.tags.cost_tag_array(),
         )
 
+    def s3_encrypt_key(self) -> Key:
+        """ Uses AWS KMS to generate an AES-256 GCM Encryption Key for encryption when
+            uploading sensitive information to S3. This value should be written to the
+            application configuration and also passed to Foursight/Tibanna.
+        """
+        deploying_iam_user = os.environ.get(DEPLOYING_IAM_USER)
+        env_identifier = os.environ.get(ENV_NAME).replace('-', '')
+        if not deploying_iam_user or not env_identifier:
+            raise Exception('Did not set required key in .env! Should never get here.')
+        logical_id = self.name.logical_id('S3ENCRYPTKEY') + env_identifier
+        return Key(
+            logical_id,
+            Description='Key for encrypting sensitive S3 files for CGAP Ecosystem',
+            KeyPolicy={
+                'Version': '2012-10-17',
+                'Statement': [{
+                    'Sid': 'Enable IAM Policies',
+                    'Effect': 'Allow',
+                    'Principal': {
+                        'AWS': [
+                            Join('', ['arn:aws:iam::', AccountId, ':user/', os.environ.get(DEPLOYING_IAM_USER)]),
+                        ]
+                    },
+                    'Action': 'kms:*',  # XXX: constrain further?
+                    'Resource': '*'
+                }]
+            },
+            KeySpec='SYMMETRIC_DEFAULT',  # (AES-256-GCM)
+            Tags=self.tags.cost_tag_array()
+        )
+
+    def application_configuration_secret(self) -> Secret:
+        """ Returns the application configuration secret. Note that this pushes up just a
+            template - you must fill it out according to the specification in the README.
+        """
+        env_identifier = os.environ.get(ENV_NAME).replace('-', '')
+        if not env_identifier:
+            raise Exception('Did not set required key in .env! Should never get here.')
+        logical_id = self.name.logical_id(self.APPLICATION_SECRET_STRING) + env_identifier
+        return Secret(
+            logical_id,
+            Name=logical_id,
+            Description='This secret defines the application configuration for the orchestrated environment.',
+            SecretString=json.dumps(self.APPLICATION_CONFIGURATION_TEMPLATE),
+            Tags=self.tags.cost_tag_array()
+        )
+
     def rds_subnet_group(self) -> DBSubnetGroup:
         """ Returns a subnet group for the single RDS instance in the infrastructure stack """
         logical_id = self.name.logical_id('DBSubnetGroup')
@@ -178,18 +270,18 @@ class C4Datastore(C4Part):
 
     def rds_instance(self, instance_size='db.t3.medium',
                      az_zone='us-east-1a', storage_size=20, storage_type='standard',
-                     db_name='ebdb', postgres_version='11.9') -> DBInstance:
+                     db_name='ebdb', postgres_version='12.6') -> DBInstance:
         """ Returns the single RDS instance for the infrastructure stack. """
-        logical_id = self.name.logical_id('RDS')
+        logical_id = self.name.logical_id('RDS%s') % os.environ.get(ENV_NAME, '').replace('-', '')
         secret_string_logical_id = self.name.logical_id(self.RDS_SECRET_STRING)
         return DBInstance(
             logical_id,
-            AllocatedStorage=storage_size,
-            DBInstanceClass=instance_size,
+            AllocatedStorage=os.environ.get(RDS_STORAGE_SIZE) or storage_size,
+            DBInstanceClass=os.environ.get(RDS_INSTANCE_SIZE) or instance_size,
             Engine='postgres',
             EngineVersion=postgres_version,
             DBInstanceIdentifier=logical_id,
-            DBName=db_name,
+            DBName=os.environ.get(RDS_DB_NAME) or db_name,
             DBParameterGroupName=Ref(self.rds_parameter_group()),
             DBSubnetGroupName=Ref(self.rds_subnet_group()),
             StorageEncrypted=True,  # TODO use KmsKeyId to configure KMS key (requires db replacement)
@@ -209,17 +301,6 @@ class C4Datastore(C4Part):
                 ':SecretString:password}}'
             ]),
             Tags=self.tags.cost_tag_array(name=logical_id),
-        )
-
-    def output_rds_dbname(self, resource: DBInstance) -> Output:
-        """ Outputs RDS User """
-        export_name = C4DatastoreExports.RDS_DB
-        logical_id = self.name.logical_id(export_name)
-        return Output(
-            logical_id,
-            Description='RDS DBName for this environment',
-            Value=GetAtt(resource, 'DBName'),
-            Export=self.EXPORTS.export(export_name)
         )
 
     def output_rds_url(self, resource: DBInstance) -> Output:
@@ -272,7 +353,7 @@ class C4Datastore(C4Part):
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
             TODO allow master node configuration
         """
-        logical_id = self.name.logical_id('ES')
+        logical_id = self.name.logical_id('ES%s' % os.environ.get(ENV_NAME, '').replace('-', ''))
         domain_name = self.name.domain_name(logical_id)
         options = {}
         try:  # feature not yet supported by troposphere
@@ -283,6 +364,7 @@ class C4Datastore(C4Part):
             logical_id,
             DomainName=domain_name,
             AccessPolicies={
+                # XXX: this policy needs revising - Will 5/18/21
                 'Version': '2012-10-17',
                 'Statement': [
                     {
@@ -303,13 +385,13 @@ class C4Datastore(C4Part):
             NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
             EncryptionAtRestOptions=EncryptionAtRestOptions(Enabled=True),  # TODO specify KMS key
             ElasticsearchClusterConfig=ElasticsearchClusterConfig(
-                InstanceCount=number_of_data_nodes,
-                InstanceType=data_node_instance_type,
+                InstanceCount=os.environ.get(ES_DATA_COUNT) or number_of_data_nodes,
+                InstanceType=os.environ.get(ES_DATA_TYPE) or data_node_instance_type,
             ),
             ElasticsearchVersion='6.8',
             EBSOptions=EBSOptions(
                 EBSEnabled=True,
-                VolumeSize=10,
+                VolumeSize=os.environ.get(ES_VOLUME_SIZE, 10),
                 VolumeType='gp2',  # gp3?
             ),
             VPCOptions=VPCOptions(
@@ -361,7 +443,7 @@ class C4Datastore(C4Part):
         )
 
     def primary_queue(self) -> Queue:
-        return self.build_sqs_instance('PrimaryQueue', 'indexer-queue-primary')
+        return self.build_sqs_instance('PrimaryQueue', 'indexer-queue')
 
     def secondary_queue(self) -> Queue:
         return self.build_sqs_instance('SecondaryQueue', 'indexer-queue-secondary')

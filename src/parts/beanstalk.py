@@ -193,7 +193,7 @@ class C4Beanstalk(C4Part):
                 Namespace='aws:autoscaling:launchconfiguration',
                 OptionName='SecurityGroups',  # TODO correct security groups
                 Value=Join(delimiter=',', values=[
-                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.BEANSTALK_SECURITY_GROUP),
+                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.APPLICATION_SECURITY_GROUP),
                     self.NETWORK_EXPORTS.import_value(C4NetworkExports.DB_SECURITY_GROUP)]),
             ),
         ]

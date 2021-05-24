@@ -1,12 +1,15 @@
 [tool.poetry]
 name = "4dn-cloud-infra"
-version = "0.2.3"
+version = "0.2.4"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
 authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
+packages = [
+    { include="src" }
+]
 
 [tool.poetry.dependencies]
-python = "3.6"
+python = ">=3.6.10,<3.7"
 troposphere = "^2.6.3"
 boto3 = "^1.15.16"
 botocore = "^1.18.16"
@@ -21,11 +24,17 @@ awacs = "^1.0.2"
 cfn-lint = "^0.48.1"  # a secondary check that catches more things than standard validate - Will 4/1/2021
 submit-cgap = "^0.7.3"
 tibanna = "^1.2.2"
+tqdm = "^4.60.0"
+pytest = "^6.2.4"
 
 [tool.poetry.dev-dependencies]
 
 [tool.poetry.scripts]
+cli = "src.cli:cli"
+load-knowledge-base = "scripts.load_knowledge_base:main"
+queue-ingestion = "scripts.queue_ingestion:main"
 upload-application-version = "scripts.upload_application_version:main"
+upload-file-processed = "scripts.upload_file_processed:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
