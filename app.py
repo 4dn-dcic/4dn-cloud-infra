@@ -124,9 +124,8 @@ def view_route(environ):
     logger.warning('req_dict in /view/{environ}')
     logger.warning(req_dict)
     domain, context = app_utils_obj.get_domain_and_context(req_dict)
-    logger.warning('domain, context in /view/{environ}')
-    logger.warning(domain)
-    logger.warning(context)
+    logger.warning('domain, context in /view/{environ}: {domain}, {context}'.format(
+        environ=environ, domain=domain, context=context))
     check_authorization = app_utils_obj.check_authorization(req_dict, environ)
     logger.warning('result of check authorization: {}'.format(check_authorization))
 
