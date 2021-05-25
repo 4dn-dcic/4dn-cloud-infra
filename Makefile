@@ -10,7 +10,7 @@ alpha:
 	poetry run cli provision ecr --validate --alpha
 	poetry run cli provision logging --validate --alpha
 	poetry run cli provision ecs --validate --alpha
-	poetry run cli provision foursight --validate --alpha
+	# TODO validate foursight
 	# TODO provision Tibanna
 	@echo 'Validation Succeeded! Note that this does NOT mean the stacks will build - consider a "light check".'
 
