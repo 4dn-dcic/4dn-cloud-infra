@@ -124,22 +124,6 @@ def view_route(environ):
     domain, context = app_utils_obj.get_domain_and_context(req_dict)
     check_authorization = app_utils_obj.check_authorization(req_dict, environ)
     logger.warning('result of check authorization: {}'.format(check_authorization))
-
-    # testing the auth
-    import jwt
-    from base64 import b64decode
-    token = app_utils_obj.get_jwt(req_dict)
-    auth0_client = os.environ.get('CLIENT_ID', None)
-    auth0_secret = os.environ.get('CLIENT_SECRET', None)
-    if token:
-        payload = jwt.decode(token, b64decode(auth0_secret, '-_'), audience=auth0_client, leeway=30)
-        for env_info in app_utils_obj.init_environments(environ).values():
-            obj_id = 'users/' + payload.get('email').lower()
-            logger.warning('get_metadata with obj_id: {}, ff_env: {}'.format(obj_id, env_info['ff_env']))
-            user_res = get_metadata(obj_id,
-                                    ff_env=env_info['ff_env'], add_on='frame=object')
-            logger.error(env_info)
-            logger.error(user_res)
     return app_utils_obj.view_foursight(environ, check_authorization, domain, context)
 
 
