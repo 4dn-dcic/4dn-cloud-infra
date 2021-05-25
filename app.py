@@ -142,7 +142,7 @@ def view_route(environ):
             obj_id = 'users/' + payload.get('email').lower()
             logger.warning('get_metadata with obj_id: {}, ff_env: {}'.format(obj_id, env_info['ff_env']))
             user_res = get_metadata(obj_id,
-                                    key=req_dict, add_on='frame=object')
+                                    ff_env=env_info['ff_env'], add_on='frame=object')
             logger.error(env_info)
             logger.error(user_res)
 
