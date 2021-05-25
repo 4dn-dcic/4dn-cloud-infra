@@ -88,5 +88,3 @@ class C4FoursightCGAPStack(BaseC4Stack):
 
         config_dir = dirname(dirname(__file__))
         print(config_dir)
-
-        @
