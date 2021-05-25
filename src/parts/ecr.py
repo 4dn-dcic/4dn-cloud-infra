@@ -1,3 +1,4 @@
+import os
 from troposphere import (
     AccountId,
     Region,
@@ -15,7 +16,8 @@ from awacs.aws import (
     Statement,
 )
 import awacs.ecr as ecr
-from .iam import C4IAMExports
+from src.constants import ENV_NAME
+from src.parts.iam import C4IAMExports
 from src.part import C4Part
 from src.exports import C4Exports
 
@@ -106,10 +108,13 @@ class QCContainerRegistry(C4Part):
 
     def repository(self, name='cgap-mastertest'):
         """ Builds the ECR Repository. """
+        if os.environ.get(ENV_NAME):
+            name = os.environ.get(ENV_NAME)
         return Repository(
-            'cgapdocker',  # must be lowercase
+            'cgapdocker',  # must be lowercase, appears unused?
             RepositoryName=name,  # might be we need many of these?
-            RepositoryPolicyText=self.ecr_access_policy()
+            RepositoryPolicyText=self.ecr_access_policy(),
+            # Tags=self.tags.cost_tag_array(), XXX: bug in troposphere - does not take tags array
         )
 
     def output_repo_url(self, resource: Repository):

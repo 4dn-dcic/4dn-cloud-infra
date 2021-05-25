@@ -18,3 +18,5 @@ log/
 out/
 in/
 secrets.py
+config.json
+test_data/knowledge_base/temp-local-inserts/*
