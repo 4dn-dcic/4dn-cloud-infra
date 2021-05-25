@@ -73,10 +73,13 @@ class C4Stack(BaseC4Stack):
 
 class C4FoursightCGAPStack(BaseC4Stack):
     def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account):
+        self.hardcoded_security_ids = ['sg-03f5fdd36be96bbf4']  # TODO fetch these dynamically
+        self.hardcoded_subnet_ids = ['subnet-09ed0bb672993c7ac', 'subnet-00778b903b357d331']
         super().__init__(description, name, tags, account)
 
     def package(self, args):
-        self.PackageDeploy.build_config_and_package(args)
+        self.PackageDeploy.build_config_and_package(
+            args, security_ids=self.hardcoded_security_ids, subnet_ids=self.hardcoded_subnet_ids)
 
     class PackageDeploy(PackageDeploy_from_cgap):
 
@@ -85,3 +88,5 @@ class C4FoursightCGAPStack(BaseC4Stack):
 
         config_dir = dirname(dirname(__file__))
         print(config_dir)
+
+        @
