@@ -1,4 +1,5 @@
 from src.part import C4Name, C4Tags, C4Account, C4Part
+from src.secrets import S3_ENCRYPT_KEY, Auth0Secret, Auth0Client, ENCODED_ES_HOST, ENCODED_SECRET
 from chalicelib.package import PackageDeploy as PackageDeploy_from_cgap
 from troposphere import Template
 from os.path import dirname
@@ -75,11 +76,21 @@ class C4FoursightCGAPStack(BaseC4Stack):
     def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account):
         self.hardcoded_security_ids = ['sg-03f5fdd36be96bbf4']  # TODO fetch these dynamically
         self.hardcoded_subnet_ids = ['subnet-09ed0bb672993c7ac', 'subnet-00778b903b357d331']
+        self.trial_creds = {
+            'S3_ENCRYPT_KEY': S3_ENCRYPT_KEY,
+            'CLIENT_ID': Auth0Client,
+            'CLIENT_SECRET': Auth0Secret,
+            'DEV_SECRET': ENCODED_SECRET,
+            'ES_HOST': ENCODED_ES_HOST,
+        }
         super().__init__(description, name, tags, account)
 
     def package(self, args):
         self.PackageDeploy.build_config_and_package(
-            args, security_ids=self.hardcoded_security_ids, subnet_ids=self.hardcoded_subnet_ids)
+            args,
+            security_ids=self.hardcoded_security_ids,
+            subnet_ids=self.hardcoded_subnet_ids,
+            trial_creds=self.trial_creds)
 
     class PackageDeploy(PackageDeploy_from_cgap):
 
