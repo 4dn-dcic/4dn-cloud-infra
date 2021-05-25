@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "4dn-cloud-infra"
-version = "0.2.4"
+version = "0.2.5"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
 authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
@@ -35,6 +35,7 @@ load-knowledge-base = "scripts.load_knowledge_base:main"
 queue-ingestion = "scripts.queue_ingestion:main"
 upload-application-version = "scripts.upload_application_version:main"
 upload-file-processed = "scripts.upload_file_processed:main"
+deploy-ecs = "scripts.deploy_ecs:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
