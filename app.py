@@ -41,7 +41,7 @@ class AppUtils(AppUtils_from_cgap):
     FAVICON = 'https://cgap.hms.harvard.edu/static/img/favicon-fs.ico'
     host = HOST
     package_name = 'chalicelib'
-    check_setup_dir = os.path.dirname(__file__)  # This file is at top level in this repo
+    check_setup_dir = './4dn-cloud-infra'  # This file is at top level in this repo
     html_main_title = 'Foursight-CGAP-Mastertest'
 
 
