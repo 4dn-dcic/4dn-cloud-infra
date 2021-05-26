@@ -1,15 +1,117 @@
 {
-  "elastic_beanstalk_health": {
-    "title": "Elastic Beanstalk health",
-    "group": "System checks",
-    "schedule": {
-      "manual_checks": {
-        "all": {}
-      }
-    },
-    "display": [
-      "cgap-mastertest"
-    ]
+  "item_counts_by_type": {
+        "title": "Item counts by type",
+        "group": "Metadata checks",
+        "display": [
+          "cgap-mastertest"
+        ]
+  },
+  "indexing_progress": {
+        "title": "Indexing progress",
+        "group": "Elasticsearch checks",
+        "display": [
+          "cgap-mastertest"
+        ]
+  },
+  "status_of_elasticsearch_indices": {
+        "title": "Status of elasticsearch indices",
+        "group": "Elasticsearch checks",
+        "conditions": ["put_env"],
+        "display": [
+          "cgap-mastertest"
+        ]
+  },
+  "indexing_records": {
+        "title": "Indexing records",
+        "group": "Elasticsearch checks",
+        "conditions": ["put_env"],
+        "display": [
+          "cgap-mastertest"
+        ]
+  },
+  "change_in_item_counts": {
+        "title": "Change in item counts",
+        "group": "Metadata checks",
+        "display": [
+          "cgap-mastertest"
+        ]
+
+  },
+  "page_children_routes": {
+        "title": "Pages with bad routes",
+        "group": "Audit checks",
+
+  },
+  "workflow_properties": {
+        "title": "Workflows with missing or duplicate steps properties",
+        "group": "Audit checks",
+        "display": [
+          "cgap-mastertest"
+        ]
+  },
+  "check_validation_errors": {
+        "title": "Search for Validation Errors",
+        "group": "Audit checks",
+        "display": [
+          "cgap-mastertest"
+        ]
+  },
+  "check_suggested_enum_values": {
+        "title": "Check fields with suggested enum",
+        "group": "Metadata checks",
+        "display": [
+          "cgap-mastertest"
+        ]
+  },
+  "ingest_vcf_status" : {
+        "title": "d) CGAP trigger VCF ingestion",
+        "group": "Pipeline checks",
+        "display": [
+          "cgap-mastertest"
+        ]
+  },
+  "elastic_search_space" : {
+        "title": "ES Disk Space Check",
+        "group": "Elasticsearch checks",
+        "display": [
+          "cgap-mastertest"
+        ]
+  },
+  "elasticsearch_s3_count_diff" : {
+        "title": "S3/ES Check Count Differential",
+        "group": "Elasticsearch checks",
+        "schedule" : {
+            "morning_checks": {
+                "cgapdev": {
+                    "kwargs": {"primary": true}
+                }
+            }
+        }
+  },
+  "clean_s3_es_checks" : {
+        "title": "Wipe Checks Older Than One Month",
+        "group": "System checks",
+        "schedule": {},
+        "display": [
+          "cgap-mastertest"
+        ]
+  },
+  "core_project_status":{
+        "title": "Ensure CGAP Core project items are shared",
+        "group": "Metadata checks",
+        "schedule": {
+            "morning_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {
+                        "primary": true,
+                        "item_type": ["VariantSample", "Case", "Family",
+                            "Individual", "WorkflowRun", "FileFastq",
+                            "FileProcessed", "Sample", "SampleProcessing",
+                            "Report", "QualityMetric", "FilterSet"]
+                    }
+                }
+            }
+        }
   }
 }
 

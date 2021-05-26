@@ -5,8 +5,6 @@ from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming conven
 from chalice import Chalice, Response, Cron
 from foursight_core.deploy import Deploy
 from dcicutils.misc_utils import environ_bool
-from dcicutils.ff_utils import get_metadata
-import traceback
 
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(levelname)-8s %(message)s')
@@ -18,20 +16,17 @@ if DEBUG_CHALICE:
     logger.warning('debug mode on...')
 
 
+######################
+# Foursight App Config
+######################
+
+
 # Minimal app.py; used to initially verify packaging scripts
 app = Chalice(app_name='foursight_cgap_trial')
-
-
-# XXX: acquire through args?
-# This info corresponds to what is normally in chalicelib/vars.py
+STAGE = os.environ.get('chalice_stage', 'dev')
 HOST = os.environ.get('ES_HOST', None)
 FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'
 DEFAULT_ENV = 'cgap-mastertest'
-
-
-def effectively_never():
-    """Every February 31st, a.k.a. 'never'."""
-    return Cron('0', '0', '31', '2', '?', '*')
 
 
 # This object usually in chalicelib/app_utils.py
@@ -55,9 +50,42 @@ if DEBUG_CHALICE:
     logger.warning('got app utils object')
 
 
-@app.schedule(effectively_never())
+######################
+# Foursight Scheduling
+######################
+
+
+def effectively_never():
+    """Every February 31st, a.k.a. 'never'."""
+    return Cron('0', '0', '31', '2', '?', '*')
+
+
+def morning_10am_utc():
+    """ Schedule for every morning at 10AM UTC (6AM EST) """
+    return Cron('0', '10', '*', '*', '?', '*')
+
+
+foursight_cron_by_schedule = {
+    'dev': {
+        'morning_checks': morning_10am_utc(),
+        'manual_checks': effectively_never()
+    }
+}
+
+
+@app.schedule(foursight_cron_by_schedule[STAGE]['manual_checks'])
 def manual_checks():
     app_utils_obj.queue_scheduled_checks('all', 'manual_checks')
+
+
+@app.schedule(foursight_cron_by_schedule[STAGE]['morning_checks'])
+def morning_checks(event):
+    app_utils_obj.queue_scheduled_checks('all', 'morning_checks')
+
+
+###############################
+# Foursight Route Configuration
+###############################
 
 
 @app.route('/callback')
@@ -240,7 +268,9 @@ def delete_environment(environ):
         return app_utils_obj.forbidden_response()
 
 
-######### PURE LAMBDA FUNCTIONS #########
+#######################
+# Pure lambda functions
+#######################
 
 @app.lambda_function()
 def check_runner(event, context):
@@ -254,7 +284,9 @@ def check_runner(event, context):
     app_utils_obj.run_check_runner(event)
 
 
-######### MISC UTILITY FUNCTIONS #########
+########################
+# Misc utility functions
+########################
 
 
 def set_stage(stage):
