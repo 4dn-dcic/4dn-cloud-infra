@@ -1,6 +1,6 @@
-===========
-Deploy Docs
-===========
+=======================
+Deploying a New Account
+=======================
 Provisioning A C4 Cloud Infra Account From Scratch
 --------------------------------------------------
 
