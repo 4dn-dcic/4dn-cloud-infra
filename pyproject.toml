@@ -13,7 +13,7 @@ python = ">=3.6.10,<3.7"
 troposphere = "^2.6.3"
 boto3 = "^1.15.16"
 botocore = "^1.18.16"
-dcicutils = "1.16.0.1b3"  # this version is the min as it contains first iteration of related utils
+dcicutils = "1.16.0.1b5"  # this version is the min as it contains first iteration of related utils
 google-api-core = "^1.23.0"
 google-api-python-client = "^1.12.5"
 google-auth = "^1.23.0"
@@ -22,7 +22,7 @@ google-auth-oauthlib = "^0.4.2"
 googleapis-common-protos = "^1.52.0"
 awacs = "^1.0.2"
 cfn-lint = "^0.48.1"  # a secondary check that catches more things than standard validate - Will 4/1/2021
-foursight-cgap = "0.4.9.1b14"
+foursight-cgap = "0.4.9.1b17"
 foursight-core = "0.1.9.1b30"
 submit-cgap = "^0.7.3"
 tibanna = "^1.2.2"

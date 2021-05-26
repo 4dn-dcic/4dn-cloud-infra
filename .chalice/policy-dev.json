@@ -9,7 +9,8 @@
         "sqs:*",
         "es:*",
         "rds:*",
-        "ec2:*"
+        "ec2:*",
+        "ecs:*"
       ],
       "Resource": [
         "*"
@@ -27,13 +28,23 @@
       "Effect": "Allow"
     },
     {
-      "Action": [
-        "iam:AddRoleToInstanceProfile",
-        "iam:GetRole",
-        "iam:PassRole"
-      ],
-      "Resource": "arn:aws:iam::645819926742:role/S3Roll",
-      "Effect": "Allow"
-    }
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+                "ec2:CreateNetworkInterface",
+                "ec2:DescribeNetworkInterfaces",
+                "ec2:DeleteNetworkInterface",
+                "ec2:AssignPrivateIpAddresses",
+                "ec2:UnassignPrivateIpAddresses"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
   ]
 }
