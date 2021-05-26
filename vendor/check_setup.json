@@ -2,6 +2,15 @@
   "item_counts_by_type": {
         "title": "Item counts by type",
         "group": "Metadata checks",
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {
+                        "primary": true
+                    }
+                }
+            }
+        },
         "display": [
           "cgap-mastertest"
         ]
@@ -9,6 +18,15 @@
   "indexing_progress": {
         "title": "Indexing progress",
         "group": "Elasticsearch checks",
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {
+                        "primary": true
+                    }
+                }
+            }
+        },
         "display": [
           "cgap-mastertest"
         ]
@@ -17,6 +35,15 @@
         "title": "Status of elasticsearch indices",
         "group": "Elasticsearch checks",
         "conditions": ["put_env"],
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {
+                        "primary": true
+                    }
+                }
+            }
+        },
         "display": [
           "cgap-mastertest"
         ]
@@ -25,6 +52,15 @@
         "title": "Indexing records",
         "group": "Elasticsearch checks",
         "conditions": ["put_env"],
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {
+                        "primary": true
+                    }
+                }
+            }
+        },
         "display": [
           "cgap-mastertest"
         ]
@@ -32,6 +68,15 @@
   "change_in_item_counts": {
         "title": "Change in item counts",
         "group": "Metadata checks",
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {
+                        "primary": true
+                    }
+                }
+            }
+        },
         "display": [
           "cgap-mastertest"
         ]
@@ -39,6 +84,15 @@
   "page_children_routes": {
         "title": "Pages with bad routes",
         "group": "Audit checks",
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {
+                        "primary": true
+                    }
+                }
+            }
+        },
         "display": [
           "cgap-mastertest"
         ]
@@ -46,6 +100,15 @@
   "workflow_properties": {
         "title": "Workflows with missing or duplicate steps properties",
         "group": "Audit checks",
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {
+                        "primary": true
+                    }
+                }
+            }
+        },
         "display": [
           "cgap-mastertest"
         ]
@@ -53,6 +116,15 @@
   "check_validation_errors": {
         "title": "Search for Validation Errors",
         "group": "Audit checks",
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {
+                        "primary": true
+                    }
+                }
+            }
+        },
         "display": [
           "cgap-mastertest"
         ]
@@ -60,6 +132,15 @@
   "check_suggested_enum_values": {
         "title": "Check fields with suggested enum",
         "group": "Metadata checks",
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {
+                        "primary": true
+                    }
+                }
+            }
+        },
         "display": [
           "cgap-mastertest"
         ]
@@ -67,6 +148,15 @@
   "ingest_vcf_status" : {
         "title": "d) CGAP trigger VCF ingestion",
         "group": "Pipeline checks",
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {
+                        "primary": true
+                    }
+                }
+            }
+        },
         "display": [
           "cgap-mastertest"
         ]
@@ -74,6 +164,15 @@
   "elastic_search_space" : {
         "title": "ES Disk Space Check",
         "group": "Elasticsearch checks",
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {
+                        "primary": true
+                    }
+                }
+            }
+        },
         "display": [
           "cgap-mastertest"
         ]
@@ -83,7 +182,7 @@
         "group": "Elasticsearch checks",
         "schedule" : {
             "morning_checks": {
-                "cgapdev": {
+                "cgap-mastertest": {
                     "kwargs": {"primary": true}
                 }
             }
@@ -92,7 +191,15 @@
   "clean_s3_es_checks" : {
         "title": "Wipe Checks Older Than One Month",
         "group": "System checks",
-        "schedule": {},
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {
+                        "primary": true
+                    }
+                }
+            }
+        },
         "display": [
           "cgap-mastertest"
         ]
