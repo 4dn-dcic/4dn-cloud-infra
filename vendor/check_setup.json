@@ -219,8 +219,58 @@
                     }
                 }
             }
-        }
-  }
+        },
+        "display": [
+            "cgap-mastertest"
+        ]
+  },
+  "workflow_run_has_deleted_input_file": {
+        "title": "WorkflowRun linked to deleted Files",
+        "group": "Metadata checks",
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {"primary": true},
+                    "dependencies": []
+                }
+            }
+        },
+        "display": [
+            "cgap-mastertest"
+        ]
+  },
+  "update_variant_genelist":{
+        "title": "Add gene lists to variants/variant samples",
+        "group": "Metadata checks",
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {
+                        "primary": true,
+                        "queue_action": "prod"
+                    }
+                }
+            }
+        },
+        "display": [
+            "cgap-mastertest"
+        ]
+  },
+   "long_running_wfrs_status" : {
+        "title": "x) Long Running Runs",
+        "group": "Pipeline checks",
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {"primary": true},
+                    "dependencies": []
+                }
+            }
+        },
+        "display": [
+            "cgap-mastertest"
+        ]
+    }
 }
 
 
