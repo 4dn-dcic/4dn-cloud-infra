@@ -35,12 +35,13 @@
         "display": [
           "cgap-mastertest"
         ]
-
   },
   "page_children_routes": {
         "title": "Pages with bad routes",
         "group": "Audit checks",
-
+        "display": [
+          "cgap-mastertest"
+        ]
   },
   "workflow_properties": {
         "title": "Workflows with missing or duplicate steps properties",
