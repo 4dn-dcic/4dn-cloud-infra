@@ -278,20 +278,20 @@ class C4Network(C4Part):
 
     def public_subnet_a(self) -> Subnet:
         """ Define public subnet A """
-        return self.build_subnet('PublicSubnetA', '10.2.5.0/24', self.virtual_private_cloud(), 'us-east-1a')
+        return self.build_subnet('PublicSubnetA', '10.2.5.0/16', self.virtual_private_cloud(), 'us-east-1a')
 
     def public_subnet_b(self) -> Subnet:
         """ Define public subnet B """
-        return self.build_subnet('PublicSubnetB', '10.2.7.0/24', self.virtual_private_cloud(), 'us-east-1b')
+        return self.build_subnet('PublicSubnetB', '10.2.7.0/16', self.virtual_private_cloud(), 'us-east-1b')
 
     def private_subnet_a(self) -> Subnet:
         """ Define private subnet A """
-        return self.build_subnet('PrivateSubnetA', '10.2.6.0/24', self.virtual_private_cloud(),
+        return self.build_subnet('PrivateSubnetA', '10.2.6.0/16', self.virtual_private_cloud(),
                                  'us-east-1a')
 
     def private_subnet_b(self) -> Subnet:
         """ Define private subnet B """
-        return self.build_subnet('PrivateSubnetB', '10.2.8.0/24', self.virtual_private_cloud(),
+        return self.build_subnet('PrivateSubnetB', '10.2.8.0/16', self.virtual_private_cloud(),
                                  'us-east-1b')
 
     def subnet_outputs(self) -> [Output]:
