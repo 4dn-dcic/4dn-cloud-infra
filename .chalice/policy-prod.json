@@ -10,6 +10,7 @@
         "es:*",
         "rds:*",
         "ec2:*",
+        "ecs:*",
         "logs:*",
         "cloudformation:*",
         "cloudwatch:*",
@@ -30,15 +31,6 @@
         "logs:PutLogEvents"
       ],
       "Resource": "arn:aws:logs:*:*:*",
-      "Effect": "Allow"
-    },
-    {
-      "Action": [
-        "iam:AddRoleToInstanceProfile",
-        "iam:GetRole",
-        "iam:PassRole"
-      ],
-      "Resource": "arn:aws:iam::645819926742:role/S3Roll",
       "Effect": "Allow"
     }
   ]
