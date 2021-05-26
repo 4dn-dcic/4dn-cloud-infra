@@ -1,0 +1,22 @@
+{
+  "md5sum": "984952166bf48c9cfa3914ed3e209e1e",
+  "status": "uploaded",
+  "project": "12a92962-8265-4fc0-b2f8-cf14f05db58b",
+  "accession": "GAPFI9V6TEQA",
+  "file_size": 6248799,
+  "file_type": "full annotated VCF",
+  "description": "full annotated VCF file",
+  "file_format": "0cd4e777-a596-4927-95c8-b07716121aa5",
+  "institution": "828cd4fe-ebb0-4b36-a94a-d2e3a36cc989",
+  "date_created": "2021-02-03T23:33:01.670737+00:00",
+  "submitted_by": "b041dba8-e2b2-4e54-a621-97edb508a0c4",
+  "last_modified": {
+    "modified_by": "b041dba8-e2b2-4e54-a621-97edb508a0c4",
+    "date_modified": "2021-02-03T23:38:26.242010+00:00"
+    },
+  "source_samples": [],
+  "genome_assembly": "GRCh38",
+  "file_classification": "processed file",
+  "file_ingestion_status": "Waiting",
+  "uuid": "3535ce97-b8e6-4ed2-b4fc-dcab7aebcc0f"
+}

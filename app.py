@@ -1,15 +1,10 @@
 import os
 import json
 import logging
-# from chalicelib.app import app
-# from chalicelib.app import DEFAULT_ENV
 from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
-# from chalicelib.vars import FOURSIGHT_PREFIX
 from chalice import Chalice, Response, Cron
 from foursight_core.deploy import Deploy
 from dcicutils.misc_utils import environ_bool
-from dcicutils.ff_utils import get_metadata
-import traceback
 
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(levelname)-8s %(message)s')
@@ -21,28 +16,28 @@ if DEBUG_CHALICE:
     logger.warning('debug mode on...')
 
 
+######################
+# Foursight App Config
+######################
+
+
 # Minimal app.py; used to initially verify packaging scripts
 app = Chalice(app_name='foursight_cgap_trial')
-
-
-# XXX: acquire through args?
+STAGE = os.environ.get('chalice_stage', 'dev')
 HOST = os.environ.get('ES_HOST', None)
 FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'
 DEFAULT_ENV = 'cgap-mastertest'
 
 
-def effectively_never():
-    """Every February 31st, a.k.a. 'never'."""
-    return Cron('0', '0', '31', '2', '?', '*')
-
-
+# This object usually in chalicelib/app_utils.py
 class AppUtils(AppUtils_from_cgap):
     # overwriting parent class
     prefix = FOURSIGHT_PREFIX
     FAVICON = 'https://cgap.hms.harvard.edu/static/img/favicon-fs.ico'
     host = HOST
     package_name = 'chalicelib'
-    # check_setup_dir = dirname(__file__)  # This file is present in chalicelib
+    # check_setup is moved to vendor/ where it will be automatically placed at top level
+    check_setup_dir = os.path.dirname(__file__)
     html_main_title = 'Foursight-CGAP-Mastertest'
 
 
@@ -55,9 +50,42 @@ if DEBUG_CHALICE:
     logger.warning('got app utils object')
 
 
-@app.schedule(effectively_never())
+######################
+# Foursight Scheduling
+######################
+
+
+def effectively_never():
+    """Every February 31st, a.k.a. 'never'."""
+    return Cron('0', '0', '31', '2', '?', '*')
+
+
+def morning_10am_utc():
+    """ Schedule for every morning at 10AM UTC (6AM EST) """
+    return Cron('0', '10', '*', '*', '?', '*')
+
+
+foursight_cron_by_schedule = {
+    'dev': {
+        'morning_checks': morning_10am_utc(),
+        'manual_checks': effectively_never()
+    }
+}
+
+
+@app.schedule(foursight_cron_by_schedule[STAGE]['manual_checks'])
 def manual_checks():
     app_utils_obj.queue_scheduled_checks('all', 'manual_checks')
+
+
+@app.schedule(foursight_cron_by_schedule[STAGE]['morning_checks'])
+def morning_checks(event):
+    app_utils_obj.queue_scheduled_checks('all', 'morning_checks')
+
+
+###############################
+# Foursight Route Configuration
+###############################
 
 
 @app.route('/callback')
@@ -121,30 +149,9 @@ def view_route(environ):
     Non-protected route
     """
     req_dict = app.current_request.to_dict()
-    logger.warning('req_dict in /view/{environ}')
-    logger.warning(req_dict)
     domain, context = app_utils_obj.get_domain_and_context(req_dict)
-    logger.warning('domain, context in /view/{environ}: {domain}, {context}'.format(
-        environ=environ, domain=domain, context=context))
     check_authorization = app_utils_obj.check_authorization(req_dict, environ)
     logger.warning('result of check authorization: {}'.format(check_authorization))
-
-    # testing the auth
-    import jwt
-    from base64 import b64decode
-    token = app_utils_obj.get_jwt(req_dict)
-    auth0_client = os.environ.get('CLIENT_ID', None)
-    auth0_secret = os.environ.get('CLIENT_SECRET', None)
-    if token:
-        payload = jwt.decode(token, b64decode(auth0_secret, '-_'), audience=auth0_client, leeway=30)
-        for env_info in app_utils_obj.init_environments(environ).values():
-            obj_id = 'users/' + payload.get('email').lower()
-            logger.warning('get_metadata with obj_id: {}, ff_env: {}'.format(obj_id, env_info['ff_env']))
-            user_res = get_metadata(obj_id,
-                                    ff_env=env_info['ff_env'], add_on='frame=object')
-            logger.error(env_info)
-            logger.error(user_res)
-
     return app_utils_obj.view_foursight(environ, check_authorization, domain, context)
 
 
@@ -261,7 +268,9 @@ def delete_environment(environ):
         return app_utils_obj.forbidden_response()
 
 
-######### PURE LAMBDA FUNCTIONS #########
+#######################
+# Pure lambda functions
+#######################
 
 @app.lambda_function()
 def check_runner(event, context):
@@ -275,7 +284,9 @@ def check_runner(event, context):
     app_utils_obj.run_check_runner(event)
 
 
-######### MISC UTILITY FUNCTIONS #########
+########################
+# Misc utility functions
+########################
 
 
 def set_stage(stage):

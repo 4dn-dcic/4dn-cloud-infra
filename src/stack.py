@@ -1,6 +1,7 @@
 from src.part import C4Name, C4Tags, C4Account, C4Part
-from src.secrets import S3_ENCRYPT_KEY, Auth0Secret, Auth0Client, ENCODED_ES_HOST, ENCODED_SECRET
+from src.secrets import S3_ENCRYPT_KEY, Auth0Secret, Auth0Client, ENCODED_ES_SERVER, ENCODED_SECRET
 from chalicelib.package import PackageDeploy as PackageDeploy_from_cgap
+from src.constants import CHECK_RUNNER
 from troposphere import Template
 from os.path import dirname
 import os
@@ -81,7 +82,7 @@ class C4FoursightCGAPStack(BaseC4Stack):
             'CLIENT_ID': Auth0Client,
             'CLIENT_SECRET': Auth0Secret,
             'DEV_SECRET': ENCODED_SECRET,
-            'ES_HOST': ENCODED_ES_HOST,
+            'ES_HOST': ENCODED_ES_SERVER,
         }
         super().__init__(description, name, tags, account)
 
@@ -90,7 +91,8 @@ class C4FoursightCGAPStack(BaseC4Stack):
             args,
             security_ids=self.hardcoded_security_ids,
             subnet_ids=self.hardcoded_subnet_ids,
-            trial_creds=self.trial_creds)
+            trial_creds=self.trial_creds,
+            check_runner=os.environ.get(CHECK_RUNNER))
 
     class PackageDeploy(PackageDeploy_from_cgap):
 

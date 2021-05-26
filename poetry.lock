@@ -263,11 +263,11 @@ webtest = ">=2.0.34,<3.0.0"
 
 [[package]]
 name = "decorator"
-version = "5.0.9"
+version = "4.4.2"
 description = "Decorators for Humans"
 category = "main"
 optional = false
-python-versions = ">=3.5"
+python-versions = ">=2.6, !=3.0.*, !=3.1.*"
 
 [[package]]
 name = "docker"
@@ -328,7 +328,7 @@ develop = ["mock", "pytest (>=3.0.0)", "pytest-cov", "pytz", "coverage (<5.0.0)"
 
 [[package]]
 name = "foursight-cgap"
-version = "0.4.9.1b13"
+version = "0.4.9.1b14"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -336,7 +336,7 @@ python-versions = ">=3.6,<3.7"
 
 [package.dependencies]
 click = ">=7.1.2,<8.0.0"
-dcicutils = ">=1.7.0,<2.0.0"
+dcicutils = ">=1.14.1,<2.0.0"
 elasticsearch = ">=6.8.1,<7.0.0"
 elasticsearch-dsl = ">=6.4.0,<7.0.0"
 foursight-core = ">=0.1.9.1b11,<0.2.0.0"
@@ -353,7 +353,7 @@ pytz = ">=2020.1,<2021.0"
 
 [[package]]
 name = "foursight-core"
-version = "0.1.9.1b14"
+version = "0.1.9.1b30"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -699,14 +699,14 @@ python-versions = "*"
 
 [[package]]
 name = "networkx"
-version = "2.5"
+version = "2.5.1"
 description = "Python package for creating and manipulating graphs and networks"
 category = "main"
 optional = false
 python-versions = ">=3.6"
 
 [package.dependencies]
-decorator = ">=4.3.0"
+decorator = ">=4.3,<5"
 
 [package.extras]
 all = ["numpy", "scipy", "pandas", "matplotlib", "pygraphviz", "pydot", "pyyaml", "lxml", "pytest"]
@@ -1080,6 +1080,19 @@ optional = false
 python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
 
 [[package]]
+name = "tqdm"
+version = "4.61.0"
+description = "Fast, Extensible Progress Meter"
+category = "main"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,>=2.7"
+
+[package.extras]
+dev = ["py-make (>=0.1.0)", "twine", "wheel"]
+notebook = ["ipywidgets (>=6)"]
+telegram = ["requests"]
+
+[[package]]
 name = "troposphere"
 version = "2.7.1"
 description = "AWS CloudFormation creation library"
@@ -1202,8 +1215,8 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=1.2.3)", "pytest-flake8", "pyt
 
 [metadata]
 lock-version = "1.1"
-python-versions = "3.6"
-content-hash = "560eb472cdd803ff4f05414bdf84afe47eda649389715f2e9895b41dc4a9db4a"
+python-versions = ">=3.6.10,<3.7"
+content-hash = "1fcdf592f1ec0bc89589c6de6efc7acc57c8a99da0d406d15a4a250f08396584"
 
 [metadata.files]
 ansicon = [
@@ -1292,8 +1305,8 @@ dcicutils = [
     {file = "dcicutils-1.16.0.1b3.tar.gz", hash = "sha256:bfe777237367bac1e965cdfd2a8450257ac98642a613c6f332a0aa581fb965f4"},
 ]
 decorator = [
-    {file = "decorator-5.0.9-py3-none-any.whl", hash = "sha256:6e5c199c16f7a9f0e3a61a4a54b3d27e7dad0dbdde92b944426cb20914376323"},
-    {file = "decorator-5.0.9.tar.gz", hash = "sha256:72ecfba4320a893c53f9706bebb2d55c270c1e51a28789361aa93e4a21319ed5"},
+    {file = "decorator-4.4.2-py2.py3-none-any.whl", hash = "sha256:41fa54c2a0cc4ba648be4fd43cff00aedf5b9465c9bf18d64325bc225f08f760"},
+    {file = "decorator-4.4.2.tar.gz", hash = "sha256:e3a62f0520172440ca0dcc823749319382e377f37f140a0b99ef45fecb84bfe7"},
 ]
 docker = [
     {file = "docker-4.4.4-py2.py3-none-any.whl", hash = "sha256:f3607d5695be025fa405a12aca2e5df702a57db63790c73b927eb6a94aac60af"},
@@ -1313,12 +1326,12 @@ elasticsearch-dsl = [
     {file = "elasticsearch_dsl-6.4.0-py2.py3-none-any.whl", hash = "sha256:f60aea7fd756ac1fbe7ce114bbf4949aefbf495dfe8896640e787c67344f12f6"},
 ]
 foursight-cgap = [
-    {file = "foursight-cgap-0.4.9.1b13.tar.gz", hash = "sha256:d877a4fc61d854e06628e2c51adc8ebc339797b3210a8e5a3d2de997fabd623f"},
-    {file = "foursight_cgap-0.4.9.1b13-py3-none-any.whl", hash = "sha256:11b199bd2bf377e762582d07988548f142073c757ddb4df82ddf0899b1465d43"},
+    {file = "foursight-cgap-0.4.9.1b14.tar.gz", hash = "sha256:18d441a3575f043be298736ac5b2cd7b08accf3c8ee00287c6b897617c096833"},
+    {file = "foursight_cgap-0.4.9.1b14-py3-none-any.whl", hash = "sha256:87c55cde6e3cdac575cf7ba14d0743f18226af70b48616aa6f581e52214f98a1"},
 ]
 foursight-core = [
-    {file = "foursight_core-0.1.9.1b14-py3-none-any.whl", hash = "sha256:f06f4f41e3c1eb96a62521addefd7966406976b75b579345d4106f658b004e0c"},
-    {file = "foursight_core-0.1.9.1b14.tar.gz", hash = "sha256:cc7c66689716f65ae6931e6c4cbbc9072e3c2646b288e685f3f40fea6b34eefa"},
+    {file = "foursight_core-0.1.9.1b30-py3-none-any.whl", hash = "sha256:bc39ab88f8a8a39992299e162b4c02021e3492cb2881c3ebf2bfe3e3fd263407"},
+    {file = "foursight_core-0.1.9.1b30.tar.gz", hash = "sha256:057d0903e6aa866bc3347a132fa202bec239eab2f3ed9744bbed3088b54ddac8"},
 ]
 future = [
     {file = "future-0.18.2.tar.gz", hash = "sha256:b1bead90b70cf6ec3f0710ae53a525360fa360d306a86583adc6bf83a4db537d"},
@@ -1473,8 +1486,8 @@ mypy-extensions = [
     {file = "mypy_extensions-0.4.3.tar.gz", hash = "sha256:2d82818f5bb3e369420cb3c4060a7970edba416647068eb4c5343488a6c604a8"},
 ]
 networkx = [
-    {file = "networkx-2.5-py3-none-any.whl", hash = "sha256:8c5812e9f798d37c50570d15c4a69d5710a18d77bafc903ee9c5fba7454c616c"},
-    {file = "networkx-2.5.tar.gz", hash = "sha256:7978955423fbc9639c10498878be59caf99b44dc304c2286162fd24b458c1602"},
+    {file = "networkx-2.5.1-py3-none-any.whl", hash = "sha256:0635858ed7e989f4c574c2328380b452df892ae85084144c73d8cd819f0c4e06"},
+    {file = "networkx-2.5.1.tar.gz", hash = "sha256:109cd585cac41297f71103c3c42ac6ef7379f29788eb54cb751be5a663bb235a"},
 ]
 oauthlib = [
     {file = "oauthlib-3.1.0-py2.py3-none-any.whl", hash = "sha256:df884cd6cbe20e32633f1db1072e9356f53638e4361bef4e8b03c9127c9328ea"},
@@ -1687,6 +1700,10 @@ tibanna = [
 toml = [
     {file = "toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"},
     {file = "toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f"},
+]
+tqdm = [
+    {file = "tqdm-4.61.0-py2.py3-none-any.whl", hash = "sha256:736524215c690621b06fc89d0310a49822d75e599fcd0feb7cc742b98d692493"},
+    {file = "tqdm-4.61.0.tar.gz", hash = "sha256:cd5791b5d7c3f2f1819efc81d36eb719a38e0906a7380365c556779f585ea042"},
 ]
 troposphere = [
     {file = "troposphere-2.7.1.tar.gz", hash = "sha256:ea2e5f2f82c224eaa1414a008b1939aae124c3e3e1dd993301968f155b333bd7"},

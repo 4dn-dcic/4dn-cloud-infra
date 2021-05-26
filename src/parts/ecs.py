@@ -1,3 +1,4 @@
+import os
 from troposphere import (
     Parameter,
     Join,
@@ -23,7 +24,16 @@ from troposphere.ecs import (
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
-from troposphere.applicationautoscaling import ScalableTarget, ScalingPolicy, PredefinedMetricSpecification, TargetTrackingScalingPolicyConfiguration
+from troposphere.applicationautoscaling import (
+    ScalableTarget, ScalingPolicy, PredefinedMetricSpecification,
+    TargetTrackingScalingPolicyConfiguration,
+)
+from src.constants import (
+    ENV_NAME,
+    ECS_WSGI_COUNT, ECS_WSGI_CPU, ECS_WSGI_MEM,
+    ECS_INDEXER_COUNT, ECS_INDEXER_CPU, ECS_INDEXER_MEM,
+    ECS_INGESTER_COUNT, ECS_INGESTER_CPU, ECS_INGESTER_MEM
+)
 from src.part import C4Part
 from src.parts.network import C4NetworkExports, C4Network
 from src.parts.ecr import C4ECRExports
@@ -47,7 +57,7 @@ class C4ECSApplication(C4Part):
     IAM_EXPORTS = C4IAMExports()
     LOGGING_EXPORTS = C4LoggingExports()
     AMI = 'ami-0be13a99cd970f6a9'  # latest amazon linux 2 ECS optimized
-    LB_NAME = 'ECSApplicationLoadBalancer'
+    LB_NAME = 'AppLB'
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
@@ -79,8 +89,6 @@ class C4ECSApplication(C4Part):
         # ECS Params
         template.add_parameter(self.ecs_web_worker_port())
         # template.add_parameter(self.ecs_lb_certificate())  # TODO must be provisioned
-        template.add_parameter(self.ecs_web_worker_memory())
-        template.add_parameter(self.ecs_web_worker_cpu())
 
         # ECS
         template.add_resource(self.ecs_cluster())
@@ -120,12 +128,12 @@ class C4ECSApplication(C4Part):
         template.add_output(self.output_application_url())
         return template
 
-    @staticmethod
-    def ecs_cluster() -> Cluster:
+    def ecs_cluster(self) -> Cluster:
         """ Creates an ECS cluster for use with this portal deployment. """
         return Cluster(
-            'CGAPDockerCluster',
-            CapacityProviders=['FARGATE', 'FARGATE_SPOT']
+            os.environ.get(ENV_NAME, 'CGAPDockerCluster').replace('-', ''),  # Fallback, but should always be set
+            CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
+            # Tags=self.tags.cost_tag_array() XXX: bug in troposphere - does not take tags array
         )
 
     @staticmethod
@@ -168,7 +176,8 @@ class C4ECSApplication(C4Part):
                     ToPort=22,
                     CidrIp=C4Network.CIDR_BLOCK,
                 ),
-            ]
+            ],
+            Tags=self.tags.cost_tag_array()
         )
 
     def ecs_lb_security_group(self) -> SecurityGroup:
@@ -193,6 +202,7 @@ class C4ECSApplication(C4Part):
                     CidrIp='0.0.0.0/0',
                 ),
             ],
+            Tags=self.tags.cost_tag_array()
         )
 
     def ecs_application_load_balancer_listener(self, target_group: elbv2.TargetGroup) -> elbv2.Listener:
@@ -209,7 +219,10 @@ class C4ECSApplication(C4Part):
 
     def ecs_application_load_balancer(self) -> elbv2.LoadBalancer:
         """ Application load balancer for the WSGI ECS Task. """
-        logical_id = self.name.logical_id('ECSCGAPLB')
+        env_identifier = os.environ.get(ENV_NAME).replace('-', '')
+        if not env_identifier:
+            raise Exception('Did not set required key in .env! Should never get here.')
+        logical_id = self.name.logical_id(env_identifier)
         return elbv2.LoadBalancer(
             logical_id,
             IpAddressType='ipv4',
@@ -228,6 +241,7 @@ class C4ECSApplication(C4Part):
 
     def output_application_url(self, env='cgap-mastertest') -> Output:
         """ Outputs URL to access WSGI. """
+        env = os.environ.get(ENV_NAME) or env
         return Output(
             'ECSApplicationURL%s' % env.replace('-', ''),
             Description='URL of CGAP-Portal.',
@@ -248,26 +262,7 @@ class C4ECSApplication(C4Part):
             TargetType='ip',
             Protocol='HTTP',
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
-        )
-
-    @staticmethod
-    def ecs_web_worker_cpu() -> Parameter:
-        """ TODO: figure out how to best use - should probably be per service? """
-        return Parameter(
-            'WebWorkerCPU',
-            Description='Web worker CPU units',
-            Type='Number',
-            Default=256,
-        )
-
-    @staticmethod
-    def ecs_web_worker_memory() -> Parameter:
-        """ TODO: figure out how to best use - should probably be per service? """
-        return Parameter(
-            'WebWorkerMemory',
-            Description='Web worker memory',
-            Type='Number',
-            Default=512,
+            Tags=self.tags.cost_tag_array()
         )
 
     def ecs_wsgi_task(self, cpus='256', mem='512', app_revision='latest',
@@ -283,8 +278,8 @@ class C4ECSApplication(C4Part):
         return TaskDefinition(
             'CGAPWSGI',
             RequiresCompatibilities=['FARGATE'],
-            Cpu=cpus,
-            Memory=mem,
+            Cpu=os.environ.get(ECS_WSGI_CPU) or cpus,
+            Memory=os.environ.get(ECS_WSGI_MEM) or mem,
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
@@ -320,21 +315,23 @@ class C4ECSApplication(C4Part):
                     ]
                 )
             ],
+            # Tags=self.tags.cost_tag_array(),  # XXX: bug in troposphere - does not take tags array
         )
 
-    def ecs_wsgi_service(self, concurrency=2) -> Service:
+    def ecs_wsgi_service(self, concurrency=8) -> Service:
         """ Defines the WSGI service (manages WSGI Tasks)
             Note dependencies: https://stackoverflow.com/questions/53971873/the-target-group-does-not-have-an-associated-load-balancer
 
             Defined by the ECR Image tag 'latest'.
 
-            :param concurrency: # of concurrent tasks to run
+            :param concurrency: # of concurrent tasks to run - since this setup is intended for use with
+                                production, this value is 8, approximately matching our current resources.
         """
         return Service(
             "CGAPWSGIService",
             Cluster=Ref(self.ecs_cluster()),
             DependsOn=['ECSLBListener'],  # XXX: Hardcoded, important!
-            DesiredCount=concurrency,
+            DesiredCount=os.environ.get(ECS_WSGI_COUNT) or concurrency,
             LoadBalancers=[
                 LoadBalancer(
                     ContainerName='WSGI',  # this must match Name in TaskDefinition (ContainerDefinition)
@@ -364,6 +361,7 @@ class C4ECSApplication(C4Part):
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
+            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
     def ecs_wsgi_scalable_target(self, wsgi: Service, max_concurrency=8) -> ScalableTarget:
@@ -409,8 +407,8 @@ class C4ECSApplication(C4Part):
         return TaskDefinition(
             'CGAPIndexer',
             RequiresCompatibilities=['FARGATE'],
-            Cpu=cpus,
-            Memory=mem,
+            Cpu=os.environ.get(ECS_INDEXER_CPU) or cpus,
+            Memory=os.environ.get(ECS_INDEXER_MEM) or mem,
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
@@ -439,30 +437,33 @@ class C4ECSApplication(C4Part):
                     ]
                 )
             ],
+            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
-    def ecs_indexer_service(self) -> Service:
+    def ecs_indexer_service(self, concurrency=4) -> Service:
         """ Defines the Indexer service (manages Indexer Tasks)
             TODO SQS autoscaling trigger?
 
             Defined by the ECR Image tag 'latest-indexer'.
+
+            :param concurrency: # of concurrent tasks to run - since this setup is intended for use with
+                                production, this value is 4, approximately matching our current resources.
         """
         return Service(
             "CGAPIndexerService",
             Cluster=Ref(self.ecs_cluster()),
-            DesiredCount=1,
+            DesiredCount=os.environ.get(ECS_INDEXER_COUNT) or concurrency,
             LaunchType='FARGATE',
-            # Run indexer service on normal Fargate (so it cannot be interrupted and cause SQS instability)
             CapacityProviderStrategy=[
                 CapacityProviderStrategyItem(
                     CapacityProvider='FARGATE',
-                    Base=1,
-                    Weight=1
+                    Base=0,
+                    Weight=0
                 ),
                 CapacityProviderStrategyItem(
                     CapacityProvider='FARGATE_SPOT',
-                    Base=0,
-                    Weight=0
+                    Base=concurrency,
+                    Weight=1
                 )
             ],
             TaskDefinition=Ref(self.ecs_indexer_task()),
@@ -474,6 +475,7 @@ class C4ECSApplication(C4Part):
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
+            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
     def ecs_indexer_scalable_target(self, indexer: Service, max_concurrency=16) -> ScalableTarget:
@@ -488,7 +490,7 @@ class C4ECSApplication(C4Part):
             MaxCapacity=max_concurrency  # scale indexing to 16 workers if needed
         )
 
-    def ecs_ingester_task(self, cpus='256', mem='512', app_revision='latest-ingester',
+    def ecs_ingester_task(self, cpus='512', mem='1024', app_revision='latest-ingester',
                           identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
@@ -501,8 +503,8 @@ class C4ECSApplication(C4Part):
         return TaskDefinition(
             'CGAPIngester',
             RequiresCompatibilities=['FARGATE'],
-            Cpu=cpus,
-            Memory=mem,
+            Cpu=os.environ.get(ECS_INGESTER_CPU) or cpus,
+            Memory=os.environ.get(ECS_INGESTER_MEM) or mem,
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
@@ -531,19 +533,19 @@ class C4ECSApplication(C4Part):
                     ]
                 )
             ],
+            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
     def ecs_ingester_service(self) -> Service:
         """ Defines the Ingester service (manages Ingestion Tasks)
 
             Defined by the ECR Image tag 'latest-ingester'
-            TODO push ingestion listener image
             TODO SQS Trigger?
         """
         return Service(
             "CGAPIngesterService",
             Cluster=Ref(self.ecs_cluster()),
-            DesiredCount=1,
+            DesiredCount=os.environ.get(ECS_INGESTER_COUNT) or 1,
             LaunchType='FARGATE',
             TaskDefinition=Ref(self.ecs_ingester_task()),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
@@ -567,10 +569,13 @@ class C4ECSApplication(C4Part):
                     Weight=0
                 )
             ],
+            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
     def ecs_ingester_scalable_target(self, ingester: Service, max_concurrency=4) -> ScalableTarget:
-        """ Scalable Target for the Indexer Service. """
+        """ Scalable Target for the Indexer Service.
+            TODO: determine scaling trigger
+        """
         return ScalableTarget(
             'IngesterScalableTarget',
             RoleARN=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
@@ -624,6 +629,7 @@ class C4ECSApplication(C4Part):
                     ]
                 )
             ],
+            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
     def ecs_deployment_service(self) -> Service:
@@ -663,4 +669,5 @@ class C4ECSApplication(C4Part):
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
+            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
