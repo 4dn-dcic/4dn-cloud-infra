@@ -1,10 +1,7 @@
 import os
 import json
 import logging
-# from chalicelib.app import app
-# from chalicelib.app import DEFAULT_ENV
 from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
-# from chalicelib.vars import FOURSIGHT_PREFIX
 from chalice import Chalice, Response, Cron
 from foursight_core.deploy import Deploy
 from dcicutils.misc_utils import environ_bool
@@ -26,6 +23,7 @@ app = Chalice(app_name='foursight_cgap_trial')
 
 
 # XXX: acquire through args?
+# This info corresponds to what is normally in chalicelib/vars.py
 HOST = os.environ.get('ES_HOST', None)
 FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'
 DEFAULT_ENV = 'cgap-mastertest'
@@ -36,13 +34,14 @@ def effectively_never():
     return Cron('0', '0', '31', '2', '?', '*')
 
 
+# This object usually in chalicelib/app_utils.py
 class AppUtils(AppUtils_from_cgap):
     # overwriting parent class
     prefix = FOURSIGHT_PREFIX
     FAVICON = 'https://cgap.hms.harvard.edu/static/img/favicon-fs.ico'
     host = HOST
     package_name = 'chalicelib'
-    # check_setup_dir = dirname(__file__)  # This file is present in chalicelib
+    check_setup_dir = os.path.dirname(__file__)  # This file is at top level in this repo
     html_main_title = 'Foursight-CGAP-Mastertest'
 
 
