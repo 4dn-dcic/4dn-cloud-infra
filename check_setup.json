@@ -1,21 +1,23 @@
 {
   "elastic_beanstalk_health" : {
-        "title": "Elastic Beanstalk health",
-        "group": "System checks",
-        "schedule": {
-          "manual_checks": {
-            "all": {}
-          }
-        },
+      "title": "Elastic Beanstalk health",
+      "group": "System checks",
+      "schedule": {
+        "manual_checks": {
+          "all": {}
+        }
+      },
+      "display": ["cgap-mastertest"]
     },
-    "test_random_nums" : {
-        "title": "Test Random Nums",
-        "group": "Test checks",
-        "schedule": {
-          "manual_checks": {
-            "all": {}
-          }
-        },
+  "test_random_nums" : {
+      "title": "Test Random Nums",
+      "group": "Test checks",
+      "schedule": {
+        "manual_checks": {
+          "all": {}
+        }
+      },
+      "display": ["cgap-mastertest"]
     }
 }
 
