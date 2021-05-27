@@ -7,10 +7,10 @@ Provisioning A C4 Cloud Infra Account From Scratch
 This doc walks one through provisioning a c4 cloud infra account from scratch. If you already have configured your c4
 cloud infra setup, and created an account with a basic IAM user provisioning, skip to Step Two.
 
-Step Zero: Fill in Config
--------------------------
+Step Zero: Setup: Installation, and fill in config
+--------------------------------------------------
 
-To be documented.
+First, see `doc/setup.rst` for detailed setup instructions.
 
 Step One: Create New Account
 ----------------------------

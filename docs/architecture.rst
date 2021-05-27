@@ -31,4 +31,16 @@ use troposphere parts, and as such does not implement a `build_template_from_par
 `package` method, using functionality in the foursight-core library to generate a config file and Cloudformation sam
 package. This package can then be uploaded as a Foursight-CGAP Cloudformation stack.
 
-This difference translates to additional command-line configuration.
+This difference translates to additional command-line configuration:
+
+::
+    --stage {dev,prod}  package stage. Must be one of 'prod' or 'dev'
+                        (foursight only)
+    --merge_template MERGE_TEMPLATE
+                        Location of a YAML template to be merged into the
+                        generated template (foursight only)
+    --output_file OUTPUT_FILE
+                        Location of a directory for output cloudformation
+                        (foursight only)
+    --trial             Use TRIAL creds when building the config (foursight
+                        only; experimental)
