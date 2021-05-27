@@ -1,5 +1,4 @@
 from src.part import C4Name, C4Tags, C4Account, C4Part
-from src.secrets import S3_ENCRYPT_KEY, Auth0Secret, Auth0Client, ENCODED_ES_SERVER, ENCODED_SECRET
 from chalicelib.package import PackageDeploy as PackageDeploy_from_cgap
 from src.constants import CHECK_RUNNER
 from troposphere import Template
@@ -7,6 +6,19 @@ from os.path import dirname
 import os
 import sys
 import logging
+
+
+# Attempt secret import - if file is not present, will default required values
+# into dummy values - intended for use with build - Will 5/27/21
+try:
+    from src.secrets import S3_ENCRYPT_KEY, Auth0Secret, Auth0Client, ENCODED_ES_SERVER, ENCODED_SECRET
+except ImportError:
+    S3_ENCRYPT_KEY = 'dummy'
+    Auth0Secret = 'dummy'
+    Auth0Client = 'dummy'
+    ENCODED_ES_SERVER = 'dummy'
+    ENCODED_SECRET = 'dummy'
+
 
 # Version string identifies template capabilities. Ref:
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/format-version-structure.html
