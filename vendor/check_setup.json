@@ -307,7 +307,7 @@
         "schedule": {
             "manual_checks": {
                 "cgap-mastertest": {
-                    "kwargs": {"primary": true},
+                    "kwargs": {"primary": true, "env": "cgap-mastertest"},
                     "dependencies": []
                 }
             }
