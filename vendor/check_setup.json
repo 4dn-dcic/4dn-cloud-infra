@@ -285,6 +285,21 @@
         "display": [
             "cgap-mastertest"
         ]
+  },
+  "update_ecs_application_versions": {
+        "title": "Update ECS Cluster Application Versions",
+        "group": "ECS Checks",
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {"primary": true},
+                    "dependencies": []
+                }
+            }
+        },
+        "display": [
+            "cgap-mastertest"
+        ]
   }
 }
 
