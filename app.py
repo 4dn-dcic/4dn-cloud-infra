@@ -224,24 +224,6 @@ def put_check_route(environ, check):
         return app_utils_obj.forbidden_response()
 
 
-@app.route('/environments/{environ}', methods=['PUT'])
-def put_environment(environ):
-    """
-    Take a PUT request that has a json payload with 'fourfront' (ff server)
-    and 'es' (es server).
-    Attempts to generate an new environment and runs all checks initially
-    if successful.
-
-    Protected route
-    """
-    request = app.current_request
-    if app_utils_obj.check_authorization(request.to_dict(), environ):
-        env_data = request.json_body
-        return app_utils_obj.run_put_environment(environ, env_data)
-    else:
-        return app_utils_obj.forbidden_response()
-
-
 @app.route('/environments/{environ}', methods=['GET'])
 def get_environment_route(environ):
     """
@@ -252,20 +234,42 @@ def get_environment_route(environ):
     else:
         return app_utils_obj.forbidden_response()
 
+# NOTE: the environment is created through this repository, so this API
+#       should be unnecessary.
+# @app.route('/environments/{environ}', methods=['PUT'])
+# def put_environment(environ):
+#     """
+#     Take a PUT request that has a json payload with 'fourfront' (ff server)
+#     and 'es' (es server).
+#     Attempts to generate an new environment and runs all checks initially
+#     if successful.
+#
+#     Protected route
+#     """
+#     request = app.current_request
+#     if app_utils_obj.check_authorization(request.to_dict(), environ):
+#         env_data = request.json_body
+#         return app_utils_obj.run_put_environment(environ, env_data)
+#     else:
+#         return app_utils_obj.forbidden_response()
 
-@app.route('/environments/{environ}/delete', methods=['DELETE'])
-def delete_environment(environ):
-    """
-    Takes a DELETE request and purges the foursight environment specified by 'environ'.
-    NOTE: This only de-schedules all checks, it does NOT wipe data associated with this
-    environment - that can only be done directly from S3 (for safety reasons).
 
-    Protected route
-    """
-    if app_utils_obj.check_authorization(app.current_request.to_dict(), environ):  # TODO (C4-138) Centralize authorization check
-        return app_utils_obj.run_delete_environment(environ)
-    else:
-        return app_utils_obj.forbidden_response()
+# NOTE: this functionality is disabled for safety reasons.
+#       orchestrations through 4dn-cloud-infra only have one environment,
+#       so a user should never want to do this anyway. - Will 5/27/21
+# @app.route('/environments/{environ}/delete', methods=['DELETE'])
+# def delete_environment(environ):
+#     """
+#     Takes a DELETE request and purges the foursight environment specified by 'environ'.
+#     NOTE: This only de-schedules all checks, it does NOT wipe data associated with this
+#     environment - that can only be done directly from S3 (for safety reasons).
+#
+#     Protected route
+#     """
+#     if app_utils_obj.check_authorization(app.current_request.to_dict(), environ):  # TODO (C4-138) Centralize authorization check
+#         return app_utils_obj.run_delete_environment(environ)
+#     else:
+#         return app_utils_obj.forbidden_response()
 
 
 #######################
