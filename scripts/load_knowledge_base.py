@@ -8,7 +8,7 @@ from dcicutils import ff_utils
 PATH_TO_CREDS = os.path.expanduser('~/.cgap-keys.json')
 PATH_TO_KNOWLEDGE_BASE = 'test_data/knowledge_base/temp-local-inserts'
 SERVER = 'http://c4ecstrialalphaecslb-2115269186.us-east-1.elb.amazonaws.com'
-CURRENT_BASE = ['variant_consequence.json', 'gene.json']  # ['gene.json', 'disorder.json', 'phenotype.json']
+CURRENT_BASE = ['higlass_view_config.json']  # ['variant_consequence.json', 'gene.json', 'disorder.json', 'phenotype.json']
 
 
 def main():

@@ -417,7 +417,8 @@ class C4Datastore(C4Part):
             Export=self.EXPORTS.export(export_name)
         )
 
-    def build_sqs_instance(self, logical_id_suffix, name_suffix, cgap_env='mastertest') -> Queue:
+    def build_sqs_instance(self, logical_id_suffix, name_suffix, timeout_in_minutes=10,
+                           cgap_env='mastertest') -> Queue:
         """ Builds a SQS instance with the logical id suffix for CloudFormation and the given name_suffix for the queue
             name. Uses 'mastertest' as default cgap env. """
         logical_name = self.name.logical_id(logical_id_suffix)
@@ -425,7 +426,7 @@ class C4Datastore(C4Part):
         return Queue(
             logical_name,
             QueueName=queue_name,
-            VisibilityTimeout=as_seconds(minutes=10),
+            VisibilityTimeout=as_seconds(minutes=timeout_in_minutes),
             MessageRetentionPeriod=as_seconds(days=14),
             DelaySeconds=1,
             ReceiveMessageWaitTimeSeconds=2,
@@ -451,8 +452,8 @@ class C4Datastore(C4Part):
     def dead_letter_queue(self) -> Queue:
         return self.build_sqs_instance('DeadLetterQueue', 'indexer-queue-dlq')
 
-    def ingestion_queue(self) -> Queue:
-        return self.build_sqs_instance('IngestionQueue', 'ingestion-queue')
+    def ingestion_queue(self) -> Queue:  # allow 6 hours for ingestion
+        return self.build_sqs_instance('IngestionQueue', 'ingestion-queue', timeout_in_minutes=360)
 
     def realtime_queue(self) -> Queue:
         return self.build_sqs_instance('RealtimeQueue', 'indexer-queue-realtime')
