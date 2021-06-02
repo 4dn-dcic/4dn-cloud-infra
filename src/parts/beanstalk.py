@@ -9,7 +9,7 @@ from troposphere.elasticloadbalancingv2 import LoadBalancer, LoadBalancerAttribu
 
 
 class C4Beanstalk(C4Part):
-    BEANSTALK_SOLUTION_STACK = '64bit Amazon Linux 2018.03 v2.9.18 running Python 3.6'
+    BEANSTALK_SOLUTION_STACK = '64bit Amazon Linux 2018.03 v2.9.20 running Python 3.6'
     APPLICATION_ENV_SECRET = 'dev/beanstalk/cgap-dev'  # name of secret in AWS Secret Manager; todo script initial add?
     NETWORK_EXPORTS = C4NetworkExports()
 
@@ -32,12 +32,13 @@ class C4Beanstalk(C4Part):
 
     def beanstalk_application_version(self,
                                       bucket='elasticbeanstalk-us-east-1-645819926742',
-                                      key='my-trial-app-02/cgap-trial-account-b7.zip'):
+                                      key='C4BeanstalkTrialApplication/2021-04-22-berg_trial_deploy.zip'):
+
         """ An existing application version source bundle. TODO: application version upload process """
         logical_id = self.name.logical_id('ApplicationVersion')
         return ApplicationVersion(
             logical_id,
-            Description="Version 1.0",
+            Description='2021-04-21-berg_trial_deploy',
             ApplicationName=Ref(self.beanstalk_application()),
             SourceBundle=SourceBundle(
                 S3Bucket=bucket,
@@ -442,7 +443,7 @@ class C4Beanstalk(C4Part):
             OptionSettings(
                 Namespace='aws:elbv2:loadbalancer',
                 OptionName='SecurityGroups',
-                Value=self.NETWORK_EXPORTS.import_value(C4NetworkExports.BEANSTALK_SECURITY_GROUP)
+                Value=self.NETWORK_EXPORTS.import_value(C4NetworkExports.APPLICATION_SECURITY_GROUP)
             ),
             # OptionSettings(
             #   Namespace='aws:elbv2:loadbalancer',
@@ -455,6 +456,7 @@ class C4Beanstalk(C4Part):
     def rolling_options():
         """ Returns list of OptionsSettings for beanstalk rolling updates. Ref:
             https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-autoscalingupdatepolicyrollingupdate
+            https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elasticbeanstalkcommand
         """
         return [
             OptionSettings(
@@ -465,6 +467,11 @@ class C4Beanstalk(C4Part):
             OptionSettings(
                 Namespace='aws:autoscaling:updatepolicy:rollingupdate',
                 OptionName='RollingUpdateType',
+                Value='Immutable'
+            ),
+            OptionSettings(
+                Namespace='aws:elasticbeanstalk:command',
+                OptionName='DeploymentPolicy',
                 Value='Immutable'
             ),
         ]

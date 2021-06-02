@@ -8,6 +8,7 @@ from dcicutils.qa_utils import override_environ
 from src.constants import DEPLOYING_IAM_USER, ENV_NAME
 from src.info.aws_util import AWSUtil
 from src.exceptions import CLIException
+from src.stack import C4FoursightCGAPStack
 from src.stacks.trial import (
     c4_stack_trial_account,
     c4_stack_trial_network,
@@ -15,6 +16,7 @@ from src.stacks.trial import (
     c4_stack_trial_datastore,
     c4_stack_trial_beanstalk,
     c4_stack_trial_tibanna,
+    c4_stack_trial_foursight_cgap,
 )
 from src.stacks.trial_alpha import (
     c4_alpha_stack_trial_metadata,
@@ -23,6 +25,7 @@ from src.stacks.trial_alpha import (
     c4_alpha_stack_trial_iam,
     c4_alpha_stack_trial_ecr,
     c4_alpha_stack_trial_logging,
+    c4_alpha_stack_trial_foursight_cgap,
     c4_alpha_stack_trial_ecs
 )
 
@@ -32,7 +35,6 @@ logger = logging.getLogger(__name__)
 
 
 # TODO constants
-SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-beanstalk-trial', 'c4-tibanna-trial']
 SUPPORTED_ECS_STACKS = ['c4-ecs-network-trial', 'c4-ecs-datastore-trial', 'c4-ecs-cluster-trial']
 AWS_REGION = 'us-east-1'
 
@@ -42,7 +44,9 @@ class C4Client:
     ALPHA_LEAF_STACKS = ['iam', 'logging', 'network']  # stacks that only export values
     ACCOUNT = c4_stack_trial_account()  # uses creds for trial account access XXX: does not work
     CAPABILITY_IAM = 'CAPABILITY_IAM'
-    REQUIRES_CAPABILITY_IAM = ['iam']  # these stacks require CAPABILITY_IAM, just IAM for now
+    SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-tibanna-trial', 'c4-foursight-trial',
+                        'c4-beanstalk-trial']
+    REQUIRES_CAPABILITY_IAM = ['iam', 'foursight']  # these stacks require CAPABILITY_IAM, just IAM for now
     CONFIGURATION = 'config.json'  # path to config file, top level by default
 
     @classmethod
@@ -92,6 +96,67 @@ class C4Client:
                 caps = '--capabilities %s' % name
                 break
         return caps
+
+    @classmethod
+    def upload_chalice_package(cls, args, stack: C4FoursightCGAPStack,
+                               bucket='foursight-cgap-mastertest-application-versions'):
+        """ Specific upload process for a chalice application, e.g. foursight. Assumes chalice package has been run.
+            How this works:
+            1. Mounts the output_file directory to the docker image's execution directory (/root/aws)
+            2. Runs aws cloudformation package, which uploads the deploy artifact to the s3 bucket
+            3. This command generates a cloudformation template, which is saved to the local deploy artifact directory
+            4. Runs aws cloudformation deploy, which generates a changeset based on this generated cloudformation.
+        """
+
+        # Mounts the output_file directory to the docker image's execution directory (/root/aws)
+        mount_chalice_package = '{}/{}:/aws'.format(os.path.abspath(os.getcwd()), args.output_file)
+        # Creates mount point flags for creds and the chalice package
+        mount_points = ' '.join([
+                '-v',
+                '~/.aws_test:/root/.aws',
+                '-v',
+                mount_chalice_package,
+            ])
+
+        # flags for cloudformation package command
+        package_flags = ' '.join([
+            '--template-file ./sam.yaml',
+            '--s3-bucket',
+            bucket,
+            '--output-template-file sam-packaged.yaml',
+        ])
+        # construct package cmd
+        cmd_package = 'docker run --rm -it {mount_points} {cmd} {flags}'.format(
+            mount_points=mount_points,
+            cmd='amazon/aws-cli cloudformation package',
+            flags=package_flags,
+        )
+
+        # execute package cmd
+        logger.info('Uploading foursight package...')
+        logger.info(cmd_package)
+        os.system(cmd_package)  # results in sam-packaged.yaml being added to args.output_file
+
+        # flags for cloudformation deploy command (change set upload only, no template execution)
+        deploy_flags = ' '.join([
+            '--template-file ./sam-packaged.yaml',
+            '--s3-bucket',
+            bucket,
+            '--stack-name',
+            stack.name.stack_name,
+            cls.build_capability_param(stack),  # defaults to IAM
+            '--no-execute-changeset',  # creates a changeset, does not execute template
+        ])
+        # construct deploy cmd
+        cmd_deploy = 'docker run --rm -it {mount_points} {cmd} {flags}'.format(
+            mount_points=mount_points,
+            cmd='amazon/aws-cli cloudformation deploy',
+            flags=deploy_flags,
+        )
+
+        logger.info('Creating foursight changeset...')
+        logger.info(cmd_deploy)
+        os.system(cmd_deploy)
 
     @classmethod
     def upload_cloudformation_template(cls, args, stack, file_path):
@@ -178,6 +243,8 @@ class C4Client:
             stack = c4_alpha_stack_trial_logging()
         elif 'ecs' in args.stack:
             stack = c4_alpha_stack_trial_ecs()
+        elif 'foursight' in args.stack:
+            stack = c4_alpha_stack_trial_foursight_cgap()
         elif args.stack == 'all':
             raise NotImplementedError('TODO')
         else:
@@ -192,12 +259,15 @@ class C4Client:
             stack = c4_stack_trial_datastore()
         elif args.stack == 'c4-beanstalk-trial':
             stack = c4_stack_trial_beanstalk()
+        elif args.stack == 'c4-foursight-trial':
+            stack = c4_stack_trial_foursight_cgap()
         elif args.stack == 'c4-tibanna-trial':
             stack = c4_stack_trial_tibanna()
-        elif args.stack in SUPPORTED_STACKS:
+        elif args.stack in C4Client.SUPPORTED_STACKS:
             raise CLIException('Supported stack {} requires a resolver in `resolve_legacy_stack`'.format(args.stack))
         else:
-            raise CLIException('Unsupported stack {}. Supported Stacks: {}'.format(args.stack, SUPPORTED_STACKS))
+            raise CLIException('Unsupported stack {}. Supported Stacks: {}'.format(
+                args.stack, C4Client.SUPPORTED_STACKS))
         return stack
 
     @classmethod
@@ -250,10 +320,17 @@ class C4Client:
             else:
                 stack = cls.resolve_alpha_stack(args)
 
-            file_path = cls.write_and_validate_template(args, stack)  # could exit if stdout arg is provided
-            cls.view_changes(args)  # does nothing as of right now
-            if args.upload_change_set:
-                cls.upload_cloudformation_template(args, stack, file_path)  # if desired
+            # Handle foursight
+            if 'foursight' in args.stack:  # specific case for foursight template build + upload
+                stack.package(args)
+                if args.upload_change_set:
+                    cls.upload_chalice_package(args, stack)
+            # Handle 4dn-cloud-infra stacks
+            else:
+                file_path = cls.write_and_validate_template(args, stack)  # could exit if stdout arg is provided
+                cls.view_changes(args)  # does nothing as of right now
+                if args.upload_change_set:
+                    cls.upload_cloudformation_template(args, stack, file_path)  # if desired
 
     @classmethod
     def manage_tibanna(cls, args):
@@ -298,12 +375,21 @@ def cli():
     # Configure 'provision' command
     # TODO flag for log level
     parser_provision = subparsers.add_parser('provision', help='Provisions cloud resources for CGAP/4DN')
-    parser_provision.add_argument('stack', help='Select stack to operate on: {}'.format(SUPPORTED_STACKS))
+    parser_provision.add_argument('stack', help='Select stack to operate on: {}'.format(C4Client.SUPPORTED_STACKS))
     parser_provision.add_argument('--alpha', action='store_true', help='Triggers building of the Alpha (ECS) stack',
                                   default=False)
     parser_provision.add_argument('--stdout', action='store_true', help='Writes template to STDOUT only')
     parser_provision.add_argument('--validate', action='store_true', help='Verifies template')
     parser_provision.add_argument('--view_changes', action='store_true', help='TBD: view changes made to template')
+    parser_provision.add_argument('--stage', type=str, choices=['dev', 'prod'],
+                                  help="package stage. Must be one of 'prod' or 'dev' (foursight only)")
+    parser_provision.add_argument('--merge_template', type=str,
+                                  help='Location of a YAML template to be merged into the generated template \
+                                  (foursight only)')
+    parser_provision.add_argument('--output_file', type=str,
+                                  help='Location of a directory for output cloudformation (foursight only)')
+    parser_provision.add_argument('--trial', action='store_true',
+                                  help='Use TRIAL creds when building the config (foursight only; experimental)')
     parser_provision.add_argument('--upload_change_set', action='store_true',
                                   help='Uploads template and provisions change set')
     parser_provision.set_defaults(func=C4Client.provision_stack)

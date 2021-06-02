@@ -1,32 +1,36 @@
 from src.part import C4Name, C4Tags, C4Account, C4Part
+from chalicelib.package import PackageDeploy as PackageDeploy_from_cgap
+from src.constants import CHECK_RUNNER
 from troposphere import Template
+from os.path import dirname
 import os
 import sys
 import logging
+
+
+# Attempt secret import - if file is not present, will default required values
+# into dummy values - intended for use with build - Will 5/27/21
+try:
+    from src.secrets import S3_ENCRYPT_KEY, Auth0Secret, Auth0Client, ENCODED_ES_SERVER, ENCODED_SECRET
+except ImportError:
+    S3_ENCRYPT_KEY = 'dummy'
+    Auth0Secret = 'dummy'
+    Auth0Client = 'dummy'
+    ENCODED_ES_SERVER = 'dummy'
+    ENCODED_SECRET = 'dummy'
+
 
 # Version string identifies template capabilities. Ref:
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/format-version-structure.html
 CLOUD_FORMATION_VERSION = '2010-09-09'
 
 
-def build_template_from_parts(parts: [C4Part], description) -> Template:
-    """ Helper function for building a template from scratch using a list of parts and a description. """
-    template = Template()
-    template.set_version(CLOUD_FORMATION_VERSION)
-    template.set_description(description)
-    for p in parts:
-        template = p.build_template(template)
-    return template
-
-
-class C4Stack:
-    def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account, parts: [C4Part]):
+class BaseC4Stack:
+    def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account):
         self.name = name
         self.tags = tags
         self.account = account
-        self.parts = [Part(name=name, tags=tags, account=account) for Part in parts]
         self.description = description
-        self.template = build_template_from_parts(self.parts, description)
 
     def __str__(self):
         return '<Stack {}>'.format(self.name)
@@ -43,13 +47,30 @@ class C4Stack:
         with open(template_file, 'w', newline='') as file:
             file.write(template_text)
 
+
+class C4Stack(BaseC4Stack):
+    def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account, parts: [C4Part]):
+        self.parts = [Part(name=name, tags=tags, account=account) for Part in parts]
+        self.template = self.build_template_from_parts(self.parts, description)
+        super().__init__(description=description, name=name, tags=tags, account=account)
+
+    @staticmethod
+    def build_template_from_parts(parts: [C4Part], description) -> Template:
+        """ Helper function for building a template from scratch using a list of parts and a description. """
+        template = Template()
+        template.set_version(CLOUD_FORMATION_VERSION)
+        template.set_description(description)
+        for p in parts:
+            template = p.build_template(template)
+        return template
+
     def print_template(self, stdout=False, remake=True):
         """ Helper method for generating and printing a YAML template.
             If remake is set to true, rebuilds the template. If stdout is set to true, prints to stdout.
             :return (template object, file path, file name)
         """
         if remake:
-            self.template = build_template_from_parts(self.parts, self.description)
+            self.template = self.build_template_from_parts(self.parts, self.description)
         try:
             current_yaml = self.template.to_yaml()
         except TypeError as e:
@@ -62,3 +83,33 @@ class C4Stack:
             self.write_template_file(current_yaml, ''.join([path, template_file]))
             logging.info('Wrote template to {}'.format(template_file))
         return self.template, path, template_file
+
+
+class C4FoursightCGAPStack(BaseC4Stack):
+    def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account):
+        self.hardcoded_security_ids = ['sg-03f5fdd36be96bbf4']  # TODO fetch these dynamically
+        self.hardcoded_subnet_ids = ['subnet-09ed0bb672993c7ac', 'subnet-00778b903b357d331']
+        self.trial_creds = {
+            'S3_ENCRYPT_KEY': S3_ENCRYPT_KEY,
+            'CLIENT_ID': Auth0Client,
+            'CLIENT_SECRET': Auth0Secret,
+            'DEV_SECRET': ENCODED_SECRET,
+            'ES_HOST': ENCODED_ES_SERVER,
+        }
+        super().__init__(description, name, tags, account)
+
+    def package(self, args):
+        self.PackageDeploy.build_config_and_package(
+            args,
+            security_ids=self.hardcoded_security_ids,
+            subnet_ids=self.hardcoded_subnet_ids,
+            trial_creds=self.trial_creds,
+            check_runner=os.environ.get(CHECK_RUNNER))
+
+    class PackageDeploy(PackageDeploy_from_cgap):
+
+        CONFIG_BASE = PackageDeploy_from_cgap.CONFIG_BASE
+        CONFIG_BASE['app_name'] = 'foursight-trial'
+
+        config_dir = dirname(dirname(__file__))
+        print(config_dir)

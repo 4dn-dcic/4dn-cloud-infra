@@ -31,4 +31,7 @@ ECS_INDEXER_MEM = 'ecs.indexer.mem'
 ECS_INGESTER_COUNT = 'ecs.ingester.count'
 ECS_INGESTER_CPU = 'ecs.ingester.cpu'
 ECS_INGESTER_MEM = 'ecs.ingester.mem'
-IDENTITY = 'identity'
+IDENTITY = 'identity'  # XXX: import from dcicutils
+
+# Foursight Configuration Options
+CHECK_RUNNER = 'CHECK_RUNNER'

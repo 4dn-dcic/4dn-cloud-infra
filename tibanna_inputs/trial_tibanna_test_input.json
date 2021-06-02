@@ -17,6 +17,8 @@
     }
   },
   "config": {
+    "security_group": "sg-03f5fdd36be96bbf4",
+    "subnet": "subnet-09ed0bb672993c7ac",
     "run_name": "md5-private-test",
     "log_bucket": "c4-tibanna-trial-log-id52303648-bucket"
   }
