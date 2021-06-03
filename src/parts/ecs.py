@@ -30,7 +30,7 @@ from troposphere.applicationautoscaling import (
 )
 from src.constants import (
     ENV_NAME,
-    ECS_WSGI_COUNT, ECS_WSGI_CPU, ECS_WSGI_MEM,
+    ECS_WSGI_COUNT, ECS_WSGI_CPU, ECS_WSGI_MEM,  # XXX: refactor
     ECS_INDEXER_COUNT, ECS_INDEXER_CPU, ECS_INDEXER_MEM,
     ECS_INGESTER_COUNT, ECS_INGESTER_CPU, ECS_INGESTER_MEM
 )
@@ -47,7 +47,7 @@ class C4ECSApplication(C4Part):
             * Cluster
             * Application Load Balancer (Fargate compatible)
             * ECS Tasks/Services
-                * WSGI
+                * portal
                 * Indexer
                 * Ingester
             * TODO: Autoscaling
@@ -94,9 +94,9 @@ class C4ECSApplication(C4Part):
         template.add_resource(self.ecs_cluster())
 
         # ECS Tasks/Services
-        template.add_resource(self.ecs_wsgi_task())
-        wsgi = self.ecs_wsgi_service()
-        template.add_resource(wsgi)
+        template.add_resource(self.ecs_portal_task())
+        portal = self.ecs_portal_service()
+        template.add_resource(portal)
         template.add_resource(self.ecs_indexer_task())
         indexer = template.add_resource(self.ecs_indexer_service())
         template.add_resource(self.ecs_ingester_task())
@@ -104,7 +104,7 @@ class C4ECSApplication(C4Part):
         template.add_resource(self.ecs_deployment_task())
         template.add_resource(self.ecs_deployment_service())
 
-        # Add load balancer for WSGI
+        # Add load balancer for portal
         template.add_resource(self.ecs_lb_security_group())
         template.add_resource(self.ecs_container_security_group())
         target_group = self.ecs_lbv2_target_group()
@@ -112,17 +112,17 @@ class C4ECSApplication(C4Part):
         template.add_resource(self.ecs_application_load_balancer_listener(target_group))
         template.add_resource(self.ecs_application_load_balancer())
 
-        # TODO: Enable WSGI, Indexer, Ingester autoscaling
-        # wsgi_scalable_target = self.ecs_wsgi_scalable_target(wsgi)
-        # template.add_resource(wsgi_scalable_target)
-        # template.add_resource(self.ecs_wsgi_scaling_policy(wsgi_scalable_target))
+        # TODO: Enable portal, Indexer, Ingester autoscaling
+        # portal_scalable_target = self.ecs_portal_scalable_target(portal)
+        # template.add_resource(portal_scalable_target)
+        # template.add_resource(self.ecs_portal_scaling_policy(portal_scalable_target))
         # indexer_scalable_target = self.ecs_indexer_scalable_target(indexer)
         # template.add_resource(indexer_scalable_target)
-        # use wsgi scaling policy for others as well (for now)
-        # template.add_resource(self.ecs_wsgi_scaling_policy(indexer_scalable_target))
+        # use portal scaling policy for others as well (for now)
+        # template.add_resource(self.ecs_portal_scaling_policy(indexer_scalable_target))
         # ingester_scalable_target = self.ecs_ingester_scalable_target(ingester)
         # template.add_resource(ingester_scalable_target)
-        # template.add_resource(self.ecs_wsgi_scaling_policy(ingester_scalable_target))
+        # template.add_resource(self.ecs_portal_scaling_policy(ingester_scalable_target))
 
         # Add outputs
         template.add_output(self.output_application_url())
@@ -147,12 +147,12 @@ class C4ECSApplication(C4Part):
 
     @staticmethod
     def ecs_web_worker_port() -> Parameter:
-        """ Parameter for the WSGI port - by default 8000 (requires change to nginx config on cgap-portal to modify) """
+        """ Parameter for the portal port - by default 8000 (requires change to nginx config on cgap-portal to modify) """
         return Parameter(
             'WebWorkerPort',
             Description='Web worker container exposed port',
             Type='Number',
-            Default=8000,  # port exposed by WSGI container
+            Default=8000,  # port exposed by portal container
         )
 
     def ecs_container_security_group(self) -> SecurityGroup:
@@ -206,7 +206,7 @@ class C4ECSApplication(C4Part):
         )
 
     def ecs_application_load_balancer_listener(self, target_group: elbv2.TargetGroup) -> elbv2.Listener:
-        """ Listener for the application load balancer, forwards traffic to the target group (containing WSGI). """
+        """ Listener for the application load balancer, forwards traffic to the target group (containing portal). """
         return elbv2.Listener(
             'ECSLBListener',
             Port=80,
@@ -218,7 +218,7 @@ class C4ECSApplication(C4Part):
         )
 
     def ecs_application_load_balancer(self) -> elbv2.LoadBalancer:
-        """ Application load balancer for the WSGI ECS Task. """
+        """ Application load balancer for the portal ECS Task. """
         env_identifier = os.environ.get(ENV_NAME).replace('-', '')
         if not env_identifier:
             raise Exception('Did not set required key in .env! Should never get here.')
@@ -240,7 +240,7 @@ class C4ECSApplication(C4Part):
         )
 
     def output_application_url(self, env='cgap-mastertest') -> Output:
-        """ Outputs URL to access WSGI. """
+        """ Outputs URL to access portal. """
         env = os.environ.get(ENV_NAME) or env
         return Output(
             'ECSApplicationURL%s' % env.replace('-', ''),
@@ -249,7 +249,7 @@ class C4ECSApplication(C4Part):
         )
 
     def ecs_lbv2_target_group(self) -> elbv2.TargetGroup:
-        """ Creates LBv2 target group (intended for use with WSGI Service). """
+        """ Creates LBv2 target group (intended for use with portal Service). """
         return elbv2.TargetGroup(
             'TargetGroupApplication',
             HealthCheckIntervalSeconds=60,
@@ -265,9 +265,9 @@ class C4ECSApplication(C4Part):
             Tags=self.tags.cost_tag_array()
         )
 
-    def ecs_wsgi_task(self, cpus='256', mem='512', app_revision='latest',
+    def ecs_portal_task(self, cpus='256', mem='512', app_revision='latest',
                       identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
-        """ Defines the WSGI Task (serve HTTP requests).
+        """ Defines the portal Task (serve HTTP requests).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
             :param cpus: CPU value to assign to this task, default 256 (play with this value)
@@ -276,7 +276,7 @@ class C4ECSApplication(C4Part):
             :param identity: name of secret containing the identity information for this environment
         """
         return TaskDefinition(
-            'CGAPWSGI',
+            'CGAPportal',
             RequiresCompatibilities=['FARGATE'],
             Cpu=os.environ.get(ECS_WSGI_CPU) or cpus,
             Memory=os.environ.get(ECS_WSGI_MEM) or mem,
@@ -285,7 +285,7 @@ class C4ECSApplication(C4Part):
             NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
-                    Name='WSGI',
+                    Name='portal',
                     Essential=True,
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
@@ -300,7 +300,7 @@ class C4ECSApplication(C4Part):
                         Options={
                             'awslogs-group': self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': 'cgap-wsgi'
+                            'awslogs-stream-prefix': 'cgap-portal'
                         }
                     ),
                     Environment=[
@@ -311,15 +311,19 @@ class C4ECSApplication(C4Part):
                         Environment(
                             Name='IDENTITY',
                             Value=identity
-                        )
+                        ),
+                        Environment(
+                            Name='application_type',
+                            Value='portal'
+                        ),
                     ]
                 )
             ],
             # Tags=self.tags.cost_tag_array(),  # XXX: bug in troposphere - does not take tags array
         )
 
-    def ecs_wsgi_service(self, concurrency=8) -> Service:
-        """ Defines the WSGI service (manages WSGI Tasks)
+    def ecs_portal_service(self, concurrency=8) -> Service:
+        """ Defines the portal service (manages portal Tasks)
             Note dependencies: https://stackoverflow.com/questions/53971873/the-target-group-does-not-have-an-associated-load-balancer
 
             Defined by the ECR Image tag 'latest'.
@@ -328,18 +332,18 @@ class C4ECSApplication(C4Part):
                                 production, this value is 8, approximately matching our current resources.
         """
         return Service(
-            "CGAPWSGIService",
+            "CGAPportalService",
             Cluster=Ref(self.ecs_cluster()),
             DependsOn=['ECSLBListener'],  # XXX: Hardcoded, important!
             DesiredCount=os.environ.get(ECS_WSGI_COUNT) or concurrency,
             LoadBalancers=[
                 LoadBalancer(
-                    ContainerName='WSGI',  # this must match Name in TaskDefinition (ContainerDefinition)
+                    ContainerName='portal',  # this must match Name in TaskDefinition (ContainerDefinition)
                     ContainerPort=Ref(self.ecs_web_worker_port()),
                     TargetGroupArn=Ref(self.ecs_lbv2_target_group()))
             ],
             LaunchType='FARGATE',
-            # Run WSGI service on Fargate Spot
+            # Run portal service on Fargate Spot
             CapacityProviderStrategy=[
                 CapacityProviderStrategyItem(
                     CapacityProvider='FARGATE',
@@ -352,7 +356,7 @@ class C4ECSApplication(C4Part):
                     Weight=1
                 )
             ],
-            TaskDefinition=Ref(self.ecs_wsgi_task()),
+            TaskDefinition=Ref(self.ecs_portal_task()),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
@@ -364,25 +368,25 @@ class C4ECSApplication(C4Part):
             # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
-    def ecs_wsgi_scalable_target(self, wsgi: Service, max_concurrency=8) -> ScalableTarget:
-        """ Scalable Target for the WSGI Service. """
+    def ecs_portal_scalable_target(self, portal: Service, max_concurrency=8) -> ScalableTarget:
+        """ Scalable Target for the portal Service. """
         return ScalableTarget(
-            'WSGIScalableTarget',
+            'portalScalableTarget',
             RoleARN=self.IAM_EXPORTS.import_value(C4IAMExports.AUTOSCALING_IAM_ROLE),
-            ResourceId=Ref(wsgi),
+            ResourceId=Ref(portal),
             ServiceNamespace='ecs',
             ScalableDimension='ecs:service:DesiredCount',
             MinCapacity=2,  # this should match 'concurrency'
-            MaxCapacity=max_concurrency  # scale up to 8 WSGI workers if needed
+            MaxCapacity=max_concurrency  # scale up to 8 portal workers if needed
         )
 
-    def ecs_wsgi_scaling_policy(self, scalable_target: ScalableTarget):
-        """ Determines the policy from which a scaling event should occur for WSGI.
+    def ecs_portal_scaling_policy(self, scalable_target: ScalableTarget):
+        """ Determines the policy from which a scaling event should occur for portal.
             Right now, does something simple, like: scale up once average application server CPU reaches 80%
             Note that by increasing vCPU allocation we can reduce how often this occurs.
         """
         return ScalingPolicy(
-            'WSGIScalingPolicy',
+            'portalScalingPolicy',
             PolicyType='TargetTrackingScaling',
             ScalingTargetId=Ref(scalable_target),
             TargetTrackingScalingPolicyConfiguration=TargetTrackingScalingPolicyConfiguration(
@@ -433,7 +437,11 @@ class C4ECSApplication(C4Part):
                         Environment(
                             Name='IDENTITY',
                             Value=identity
-                        )
+                        ),
+                        Environment(
+                            Name='application_type',
+                            Value='indexer'
+                        ),
                     ]
                 )
             ],
@@ -529,7 +537,11 @@ class C4ECSApplication(C4Part):
                         Environment(
                             Name='IDENTITY',
                             Value=identity
-                        )
+                        ),
+                        Environment(
+                            Name='application_type',
+                            Value='ingester'
+                        ),
                     ]
                 )
             ],
@@ -625,7 +637,11 @@ class C4ECSApplication(C4Part):
                         Environment(
                             Name='IDENTITY',
                             Value=identity
-                        )
+                        ),
+                        Environment(
+                            Name='application_type',
+                            Value='deployment'
+                        ),
                     ]
                 )
             ],
