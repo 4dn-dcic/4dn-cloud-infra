@@ -342,7 +342,6 @@ class C4ECSApplication(C4Part):
                     ContainerPort=Ref(self.ecs_web_worker_port()),
                     TargetGroupArn=Ref(self.ecs_lbv2_target_group()))
             ],
-            LaunchType='FARGATE',
             # Run portal service on Fargate Spot
             CapacityProviderStrategy=[
                 CapacityProviderStrategyItem(
@@ -461,7 +460,6 @@ class C4ECSApplication(C4Part):
             "CGAPIndexerService",
             Cluster=Ref(self.ecs_cluster()),
             DesiredCount=os.environ.get(ECS_INDEXER_COUNT) or concurrency,
-            LaunchType='FARGATE',
             CapacityProviderStrategy=[
                 CapacityProviderStrategyItem(
                     CapacityProvider='FARGATE',
@@ -558,7 +556,6 @@ class C4ECSApplication(C4Part):
             "CGAPIngesterService",
             Cluster=Ref(self.ecs_cluster()),
             DesiredCount=os.environ.get(ECS_INGESTER_COUNT) or 1,
-            LaunchType='FARGATE',
             TaskDefinition=Ref(self.ecs_ingester_task()),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
@@ -662,7 +659,6 @@ class C4ECSApplication(C4Part):
             "CGAPDeploymentService",
             Cluster=Ref(self.ecs_cluster()),
             DesiredCount=0,  # Explicitly triggered
-            LaunchType='FARGATE',
             # deployments should happen fast enough to tolerate potential interruption
             CapacityProviderStrategy=[
                 CapacityProviderStrategyItem(
