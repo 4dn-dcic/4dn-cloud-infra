@@ -58,6 +58,7 @@ class C4ECSApplication(C4Part):
     LOGGING_EXPORTS = C4LoggingExports()
     AMI = 'ami-0be13a99cd970f6a9'  # latest amazon linux 2 ECS optimized
     LB_NAME = 'AppLB'
+    IMAGE_TAG = 'latest'
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
@@ -265,14 +266,12 @@ class C4ECSApplication(C4Part):
             Tags=self.tags.cost_tag_array()
         )
 
-    def ecs_portal_task(self, cpus='256', mem='512', app_revision='latest',
-                      identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
+    def ecs_portal_task(self, cpus='256', mem='512', identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the portal Task (serve HTTP requests).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
             :param cpus: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
-            :param app_revision: Tag on ECR for the image we'd like to run
             :param identity: name of secret containing the identity information for this environment
         """
         return TaskDefinition(
@@ -290,7 +289,7 @@ class C4ECSApplication(C4Part):
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
                         ':',
-                        app_revision,
+                        self.IMAGE_TAG,
                     ]),
                     PortMappings=[PortMapping(
                         ContainerPort=Ref(self.ecs_web_worker_port()),
@@ -397,8 +396,7 @@ class C4ECSApplication(C4Part):
             TargetValue=80.0
         )
 
-    def ecs_indexer_task(self, cpus='256', mem='512', app_revision='latest-indexer',
-                         identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
+    def ecs_indexer_task(self, cpus='256', mem='512', identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the Indexer task (indexer app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
@@ -422,7 +420,7 @@ class C4ECSApplication(C4Part):
                     Image=Join('', [
                         self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
                         ':',
-                        app_revision,
+                        self.IMAGE_TAG,
                     ]),
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
@@ -496,14 +494,12 @@ class C4ECSApplication(C4Part):
             MaxCapacity=max_concurrency  # scale indexing to 16 workers if needed
         )
 
-    def ecs_ingester_task(self, cpus='512', mem='1024', app_revision='latest-ingester',
-                          identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
+    def ecs_ingester_task(self, cpus='512', mem='1024', identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
             :param cpus: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
-            :param app_revision: Tag on ECR for the image we'd like to run
             :param identity: name of secret containing the identity information for this environment
         """
         return TaskDefinition(
@@ -521,7 +517,7 @@ class C4ECSApplication(C4Part):
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
                         ':',
-                        app_revision,
+                        self.IMAGE_TAG
                     ]),
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
@@ -595,14 +591,12 @@ class C4ECSApplication(C4Part):
             MaxCapacity=max_concurrency  # scale ingester to 4 workers if needed
         )
 
-    def ecs_deployment_task(self, cpus='256', mem='512', app_revision='latest-deployment',
-                            identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
+    def ecs_deployment_task(self, cpus='256', mem='512', identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
             :param cpus: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
-            :param app_revision: Tag on ECR for the image we'd like to run
             :param identity: name of secret containing the identity information for this environment
         """
         return TaskDefinition(
@@ -620,7 +614,7 @@ class C4ECSApplication(C4Part):
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
                         ':',
-                        app_revision,
+                        self.IMAGE_TAG,
                     ]),
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
