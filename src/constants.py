@@ -22,6 +22,7 @@ ES_DATA_TYPE = 'elasticsearch.data_node_type'
 ES_VOLUME_SIZE = 'elasticsearch.volume_size'
 
 # ECS Configuration Options
+ECS_IMAGE_TAG = 'ecs.image_tag'
 ECS_WSGI_COUNT = 'ecs.wsgi.count'
 ECS_WSGI_CPU = 'ecs.wsgi.cpu'
 ECS_WSGI_MEM = 'ecs.wsgi.mem'

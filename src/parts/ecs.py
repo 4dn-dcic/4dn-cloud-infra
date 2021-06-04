@@ -29,7 +29,7 @@ from troposphere.applicationautoscaling import (
     TargetTrackingScalingPolicyConfiguration,
 )
 from src.constants import (
-    ENV_NAME,
+    ENV_NAME, ECS_IMAGE_TAG,
     ECS_WSGI_COUNT, ECS_WSGI_CPU, ECS_WSGI_MEM,  # XXX: refactor
     ECS_INDEXER_COUNT, ECS_INDEXER_CPU, ECS_INDEXER_MEM,
     ECS_INGESTER_COUNT, ECS_INGESTER_CPU, ECS_INGESTER_MEM
@@ -58,7 +58,7 @@ class C4ECSApplication(C4Part):
     LOGGING_EXPORTS = C4LoggingExports()
     AMI = 'ami-0be13a99cd970f6a9'  # latest amazon linux 2 ECS optimized
     LB_NAME = 'AppLB'
-    IMAGE_TAG = 'latest'
+    IMAGE_TAG = os.environ.get(ECS_IMAGE_TAG) or 'latest'
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
