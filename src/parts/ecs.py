@@ -41,6 +41,16 @@ from src.parts.iam import C4IAMExports
 from src.parts.logging import C4LoggingExports
 
 
+class C4ECSApplicationTypes:
+    """ Defines the set of possible application types - these identifiers are resolved
+        in the production entrypoint.sh to direct to the correct entrypoint.
+    """
+    PORTAL = 'portal'
+    INDEXER = 'indexer'
+    INGESTER = 'ingester'
+    DEPLOYMENT = 'deployment'
+
+
 class C4ECSApplication(C4Part):
     """ Configures the ECS Cluster Application for CGAP
         This class contains everything necessary for running CGAP on ECS, including:
@@ -313,7 +323,7 @@ class C4ECSApplication(C4Part):
                         ),
                         Environment(
                             Name='application_type',
-                            Value='portal'
+                            Value=C4ECSApplicationTypes.PORTAL
                         ),
                     ]
                 )
@@ -439,7 +449,7 @@ class C4ECSApplication(C4Part):
                         ),
                         Environment(
                             Name='application_type',
-                            Value='indexer'
+                            Value=C4ECSApplicationTypes.INDEXER
                         ),
                     ]
                 )
@@ -536,7 +546,7 @@ class C4ECSApplication(C4Part):
                         ),
                         Environment(
                             Name='application_type',
-                            Value='ingester'
+                            Value=C4ECSApplicationTypes.INGESTER
                         ),
                     ]
                 )
@@ -633,7 +643,7 @@ class C4ECSApplication(C4Part):
                         ),
                         Environment(
                             Name='application_type',
-                            Value='deployment'
+                            Value=C4ECSApplicationTypes.DEPLOYMENT
                         ),
                     ]
                 )
