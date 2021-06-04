@@ -10,7 +10,7 @@ alpha:
 	poetry run cli provision ecr --validate --alpha
 	poetry run cli provision logging --validate --alpha
 	poetry run cli provision ecs --validate --alpha
-	# TODO provision foursight
+	# TODO validate foursight
 	# TODO provision Tibanna
 	@echo 'Validation Succeeded! Note that this does NOT mean the stacks will build - consider a "light check".'
 
@@ -42,6 +42,7 @@ deploy-alpha-p1:
 deploy-alpha-p2:
 	@echo -n "Confirm you have done the 2 required steps after deploy-alpha-p1 with 'y' [y/N] " && read ans && [ $${ans:-N} = y ]
 	poetry run cli provision ecs --validate --alpha --upload_change_set
+	CHECK_RUNNER=c4-foursight-trial-alpha-stack-CheckRunner-JXZ3mRAkzyKS GLOBAL_BUCKET_ENV=foursight-cgap-mastertest-envs poetry run cli provision --trial --output_file out/foursight-dev-tmp/ --stage dev foursight --alpha --upload_change_set
 	@echo 'ECS may take up to 10 minutes to come online. Once it has, examine the stack output for the URL.'
 	@echo 'Next, upload base environment configuration to global application s3 bucket.'
 	@echo 'Phase 3 is triggering deployment, which for now is done manually from the ECS console.'

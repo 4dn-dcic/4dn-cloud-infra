@@ -2,7 +2,13 @@
 # Conventions vary, including env, venv, or longer names like cgap_env,
 # but typically they end in "env".
 *env/
-
+.chalice/deployments/
+.chalice/deployed/
+.chalice/venv/
+.chalice/config.json
+dist/
+requirements.txt
+*.pyc
 .DS_Store
 credentials.json
 token.pickle

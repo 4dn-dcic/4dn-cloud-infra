@@ -1,11 +1,11 @@
 [tool.poetry]
 name = "4dn-cloud-infra"
-version = "0.2.5"
+version = "0.3.1"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
 authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
 packages = [
-    { include="src" }
+    { include = "src" }
 ]
 
 [tool.poetry.dependencies]
@@ -13,7 +13,7 @@ python = ">=3.6.10,<3.7"
 troposphere = "^2.6.3"
 boto3 = "^1.15.16"
 botocore = "^1.18.16"
-dcicutils = "^1.14.0"  # this version is the min as it contains first iteration of related utils
+dcicutils = "1.16.0.1b6"  # this version is the min as it contains first iteration of related utils
 google-api-core = "^1.23.0"
 google-api-python-client = "^1.12.5"
 google-auth = "^1.23.0"
@@ -22,12 +22,15 @@ google-auth-oauthlib = "^0.4.2"
 googleapis-common-protos = "^1.52.0"
 awacs = "^1.0.2"
 cfn-lint = "^0.48.1"  # a secondary check that catches more things than standard validate - Will 4/1/2021
+foursight-cgap = "0.4.9.1b22"
+foursight-core = "0.1.9.1b33"
 submit-cgap = "^0.7.3"
 tibanna = "^1.2.2"
 tqdm = "^4.60.0"
-pytest = "^6.2.4"
+pytest = "^5.1.2"
 
 [tool.poetry.dev-dependencies]
+chalice = "^1.21.4"
 
 [tool.poetry.scripts]
 cli = "src.cli:cli"

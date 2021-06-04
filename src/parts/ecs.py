@@ -382,6 +382,8 @@ class C4ECSApplication(C4Part):
         """ Determines the policy from which a scaling event should occur for portal.
             Right now, does something simple, like: scale up once average application server CPU reaches 80%
             Note that by increasing vCPU allocation we can reduce how often this occurs.
+
+            Documentation for later: https://aws.amazon.com/blogs/containers/optimizing-amazon-elastic-container-service-for-cost-using-scheduled-scaling/
         """
         return ScalingPolicy(
             'portalScalingPolicy',

@@ -6,7 +6,7 @@ from dcicutils import ff_utils
 # Precondition: both of these must exist
 PATH_TO_CREDS = os.path.expanduser('~/.cgap-keys.json')
 PATH_TO_VCF_META = 'test_data/na_12879/file_processed.json'
-SERVER = 'http://c4ecstrialalphaecslb-2115269186.us-east-1.elb.amazonaws.com'
+SERVER = 'http://c4ecstrialalphacgapmastertest-273357903.us-east-1.elb.amazonaws.com'
 
 
 def main():
