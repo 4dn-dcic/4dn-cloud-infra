@@ -304,12 +304,23 @@ class C4Client:
         """
         if not os.path.exists(cls.CONFIGURATION):
             raise CLIException('Required configuration file not present! Write config.json')
-        config = json.load(open(cls.CONFIGURATION))
+        config = cls.load_config(cls.CONFIGURATION)
         for required_key in [DEPLOYING_IAM_USER, ENV_NAME]:
             if required_key not in config:
                 raise CLIException('Required key in configuration file not present: %s' % required_key)
         with override_environ(**config):
             yield
+
+    @classmethod
+    def load_config(cls, filename):
+        """
+        Loads a .json file, casting all the resulting dictionary values to strings
+        so they are suitable config file values.
+        """
+        with open(filename) as fp:
+            config = json.load(fp)
+            config = {k: str(v) for k, v in config.items()}
+            return config
 
     @classmethod
     def provision_stack(cls, args):
