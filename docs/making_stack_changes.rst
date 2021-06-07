@@ -14,7 +14,7 @@ Cloudformation service.
 
 To modify these stacks:
 
-1. Write a change to the troposphere resource definitions, which are individual static methods in the C4Part classes
+1. Write a change to the troposphere resource definitions, which are individual methods in the C4Part classes
    in `src/parts`. If you're modifying an existing resource method, use the docstring reference link to view the
    possible configuration options, which match up to the troposphere class structure.
 2. Add a link to the AWS Cloudformation doc for this resource to the docstring of your new resource. These can be hard
