@@ -21,7 +21,14 @@ Step One: Create New Account
    Otherwise, create a new account from scratch, with billing information and contact information, from the `AWS login
    page <https://aws.amazon.com/>`_.
 
-2. Create one new IAM user separate from the root account login, to be used to provision the rest of the account's
+Note that the HMS email you use to create this account is treated as the 'root account' login.
+
+2. Once the account is created, you can request a password reset for a 'root account' login (not IAM login). When this
+   is done, you'll be able to log into your new account with this password.
+
+   The root account should not be used for routine use; an IAM user should be used for routine purposes.
+
+3. Create one new IAM user separate from the root account login, to be used to provision the rest of the account's
    resources. More information on this bootstrap step to be documented. As a result of this step, you should have this
    account's credentials in a configurable `.aws` directory, by default, `.aws_test/credentials`.
 
