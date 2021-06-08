@@ -30,7 +30,12 @@ class C4Network(C4Part):
     """ Note: when reading this code 'application' roughly refers to the AWS service running
         the CGAP Portal, whether it be Elastic Beanstalk or ECS.
     """
-    CIDR_BLOCK = '10.2.0.0/16'
+
+    # The theory in this choice is that this will give us up to 32 VPCs of 8 subnets each
+    # (or some other more clever subdivision of these than is used for private_subnet_a and friends).
+    # We imagine it's more likely we'll need extra VPCs than it is likely we'll need extra subnets.
+    # -kmp&eb -8-Jun-2021
+    CIDR_BLOCK = '10.0.0.0/13'
     DB_PORT_LOW = 5400
     DB_PORT_HIGH = 5499
     EXPORTS = C4NetworkExports()
@@ -276,23 +281,26 @@ class C4Network(C4Part):
             RouteTableId=Ref(route_table),
         )
 
-    def public_subnet_a(self) -> Subnet:
-        """ Define public subnet A """
-        return self.build_subnet('PublicSubnetA', '10.2.5.0/16', self.virtual_private_cloud(), 'us-east-1a')
-
-    def public_subnet_b(self) -> Subnet:
-        """ Define public subnet B """
-        return self.build_subnet('PublicSubnetB', '10.2.7.0/16', self.virtual_private_cloud(), 'us-east-1b')
+    # NOTE: These CIDR IP ranges need to exist within the space defined by the CIDR_BLOCK class variable.
+    #       To compute the implications of that, use a tool like https://www.ipaddressguide.com/cidr
 
     def private_subnet_a(self) -> Subnet:
         """ Define private subnet A """
-        return self.build_subnet('PrivateSubnetA', '10.2.6.0/16', self.virtual_private_cloud(),
+        return self.build_subnet('PrivateSubnetA', '10.2.0.0/16', self.virtual_private_cloud(),
                                  'us-east-1a')
+
+    def public_subnet_a(self) -> Subnet:
+        """ Define public subnet A """
+        return self.build_subnet('PublicSubnetA', '10.3.0.0/16', self.virtual_private_cloud(), 'us-east-1a')
 
     def private_subnet_b(self) -> Subnet:
         """ Define private subnet B """
-        return self.build_subnet('PrivateSubnetB', '10.2.8.0/16', self.virtual_private_cloud(),
+        return self.build_subnet('PrivateSubnetB', '10.4.0.0/16', self.virtual_private_cloud(),
                                  'us-east-1b')
+
+    def public_subnet_b(self) -> Subnet:
+        """ Define public subnet B """
+        return self.build_subnet('PublicSubnetB', '10.5.0.0/16', self.virtual_private_cloud(), 'us-east-1b')
 
     def subnet_outputs(self) -> [Output]:
         """ Define outputs for all subnets, for cross-stack compatibility. Ref:
