@@ -36,8 +36,9 @@ class C4Network(C4Part):
     # We imagine it's more likely we'll need extra VPCs than it is likely we'll need extra subnets.
     # It does not work to take 10.0.0.0/13 because 10.0 is reserved in some way.
     # Using 10.8.0.0/13 gives us 10.8.0.0 to 10.15.255.255.
+    # Looks like it's required to be between /16 and /28.
     # -kmp&eb -8-Jun-2021
-    CIDR_BLOCK = '10.0.0.0/13'
+    CIDR_BLOCK = '10.0.0.0/16'
     DB_PORT_LOW = 5400
     DB_PORT_HIGH = 5499
     EXPORTS = C4NetworkExports()
@@ -293,21 +294,21 @@ class C4Network(C4Part):
 
     def private_subnet_a(self) -> Subnet:
         """ Define private subnet A """
-        return self.build_subnet('PrivateSubnetA', '10.9.0.0/16', self.virtual_private_cloud(),
+        return self.build_subnet('PrivateSubnetA', '10.0.0.0/20', self.virtual_private_cloud(),
                                  'us-east-1a')
 
     def public_subnet_a(self) -> Subnet:
         """ Define public subnet A """
-        return self.build_subnet('PublicSubnetA', '10.10.0.0/16', self.virtual_private_cloud(), 'us-east-1a')
+        return self.build_subnet('PublicSubnetA', '10.0.16.0/20', self.virtual_private_cloud(), 'us-east-1a')
 
     def private_subnet_b(self) -> Subnet:
         """ Define private subnet B """
-        return self.build_subnet('PrivateSubnetB', '10.11.0.0/16', self.virtual_private_cloud(),
+        return self.build_subnet('PrivateSubnetB', '10.0.32.0/20', self.virtual_private_cloud(),
                                  'us-east-1b')
 
     def public_subnet_b(self) -> Subnet:
         """ Define public subnet B """
-        return self.build_subnet('PublicSubnetB', '10.12.0.0/16', self.virtual_private_cloud(), 'us-east-1b')
+        return self.build_subnet('PublicSubnetB', '10.0.48.0/20', self.virtual_private_cloud(), 'us-east-1b')
 
     def subnet_outputs(self) -> [Output]:
         """ Define outputs for all subnets, for cross-stack compatibility. Ref:
