@@ -34,8 +34,10 @@ class C4Network(C4Part):
     # The theory in this choice is that this will give us up to 32 VPCs of 8 subnets each
     # (or some other more clever subdivision of these than is used for private_subnet_a and friends).
     # We imagine it's more likely we'll need extra VPCs than it is likely we'll need extra subnets.
+    # It does not work to take 10.0.0.0/13 because 10.0 is reserved in some way.
+    # Using 10.8.0.0/13 gives us 10.8.0.0 to 10.15.255.255.
     # -kmp&eb -8-Jun-2021
-    CIDR_BLOCK = '10.0.0.0/13'
+    CIDR_BLOCK = '10.8.0.0/13'
     DB_PORT_LOW = 5400
     DB_PORT_HIGH = 5499
     EXPORTS = C4NetworkExports()
