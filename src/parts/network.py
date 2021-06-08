@@ -37,7 +37,7 @@ class C4Network(C4Part):
     # It does not work to take 10.0.0.0/13 because 10.0 is reserved in some way.
     # Using 10.8.0.0/13 gives us 10.8.0.0 to 10.15.255.255.
     # -kmp&eb -8-Jun-2021
-    CIDR_BLOCK = '10.8.0.0/13'
+    CIDR_BLOCK = '10.0.0.0/13'
     DB_PORT_LOW = 5400
     DB_PORT_HIGH = 5499
     EXPORTS = C4NetworkExports()
