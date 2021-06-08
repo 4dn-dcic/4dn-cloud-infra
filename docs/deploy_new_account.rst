@@ -40,11 +40,11 @@ Step Two: CGAP Orchestration with Cloud Formation
 
 ::
 
-    ./4dn-cloud-infra provision iam --validate --alpha --upload_change_set
-    ./4dn-cloud-infra provision logging --validate --alpha --upload_change_set
-    ./4dn-cloud-infra provision network --validate --alpha --upload_change_set
-    ./4dn-cloud-infra provision ecr --validate --alpha --upload_change_set
-    ./4dn-cloud-infra provision datastore --validate --alpha --upload_change_set
+    poetry run cli provision iam --validate --alpha --upload_change_set
+    poetry run cli provision logging --validate --alpha --upload_change_set
+    poetry run cli provision network --validate --alpha --upload_change_set
+    poetry run cli provision ecr --validate --alpha --upload_change_set
+    poetry run cli provision datastore --validate --alpha --upload_change_set
 
 These will take about fifteen minutes or so to finish provisioning, and should be run in order. While they are
 instantiating, write application configuration in secrets manager -- more documentation on this to follow.
@@ -58,7 +58,7 @@ Once your new ECR comes online, upload application images to it. See the cgap-po
 
    ::
 
-     ./4dn-cloud-infra provision ecs --validate --alpha --upload_change_set
+     poetry run cli provision ecs --validate --alpha --upload_change_set
 
 3. Once the application has finishing instantiating, you can deploy the portal.
 
@@ -87,4 +87,4 @@ To deploy foursight, use this command:
 
 ::
     source ~/.aws_test/test_creds.sh
-    GLOBAL_BUCKET_ENV=foursight-cgap-mastertest-envs ./4dn-cloud-infra provision --trial --output_file out/foursight-dev-tmp/ --stage dev foursight --alpha --upload_change_set
+    GLOBAL_BUCKET_ENV=foursight-cgap-mastertest-envs poetry run cli provision --trial --output_file out/foursight-dev-tmp/ --stage dev foursight --alpha --upload_change_set
