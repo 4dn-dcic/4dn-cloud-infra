@@ -288,21 +288,21 @@ class C4Network(C4Part):
 
     def private_subnet_a(self) -> Subnet:
         """ Define private subnet A """
-        return self.build_subnet('PrivateSubnetA', '10.2.0.0/16', self.virtual_private_cloud(),
+        return self.build_subnet('PrivateSubnetA', '10.8.0.0/16', self.virtual_private_cloud(),
                                  'us-east-1a')
 
     def public_subnet_a(self) -> Subnet:
         """ Define public subnet A """
-        return self.build_subnet('PublicSubnetA', '10.3.0.0/16', self.virtual_private_cloud(), 'us-east-1a')
+        return self.build_subnet('PublicSubnetA', '10.9.0.0/16', self.virtual_private_cloud(), 'us-east-1a')
 
     def private_subnet_b(self) -> Subnet:
         """ Define private subnet B """
-        return self.build_subnet('PrivateSubnetB', '10.4.0.0/16', self.virtual_private_cloud(),
+        return self.build_subnet('PrivateSubnetB', '10.10.0.0/16', self.virtual_private_cloud(),
                                  'us-east-1b')
 
     def public_subnet_b(self) -> Subnet:
         """ Define public subnet B """
-        return self.build_subnet('PublicSubnetB', '10.5.0.0/16', self.virtual_private_cloud(), 'us-east-1b')
+        return self.build_subnet('PublicSubnetB', '10.11.0.0/16', self.virtual_private_cloud(), 'us-east-1b')
 
     def subnet_outputs(self) -> [Output]:
         """ Define outputs for all subnets, for cross-stack compatibility. Ref:
