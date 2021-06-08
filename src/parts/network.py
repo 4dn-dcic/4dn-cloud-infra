@@ -285,24 +285,29 @@ class C4Network(C4Part):
 
     # NOTE: These CIDR IP ranges need to exist within the space defined by the CIDR_BLOCK class variable.
     #       To compute the implications of that, use a tool like https://www.ipaddressguide.com/cidr
+    #
+    #       Also, to succeed we have to expand the default number of EIPs from 5 to a larger number (100?)
+    #       or we may get an error like:
+    #         The maximum number of addresses has been reached.
+    #         (Service: AmazonEC2; Status Code: 400; Error Code: AddressLimitExceeded; Request ID: <guid>; Proxy: null)
 
     def private_subnet_a(self) -> Subnet:
         """ Define private subnet A """
-        return self.build_subnet('PrivateSubnetA', '10.8.0.0/16', self.virtual_private_cloud(),
+        return self.build_subnet('PrivateSubnetA', '10.9.0.0/16', self.virtual_private_cloud(),
                                  'us-east-1a')
 
     def public_subnet_a(self) -> Subnet:
         """ Define public subnet A """
-        return self.build_subnet('PublicSubnetA', '10.9.0.0/16', self.virtual_private_cloud(), 'us-east-1a')
+        return self.build_subnet('PublicSubnetA', '10.10.0.0/16', self.virtual_private_cloud(), 'us-east-1a')
 
     def private_subnet_b(self) -> Subnet:
         """ Define private subnet B """
-        return self.build_subnet('PrivateSubnetB', '10.10.0.0/16', self.virtual_private_cloud(),
+        return self.build_subnet('PrivateSubnetB', '10.11.0.0/16', self.virtual_private_cloud(),
                                  'us-east-1b')
 
     def public_subnet_b(self) -> Subnet:
         """ Define public subnet B """
-        return self.build_subnet('PublicSubnetB', '10.11.0.0/16', self.virtual_private_cloud(), 'us-east-1b')
+        return self.build_subnet('PublicSubnetB', '10.12.0.0/16', self.virtual_private_cloud(), 'us-east-1b')
 
     def subnet_outputs(self) -> [Output]:
         """ Define outputs for all subnets, for cross-stack compatibility. Ref:
