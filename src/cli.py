@@ -381,7 +381,7 @@ def cli():
     """Set up and run the 4dn cloud infra command line scripts"""
     parser = argparse.ArgumentParser(description='4DN Cloud Infrastructure')
     parser.add_argument('--debug', action='store_true', help='Sets log level to debug')
-    parser.add_argument('--creds_dir', default='~/.aws_test', help='Sets aws creds dir', type=str)
+    parser.add_argument('--creds_dir', default="~/.aws_test", help='Sets aws creds dir', type=str)
     subparsers = parser.add_subparsers(help='Commands', dest='command')
 
     # Configure 'provision' command
@@ -431,12 +431,6 @@ def cli():
     parser_info.set_defaults(func=C4Client.info)
 
     args = parser.parse_args()
-    # check for creds files
-    credentials_file = "{}/credentials".format(args.creds_dir)
-    test_creds_script = "{}/test_creds.sh".format(args.creds_dir)
-    if not os.path.isfile(credentials_file) or not os.path.isfile(test_creds_script):
-        logger.error('Error: credentials file missing from {}'.format(args.creds_dir))
-        exit(1)
     if args.debug:
         logger.setLevel(logging.DEBUG)
         logger.debug('Debug mode enabled')
