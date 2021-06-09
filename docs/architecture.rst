@@ -20,6 +20,22 @@ fetch account info via boto3 commands. It also can serve to publish google sheet
 can be used to generate, upload, and execute cloudformation infrastructure. This doc focuses on how the `provision`
 command works.
 
+-----------------
+Code Walk-through
+-----------------
+
+* config.json - .gitignore'd file that contains required configuration options, see `docs/setup.rst`.
+* `src/secrets.py` - .gitignore'd file that contains required customization options, see `docs/setup.rst`.
+* `src/cli.py` - Command-line interface for the `4dn-cloud-infra` script
+* `src/constants.py` - Contains infrastructure configurable options
+* `src/part.py` - Contains C4Part, an abstraction for building an AWS resource
+* `src/stack.py` - Contains C4Stack, an abstraction for building a CloudFormation Stack
+* `src/exports.py` - Contains C4Exports, an abstraction for defining export values from stacks
+* `src/exceptions.py` - Exception handling for the package
+* `src/info/` - Contains scripts for getting info from AWS
+* `src/parts/` - Contains definitions of resources associated with each part (network, datastore etc)
+* `src/stacks/` - Contains files that define the stacks (using resources from `src/parts/`)
+
 ---------
 Foursight
 ---------
@@ -44,3 +60,12 @@ This difference translates to additional command-line configuration:
                         (foursight only)
     --trial             Use TRIAL creds when building the config (foursight
                         only; experimental)
+
+-----------------------------------
+Notes Towards Continued Development
+-----------------------------------
+
+1. Stack policies are described here_. Implementing these will be necessary to prevent stack replace operations on
+   data stores, which would result in data loss.
+
+.. _policies: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/protect-stack-resources.html
