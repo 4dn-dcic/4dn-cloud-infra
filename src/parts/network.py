@@ -31,14 +31,12 @@ class C4Network(C4Part):
         the CGAP Portal, whether it be Elastic Beanstalk or ECS.
     """
 
-    # The theory in this choice is that this will give us up to 32 VPCs of 8 subnets each
-    # (or some other more clever subdivision of these than is used for private_subnet_a and friends).
-    # We imagine it's more likely we'll need extra VPCs than it is likely we'll need extra subnets.
-    # It does not work to take 10.0.0.0/13 because 10.0 is reserved in some way.
-    # Using 10.8.0.0/13 gives us 10.8.0.0 to 10.15.255.255.
-    # Looks like it's required to be between /16 and /28.
-    # -kmp&eb -8-Jun-2021
-    CIDR_BLOCK = '10.0.0.0/16'
+    # "The allowed block size is between a /16 netmask (65,536 IP addresses) and /28 netmask (16 IP addresses).
+    #  After you've created your VPC, you can associate secondary CIDR blocks with the VPC.)"
+    # Source: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html
+    # The public/private subnets will need to be allocated from within this space.
+    CIDR_BLOCK = '10.0.0.0/16'  # Allocate maximum allowed range of IP addresses (10.0.0.0 to 10.0.255.255)
+
     DB_PORT_LOW = 5400
     DB_PORT_HIGH = 5499
     EXPORTS = C4NetworkExports()
@@ -285,30 +283,30 @@ class C4Network(C4Part):
         )
 
     # NOTE: These CIDR IP ranges need to exist within the space defined by the CIDR_BLOCK class variable.
-    #       To compute the implications of that, use a tool like https://www.ipaddressguide.com/cidr
-    #
-    #       Also, to succeed we have to expand the default number of EIPs from 5 to a larger number (100?)
-    #       or we may get an error like:
-    #         The maximum number of addresses has been reached.
-    #         (Service: AmazonEC2; Status Code: 400; Error Code: AddressLimitExceeded; Request ID: <guid>; Proxy: null)
+    #       To compute the implications of that, use a tool like https://cidr.xyz/
+    #       * To succeed (avoiding "The maximum number of addresses has been reached.") we had to expand
+    #         the default number of EIPs from 5 to a larger number (we used 100).
+    #       * This partitions the primary CIDR_BLOCK space into 4 parts of 16,384 addresses each,
+    #         leaving no additional room. A secondary block can be added if other subnets are needed.
+    #         See: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html#vpc-resize
 
     def private_subnet_a(self) -> Subnet:
         """ Define private subnet A """
-        return self.build_subnet('PrivateSubnetA', '10.0.0.0/20', self.virtual_private_cloud(),
+        return self.build_subnet('PrivateSubnetA', '10.0.0.0/18', self.virtual_private_cloud(),
                                  'us-east-1a')
 
     def public_subnet_a(self) -> Subnet:
         """ Define public subnet A """
-        return self.build_subnet('PublicSubnetA', '10.0.16.0/20', self.virtual_private_cloud(), 'us-east-1a')
+        return self.build_subnet('PublicSubnetA', '10.0.64.0/18', self.virtual_private_cloud(), 'us-east-1a')
 
     def private_subnet_b(self) -> Subnet:
         """ Define private subnet B """
-        return self.build_subnet('PrivateSubnetB', '10.0.32.0/20', self.virtual_private_cloud(),
+        return self.build_subnet('PrivateSubnetB', '10.0.128.0/18', self.virtual_private_cloud(),
                                  'us-east-1b')
 
     def public_subnet_b(self) -> Subnet:
         """ Define public subnet B """
-        return self.build_subnet('PublicSubnetB', '10.0.48.0/20', self.virtual_private_cloud(), 'us-east-1b')
+        return self.build_subnet('PublicSubnetB', '10.0.192.0/18', self.virtual_private_cloud(), 'us-east-1b')
 
     def subnet_outputs(self) -> [Output]:
         """ Define outputs for all subnets, for cross-stack compatibility. Ref:
