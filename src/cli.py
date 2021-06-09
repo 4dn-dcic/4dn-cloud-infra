@@ -210,7 +210,7 @@ class C4Client:
 
         cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {flags}'.format(
             mount_yaml=os.path.abspath(os.getcwd())+'/out/templates:/root/out/templates',
-            mount_creds='{creds_dir}:/root/.aws'.format(creds_dir=stack.account.creds_dir),
+            mount_creds='{creds_dir}:/root/.aws'.format(creds_dir=args.creds_dir),
             command='amazon/aws-cli cloudformation deploy',
             flags=flags,
         )
