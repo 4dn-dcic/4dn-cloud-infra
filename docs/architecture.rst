@@ -69,3 +69,20 @@ Notes Towards Continued Development
    data stores, which would result in data loss.
 
 .. _policies: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/protect-stack-resources.html
+
+2. You will need to understand stack references and cross-stack references. Stack references are implemented with
+   `Ref`, via `from troposphere import Ref`. Ref takes as instantiation argument any troposphere object, and acts as
+   a link to that object. This is used throughout Cloudformation to build relational links. For instance, between a
+   subnet and its corresponding VPC, to attach an Internet Gateway to a VPC.
+
+   Cross-stack links are described below. There is some support for this using the `C4Exports` class, to export specific
+   resources from a stack for use in other stacks. This class is implemented in `src/exports.py` and is sub-classed
+   when needed for a specific `C4Part`, in `src/parts/`.
+
+   Walk-through: https://aws.amazon.com/premiumsupport/knowledge-center/cloudformation-reference-resource/
+
+   Best practices: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/best-practices.html#cross-stack
+
+   ImportValue: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-importvalue.html
+
+   Outputs: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html
