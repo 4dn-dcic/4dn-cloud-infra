@@ -50,11 +50,11 @@ class C4Client:
     CONFIGURATION = 'config.json'  # path to config file, top level by default
 
     @classmethod
-    def validate_cloudformation_template(cls, file_path):
+    def validate_cloudformation_template(cls, file_path, creds_dir):
         """ Validates CloudFormation template at file_path """
         cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {args}'.format(
             mount_yaml=os.path.abspath(os.getcwd())+'/out/templates:/root/out/templates',
-            mount_creds='{creds_dir}:/root/.aws'.format(creds_dir='~/.aws_test'),
+            mount_creds='{creds_dir}:/root/.aws'.format(creds_dir=creds_dir),
             command='amazon/aws-cli cloudformation validate-template',
             args='--template-body file://{file_path}'.format(file_path=file_path),
         )
@@ -113,7 +113,7 @@ class C4Client:
         # Creates mount point flags for creds and the chalice package
         mount_points = ' '.join([
                 '-v',
-                '~/.aws_test:/root/.aws',
+                '{creds_dir}:/root/.aws'.format(creds_dir=args.creds_dir),
                 '-v',
                 mount_chalice_package,
             ])
@@ -210,7 +210,7 @@ class C4Client:
 
         cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {flags}'.format(
             mount_yaml=os.path.abspath(os.getcwd())+'/out/templates:/root/out/templates',
-            mount_creds='{creds_dir}:/root/.aws'.format(creds_dir=stack.account.creds_dir),
+            mount_creds='{creds_dir}:/root/.aws'.format(creds_dir=args.creds_dir),
             command='amazon/aws-cli cloudformation deploy',
             flags=flags,
         )
@@ -283,7 +283,7 @@ class C4Client:
             file_path = ''.join(['/root/', path, template_name])
             logger.info('Written template to {}'.format(file_path))
             if args.validate:
-                cls.validate_cloudformation_template(file_path=file_path)
+                cls.validate_cloudformation_template(file_path=file_path, creds_dir=args.creds_dir)
             return file_path
 
     @staticmethod
@@ -381,6 +381,7 @@ def cli():
     """Set up and run the 4dn cloud infra command line scripts"""
     parser = argparse.ArgumentParser(description='4DN Cloud Infrastructure')
     parser.add_argument('--debug', action='store_true', help='Sets log level to debug')
+    parser.add_argument('--creds_dir', default="~/.aws_test", help='Sets aws creds dir', type=str)
     subparsers = parser.add_subparsers(help='Commands', dest='command')
 
     # Configure 'provision' command
