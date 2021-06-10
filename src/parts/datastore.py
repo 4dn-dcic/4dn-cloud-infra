@@ -19,14 +19,18 @@ from troposphere.sqs import Queue
 from troposphere.s3 import Bucket, Private
 from troposphere.kms import Key
 from dcicutils.misc_utils import as_seconds
-from src.part import C4Part
-from src.exports import C4Exports
-from src.parts.network import C4NetworkExports
 from src.constants import (
+    ACCOUNT_NUMBER,
     DEPLOYING_IAM_USER, ENV_NAME,
-    RDS_AZ, RDS_DB_NAME, RDS_STORAGE_SIZE, RDS_INSTANCE_SIZE,
-    ES_DATA_TYPE, ES_DATA_COUNT, ES_MASTER_COUNT, ES_MASTER_TYPE, ES_VOLUME_SIZE
+    # RDS_AZ,
+    RDS_DB_NAME, RDS_STORAGE_SIZE, RDS_INSTANCE_SIZE,
+    ES_DATA_TYPE, ES_DATA_COUNT,
+    # ES_MASTER_COUNT, ES_MASTER_TYPE,
+    ES_VOLUME_SIZE
 )
+from src.exports import C4Exports
+from src.part import C4Part
+from src.parts.network import C4NetworkExports
 
 
 class C4DatastoreExports(C4Exports):
@@ -162,7 +166,7 @@ class C4Datastore(C4Part):
                                              C4DatastoreExports.FOURSIGHT_ENV_BUCKET,
                                              C4DatastoreExports.FOURSIGHT_RESULT_BUCKET,
                                              C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET],
-                                             self.APPLICATION_LAYER_BUCKETS + self.FOURSIGHT_LAYER_BUCKETS):
+                                            self.APPLICATION_LAYER_BUCKETS + self.FOURSIGHT_LAYER_BUCKETS):
 
             env_name = os.environ.get(ENV_NAME)
             bucket = self.build_s3_bucket(bucket_name.format(env_name))
@@ -353,18 +357,20 @@ class C4Datastore(C4Part):
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
             TODO allow master node configuration
         """
-        logical_id = self.name.logical_id('ES%s' % os.environ.get(ENV_NAME, '').replace('-', ''))
-        domain_name = self.name.domain_name(logical_id)
+        domain_id_token = 'ES%s' % os.environ.get(ENV_NAME, '').replace('-', '')
+        logical_id = self.name.logical_id(domain_id_token)
+        domain_name = self.name.domain_name(domain_id_token)
         options = {}
         try:  # feature not yet supported by troposphere
             options['DomainEndpointOptions'] = DomainEndpointOptions(EnforceHTTPS=True)
         except NotImplementedError:
             pass
+        account_num = os.environ.get(ACCOUNT_NUMBER)
         return Domain(
             logical_id,
             # DomainName=domain_name,
             # TODO specify DomainName instead of an auto-generated one; ref:
-            # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-domainname
+            # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-domainname  # noQA
             AccessPolicies={
                 # XXX: this policy needs revising - Will 5/18/21
                 'Version': '2012-10-17',
@@ -373,14 +379,31 @@ class C4Datastore(C4Part):
                         'Effect': 'Allow',
                         'Principal': {
                             'AWS': [
-                                'arn:aws:iam::645819926742:role/aws-elasticbeanstalk-ec2-role',
-                                'arn:aws:iam::645819926742:user/will.ronchetti',
-                                'arn:aws:iam::645819926742:user/trial.application.user',
-                                'arn:aws:iam::645819926742:user/eric.berg'
+                                # Probably not needed?
+                                # 'arn:aws:iam::{account}:role/aws-elasticbeanstalk-ec2-role'.format(account=account_num),
+                                'arn:aws:iam::{account}:user/will.ronchetti'.format(account=account_num),
+                                # Next line probably not needed?
+                                'arn:aws:iam::{account}:user/trial.application.user'.format(account=account_num),
+                                'arn:aws:iam::{account}:user/eric.berg'.format(account=account_num)
                             ]
                         },
                         'Action': 'es:*',
-                        'Resource': 'arn:aws:es:us-east-1:645819926742:domain/cgaptriales/*'
+                        'Resource': ('arn:aws:es:us-east-1:{account}:domain/{domain}/*'
+                                     .format(account=account_num, domain=domain_name))
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": "iam:CreateServiceLinkedRole",
+                        "Resource": "arn:aws:iam::*:role/aws-service-role/es.amazonaws.com/AWSServiceRoleForAmazonElasticsearchService*",
+                        "Condition": {"StringLike": {"iam:AWSServiceName": "es.amazonaws.com"}}
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "iam:AttachRolePolicy",
+                            "iam:PutRolePolicy"
+                        ],
+                        "Resource": "arn:aws:iam::*:role/aws-service-role/es.amazonaws.com/AWSServiceRoleForAmazonElasticsearchService*"
                     }
                 ]
             },
