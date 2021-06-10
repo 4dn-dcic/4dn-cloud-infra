@@ -7,6 +7,7 @@
 # General constants
 DEPLOYING_IAM_USER = 'deploying_iam_user'
 ENV_NAME = 'ENCODED_BS_ENV'
+ACCOUNT_NUMBER = 'account_number'
 
 # RDS Configuration Options
 RDS_INSTANCE_SIZE = 'rds.instance_size'

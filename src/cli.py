@@ -5,7 +5,7 @@ import json
 from contextlib import contextmanager
 from dcicutils.qa_utils import override_environ
 
-from src.constants import DEPLOYING_IAM_USER, ENV_NAME
+from src.constants import DEPLOYING_IAM_USER, ENV_NAME, ACCOUNT_NUMBER
 from src.info.aws_util import AWSUtil
 from src.exceptions import CLIException
 from src.part import C4Account
@@ -231,12 +231,7 @@ class C4Client:
     def resolve_account(args):
         """ Figures out which account is in use based on the name of the creds dir"""
         creds_file = '{}/test_creds.sh'.format(args.creds_dir)
-        if 'aws_test' in args.creds_dir:
-            account_number = 645819926742  # Hardcoded
-        elif 'aws_kmp_test' in args.creds_dir:
-            account_number = 466564410312  # Hardcoded
-        else:
-            raise CLIException('Account not configured for creds file {}'.format(args.creds_dir))
+        account_number = os.environ.get(ACCOUNT_NUMBER)
         account = C4Account(account_number=account_number, creds_dir=args.creds_dir, creds_file=creds_file)
         return account
 
