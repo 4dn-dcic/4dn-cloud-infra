@@ -5,12 +5,12 @@ import json
 from contextlib import contextmanager
 from dcicutils.qa_utils import override_environ
 
-from src.constants import DEPLOYING_IAM_USER, ENV_NAME
+from src.constants import DEPLOYING_IAM_USER, ENV_NAME, ACCOUNT_NUMBER
 from src.info.aws_util import AWSUtil
 from src.exceptions import CLIException
+from src.part import C4Account
 from src.stack import C4FoursightCGAPStack
 from src.stacks.trial import (
-    c4_stack_trial_account,
     c4_stack_trial_network,
     c4_stack_trial_network_metadata,
     c4_stack_trial_datastore,
@@ -42,7 +42,6 @@ AWS_REGION = 'us-east-1'
 class C4Client:
     """ Client class for interacting with and provisioning CGAP Infrastructure as Code. """
     ALPHA_LEAF_STACKS = ['iam', 'logging', 'network']  # stacks that only export values
-    ACCOUNT = c4_stack_trial_account()  # uses creds for trial account access XXX: does not work
     CAPABILITY_IAM = 'CAPABILITY_IAM'
     SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-tibanna-trial', 'c4-foursight-trial',
                         'c4-beanstalk-trial']
@@ -229,22 +228,31 @@ class C4Client:
         return True
 
     @staticmethod
+    def resolve_account(args):
+        """ Figures out which account is in use based on the name of the creds dir"""
+        creds_file = '{}/test_creds.sh'.format(args.creds_dir)
+        account_number = os.environ.get(ACCOUNT_NUMBER)
+        account = C4Account(account_number=account_number, creds_dir=args.creds_dir, creds_file=creds_file)
+        return account
+
+    @staticmethod
     def resolve_alpha_stack(args):
         """ Figures out which stack to run in the ECS case. """
+        account = C4Client.resolve_account(args)
         if 'network' in args.stack:
-            stack = c4_alpha_stack_trial_network()
+            stack = c4_alpha_stack_trial_network(account=account)
         elif 'datastore' in args.stack:
-            stack = c4_ecs_stack_trial_datastore()
+            stack = c4_ecs_stack_trial_datastore(account=account)
         elif 'ecr' in args.stack:
-            stack = c4_alpha_stack_trial_ecr()
+            stack = c4_alpha_stack_trial_ecr(account=account)
         elif 'iam' in args.stack:
-            stack = c4_alpha_stack_trial_iam()
+            stack = c4_alpha_stack_trial_iam(account=account)
         elif 'logging' in args.stack:
-            stack = c4_alpha_stack_trial_logging()
+            stack = c4_alpha_stack_trial_logging(account=account)
         elif 'ecs' in args.stack:
-            stack = c4_alpha_stack_trial_ecs()
+            stack = c4_alpha_stack_trial_ecs(account=account)
         elif 'foursight' in args.stack:
-            stack = c4_alpha_stack_trial_foursight_cgap()
+            stack = c4_alpha_stack_trial_foursight_cgap(account=account)
         elif args.stack == 'all':
             raise NotImplementedError('TODO')
         else:
@@ -253,16 +261,17 @@ class C4Client:
 
     @staticmethod
     def resolve_legacy_stack(args):
+        account = C4Client.resolve_account(args)
         if args.stack == 'c4-network-trial':
-            stack = c4_stack_trial_network()
+            stack = c4_stack_trial_network(account=account)
         elif args.stack == 'c4-datastore-trial':
-            stack = c4_stack_trial_datastore()
+            stack = c4_stack_trial_datastore(account=account)
         elif args.stack == 'c4-beanstalk-trial':
-            stack = c4_stack_trial_beanstalk()
+            stack = c4_stack_trial_beanstalk(account=account)
         elif args.stack == 'c4-foursight-trial':
-            stack = c4_stack_trial_foursight_cgap()
+            stack = c4_stack_trial_foursight_cgap(account=account)
         elif args.stack == 'c4-tibanna-trial':
-            stack = c4_stack_trial_tibanna()
+            stack = c4_stack_trial_tibanna(account=account)
         elif args.stack in C4Client.SUPPORTED_STACKS:
             raise CLIException('Supported stack {} requires a resolver in `resolve_legacy_stack`'.format(args.stack))
         else:
@@ -346,7 +355,8 @@ class C4Client:
     @classmethod
     def manage_tibanna(cls, args):
         """ Implements 'tibanna' command. """
-        c4_tibanna = c4_stack_trial_tibanna()
+        account = C4Client.resolve_account(args)
+        c4_tibanna = c4_stack_trial_tibanna(account=account)
         c4_tibanna_part = c4_tibanna.parts[0]  # better way to reference tibanna part
         if args.confirm:
             dry_run = False
@@ -431,6 +441,7 @@ def cli():
     parser_info.set_defaults(func=C4Client.info)
 
     args = parser.parse_args()
+
     if args.debug:
         logger.setLevel(logging.DEBUG)
         logger.debug('Debug mode enabled')

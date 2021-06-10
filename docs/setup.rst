@@ -67,6 +67,7 @@ config.json file at repo top level - use the JSON structure below as a template.
 ::
     {
         "deploying_iam_user": <your IAM user name, not the full ARN>,
+        "account_number": <your account number, found in the console>,
         "rds.instance_size": "db.t3.xlarge",
         "rds.storage_size": 20,
         "rds.db_name": "ebdb",

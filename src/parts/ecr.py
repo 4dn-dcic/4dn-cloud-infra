@@ -31,7 +31,7 @@ class C4ECRExports(C4Exports):
         super().__init__(parameter)
 
 
-class QCContainerRegistry(C4Part):
+class C4ContainerRegistry(C4Part):
     """ Contains a classmethod that builds an ECR template for this stack.
         NOTE: IAM setup must be done before this.
     """

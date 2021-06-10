@@ -14,11 +14,6 @@ def c4_alpha_stack_trial_tags():
     return C4Tags(env='prod', project='cgap', owner='project')
 
 
-def c4_alpha_stack_trial_account(aws_account_id=645819926742):
-    """ Set to the account ID to deploy in. """
-    return C4Account(account_number=aws_account_id)
-
-
 def c4_alpha_stack_trial_description(stack):
     return 'AWS CloudFormation CGAP {0} template: trial {0} setup for cgap-portal environment using ECS'.format(stack)
 
@@ -33,20 +28,20 @@ def c4_alpha_stack_trial_metadata(name='network'):
 # Trial-Alpha (ECS) Stacks
 
 
-def c4_alpha_stack_trial_network():
+def c4_alpha_stack_trial_network(account: C4Account):
     """ Network stack for the ECS version of CGAP """
     parts = [network.C4Network]
     name, description = c4_alpha_stack_trial_metadata()
     return C4Stack(
         name=name,
         tags=c4_alpha_stack_trial_tags(),
-        account=c4_alpha_stack_trial_account(),
+        account=account,
         parts=parts,
         description=description,
     )
 
 
-def c4_ecs_stack_trial_datastore():
+def c4_ecs_stack_trial_datastore(account: C4Account):
     """ Datastore stack for the ECS version of CGAP """
     name = 'datastore'
     parts = [datastore.C4Datastore]
@@ -54,13 +49,13 @@ def c4_ecs_stack_trial_datastore():
     return C4Stack(
         name=c4_alpha_stack_trial_name(name),
         tags=c4_alpha_stack_trial_tags(),
-        account=c4_alpha_stack_trial_account(),
+        account=account,
         parts=parts,
         description=description,
     )
 
 
-def c4_alpha_stack_trial_iam():
+def c4_alpha_stack_trial_iam(account: C4Account):
     """ IAM Configuration for ECS CGAP """
     name = 'iam'
     parts = [iam.C4IAM]
@@ -68,29 +63,29 @@ def c4_alpha_stack_trial_iam():
     return C4Stack(
         name=c4_alpha_stack_trial_name(name),
         tags=c4_alpha_stack_trial_tags(),
-        account=c4_alpha_stack_trial_account(),
+        account=account,
         parts=parts,
         description=description,
     )
 
 
-def c4_alpha_stack_trial_ecr():
+def c4_alpha_stack_trial_ecr(account: C4Account):
     """ ECR stack for ECS version of CGAP
         depends on IAM above (does that mean it needs both parts?)
     """
     name = 'ecr'
-    parts = [ecr.QCContainerRegistry]
+    parts = [ecr.C4ContainerRegistry]
     description = c4_alpha_stack_trial_description(name)
     return C4Stack(
         name=c4_alpha_stack_trial_name(name),
         tags=c4_alpha_stack_trial_tags(),
-        account=c4_alpha_stack_trial_account(),
+        account=account,
         parts=parts,
         description=description,
     )
 
 
-def c4_alpha_stack_trial_logging():
+def c4_alpha_stack_trial_logging(account: C4Account):
     """ Implements logging policies for ECS CGAP """
     name = 'logging'
     parts = [logging.C4Logging]
@@ -98,13 +93,13 @@ def c4_alpha_stack_trial_logging():
     return C4Stack(
         name=c4_alpha_stack_trial_name(name),
         tags=c4_alpha_stack_trial_tags(),
-        account=c4_alpha_stack_trial_account(),
+        account=account,
         parts=parts,
         description=description,
     )
 
 
-def c4_alpha_stack_trial_ecs():
+def c4_alpha_stack_trial_ecs(account: C4Account):
     """ ECS Stack """
     name = 'ecs'
     parts = [ecs.C4ECSApplication]
@@ -112,19 +107,19 @@ def c4_alpha_stack_trial_ecs():
     return C4Stack(
         name=c4_alpha_stack_trial_name(name),
         tags=c4_alpha_stack_trial_tags(),
-        account=c4_alpha_stack_trial_account(),
+        account=account,
         parts=parts,
         description=description,
     )
 
 
-def c4_alpha_stack_trial_foursight_cgap():
+def c4_alpha_stack_trial_foursight_cgap(account: C4Account):
     """ Foursight stack """
     name = 'foursight'
     description = c4_alpha_stack_trial_description(name)
     return C4FoursightCGAPStack(
         name=c4_alpha_stack_trial_name(name),
         tags=c4_alpha_stack_trial_tags(),
-        account=c4_alpha_stack_trial_account(),
+        account=account,
         description=description,
     )
