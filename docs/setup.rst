@@ -23,6 +23,37 @@ dependencies via poetry_.
     pip install --upgrade poetry
     poetry install
 
+----------------------
+Access To Test Account
+----------------------
+
+You can install them in ~/.aws_test . You can set up a credentials file:
+
+::
+    [default]
+    aws_access_key_id = XXX
+    aws_secret_access_key = XXX
+
+a config file:
+
+::
+    [default]
+    region = us-east-1
+
+and a test_creds.sh file:
+
+::
+    export AWS_ACCESS_KEY_ID=XXX
+    export AWS_SECRET_ACCESS_KEY=XXX
+    export AWS_DEFAULT_REGION=us-east-1
+    # only if you're using a forked tibanna repo
+    export TIBANNA_REPO_NAME=4dn-dcic/tibanna  # (default: 4dn-dcic/tibanna)
+    export TIBANNA_REPO_BRANCH=master  # (default: master)
+    # contains default usergroup being used
+    export TIBANNA_DEFAULT_STEP_FUNCTION_NAME=tibanna_unicorn_tibanna_unicorn_trial_02
+
+
+
 -------------
 Configuration
 -------------
@@ -36,6 +67,7 @@ config.json file at repo top level - use the JSON structure below as a template.
 ::
     {
         "deploying_iam_user": <your IAM user name, not the full ARN>,
+        "account_number": <your account number, found in the console>,
         "rds.instance_size": "db.t3.xlarge",
         "rds.storage_size": 20,
         "rds.db_name": "ebdb",
@@ -113,4 +145,3 @@ To view the tibanna commands, use: `poetry run cli tibanna --help`
 To view the tibanna cli help message itself, use: `poetry run cli tibanna help`
 
 For more information on tibanna itself, see: https://tibanna.readthedocs.io/en/latest/
-
