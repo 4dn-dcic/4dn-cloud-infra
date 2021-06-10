@@ -362,7 +362,9 @@ class C4Datastore(C4Part):
             pass
         return Domain(
             logical_id,
-            DomainName=domain_name,
+            # DomainName=domain_name,
+            # TODO specify DomainName instead of an auto-generated one; ref:
+            # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-domainname
             AccessPolicies={
                 # XXX: this policy needs revising - Will 5/18/21
                 'Version': '2012-10-17',
