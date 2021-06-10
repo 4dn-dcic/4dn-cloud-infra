@@ -145,29 +145,29 @@ class C4Datastore(C4Part):
         template.add_resource(self.application_configuration_secret())
 
         # Adds SQS Queues + Outputs
-        # TODO re-enable
-        # for export_name, i in [(C4DatastoreExports.APPLICATION_INDEXER_PRIMARY_QUEUE, self.primary_queue()),
-        #                        (C4DatastoreExports.APPLICATION_INDEXER_SECONDAY_QUEUE, self.secondary_queue()),
-        #                        (C4DatastoreExports.APPLICATION_INDEXER_DLQ, self.dead_letter_queue()),
-        #                        (C4DatastoreExports.APPLICATION_INGESTION_QUEUE, self.ingestion_queue()),
-        #                        (C4DatastoreExports.APPLICATION_INDEXER_REALTIME_QUEUE, self.realtime_queue())]:
-        #     template.add_resource(i)
-        #     template.add_output(self.output_sqs_instance(export_name, i))
+        for export_name, i in [(C4DatastoreExports.APPLICATION_INDEXER_PRIMARY_QUEUE, self.primary_queue()),
+                               (C4DatastoreExports.APPLICATION_INDEXER_SECONDAY_QUEUE, self.secondary_queue()),
+                               (C4DatastoreExports.APPLICATION_INDEXER_DLQ, self.dead_letter_queue()),
+                               (C4DatastoreExports.APPLICATION_INGESTION_QUEUE, self.ingestion_queue()),
+                               (C4DatastoreExports.APPLICATION_INDEXER_REALTIME_QUEUE, self.realtime_queue())]:
+            template.add_resource(i)
+            template.add_output(self.output_sqs_instance(export_name, i))
 
         # Add/Export S3 buckets
         # TODO re-enable
-        # for export_name, bucket_name in zip([C4DatastoreExports.APPLICATION_BLOBS_BUCKET,
-        #                                      C4DatastoreExports.APPLICATION_FILES_BUCKET,
-        #                                      C4DatastoreExports.APPLICATION_WFOUT_BUCKET,
-        #                                      C4DatastoreExports.APPLICATION_SYSTEM_BUCKET,
-        #                                      C4DatastoreExports.FOURSIGHT_ENV_BUCKET,
-        #                                      C4DatastoreExports.FOURSIGHT_RESULT_BUCKET,
-        #                                      C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET],
-        #                                     self.APPLICATION_LAYER_BUCKETS + self.FOURSIGHT_LAYER_BUCKETS):
-        #
-        #     bucket = self.build_s3_bucket(bucket_name.format('cgap-mastertest'))
-        #     template.add_resource(bucket)
-        #     template.add_output(self.output_s3_bucket(export_name, bucket_name.format('cgap-mastertest')))
+        for export_name, bucket_name in zip([C4DatastoreExports.APPLICATION_BLOBS_BUCKET,
+                                             C4DatastoreExports.APPLICATION_FILES_BUCKET,
+                                             C4DatastoreExports.APPLICATION_WFOUT_BUCKET,
+                                             C4DatastoreExports.APPLICATION_SYSTEM_BUCKET,
+                                             C4DatastoreExports.FOURSIGHT_ENV_BUCKET,
+                                             C4DatastoreExports.FOURSIGHT_RESULT_BUCKET,
+                                             C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET],
+                                             self.APPLICATION_LAYER_BUCKETS + self.FOURSIGHT_LAYER_BUCKETS):
+
+            env_name = os.environ.get(ENV_NAME)
+            bucket = self.build_s3_bucket(bucket_name.format(env_name))
+            template.add_resource(bucket)
+            template.add_output(self.output_s3_bucket(export_name, bucket_name.format(ENV_NAME)))
 
         return template
 
@@ -362,7 +362,9 @@ class C4Datastore(C4Part):
             pass
         return Domain(
             logical_id,
-            DomainName=domain_name,
+            # DomainName=domain_name,
+            # TODO specify DomainName instead of an auto-generated one; ref:
+            # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-domainname
             AccessPolicies={
                 # XXX: this policy needs revising - Will 5/18/21
                 'Version': '2012-10-17',
@@ -417,11 +419,12 @@ class C4Datastore(C4Part):
             Export=self.EXPORTS.export(export_name)
         )
 
-    def build_sqs_instance(self, logical_id_suffix, name_suffix, cgap_env='mastertest') -> Queue:
+    def build_sqs_instance(self, logical_id_suffix, name_suffix) -> Queue:
         """ Builds a SQS instance with the logical id suffix for CloudFormation and the given name_suffix for the queue
             name. Uses 'mastertest' as default cgap env. """
         logical_name = self.name.logical_id(logical_id_suffix)
-        queue_name = 'cgap-{env}-{suffix}'.format(env=cgap_env, suffix=name_suffix)  # TODO configurable cgap env
+        cgap_env = os.environ.get(ENV_NAME)
+        queue_name = 'cgap-{env}-{suffix}'.format(env=cgap_env, suffix=name_suffix)
         return Queue(
             logical_name,
             QueueName=queue_name,
