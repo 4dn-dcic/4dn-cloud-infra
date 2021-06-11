@@ -55,11 +55,9 @@ You can request this from the 'Service Quotas' console_.
     poetry run cli provision datastore --validate --alpha --upload_change_set
 
 These will take about fifteen minutes or so to finish provisioning, and should be run in order. While they are
-instantiating, write application configuration in secrets manager -- more documentation on this to follow.
+instantiating, write the global application configuration in secrets manager -- more documentation on this to follow.
 
-Once your new ECR comes online, upload application images to it. See the cgap-portal Makefile:
-`src/deploy/docker/production/Makefile`. Note that these image tags are required: "latest", "latest-indexer",
-"latest-ingester", "latest-deployment".
+Once your new ECR comes online, upload an application image to it. See the cgap-portal Makefile. Push the image tag specified in ``config.json`` prior to deploying ECS.
 
 * Once all base stacks have finishing instantiating -- all stacks should be in state `UPDATE_COMPLETE` -- you can
   provision the application stack.

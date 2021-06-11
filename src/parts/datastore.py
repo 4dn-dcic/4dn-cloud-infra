@@ -444,15 +444,19 @@ class C4Datastore(C4Part):
         )
 
     def primary_queue(self) -> Queue:
+        """ MUST MATCH snovault/elasticsearch/indexer_queue.py """
         return self.build_sqs_instance('PrimaryQueue', 'indexer-queue')
 
     def secondary_queue(self) -> Queue:
-        return self.build_sqs_instance('SecondaryQueue', 'indexer-queue-secondary')
+        """ MUST MATCH snovault/elasticsearch/indexer_queue.py """
+        return self.build_sqs_instance('SecondaryQueue', 'secondary-indexer-queue')
 
     def dead_letter_queue(self) -> Queue:
+        """ MUST MATCH snovault/elasticsearch/indexer_queue.py """
         return self.build_sqs_instance('DeadLetterQueue', 'indexer-queue-dlq')
 
     def ingestion_queue(self) -> Queue:  # allow 6 hours for ingestion
+        """ MUST MATCH cgap-portal/src/encoded/ingestion/queue_utils.py """
         return self.build_sqs_instance('IngestionQueue', 'ingestion-queue', timeout_in_minutes=360)
 
     def realtime_queue(self) -> Queue:

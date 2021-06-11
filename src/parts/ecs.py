@@ -28,6 +28,7 @@ from troposphere.applicationautoscaling import (
     ScalableTarget, ScalingPolicy, PredefinedMetricSpecification,
     TargetTrackingScalingPolicyConfiguration,
 )
+from troposphere.cloudwatch import Alarm, MetricDimension
 from src.constants import (
     ENV_NAME, ECS_IMAGE_TAG,
     ECS_WSGI_COUNT, ECS_WSGI_CPU, ECS_WSGI_MEM,  # XXX: refactor
@@ -122,6 +123,12 @@ class C4ECSApplication(C4Part):
         template.add_resource(target_group)
         template.add_resource(self.ecs_application_load_balancer_listener(target_group))
         template.add_resource(self.ecs_application_load_balancer())
+
+        # Add indexing Cloudwatch Alarms
+        # These alarms trigger scaling actions by modifying DesiredCount on the relevant
+        # ECS Service
+        template.add_resource(self.indexer_queue_empty_alarm())
+        template.add_resource(self.indexer_queue_depth_alarm())
 
         # TODO: Enable portal, Indexer, Ingester autoscaling
         # portal_scalable_target = self.ecs_portal_scalable_target(portal)
@@ -502,9 +509,73 @@ class C4ECSApplication(C4Part):
             ResourceId=Ref(indexer),
             ServiceNamespace='ecs',
             ScalableDimension='ecs:service:DesiredCount',
-            MinCapacity=1,
+            MinCapacity=4,
             MaxCapacity=max_concurrency  # scale indexing to 16 workers if needed
         )
+
+    @staticmethod
+    def indexer_queue_depth_alarm(depth=1000) -> Alarm:
+        """ Creates a Cloudwatch alarm for Indexer + Secondary queue depth.
+            Sum the # of messages visible from the 2 queues, if their value is > depth for 5 consecutive
+            minutes trigger the alarm (which will trigger scale up).
+        """
+        return Alarm(
+            'IndexingQueueDepthAlarm',
+            AlarmDescription='Alarm if total queue depth exceeds %s' % depth,
+            Namespace='AWS/SQS',
+            MetricName='ApproximateNumberOfMessagesVisible',
+            Dimensions=[
+                MetricDimension(Name='PrimaryQueueName', Value=os.environ.get(ENV_NAME) + '-indexer-queue'),
+                MetricDimension(Name='SecondaryQueueName', Value=os.environ.get(ENV_NAME) + '-secondary-indexer-queue'),
+            ],
+            Statistic='Sum',
+            Period='60',
+            EvaluationPeriods='5',
+            Threshold=depth,
+            ComparisonOperator='GreaterThanThreshold',
+        )
+
+    @staticmethod
+    def indexer_queue_empty_alarm() -> Alarm:
+        """ Creates a Cloudwatch alarm for when Indexer + Secondary queue are empty.
+            Sum the # of messages visible from the 2 queues, if their value is 0 for 3 consecutive
+            minutes trigger the alarm (which will trigger scale down).
+        """
+        return Alarm(
+            'IndexingQueueEmptyAlarm',
+            AlarmDescription='Alarm when queue depth reaches 0',
+            Namespace='AWS/SQS',
+            MetricName='ApproximateNumberOfMessagesVisible',
+            Dimensions=[
+                MetricDimension(Name='PrimaryQueueName', Value=os.environ.get(ENV_NAME) + '-indexer-queue'),
+                MetricDimension(Name='SecondaryQueueName', Value=os.environ.get(ENV_NAME) + '-secondary-indexer-queue'),
+            ],
+            Statistic='Sum',
+            Period='60',
+            EvaluationPeriods='3',
+            Threshold=0,
+            ComparisonOperator='LessThanOrEqualToThreshold',
+        )
+
+    # def ecs_indexer_scaling_policy(self, scalable_target: ScalableTarget):
+    #     """ Determines the policy from which a scaling event should occur for portal.
+    #         Right now, does something simple, like: scale up once average application server CPU reaches 80%
+    #         Note that by increasing vCPU allocation we can reduce how often this occurs.
+    #
+    #         Documentation for later: https://aws.amazon.com/blogs/containers/optimizing-amazon-elastic-container-service-for-cost-using-scheduled-scaling/
+    #     """
+    #     return ScalingPolicy(
+    #         'IndexerScalingPolicy',
+    #         PolicyType='TargetTrackingScaling',
+    #         ScalingTargetId=Ref(scalable_target),
+    #         TargetTrackingScalingPolicyConfiguration=TargetTrackingScalingPolicyConfiguration(
+    #             PredefinedMetricSpecification(
+    #                 'CPUUtilization',
+    #                 PredefinedMetricType='ECSServiceAverageCPUUtilization'
+    #             )
+    #         ),
+    #         TargetValue=80.0
+    #     )
 
     def ecs_ingester_task(self, cpus='512', mem='1024', identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
