@@ -368,45 +368,7 @@ class C4Datastore(C4Part):
         account_num = os.environ.get(ACCOUNT_NUMBER)
         return Domain(
             logical_id,
-            # DomainName=domain_name,
-            # TODO specify DomainName instead of an auto-generated one; ref:
-            # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-domainname  # noQA
-            AccessPolicies={
-                # XXX: this policy needs revising - Will 5/18/21
-                'Version': '2012-10-17',
-                'Statement': [
-                    {
-                        'Effect': 'Allow',
-                        'Principal': {
-                            'AWS': [
-                                # Probably not needed?
-                                # 'arn:aws:iam::{account}:role/aws-elasticbeanstalk-ec2-role'.format(account=account_num),
-                                'arn:aws:iam::{account}:user/will.ronchetti'.format(account=account_num),
-                                # Next line probably not needed?
-                                'arn:aws:iam::{account}:user/trial.application.user'.format(account=account_num),
-                                'arn:aws:iam::{account}:user/eric.berg'.format(account=account_num)
-                            ]
-                        },
-                        'Action': 'es:*',
-                        'Resource': ('arn:aws:es:us-east-1:{account}:domain/{domain}/*'
-                                     .format(account=account_num, domain=domain_name))
-                    },
-                    {
-                        "Effect": "Allow",
-                        "Action": "iam:CreateServiceLinkedRole",
-                        "Resource": "arn:aws:iam::*:role/aws-service-role/es.amazonaws.com/AWSServiceRoleForAmazonElasticsearchService*",
-                        "Condition": {"StringLike": {"iam:AWSServiceName": "es.amazonaws.com"}}
-                    },
-                    {
-                        "Effect": "Allow",
-                        "Action": [
-                            "iam:AttachRolePolicy",
-                            "iam:PutRolePolicy"
-                        ],
-                        "Resource": "arn:aws:iam::*:role/aws-service-role/es.amazonaws.com/AWSServiceRoleForAmazonElasticsearchService*"
-                    }
-                ]
-            },
+            DomainName=domain_name,
             NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
             EncryptionAtRestOptions=EncryptionAtRestOptions(Enabled=True),  # TODO specify KMS key
             ElasticsearchClusterConfig=ElasticsearchClusterConfig(

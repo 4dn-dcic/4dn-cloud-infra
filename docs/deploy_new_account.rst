@@ -54,6 +54,11 @@ You can request this from the 'Service Quotas' console_.
     poetry run cli provision ecr --validate --alpha --upload_change_set
     poetry run cli provision datastore --validate --alpha --upload_change_set
 
+*Workaround of the moment* - Before running the datastore stack, manually create a
+AWSServiceRoleForAmazonElasticsearchService. To do this, mount the current config to your docker instantiation of
+aws-cli, and run: `aws iam create-service-linked-role --aws-service-name es.amazonaws.com`, within docker, with the
+right creds mounted. More info: https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/slr-es.html
+
 These will take about fifteen minutes or so to finish provisioning, and should be run in order. While they are
 instantiating, write application configuration in secrets manager -- more documentation on this to follow.
 
