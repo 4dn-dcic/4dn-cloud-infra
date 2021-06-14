@@ -529,8 +529,8 @@ class C4ECSApplication(C4Part):
                 MetricDimension(Name='SecondaryQueueName', Value=os.environ.get(ENV_NAME) + '-secondary-indexer-queue'),
             ],
             Statistic='Sum',
-            Period='60',
-            EvaluationPeriods='5',
+            Period='300',
+            EvaluationPeriods='1',
             Threshold=depth,
             ComparisonOperator='GreaterThanThreshold',
         )
@@ -551,8 +551,8 @@ class C4ECSApplication(C4Part):
                 MetricDimension(Name='SecondaryQueueName', Value=os.environ.get(ENV_NAME) + '-secondary-indexer-queue'),
             ],
             Statistic='Sum',
-            Period='60',
-            EvaluationPeriods='3',
+            Period='300',
+            EvaluationPeriods='1',
             Threshold=0,
             ComparisonOperator='LessThanOrEqualToThreshold',
         )
