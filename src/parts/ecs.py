@@ -516,8 +516,7 @@ class C4ECSApplication(C4Part):
     @staticmethod
     def indexer_queue_depth_alarm(depth=1000) -> Alarm:
         """ Creates a Cloudwatch alarm for Indexer + Secondary queue depth.
-            Sum the # of messages visible from the 2 queues, if their value is > depth for 5 consecutive
-            minutes trigger the alarm (which will trigger scale up).
+            Checks the secondary queue to see if it is backlogged.
         """
         return Alarm(
             'IndexingQueueDepthAlarm',
@@ -525,8 +524,7 @@ class C4ECSApplication(C4Part):
             Namespace='AWS/SQS',
             MetricName='ApproximateNumberOfMessagesVisible',
             Dimensions=[
-                MetricDimension(Name='PrimaryQueueName', Value=os.environ.get(ENV_NAME) + '-indexer-queue'),
-                MetricDimension(Name='SecondaryQueueName', Value=os.environ.get(ENV_NAME) + '-secondary-indexer-queue'),
+                MetricDimension(Name='QueueName', Value=os.environ.get(ENV_NAME) + '-secondary-indexer-queue'),
             ],
             Statistic='Sum',
             Period='300',
@@ -538,8 +536,7 @@ class C4ECSApplication(C4Part):
     @staticmethod
     def indexer_queue_empty_alarm() -> Alarm:
         """ Creates a Cloudwatch alarm for when Indexer + Secondary queue are empty.
-            Sum the # of messages visible from the 2 queues, if their value is 0 for 3 consecutive
-            minutes trigger the alarm (which will trigger scale down).
+            Checks the secondary queue to see if it is empty, if detected scale down.
         """
         return Alarm(
             'IndexingQueueEmptyAlarm',
@@ -547,10 +544,9 @@ class C4ECSApplication(C4Part):
             Namespace='AWS/SQS',
             MetricName='ApproximateNumberOfMessagesVisible',
             Dimensions=[
-                MetricDimension(Name='PrimaryQueueName', Value=os.environ.get(ENV_NAME) + '-indexer-queue'),
-                MetricDimension(Name='SecondaryQueueName', Value=os.environ.get(ENV_NAME) + '-secondary-indexer-queue'),
+                MetricDimension(Name='QueueName', Value=os.environ.get(ENV_NAME) + '-secondary-indexer-queue'),
             ],
-            Statistic='Sum',
+            Statistic='Maximum',
             Period='300',
             EvaluationPeriods='1',
             Threshold=0,

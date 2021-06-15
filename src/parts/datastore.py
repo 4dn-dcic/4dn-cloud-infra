@@ -48,6 +48,7 @@ class C4DatastoreExports(C4Exports):
     APPLICATION_WFOUT_BUCKET = 'ExportAppWfoutBucket'
     APPLICATION_FILES_BUCKET = 'ExportAppFilesBucket'
     APPLICATION_BLOBS_BUCKET = 'ExportAppBlobsBucket'
+    APPLICATION_TIBANNA_LOGS_BUCKET = 'ExportAppTibannaLogsBucket'
 
     # Output SQS Queues
     APPLICATION_INDEXER_PRIMARY_QUEUE = 'ExportApplicationIndexerPrimaryQueue'
@@ -77,6 +78,7 @@ class C4Datastore(C4Part):
         'application-{}-files',
         'application-{}-wfout',
         'application-{}-system',
+        'application-{}-tibanna-logs'
     ]
 
     # Buckets used by the foursight layer
@@ -159,6 +161,7 @@ class C4Datastore(C4Part):
                                              C4DatastoreExports.APPLICATION_FILES_BUCKET,
                                              C4DatastoreExports.APPLICATION_WFOUT_BUCKET,
                                              C4DatastoreExports.APPLICATION_SYSTEM_BUCKET,
+                                             C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET,
                                              C4DatastoreExports.FOURSIGHT_ENV_BUCKET,
                                              C4DatastoreExports.FOURSIGHT_RESULT_BUCKET,
                                              C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET],
