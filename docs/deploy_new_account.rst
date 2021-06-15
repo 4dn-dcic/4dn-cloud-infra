@@ -60,7 +60,7 @@ aws-cli, and run: `aws iam create-service-linked-role --aws-service-name es.amaz
 right creds mounted. More info: https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/slr-es.html
 
 These will take about fifteen minutes or so to finish provisioning, and should be run in order. While they are
-instantiating, write application configuration in secrets manager -- more documentation on this to follow.
+instantiating, write application configuration in secrets manager -- more documentation on this is in `docs/setup.rst`.
 
 Once your new ECR comes online, upload application images to it. See the cgap-portal Makefile:
 `src/deploy/docker/production/Makefile`. Note that these image tags are required: "latest", "latest-indexer",
