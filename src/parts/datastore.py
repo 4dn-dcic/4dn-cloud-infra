@@ -95,10 +95,12 @@ class C4Datastore(C4Part):
     # Contains application configuration template, written to secrets manager
     # NOTE: this configuration is NOT valid by default - it must be manually updated
     # with values not available at orchestration time.
+    # TODO only use configuration placeholder for orchestration time values; otherwise, use src.constants values
     CONFIGURATION_PLACEHOLDER = 'XXX: ENTER VALUE'
     APPLICATION_CONFIGURATION_TEMPLATE = {
         'deploying_iam_user': CONFIGURATION_PLACEHOLDER,
         'Auth0Client': CONFIGURATION_PLACEHOLDER,
+        'Auth0Secret': CONFIGURATION_PLACEHOLDER,
         'ENV_NAME': CONFIGURATION_PLACEHOLDER,
         'ENCODED_BS_ENV': CONFIGURATION_PLACEHOLDER,
         'ENCODED_DATA_SET': CONFIGURATION_PLACEHOLDER,
@@ -117,6 +119,7 @@ class C4Datastore(C4Part):
         'RDS_PASSWORD': CONFIGURATION_PLACEHOLDER,
         'S3_ENCRYPT_KEY': CONFIGURATION_PLACEHOLDER,
         'SENTRY_DSN': CONFIGURATION_PLACEHOLDER,
+        'reCaptchaKey': CONFIGURATION_PLACEHOLDER,
         'reCaptchaSecret': CONFIGURATION_PLACEHOLDER,
     }
 
