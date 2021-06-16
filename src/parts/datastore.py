@@ -161,7 +161,6 @@ class C4Datastore(C4Part):
             template.add_output(self.output_sqs_instance(export_name, i))
 
         # Add/Export S3 buckets
-        # TODO re-enable
         for export_name, bucket_name in zip([C4DatastoreExports.APPLICATION_BLOBS_BUCKET,
                                              C4DatastoreExports.APPLICATION_FILES_BUCKET,
                                              C4DatastoreExports.APPLICATION_WFOUT_BUCKET,
@@ -174,7 +173,7 @@ class C4Datastore(C4Part):
             env_name = os.environ.get(ENV_NAME)
             bucket = self.build_s3_bucket(bucket_name.format(env_name))
             template.add_resource(bucket)
-            template.add_output(self.output_s3_bucket(export_name, bucket_name.format(ENV_NAME)))
+            template.add_output(self.output_s3_bucket(export_name, bucket_name.format(env_name)))
 
         return template
 
