@@ -592,7 +592,7 @@ class C4ECSApplication(C4Part):
             Namespace='AWS/SQS',
             MetricName='ApproximateNumberOfMessagesVisible',
             Dimensions=[
-                MetricDimension(Name='QueueName', Value=os.environ.get(ENV_NAME) + '-vcfs'),
+                MetricDimension(Name='QueueName', Value=os.environ.get(ENV_NAME) + '-ingestion-queue'),
             ],
             Statistic='Maximum',
             Period='300',
@@ -612,7 +612,7 @@ class C4ECSApplication(C4Part):
             Namespace='AWS/SQS',
             MetricName='ApproximateNumberOfMessagesVisible',
             Dimensions=[
-                MetricDimension(Name='QueueName', Value=os.environ.get(ENV_NAME) + '-vcfs'),
+                MetricDimension(Name='QueueName', Value=os.environ.get(ENV_NAME) + '-ingestion-queue'),
             ],
             Statistic='Maximum',
             Period='300',
