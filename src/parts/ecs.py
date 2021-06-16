@@ -587,7 +587,7 @@ class C4ECSApplication(C4Part):
             Checks the secondary queue to see if it is backlogged.
         """
         return Alarm(
-            'IndexingQueueDepthAlarm',
+            'IngesterQueueDepthAlarm',
             AlarmDescription='Alarm if total queue depth exceeds %s' % depth,
             Namespace='AWS/SQS',
             MetricName='ApproximateNumberOfMessagesVisible',
@@ -607,7 +607,7 @@ class C4ECSApplication(C4Part):
             Checks the secondary queue to see if it is empty, if detected scale down.
         """
         return Alarm(
-            'IndexingQueueEmptyAlarm',
+            'IngesterQueueEmptyAlarm',
             AlarmDescription='Alarm when queue depth reaches 0',
             Namespace='AWS/SQS',
             MetricName='ApproximateNumberOfMessagesVisible',
