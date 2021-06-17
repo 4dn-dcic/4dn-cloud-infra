@@ -60,6 +60,7 @@ aws-cli, and run: `aws iam create-service-linked-role --aws-service-name es.amaz
 right creds mounted. More info: https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/slr-es.html
 
 # TODO : aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com
+#        or docker run --rm -it -v ~/.aws_kmp:/root/.aws amazon/aws-cli iam create-service-linked-role --aws-service-name ecs.amazonaws.com
 
 These will take about fifteen minutes or so to finish provisioning, and should be run in order. While they are
 instantiating, write application configuration in secrets manager -- more documentation on this is in `docs/setup.rst`.

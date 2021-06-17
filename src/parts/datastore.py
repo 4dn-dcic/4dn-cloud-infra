@@ -74,6 +74,8 @@ class C4Datastore(C4Part):
     EXPORTS = C4DatastoreExports()
     NETWORK_EXPORTS = C4NetworkExports()
 
+    POSTGRES_VERSION = '12'
+
     # Buckets used by the Application layer we need to initialize as part of the datastore
     # Intended to be .formatted with the deploying env_name
     APPLICATION_LAYER_BUCKETS = [
@@ -97,6 +99,11 @@ class C4Datastore(C4Part):
     # with values not available at orchestration time.
     # TODO only use configuration placeholder for orchestration time values; otherwise, use src.constants values
     CONFIGURATION_PLACEHOLDER = 'XXX: ENTER VALUE'
+
+    CONFIGURATION_DEFAULT_LANG = 'en_US.UTF-8'
+    CONFIGURATION_DEFAULT_LC_ALL = 'en_US.UTF-8'
+    CONFIGURATION_DEFAULT_RDS_PORT = '5432'
+
     APPLICATION_CONFIGURATION_TEMPLATE = {
         'deploying_iam_user': CONFIGURATION_PLACEHOLDER,
         'Auth0Client': CONFIGURATION_PLACEHOLDER,
@@ -110,11 +117,11 @@ class C4Datastore(C4Part):
         'ENCODED_BLOBS_BUCKET': CONFIGURATION_PLACEHOLDER,
         'ENCODED_SYSTEM_BUCKET': CONFIGURATION_PLACEHOLDER,
         'ENCODED_METADATA_BUNDLE_BUCKET': CONFIGURATION_PLACEHOLDER,
-        'LANG': 'en_US.UTF-8',
-        'LC_ALL': 'en_US.UTF-8',
+        'LANG': CONFIGURATION_DEFAULT_LANG,
+        'LC_ALL': CONFIGURATION_DEFAULT_LC_ALL,
         'RDS_HOSTNAME': CONFIGURATION_PLACEHOLDER,
         'RDS_DB_NAME': CONFIGURATION_PLACEHOLDER,
-        'RDS_PORT': CONFIGURATION_PLACEHOLDER,
+        'RDS_PORT': CONFIGURATION_DEFAULT_RDS_PORT,
         'RDS_USERNAME': CONFIGURATION_PLACEHOLDER,
         'RDS_PASSWORD': CONFIGURATION_PLACEHOLDER,
         'S3_ENCRYPT_KEY': CONFIGURATION_PLACEHOLDER,
@@ -340,7 +347,7 @@ class C4Datastore(C4Part):
         return DBParameterGroup(
             logical_id,
             Description='parameters for C4 RDS instances',
-            Family='postgres11',
+            Family='postgres{version}'.format(version=self.POSTGRES_VERSION),
             Parameters=parameters,
         )
 
