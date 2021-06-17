@@ -22,7 +22,7 @@ To modify these stacks:
 3. Check the corresponding `build_template` method and update with your new resource if necessary. These methods take
    a troposphere template object, attach resources, and return the updated template. If your resource is not added here
    it will not be added to the Cloudformation template.
-4. Use `poetry cli run provision` to generate Cloudformation YAML from the troposphere specification.
+4. Use `poetry run cli provision` to generate Cloudformation YAML from the troposphere specification.
    Validate your template for syntactic accuracy with the `--validate` flag. Upload the change set without executing
    the changes with `--upload_change_set`.
 5. Log into the console view of the AWS Cloudformation page to view the change set and execute it on the stack.
