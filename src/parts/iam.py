@@ -78,6 +78,7 @@ class C4IAM(C4Part):
             ':', ['arn', 'aws', 'logs', Region, AccountId, 'log-group', log_group_name]
         )
 
+    # This should default to the ENV_NAME, not cgap-mastertest (before the *?)
     def ecs_sqs_policy(self, prefix='cgap-mastertest*'):
         """ Grants ECS access to ElasticSearch.
         """

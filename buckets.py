@@ -1,6 +1,7 @@
 from foursight_core.buckets import Buckets as Buckets_from_core
 
 
+# TODO: Figure out if this needs to be run at all. Will thinks this will get created by the DataStore stack.
 class Buckets(Buckets_from_core):
     """ Create buckets for foursight """
 

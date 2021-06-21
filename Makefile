@@ -42,6 +42,7 @@ deploy-alpha-p1:
 deploy-alpha-p2:
 	@echo -n "Confirm you have done the 2 required steps after deploy-alpha-p1 with 'y' [y/N] " && read ans && [ $${ans:-N} = y ]
 	poetry run cli provision ecs --validate --alpha --upload_change_set
+	# TODO: Add these environment variables to config.json
 	CHECK_RUNNER=c4-foursight-trial-alpha-stack-CheckRunner-JXZ3mRAkzyKS GLOBAL_BUCKET_ENV=foursight-cgap-mastertest-envs poetry run cli provision --trial --output_file out/foursight-dev-tmp/ --stage dev foursight --alpha --upload_change_set
 	@echo 'ECS may take up to 10 minutes to come online. Once it has, examine the stack output for the URL.'
 	@echo 'Next, upload base environment configuration to global application s3 bucket.'
@@ -61,7 +62,7 @@ provision-knowledge-base:
 	@echo 'Knowledge base loaded, ready for end-to-end test.'
 	@echo 'Start with: "make submission".'
 
-submission:
+submission:  # TODO: This make target is highly account-specific and needs work to be generalized.
 	@echo 'Running end-to-end test'
 	@echo 'Phase 1: Metadata Bundle Submission for Demo Case NA 12879'
 	@echo 'NOTE: This test is intended to be run on the Trial Account ECS only (for now)'

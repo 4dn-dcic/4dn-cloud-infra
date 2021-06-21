@@ -25,8 +25,8 @@ if DEBUG_CHALICE:
 app = Chalice(app_name='foursight_cgap_trial')
 STAGE = os.environ.get('chalice_stage', 'dev')
 HOST = os.environ.get('ES_HOST', None)
-FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'
-DEFAULT_ENV = 'cgap-mastertest'
+FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'  # TODO: This should probably just be "foursight-cgap"
+DEFAULT_ENV = 'cgap-mastertest'  # This is typically overridden by something like config.json
 
 
 # This object usually in chalicelib/app_utils.py

@@ -3,6 +3,7 @@ import logging
 import os
 import json
 from contextlib import contextmanager
+from dcicutils.misc_utils import file_contents
 from dcicutils.qa_utils import override_environ
 
 from src.constants import DEPLOYING_IAM_USER, ENV_NAME, ACCOUNT_NUMBER
@@ -21,6 +22,7 @@ from src.stacks.trial import (
 from src.stacks.trial_alpha import (
     c4_alpha_stack_trial_metadata,
     c4_alpha_stack_trial_network,
+    c4_alpha_stack_trial_appconfig,
     c4_ecs_stack_trial_datastore,
     c4_alpha_stack_trial_iam,
     c4_alpha_stack_trial_ecr,
@@ -98,6 +100,7 @@ class C4Client:
 
     @classmethod
     def upload_chalice_package(cls, args, stack: C4FoursightCGAPStack,
+                               # TODO: this bucketname should come from config.json or some os.environ ...
                                bucket='foursight-cgap-mastertest-application-versions'):
         """ Specific upload process for a chalice application, e.g. foursight. Assumes chalice package has been run.
             How this works:
@@ -241,6 +244,8 @@ class C4Client:
         account = C4Client.resolve_account(args)
         if 'network' in args.stack:
             stack = c4_alpha_stack_trial_network(account=account)
+        elif 'appconfig' in args.stack:
+            stack = c4_alpha_stack_trial_appconfig(account=account)
         elif 'datastore' in args.stack:
             stack = c4_ecs_stack_trial_datastore(account=account)
         elif 'ecr' in args.stack:
@@ -387,11 +392,23 @@ class C4Client:
             aws_util.generate_s3_bucket_summary_tsv(dry_run=False)
 
 
+AWS_DEFAULT_TEST_CREDS_DIR_FILE = "~/.aws_test_creds_dir"
+AWS_DEFAULT_DEFAULT_TEST_CREDS_DIR = "~/.aws_test"
+
+def aws_default_test_creds_dir():
+    file = os.path.expanduser(AWS_DEFAULT_TEST_CREDS_DIR_FILE)
+    if os.path.exists(file):
+        dir = os.path.expanduser(file_contents(file).strip())
+        if isinstance(dir, str) and os.path.exists(dir) and os.path.isdir(dir):
+            return dir
+    return os.path.expanduser(AWS_DEFAULT_DEFAULT_TEST_CREDS_DIR)
+
+
 def cli():
     """Set up and run the 4dn cloud infra command line scripts"""
     parser = argparse.ArgumentParser(description='4DN Cloud Infrastructure')
     parser.add_argument('--debug', action='store_true', help='Sets log level to debug')
-    parser.add_argument('--creds_dir', default="~/.aws_test", help='Sets aws creds dir', type=str)
+    parser.add_argument('--creds_dir', default=aws_default_test_creds_dir(), help='Sets aws creds dir', type=str)
     subparsers = parser.add_subparsers(help='Commands', dest='command')
 
     # Configure 'provision' command
