@@ -29,7 +29,7 @@ from src.constants import (
     ENV_NAME, ECS_IMAGE_TAG,
     ECS_WSGI_COUNT, ECS_WSGI_CPU, ECS_WSGI_MEM,  # XXX: refactor
     ECS_INDEXER_COUNT, ECS_INDEXER_CPU, ECS_INDEXER_MEM,
-    ECS_INGESTER_COUNT, ECS_INGESTER_CPU, ECS_INGESTER_MEM
+    ECS_INGESTER_COUNT, ECS_INGESTER_CPU, ECS_INGESTER_MEM, IDENTITY,
 )
 from src.part import C4Part
 from src.parts.network import C4NetworkExports, C4Network
@@ -315,7 +315,7 @@ class C4ECSApplication(C4Part):
                         # Note this applies to all other tasks as well.
                         Environment(
                             Name='IDENTITY',
-                            Value=identity
+                            Value=os.environ.get(IDENTITY) or identity
                         ),
                         Environment(
                             Name='application_type',
@@ -409,7 +409,7 @@ class C4ECSApplication(C4Part):
                     Environment=[
                         Environment(
                             Name='IDENTITY',
-                            Value=identity
+                            Value=os.environ.get(IDENTITY) or identity
                         ),
                         Environment(
                             Name='application_type',
@@ -534,7 +534,7 @@ class C4ECSApplication(C4Part):
                     Environment=[
                         Environment(
                             Name='IDENTITY',
-                            Value=identity
+                            Value=os.environ.get(IDENTITY) or identity
                         ),
                         Environment(
                             Name='application_type',
@@ -657,7 +657,7 @@ class C4ECSApplication(C4Part):
                     Environment=[
                         Environment(
                             Name='IDENTITY',
-                            Value=identity
+                            Value=os.environ.get(IDENTITY) or identity
                         ),
                         Environment(
                             Name='application_type',
