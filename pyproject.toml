@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "4dn-cloud-infra"
-version = "0.3.4"
+version = "0.3.5"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
 authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
@@ -22,7 +22,7 @@ google-auth-oauthlib = "^0.4.2"
 googleapis-common-protos = "^1.52.0"
 awacs = "^1.0.2"
 cfn-lint = "^0.48.1"  # a secondary check that catches more things than standard validate - Will 4/1/2021
-foursight-cgap = "0.4.9.1b22"
+foursight-cgap = "0.4.9.1b23"
 foursight-core = "0.1.9.1b33"
 submit-cgap = "^0.7.3"
 tibanna = "^1.2.2"
@@ -38,6 +38,7 @@ load-knowledge-base = "scripts.load_knowledge_base:main"
 queue-ingestion = "scripts.queue_ingestion:main"
 upload-application-version = "scripts.upload_application_version:main"
 upload-file-processed = "scripts.upload_file_processed:main"
+deploy-ecs = "scripts.deploy_ecs:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
