@@ -24,15 +24,12 @@ from troposphere.ecs import (
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
-from troposphere.applicationautoscaling import (
-    ScalableTarget, ScalingPolicy, PredefinedMetricSpecification,
-    TargetTrackingScalingPolicyConfiguration,
-)
+from troposphere.cloudwatch import Alarm, MetricDimension
 from src.constants import (
-    ENV_NAME,
-    ECS_WSGI_COUNT, ECS_WSGI_CPU, ECS_WSGI_MEM,
+    ENV_NAME, ECS_IMAGE_TAG,
+    ECS_WSGI_COUNT, ECS_WSGI_CPU, ECS_WSGI_MEM,  # XXX: refactor
     ECS_INDEXER_COUNT, ECS_INDEXER_CPU, ECS_INDEXER_MEM,
-    ECS_INGESTER_COUNT, ECS_INGESTER_CPU, ECS_INGESTER_MEM,
+    ECS_INGESTER_COUNT, ECS_INGESTER_CPU, ECS_INGESTER_MEM, IDENTITY,
 )
 from src.part import C4Part
 from src.parts.network import C4NetworkExports, C4Network
@@ -41,13 +38,23 @@ from src.parts.iam import C4IAMExports
 from src.parts.logging import C4LoggingExports
 
 
+class C4ECSApplicationTypes:
+    """ Defines the set of possible application types - these identifiers are resolved
+        in the production entrypoint.sh to direct to the correct entrypoint.
+    """
+    PORTAL = 'portal'
+    INDEXER = 'indexer'
+    INGESTER = 'ingester'
+    DEPLOYMENT = 'deployment'
+
+
 class C4ECSApplication(C4Part):
     """ Configures the ECS Cluster Application for CGAP
         This class contains everything necessary for running CGAP on ECS, including:
             * Cluster
             * Application Load Balancer (Fargate compatible)
             * ECS Tasks/Services
-                * WSGI
+                * portal
                 * Indexer
                 * Ingester
             * TODO: Autoscaling
@@ -58,6 +65,7 @@ class C4ECSApplication(C4Part):
     LOGGING_EXPORTS = C4LoggingExports()
     AMI = 'ami-0be13a99cd970f6a9'  # latest amazon linux 2 ECS optimized
     LB_NAME = 'AppLB'
+    IMAGE_TAG = os.environ.get(ECS_IMAGE_TAG) or 'latest'
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
@@ -94,9 +102,9 @@ class C4ECSApplication(C4Part):
         template.add_resource(self.ecs_cluster())
 
         # ECS Tasks/Services
-        template.add_resource(self.ecs_wsgi_task())
-        wsgi = self.ecs_wsgi_service()
-        template.add_resource(wsgi)
+        template.add_resource(self.ecs_portal_task())
+        portal = self.ecs_portal_service()
+        template.add_resource(portal)
         template.add_resource(self.ecs_indexer_task())
         indexer = template.add_resource(self.ecs_indexer_service())
         template.add_resource(self.ecs_ingester_task())
@@ -104,7 +112,7 @@ class C4ECSApplication(C4Part):
         template.add_resource(self.ecs_deployment_task())
         template.add_resource(self.ecs_deployment_service())
 
-        # Add load balancer for WSGI
+        # Add load balancer for portal
         template.add_resource(self.ecs_lb_security_group())
         template.add_resource(self.ecs_container_security_group())
         target_group = self.ecs_lbv2_target_group()
@@ -112,17 +120,16 @@ class C4ECSApplication(C4Part):
         template.add_resource(self.ecs_application_load_balancer_listener(target_group))
         template.add_resource(self.ecs_application_load_balancer())
 
-        # TODO: Enable WSGI, Indexer, Ingester autoscaling
-        # wsgi_scalable_target = self.ecs_wsgi_scalable_target(wsgi)
-        # template.add_resource(wsgi_scalable_target)
-        # template.add_resource(self.ecs_wsgi_scaling_policy(wsgi_scalable_target))
-        # indexer_scalable_target = self.ecs_indexer_scalable_target(indexer)
-        # template.add_resource(indexer_scalable_target)
-        # use wsgi scaling policy for others as well (for now)
-        # template.add_resource(self.ecs_wsgi_scaling_policy(indexer_scalable_target))
-        # ingester_scalable_target = self.ecs_ingester_scalable_target(ingester)
-        # template.add_resource(ingester_scalable_target)
-        # template.add_resource(self.ecs_wsgi_scaling_policy(ingester_scalable_target))
+        # Add indexing Cloudwatch Alarms
+        # These alarms are meant to trigger symmetric scaling actions in response to
+        # sustained indexing load - the specifics of the autoscaling is left for
+        # manual configuration by the orchestrator according to their needs
+        template.add_resource(self.indexer_queue_empty_alarm())
+        template.add_resource(self.indexer_queue_depth_alarm())
+
+        # Add ingestion Cloudwatch Alarms
+        template.add_resource(self.ingester_queue_empty_alarm())
+        template.add_resource(self.ingester_queue_depth_alarm())
 
         # Add outputs
         template.add_output(self.output_application_url())
@@ -147,12 +154,12 @@ class C4ECSApplication(C4Part):
 
     @staticmethod
     def ecs_web_worker_port() -> Parameter:
-        """ Parameter for the WSGI port - by default 8000 (requires change to nginx config on cgap-portal to modify) """
+        """ Parameter for the portal port - by default 8000 (requires change to nginx config on cgap-portal to modify) """
         return Parameter(
             'WebWorkerPort',
             Description='Web worker container exposed port',
             Type='Number',
-            Default=8000,  # port exposed by WSGI container
+            Default=8000,  # port exposed by portal container
         )
 
     def ecs_container_security_group(self) -> SecurityGroup:
@@ -206,7 +213,7 @@ class C4ECSApplication(C4Part):
         )
 
     def ecs_application_load_balancer_listener(self, target_group: elbv2.TargetGroup) -> elbv2.Listener:
-        """ Listener for the application load balancer, forwards traffic to the target group (containing WSGI). """
+        """ Listener for the application load balancer, forwards traffic to the target group (containing portal). """
         return elbv2.Listener(
             'ECSLBListener',
             Port=80,
@@ -218,7 +225,7 @@ class C4ECSApplication(C4Part):
         )
 
     def ecs_application_load_balancer(self) -> elbv2.LoadBalancer:
-        """ Application load balancer for the WSGI ECS Task. """
+        """ Application load balancer for the portal ECS Task. """
         env_identifier = os.environ.get(ENV_NAME).replace('-', '')
         if not env_identifier:
             raise Exception('Did not set required key in .env! Should never get here.')
@@ -240,7 +247,7 @@ class C4ECSApplication(C4Part):
         )
 
     def output_application_url(self, env='cgap-mastertest') -> Output:
-        """ Outputs URL to access WSGI. """
+        """ Outputs URL to access portal. """
         env = os.environ.get(ENV_NAME) or env
         return Output(
             'ECSApplicationURL%s' % env.replace('-', ''),
@@ -249,7 +256,7 @@ class C4ECSApplication(C4Part):
         )
 
     def ecs_lbv2_target_group(self) -> elbv2.TargetGroup:
-        """ Creates LBv2 target group (intended for use with WSGI Service). """
+        """ Creates LBv2 target group (intended for use with portal Service). """
         return elbv2.TargetGroup(
             'TargetGroupApplication',
             HealthCheckIntervalSeconds=60,
@@ -265,18 +272,16 @@ class C4ECSApplication(C4Part):
             Tags=self.tags.cost_tag_array()
         )
 
-    def ecs_wsgi_task(self, cpus='256', mem='512', app_revision='latest',
-                      secrets_manager_key='dev/beanstalk/cgap-dev') -> TaskDefinition:
-        """ Defines the WSGI Task (serve HTTP requests).
+    def ecs_portal_task(self, cpus='256', mem='512', secrets_manager_key='dev/beanstalk/cgap-dev') -> TaskDefinition:
+        """ Defines the portal Task (serve HTTP requests).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
             :param cpus: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
-            :param app_revision: Tag on ECR for the image we'd like to run
             :param secrets_manager_key: name of secret containing the identity information for this environment
         """
         return TaskDefinition(
-            'CGAPWSGI',
+            'CGAPportal',
             RequiresCompatibilities=['FARGATE'],
             Cpu=os.environ.get(ECS_WSGI_CPU) or cpus,
             Memory=os.environ.get(ECS_WSGI_MEM) or mem,
@@ -285,12 +290,12 @@ class C4ECSApplication(C4Part):
             NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
-                    Name='WSGI',
+                    Name='portal',
                     Essential=True,
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
                         ':',
-                        app_revision,
+                        self.IMAGE_TAG,
                     ]),
                     PortMappings=[PortMapping(
                         ContainerPort=Ref(self.ecs_web_worker_port()),
@@ -300,7 +305,7 @@ class C4ECSApplication(C4Part):
                         Options={
                             'awslogs-group': self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': 'cgap-wsgi'
+                            'awslogs-stream-prefix': 'cgap-portal'
                         }
                     ),
                     Environment=[
@@ -310,16 +315,20 @@ class C4ECSApplication(C4Part):
                         # Note this applies to all other tasks as well.
                         Environment(
                             Name='IDENTITY',
-                            Value=secrets_manager_key
-                        )
+                            Value=os.environ.get(IDENTITY) or secrets_manager_key,
+                        ),
+                        Environment(
+                            Name='application_type',
+                            Value=C4ECSApplicationTypes.PORTAL
+                        ),
                     ]
                 )
             ],
             # Tags=self.tags.cost_tag_array(),  # XXX: bug in troposphere - does not take tags array
         )
 
-    def ecs_wsgi_service(self, concurrency=8) -> Service:
-        """ Defines the WSGI service (manages WSGI Tasks)
+    def ecs_portal_service(self, concurrency=8) -> Service:
+        """ Defines the portal service (manages portal Tasks)
             Note dependencies: https://stackoverflow.com/questions/53971873/the-target-group-does-not-have-an-associated-load-balancer
 
             Defined by the ECR Image tag 'latest'.
@@ -328,19 +337,17 @@ class C4ECSApplication(C4Part):
                                 production, this value is 8, approximately matching our current resources.
         """
         return Service(
-            "CGAPWSGIService",
+            "CGAPportalService",
             Cluster=Ref(self.ecs_cluster()),
             DependsOn=['ECSLBListener'],  # XXX: Hardcoded, important!
             DesiredCount=os.environ.get(ECS_WSGI_COUNT) or concurrency,
             LoadBalancers=[
                 LoadBalancer(
-                    ContainerName='WSGI',  # this must match Name in TaskDefinition (ContainerDefinition)
+                    ContainerName='portal',  # this must match Name in TaskDefinition (ContainerDefinition)
                     ContainerPort=Ref(self.ecs_web_worker_port()),
                     TargetGroupArn=Ref(self.ecs_lbv2_target_group()))
             ],
-            # Can't specify both LaunchType and CapacityProviderStrategy.
-            # LaunchType='FARGATE',
-            # Run WSGI service on Fargate Spot
+            # Run portal service on Fargate Spot
             CapacityProviderStrategy=[
                 CapacityProviderStrategyItem(
                     CapacityProvider='FARGATE',
@@ -353,7 +360,7 @@ class C4ECSApplication(C4Part):
                     Weight=1
                 )
             ],
-            TaskDefinition=Ref(self.ecs_wsgi_task()),
+            TaskDefinition=Ref(self.ecs_portal_task()),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
@@ -365,46 +372,12 @@ class C4ECSApplication(C4Part):
             # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
-    def ecs_wsgi_scalable_target(self, wsgi: Service, max_concurrency=8) -> ScalableTarget:
-        """ Scalable Target for the WSGI Service. """
-        return ScalableTarget(
-            'WSGIScalableTarget',
-            RoleARN=self.IAM_EXPORTS.import_value(C4IAMExports.AUTOSCALING_IAM_ROLE),
-            ResourceId=Ref(wsgi),
-            ServiceNamespace='ecs',
-            ScalableDimension='ecs:service:DesiredCount',
-            MinCapacity=2,  # this should match 'concurrency'
-            MaxCapacity=max_concurrency  # scale up to 8 WSGI workers if needed
-        )
-
-    def ecs_wsgi_scaling_policy(self, scalable_target: ScalableTarget):
-        """ Determines the policy from which a scaling event should occur for WSGI.
-            Right now, does something simple, like: scale up once average application server CPU reaches 80%
-            Note that by increasing vCPU allocation we can reduce how often this occurs.
-
-            Documentation for later: https://aws.amazon.com/blogs/containers/optimizing-amazon-elastic-container-service-for-cost-using-scheduled-scaling/
-        """
-        return ScalingPolicy(
-            'WSGIScalingPolicy',
-            PolicyType='TargetTrackingScaling',
-            ScalingTargetId=Ref(scalable_target),
-            TargetTrackingScalingPolicyConfiguration=TargetTrackingScalingPolicyConfiguration(
-                PredefinedMetricSpecification(
-                    'CPUUtilization',
-                    PredefinedMetricType='ECSServiceAverageCPUUtilization'
-                )
-            ),
-            TargetValue=80.0
-        )
-
-    def ecs_indexer_task(self, cpus='256', mem='512', app_revision='latest-indexer',
-                         secrets_manager_key='dev/beanstalk/cgap-dev') -> TaskDefinition:
+    def ecs_indexer_task(self, cpus='256', mem='512', secrets_manager_key='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the Indexer task (indexer app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
             :param cpus: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
-            :param app_revision: Tag on ECR for the image we'd like to run
             :param secrets_manager_key: name of secret containing the identity information for this environment
         """
         return TaskDefinition(
@@ -422,7 +395,7 @@ class C4ECSApplication(C4Part):
                     Image=Join('', [
                         self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
                         ':',
-                        app_revision,
+                        self.IMAGE_TAG,
                     ]),
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
@@ -435,8 +408,12 @@ class C4ECSApplication(C4Part):
                     Environment=[
                         Environment(
                             Name='IDENTITY',
-                            Value=secrets_manager_key
-                        )
+                            Value=os.environ.get(IDENTITY) or secrets_manager_key
+                        ),
+                        Environment(
+                            Name='application_type',
+                            Value=C4ECSApplicationTypes.INDEXER
+                        ),
                     ]
                 )
             ],
@@ -456,8 +433,6 @@ class C4ECSApplication(C4Part):
             "CGAPIndexerService",
             Cluster=Ref(self.ecs_cluster()),
             DesiredCount=os.environ.get(ECS_INDEXER_COUNT) or concurrency,
-            # Can't specify both LaunchType and CapacityProviderStrategy.
-            # LaunchType='FARGATE',
             CapacityProviderStrategy=[
                 CapacityProviderStrategyItem(
                     CapacityProvider='FARGATE',
@@ -482,26 +457,52 @@ class C4ECSApplication(C4Part):
             # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
-    def ecs_indexer_scalable_target(self, indexer: Service, max_concurrency=16) -> ScalableTarget:
-        """ Scalable Target for the Indexer Service. """
-        return ScalableTarget(
-            'IndexerScalableTarget',
-            RoleARN=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
-            ResourceId=Ref(indexer),
-            ServiceNamespace='ecs',
-            ScalableDimension='ecs:service:DesiredCount',
-            MinCapacity=1,
-            MaxCapacity=max_concurrency  # scale indexing to 16 workers if needed
+    @staticmethod
+    def indexer_queue_depth_alarm(depth=1000) -> Alarm:
+        """ Creates a Cloudwatch alarm for Secondary queue depth.
+            Checks the secondary queue to see if it is backlogged.
+        """
+        return Alarm(
+            'IndexingQueueDepthAlarm',
+            AlarmDescription='Alarm if total queue depth exceeds %s' % depth,
+            Namespace='AWS/SQS',
+            MetricName='ApproximateNumberOfMessagesVisible',
+            Dimensions=[
+                MetricDimension(Name='QueueName', Value=os.environ.get(ENV_NAME) + '-secondary-indexer-queue'),
+            ],
+            Statistic='Maximum',
+            Period='300',
+            EvaluationPeriods='1',
+            Threshold=depth,
+            ComparisonOperator='GreaterThanThreshold',
         )
 
-    def ecs_ingester_task(self, cpus='512', mem='1024', app_revision='latest-ingester',
-                          secrets_manager_key='dev/beanstalk/cgap-dev') -> TaskDefinition:
+    @staticmethod
+    def indexer_queue_empty_alarm() -> Alarm:
+        """ Creates a Cloudwatch alarm for when the Secondary queue is empty.
+            Checks the secondary queue to see if it is empty, if detected scale down.
+        """
+        return Alarm(
+            'IndexingQueueEmptyAlarm',
+            AlarmDescription='Alarm when queue depth reaches 0',
+            Namespace='AWS/SQS',
+            MetricName='ApproximateNumberOfMessagesVisible',
+            Dimensions=[
+                MetricDimension(Name='QueueName', Value=os.environ.get(ENV_NAME) + '-secondary-indexer-queue'),
+            ],
+            Statistic='Maximum',
+            Period='300',
+            EvaluationPeriods='1',
+            Threshold=0,
+            ComparisonOperator='LessThanOrEqualToThreshold',
+        )
+
+    def ecs_ingester_task(self, cpus='512', mem='1024', secrets_manager_key='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
             :param cpus: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
-            :param app_revision: Tag on ECR for the image we'd like to run
             :param secrets_manager_key: name of secret containing the identity information for this environment
         """
         return TaskDefinition(
@@ -519,7 +520,7 @@ class C4ECSApplication(C4Part):
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
                         ':',
-                        app_revision,
+                        self.IMAGE_TAG
                     ]),
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
@@ -532,8 +533,12 @@ class C4ECSApplication(C4Part):
                     Environment=[
                         Environment(
                             Name='IDENTITY',
-                            Value=secrets_manager_key
-                        )
+                            Value=os.environ.get(IDENTITY) or secrets_manager_key
+                        ),
+                        Environment(
+                            Name='application_type',
+                            Value=C4ECSApplicationTypes.INGESTER
+                        ),
                     ]
                 )
             ],
@@ -550,8 +555,6 @@ class C4ECSApplication(C4Part):
             "CGAPIngesterService",
             Cluster=Ref(self.ecs_cluster()),
             DesiredCount=os.environ.get(ECS_INGESTER_COUNT) or 1,
-            # Can't specify both LaunchType and CapacityProviderStrategy.
-            # LaunchType='FARGATE',
             TaskDefinition=Ref(self.ecs_ingester_task()),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
@@ -577,28 +580,52 @@ class C4ECSApplication(C4Part):
             # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
-    def ecs_ingester_scalable_target(self, ingester: Service, max_concurrency=4) -> ScalableTarget:
-        """ Scalable Target for the Indexer Service.
-            TODO: determine scaling trigger
+    @staticmethod
+    def ingester_queue_depth_alarm(depth=2) -> Alarm:
+        """ Creates a Cloudwatch alarm for Indexer + Secondary queue depth.
+            Checks the secondary queue to see if it is backlogged.
         """
-        return ScalableTarget(
-            'IngesterScalableTarget',
-            RoleARN=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
-            ResourceId=Ref(ingester),
-            ServiceNamespace='ecs',
-            ScalableDimension='ecs:service:DesiredCount',
-            MinCapacity=1,
-            MaxCapacity=max_concurrency  # scale ingester to 4 workers if needed
+        return Alarm(
+            'IngesterQueueDepthAlarm',
+            AlarmDescription='Alarm if total queue depth exceeds %s' % depth,
+            Namespace='AWS/SQS',
+            MetricName='ApproximateNumberOfMessagesVisible',
+            Dimensions=[
+                MetricDimension(Name='QueueName', Value=os.environ.get(ENV_NAME) + '-ingestion-queue'),
+            ],
+            Statistic='Maximum',
+            Period='300',
+            EvaluationPeriods='1',
+            Threshold=depth,
+            ComparisonOperator='GreaterThanThreshold',
         )
 
-    def ecs_deployment_task(self, cpus='256', mem='512', app_revision='latest-deployment',
-                            secrets_manager_key='dev/beanstalk/cgap-dev') -> TaskDefinition:
+    @staticmethod
+    def ingester_queue_empty_alarm() -> Alarm:
+        """ Creates a Cloudwatch alarm for when Indexer + Secondary queue are empty.
+            Checks the secondary queue to see if it is empty, if detected scale down.
+        """
+        return Alarm(
+            'IngesterQueueEmptyAlarm',
+            AlarmDescription='Alarm when queue depth reaches 0',
+            Namespace='AWS/SQS',
+            MetricName='ApproximateNumberOfMessagesVisible',
+            Dimensions=[
+                MetricDimension(Name='QueueName', Value=os.environ.get(ENV_NAME) + '-ingestion-queue'),
+            ],
+            Statistic='Maximum',
+            Period='300',
+            EvaluationPeriods='1',
+            Threshold=0,
+            ComparisonOperator='LessThanOrEqualToThreshold',
+        )
+
+    def ecs_deployment_task(self, cpus='256', mem='512', secrets_manager_key='dev/beanstalk/cgap-dev') -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
             :param cpus: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
-            :param app_revision: Tag on ECR for the image we'd like to run
             :param secrets_manager_key: name of secret containing the identity information for this environment
         """
         return TaskDefinition(
@@ -616,7 +643,7 @@ class C4ECSApplication(C4Part):
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
                         ':',
-                        app_revision,
+                        self.IMAGE_TAG,
                     ]),
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
@@ -629,8 +656,12 @@ class C4ECSApplication(C4Part):
                     Environment=[
                         Environment(
                             Name='IDENTITY',
-                            Value=secrets_manager_key
-                        )
+                            Value=os.environ.get(IDENTITY) or secrets_manager_key
+                        ),
+                        Environment(
+                            Name='application_type',
+                            Value=C4ECSApplicationTypes.DEPLOYMENT
+                        ),
                     ]
                 )
             ],
@@ -651,8 +682,6 @@ class C4ECSApplication(C4Part):
             "CGAPDeploymentService",
             Cluster=Ref(self.ecs_cluster()),
             DesiredCount=0,  # Explicitly triggered
-            # Can't specify both LaunchType and CapacityProviderStrategy.
-            # LaunchType='FARGATE',
             # deployments should happen fast enough to tolerate potential interruption
             CapacityProviderStrategy=[
                 CapacityProviderStrategyItem(

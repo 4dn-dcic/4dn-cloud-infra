@@ -42,7 +42,7 @@ deploy-alpha-p1:
 deploy-alpha-p2:
 	@echo -n "Confirm you have done the 2 required steps after deploy-alpha-p1 with 'y' [y/N] " && read ans && [ $${ans:-N} = y ]
 	poetry run cli provision ecs --validate --alpha --upload_change_set
-	CHECK_RUNNER=c4-foursight-trial-alpha-stack-CheckRunner-JXZ3mRAkzyKS GLOBAL_BUCKET_ENV=foursight-cgap-mastertest-envs poetry run cli provision --trial --output_file out/foursight-dev-tmp/ --stage dev foursight --alpha --upload_change_set
+	poetry run cli provision --trial --output_file out/foursight-dev-tmp/ --stage dev foursight --alpha --upload_change_set
 	@echo 'ECS may take up to 10 minutes to come online. Once it has, examine the stack output for the URL.'
 	@echo 'Next, upload base environment configuration to global application s3 bucket.'
 	@echo 'Phase 3 is triggering deployment, which for now is done manually from the ECS console.'
@@ -65,7 +65,7 @@ submission:
 	@echo 'Running end-to-end test'
 	@echo 'Phase 1: Metadata Bundle Submission for Demo Case NA 12879'
 	@echo 'NOTE: This test is intended to be run on the Trial Account ECS only (for now)'
-	poetry run submit-metadata-bundle test_data/na_12879/na12879_accessioning.xlsx --s http://c4ecstrialalphaecslb-2115269186.us-east-1.elb.amazonaws.com
+	poetry run submit-metadata-bundle test_data/na_12879/na12879_accessioning.xlsx --s http://c4ecstrialalphacgapmastertest-273357903.us-east-1.elb.amazonaws.com
 	@echo 'NOTE: Bypassing Bioinformatics by uploading raw VCF directly.'
 	poetry run upload-file-processed
 	docker run --rm -v ~/aws_test:/root/.aws amazon/aws-cli s3 cp test_data/na_12879/GAPFI9V6TEQA.vcf.gz s3://application-cgap-mastertest-wfout/3535ce97-b8e6-4ed2-b4fc-dcab7aebcc0f/GAPFI9V6TEQA.vcf.gz
