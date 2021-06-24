@@ -66,6 +66,7 @@ class C4ECSApplication(C4Part):
     AMI = 'ami-0be13a99cd970f6a9'  # latest amazon linux 2 ECS optimized
     LB_NAME = 'AppLB'
     IMAGE_TAG = os.environ.get(ECS_IMAGE_TAG) or 'latest'
+    LEGACY_DEFAULT_IDENTITY = 'dev/beanstalk/cgap-dev'
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
@@ -272,13 +273,15 @@ class C4ECSApplication(C4Part):
             Tags=self.tags.cost_tag_array()
         )
 
-    def ecs_portal_task(self, cpus='256', mem='512', identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
+    def ecs_portal_task(self, cpus='256', mem='512', identity=None) -> TaskDefinition:
         """ Defines the portal Task (serve HTTP requests).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
             :param cpus: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
             :param identity: name of secret containing the identity information for this environment
+                             (defaults to value of environment variable IDENTITY,
+                             or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
         """
         return TaskDefinition(
             'CGAPportal',
@@ -315,7 +318,7 @@ class C4ECSApplication(C4Part):
                         # Note this applies to all other tasks as well.
                         Environment(
                             Name='IDENTITY',
-                            Value=os.environ.get(IDENTITY) or identity,
+                            Value=identity or os.environ.get(IDENTITY) or self.LEGACY_DEFAULT_IDENTITY,
                         ),
                         Environment(
                             Name='application_type',
@@ -372,13 +375,15 @@ class C4ECSApplication(C4Part):
             # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
-    def ecs_indexer_task(self, cpus='256', mem='512', identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
+    def ecs_indexer_task(self, cpus='256', mem='512', identity=None) -> TaskDefinition:
         """ Defines the Indexer task (indexer app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
             :param cpus: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
             :param identity: name of secret containing the identity information for this environment
+                             (defaults to value of environment variable IDENTITY,
+                             or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
         """
         return TaskDefinition(
             'CGAPIndexer',
@@ -408,7 +413,7 @@ class C4ECSApplication(C4Part):
                     Environment=[
                         Environment(
                             Name='IDENTITY',
-                            Value=os.environ.get(IDENTITY) or identity
+                            Value=identity or os.environ.get(IDENTITY) or self.LEGACY_DEFAULT_IDENTITY,
                         ),
                         Environment(
                             Name='application_type',
@@ -497,13 +502,15 @@ class C4ECSApplication(C4Part):
             ComparisonOperator='LessThanOrEqualToThreshold',
         )
 
-    def ecs_ingester_task(self, cpus='512', mem='1024', identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
+    def ecs_ingester_task(self, cpus='512', mem='1024', identity=None) -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
             :param cpus: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
             :param identity: name of secret containing the identity information for this environment
+                             (defaults to value of environment variable IDENTITY,
+                             or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
         """
         return TaskDefinition(
             'CGAPIngester',
@@ -533,7 +540,7 @@ class C4ECSApplication(C4Part):
                     Environment=[
                         Environment(
                             Name='IDENTITY',
-                            Value=os.environ.get(IDENTITY) or identity
+                            Value=identity or os.environ.get(IDENTITY) or self.LEGACY_DEFAULT_IDENTITY
                         ),
                         Environment(
                             Name='application_type',
@@ -620,13 +627,15 @@ class C4ECSApplication(C4Part):
             ComparisonOperator='LessThanOrEqualToThreshold',
         )
 
-    def ecs_deployment_task(self, cpus='256', mem='512', identity='dev/beanstalk/cgap-dev') -> TaskDefinition:
+    def ecs_deployment_task(self, cpus='256', mem='512', identity=None) -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
             :param cpus: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
             :param identity: name of secret containing the identity information for this environment
+                             (defaults to value of environment variable IDENTITY,
+                             or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
         """
         return TaskDefinition(
             'CGAPDeployment',
@@ -656,7 +665,7 @@ class C4ECSApplication(C4Part):
                     Environment=[
                         Environment(
                             Name='IDENTITY',
-                            Value=os.environ.get(IDENTITY) or identity
+                            Value=identity or os.environ.get(IDENTITY) or self.LEGACY_DEFAULT_IDENTITY
                         ),
                         Environment(
                             Name='application_type',

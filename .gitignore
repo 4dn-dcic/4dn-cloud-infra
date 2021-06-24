@@ -28,6 +28,8 @@ __pycache__/
 credentials.json
 token.pickle
 secrets.py
+config.json
+config.*.json
 
 # PyCharm metadata
 .idea/
