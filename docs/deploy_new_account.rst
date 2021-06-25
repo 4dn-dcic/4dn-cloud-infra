@@ -32,6 +32,10 @@ Note that the HMS email you use to create this account is treated as the 'root a
   resources. More information on this bootstrap step to be documented. As a result of this step, you should have this
   account's credentials in a configurable `.aws` directory, by default, `.aws_test/credentials`.
 
+  In these instructions, we assume you'll be using test credentials in ``~/.aws_test``.
+  If you're using credentials in locations, you may want to make ``~/.aws_test`` be a symbolic link
+  to the one you are actively using.
+
 
 Step Two: CGAP Orchestration with Cloud Formation
 -------------------------------------------------
@@ -52,20 +56,28 @@ You can request this from the 'Service Quotas' console_.
     poetry run cli provision logging --validate --alpha --upload_change_set
     poetry run cli provision network --validate --alpha --upload_change_set
     poetry run cli provision ecr --validate --alpha --upload_change_set
+
+    #############################################################################
+    # This next command is a temporary workaround to manually create            #
+    # AWSServiceRoleForAmazonElasticsearchService. This must be done before     #
+    # datastore can be provisioned. In effect, you want to execute this         #
+    # command, but with the right credentials in an isolated environment:       #
+    #   aws iam create-service-linked-role --aws-service-name es.amazonaws.com  #
+    # So this is the way to do that using docker.                               #
+    #############################################################################
+    docker run --rm -it -v ~/.aws_test:/root/.aws amazon/aws-cli iam create-service-linked-role --aws-service-name ecs.amazonaws.com
+
     poetry run cli provision datastore --validate --alpha --upload_change_set
 
-*Workaround of the moment* - Before running the datastore stack, manually create a
-AWSServiceRoleForAmazonElasticsearchService. To do this, mount the current config to your docker instantiation of
-aws-cli, and run: `aws iam create-service-linked-role --aws-service-name es.amazonaws.com`, within docker, with the
-right creds mounted. More info: https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/slr-es.html
+More info: https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/slr-es.html
 
-# TODO : aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com
-#        or docker run --rm -it -v ~/.aws_kmp:/root/.aws amazon/aws-cli iam create-service-linked-role --aws-service-name ecs.amazonaws.com
 
-These will take about fifteen minutes or so to finish provisioning, and should be run in order. While they are
-instantiating, write the global application configuration in secrets manager -- more documentation on this is in `docs/setup.rst`.
+These will take about fifteen minutes or so to finish provisioning, and should be run in order.
+While they are instantiating, write the global application configuration in secrets manager.
+There is more documentation on this is in `docs/setup.rst`.
 
-Once your new ECR comes online, upload an application image to it. See the cgap-portal Makefile. Push the image tag specified in ``config.json`` prior to deploying ECS.
+Once your new ECR comes online, upload an application image to it.
+See the cgap-portal Makefile. Push the image tag specified in ``config.json`` prior to deploying ECS.
 
 * Once all base stacks have finishing instantiating -- all stacks should be in state `UPDATE_COMPLETE` -- you can
   provision the application stack.
