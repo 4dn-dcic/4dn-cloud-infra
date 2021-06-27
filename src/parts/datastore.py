@@ -1,5 +1,6 @@
 import os
 import json
+from dcicutils.misc_utils import dict_zip
 from troposphere import (
     Join, Ref, Template, Tags, Parameter, Output, GetAtt,
     AccountId
@@ -22,6 +23,7 @@ from dcicutils.misc_utils import as_seconds
 from src.constants import (
     ACCOUNT_NUMBER,
     DEPLOYING_IAM_USER, ENV_NAME,
+    S3_BUCKET_ORG,
     # RDS_AZ,
     RDS_DB_NAME, RDS_STORAGE_SIZE, RDS_INSTANCE_SIZE,
     ES_DATA_TYPE, ES_DATA_COUNT,
@@ -52,6 +54,7 @@ class C4DatastoreExports(C4Exports):
     APPLICATION_WFOUT_BUCKET = 'ExportAppWfoutBucket'
     APPLICATION_FILES_BUCKET = 'ExportAppFilesBucket'
     APPLICATION_BLOBS_BUCKET = 'ExportAppBlobsBucket'
+    APPLICATION_METADATA_BUNDLES_BUCKET = 'ExportAppMetadataBundlesBucket'
     APPLICATION_TIBANNA_LOGS_BUCKET = 'ExportAppTibannaLogsBucket'
 
     # Output SQS Queues
@@ -79,22 +82,23 @@ class C4Datastore(C4Part):
 
     # Buckets used by the Application layer we need to initialize as part of the datastore
     # Intended to be .formatted with the deploying env_name
-    APPLICATION_LAYER_BUCKETS = [
-        'application-{}-blobs',
-        'application-{}-files',
-        'application-{}-wfout',
-        'application-{}-system',
-        'application-{}-tibanna-logs'
-    ]
+    APPLICATION_LAYER_BUCKETS = {
+        'application-blobs': 'application-{org_prefix}{env_name}-blobs',
+        'application-files': 'application-{org_prefix}{env_name}-files',
+        'application-wfout': 'application-{org_prefix}{env_name}-wfout',
+        'application-system': 'application-{org_prefix}{env_name}-system',
+        'application-metadata-bundles': 'application-{org_prefix}{env_name}-metadata-bundles',
+        'application-tibanna-logs': 'application-{org_prefix}{env_name}-tibanna-logs'
+    }
 
     # Buckets used by the foursight layer
     # Envs describing the global foursight configuration in this account (could be updated)
     # Results bucket is the backing store for checks (they are also indexed into ES)
-    FOURSIGHT_LAYER_BUCKETS = [
-        'foursight-{}-envs',
-        'foursight-{}-results',
-        'foursight-{}-application-versions'
-    ]
+    FOURSIGHT_LAYER_BUCKETS = {
+        'foursight-envs': 'foursight-{org_prefix}{env_name}-envs',
+        'foursight-results': 'foursight-{org_prefix}{env_name}-results',
+        'foursight-application-versions': 'foursight-{org_prefix}{env_name}-application-versions'
+    }
 
     # Contains application configuration template, written to secrets manager
     # NOTE: this configuration is NOT valid by default - it must be manually updated
@@ -127,6 +131,8 @@ class C4Datastore(C4Part):
         'RDS_USERNAME': CONFIGURATION_PLACEHOLDER,
         'RDS_PASSWORD': CONFIGURATION_PLACEHOLDER,
         'S3_ENCRYPT_KEY': CONFIGURATION_PLACEHOLDER,
+        # 'S3_BUCKET_ENV': CONFIGURATION_PLACEHOLDER,
+        'S3_BUCKET_ORG': CONFIGURATION_PLACEHOLDER,
         'SENTRY_DSN': CONFIGURATION_PLACEHOLDER,
         'reCaptchaKey': CONFIGURATION_PLACEHOLDER,
         'reCaptchaSecret': CONFIGURATION_PLACEHOLDER,
@@ -170,20 +176,31 @@ class C4Datastore(C4Part):
             template.add_output(self.output_sqs_instance(export_name, i))
 
         # Add/Export S3 buckets
-        for export_name, bucket_name in zip([C4DatastoreExports.APPLICATION_BLOBS_BUCKET,
-                                             C4DatastoreExports.APPLICATION_FILES_BUCKET,
-                                             C4DatastoreExports.APPLICATION_WFOUT_BUCKET,
-                                             C4DatastoreExports.APPLICATION_SYSTEM_BUCKET,
-                                             C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET,
-                                             C4DatastoreExports.FOURSIGHT_ENV_BUCKET,
-                                             C4DatastoreExports.FOURSIGHT_RESULT_BUCKET,
-                                             C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET],
-                                            self.APPLICATION_LAYER_BUCKETS + self.FOURSIGHT_LAYER_BUCKETS):
+        for export_name, bucket_template in dict_zip(
+                {
+                    'application-blobs': C4DatastoreExports.APPLICATION_BLOBS_BUCKET,
+                    'application-files': C4DatastoreExports.APPLICATION_FILES_BUCKET,
+                    'application-wfout': C4DatastoreExports.APPLICATION_WFOUT_BUCKET,
+                    'application-system': C4DatastoreExports.APPLICATION_SYSTEM_BUCKET,
+                    'application-metadata-bundles': C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET,
+                    'application-tibanna-logs': C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET,
+                    'foursight-envs': C4DatastoreExports.FOURSIGHT_ENV_BUCKET,
+                    'foursight-results': C4DatastoreExports.FOURSIGHT_RESULT_BUCKET,
+                    'foursight-application-versions': C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET
+                },
+                dict(self.APPLICATION_LAYER_BUCKETS, **self.FOURSIGHT_LAYER_BUCKETS)):
 
+            org_name = os.environ.get(S3_BUCKET_ORG)
+            # NOTE: In legacy CGAP, we'd want to be looking at S3_BUCKET_ENV, which did some backflips to address
+            #       the naming for foursight, so that webprod was still used even after we changed to blue/green,
+            #       but unless we're trying to make this deployment procedure cover that special case, it should
+            #       suffice (and use fewer environment variables) to only worry about ENV_NAME. -kmp 24-Jun-2021
             env_name = os.environ.get(ENV_NAME)
-            bucket = self.build_s3_bucket(bucket_name.format(env_name))
+            org_prefix = (org_name + "-") if org_name else ""
+            bucket_name = bucket_template.format(env_name=env_name, org_prefix=org_prefix)
+            bucket = self.build_s3_bucket(bucket_name)
             template.add_resource(bucket)
-            template.add_output(self.output_s3_bucket(export_name, bucket_name.format(env_name)))
+            template.add_output(self.output_s3_bucket(export_name, bucket_name))
 
         return template
 
@@ -192,8 +209,9 @@ class C4Datastore(C4Part):
         """ Creates an S3 bucket under the given name/access control permissions.
             See troposphere.s3 for access control options.
         """
+        bucket_name_parts = bucket_name.split('-')
         return Bucket(
-            ''.join(bucket_name.split('-')),  # Name != BucketName
+            ''.join(bucket_name_parts),  # Name != BucketName
             BucketName=bucket_name,
             AccessControl=access_control
         )
@@ -416,8 +434,7 @@ class C4Datastore(C4Part):
             Export=self.EXPORTS.export(export_name)
         )
 
-    def build_sqs_instance(self, logical_id_suffix, name_suffix, timeout_in_minutes=10,
-                           cgap_env='mastertest') -> Queue:
+    def build_sqs_instance(self, logical_id_suffix, name_suffix, timeout_in_minutes=10) -> Queue:
         """ Builds a SQS instance with the logical id suffix for CloudFormation and the given name_suffix for the queue
             name. Uses 'mastertest' as default cgap env. """
         logical_name = self.name.logical_id(logical_id_suffix)

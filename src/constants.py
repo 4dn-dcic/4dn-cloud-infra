@@ -7,6 +7,8 @@
 # General constants
 DEPLOYING_IAM_USER = 'deploying_iam_user'
 ENV_NAME = 'ENCODED_BS_ENV'
+S3_BUCKET_ENV = 'ENCODED_S3_BUCKET_ENV'
+S3_BUCKET_ORG = 'ENCODED_S3_BUCKET_ORG'
 ACCOUNT_NUMBER = 'account_number'
 
 # RDS Configuration Options
