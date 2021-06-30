@@ -11,7 +11,6 @@
 
 # Configuration
 requirements.txt
-config.json
 
 # Distribution / packaging
 dist/
@@ -30,6 +29,8 @@ token.pickle
 secrets.py
 config.json
 config.*.json
+.s3_encrypt_key.txt
+s3_encrypt_key.txt
 
 # PyCharm metadata
 .idea/

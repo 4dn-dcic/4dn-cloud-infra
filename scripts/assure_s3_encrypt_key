@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+verbose=FALSE
+if [ "$1" = "-v" -o "$1" = "--verbose" ]; then
+    verbose=TRUE
+    shift 1
+fi
+
+keyfile=${S3_ENCRYPT_KEY_FILE:-$HOME/.aws_test/s3_encrypt_key.txt}
+
+if [ -e "${keyfile}" ]; then
+    echo "The file ${keyfile} already exists."
+    if [ "${verbose}" = "TRUE" ]; then
+        content=`cat ${keyfile}`
+        echo "    \"S3_ENCRYPT_KEY\": \"${content}\""
+    fi
+else
+    echo "The file ${keyfile} does not exist. It will be created."
+    $(dirname $0)/create_s3_encrypt_key "$@"
+fi

@@ -1,5 +1,6 @@
 import os
 import json
+import subprocess
 from dcicutils.misc_utils import dict_zip
 from troposphere import (
     Join, Ref, Template, Tags, Parameter, Output, GetAtt,
@@ -19,13 +20,14 @@ from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTarge
 from troposphere.sqs import Queue
 from troposphere.s3 import Bucket, Private
 from troposphere.kms import Key
+from dcicutils.env_utils import prod_bucket_env
 from dcicutils.misc_utils import as_seconds
 from src.constants import (
     ACCOUNT_NUMBER,
     DEPLOYING_IAM_USER, ENV_NAME,
-    S3_BUCKET_ORG,
+    S3_BUCKET_ORG, S3_ENCRYPT_KEY,
     # RDS_AZ,
-    RDS_DB_NAME, RDS_STORAGE_SIZE, RDS_INSTANCE_SIZE,
+    RDS_DB_NAME, RDS_DB_PORT, RDS_STORAGE_SIZE, RDS_INSTANCE_SIZE,
     ES_DATA_TYPE, ES_DATA_COUNT,
     # ES_MASTER_COUNT, ES_MASTER_TYPE,
     ES_VOLUME_SIZE
@@ -74,6 +76,8 @@ class C4DatastoreExports(C4Exports):
 class C4Datastore(C4Part):
     """ Defines the datastore stack - see resources created in build_template method. """
     APPLICATION_SECRET_STRING = 'ApplicationConfiguration'
+    DEFAULT_RDS_DB_NAME = 'ebdb'
+    DEFAULT_RDS_PORT = '5432'
     RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names
     EXPORTS = C4DatastoreExports()
     NETWORK_EXPORTS = C4NetworkExports()
@@ -82,23 +86,55 @@ class C4Datastore(C4Part):
 
     # Buckets used by the Application layer we need to initialize as part of the datastore
     # Intended to be .formatted with the deploying env_name
+
     APPLICATION_LAYER_BUCKETS = {
-        'application-blobs': 'application-{org_prefix}{env_name}-blobs',
-        'application-files': 'application-{org_prefix}{env_name}-files',
-        'application-wfout': 'application-{org_prefix}{env_name}-wfout',
-        'application-system': 'application-{org_prefix}{env_name}-system',
-        'application-metadata-bundles': 'application-{org_prefix}{env_name}-metadata-bundles',
-        'application-tibanna-logs': 'application-{org_prefix}{env_name}-tibanna-logs'
+        C4DatastoreExports.APPLICATION_BLOBS_BUCKET: 'application-{org_prefix}{env_name}-blobs',
+        C4DatastoreExports.APPLICATION_FILES_BUCKET: 'application-{org_prefix}{env_name}-files',
+        C4DatastoreExports.APPLICATION_WFOUT_BUCKET: 'application-{org_prefix}{env_name}-wfout',
+        C4DatastoreExports.APPLICATION_SYSTEM_BUCKET: 'application-{org_prefix}{env_name}-system',
+        C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET: 'application-{org_prefix}{env_name}-metadata-bundles',
+        C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET: 'application-{org_prefix}{env_name}-tibanna-logs',
     }
+
+    @classmethod
+    def application_layer_bucket(cls, export_name):
+        bucket_name_template = cls.APPLICATION_LAYER_BUCKETS[export_name]
+        bucket_name = cls.resolve_bucket_name(bucket_name_template)
+        return bucket_name
 
     # Buckets used by the foursight layer
     # Envs describing the global foursight configuration in this account (could be updated)
     # Results bucket is the backing store for checks (they are also indexed into ES)
+
     FOURSIGHT_LAYER_BUCKETS = {
-        'foursight-envs': 'foursight-{org_prefix}{env_name}-envs',
-        'foursight-results': 'foursight-{org_prefix}{env_name}-results',
-        'foursight-application-versions': 'foursight-{org_prefix}{env_name}-application-versions'
+        C4DatastoreExports.FOURSIGHT_ENV_BUCKET: 'foursight-{org_prefix}{env_name}-envs',
+        C4DatastoreExports.FOURSIGHT_RESULT_BUCKET: 'foursight-{org_prefix}{env_name}-results',
+        C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET: 'foursight-{org_prefix}{env_name}-application-versions',
     }
+
+    @classmethod
+    def foursight_layer_bucket(cls, export_name):
+        bucket_name_template = cls.FOURSIGHT_LAYER_BUCKETS[export_name]
+        bucket_name = cls.resolve_bucket_name(bucket_name_template)
+        return bucket_name
+
+    @classmethod
+    def resolve_bucket_name(cls, bucket_template):
+        """
+        Resolves a bucket_template into a bucket_name (presuming an appropriate os.environ).
+        The ENCODED_BS_ENV and ENCODED_S3_BUCKET_ORG environment variables are expected to be in place at time of call.
+        """
+        # NOTE: In legacy CGAP, we'd want to be looking at S3_BUCKET_ENV, which did some backflips to address
+        #       the naming for foursight (including uses of prod_bucket_env), so that webprod was still used
+        #       even after we changed to blue/green, but unless we're trying to make this deployment procedure
+        #       cover that special case, it should suffice (and use fewer environment variables) to only worry
+        #       about ENV_NAME. -kmp 24-Jun-2021
+        env_name = os.environ[ENV_NAME]
+        org_name = os.environ.get(S3_BUCKET_ORG)  # Result is allowed to be missing or empty if none desired.
+        org_prefix = (org_name + "-") if org_name else ""
+        bucket_name = bucket_template.format(env_name=env_name, org_prefix=org_prefix)
+        print(bucket_template,"=>",bucket_name)
+        return bucket_name
 
     # Contains application configuration template, written to secrets manager
     # NOTE: this configuration is NOT valid by default - it must be manually updated
@@ -106,37 +142,46 @@ class C4Datastore(C4Part):
     # TODO only use configuration placeholder for orchestration time values; otherwise, use src.constants values
     CONFIGURATION_PLACEHOLDER = 'XXX: ENTER VALUE'
 
-    CONFIGURATION_DEFAULT_LANG = 'en_US.UTF-8'
-    CONFIGURATION_DEFAULT_LC_ALL = 'en_US.UTF-8'
-    CONFIGURATION_DEFAULT_RDS_PORT = '5432'
+    def add_placeholders(cls, template):
+        return {
+            k: cls.CONFIGURATION_PLACEHOLDER if v is None else v
+            for k, v in template.items()
+        }
 
-    APPLICATION_CONFIGURATION_TEMPLATE = {
-        'deploying_iam_user': CONFIGURATION_PLACEHOLDER,
-        'Auth0Client': CONFIGURATION_PLACEHOLDER,
-        'Auth0Secret': CONFIGURATION_PLACEHOLDER,
-        'ENV_NAME': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_BS_ENV': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_DATA_SET': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_ES_SERVER': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_FILES_BUCKET': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_WFOUT_BUCKET': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_BLOBS_BUCKET': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_SYSTEM_BUCKET': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_METADATA_BUNDLE_BUCKET': CONFIGURATION_PLACEHOLDER,
-        'LANG': CONFIGURATION_DEFAULT_LANG,
-        'LC_ALL': CONFIGURATION_DEFAULT_LC_ALL,
-        'RDS_HOSTNAME': CONFIGURATION_PLACEHOLDER,
-        'RDS_DB_NAME': CONFIGURATION_PLACEHOLDER,
-        'RDS_PORT': CONFIGURATION_DEFAULT_RDS_PORT,
-        'RDS_USERNAME': CONFIGURATION_PLACEHOLDER,
-        'RDS_PASSWORD': CONFIGURATION_PLACEHOLDER,
-        'S3_ENCRYPT_KEY': CONFIGURATION_PLACEHOLDER,
-        # 'S3_BUCKET_ENV': CONFIGURATION_PLACEHOLDER,
-        'S3_BUCKET_ORG': CONFIGURATION_PLACEHOLDER,
-        'SENTRY_DSN': CONFIGURATION_PLACEHOLDER,
-        'reCaptchaKey': CONFIGURATION_PLACEHOLDER,
-        'reCaptchaSecret': CONFIGURATION_PLACEHOLDER,
-    }
+    def application_configuration_template(cls):
+        env_name = os.environ.get(ENV_NAME)
+        print("ENV_NAME=", repr(ENV_NAME))
+        print("env_name=", repr(env_name))
+        result = cls.add_placeholders({
+            'deploying_iam_user': None,
+            'Auth0Client': None,
+            'Auth0Secret': None,
+            'ENV_NAME': env_name,
+            'ENCODED_BS_ENV': env_name,
+            'ENCODED_DATA_SET': 'prod',
+            'ENCODED_ES_SERVER': None,
+            'ENCODED_BLOBS_BUCKET': cls.application_layer_bucket(C4DatastoreExports.APPLICATION_BLOBS_BUCKET),
+            'ENCODED_FILES_BUCKET': cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
+            'ENCODED_WFOUT_BUCKET': cls.application_layer_bucket(C4DatastoreExports.APPLICATION_WFOUT_BUCKET),
+            'ENCODED_SYSTEM_BUCKET': cls.application_layer_bucket(C4DatastoreExports.APPLICATION_SYSTEM_BUCKET),
+            'ENCODED_METADATA_BUNDLE_BUCKET':
+                cls.application_layer_bucket(C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET),
+            'LANG': 'en_US.UTF-8',
+            'LC_ALL': 'en_US.UTF-8',
+            'RDS_HOSTNAME': None,
+            'RDS_DB_NAME': os.environ.get(RDS_DB_NAME) or cls.DEFAULT_RDS_DB_NAME,
+            'RDS_PORT': os.environ.get(RDS_DB_PORT) or cls.DEFAULT_RDS_PORT,
+            'RDS_USERNAME': 'postgresql',
+            'RDS_PASSWORD': None,
+            'S3_ENCRYPT_KEY': os.environ.get(S3_ENCRYPT_KEY),  # get from ~/.aws_test/.s3_encrypt_key.txt
+            'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
+            'S3_BUCKET_ORG': os.environ.get(S3_BUCKET_ORG),
+            'SENTRY_DSN': None,
+            'reCaptchaKey': None,
+            'reCaptchaSecret': None,
+        })
+        print("application_configuration_template() => %s" % json.dumps(result, indent=2))
+        return result
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
@@ -163,7 +208,7 @@ class C4Datastore(C4Part):
         template.add_output(self.output_es_url(es))
 
         # Add S3_ENCRYPT_KEY, application configuration template
-        template.add_resource(self.s3_encrypt_key())
+        # template.add_resource(self.s3_encrypt_key())
         template.add_resource(self.application_configuration_secret())
 
         # Adds SQS Queues + Outputs
@@ -176,31 +221,17 @@ class C4Datastore(C4Part):
             template.add_output(self.output_sqs_instance(export_name, i))
 
         # Add/Export S3 buckets
-        for export_name, bucket_template in dict_zip(
-                {
-                    'application-blobs': C4DatastoreExports.APPLICATION_BLOBS_BUCKET,
-                    'application-files': C4DatastoreExports.APPLICATION_FILES_BUCKET,
-                    'application-wfout': C4DatastoreExports.APPLICATION_WFOUT_BUCKET,
-                    'application-system': C4DatastoreExports.APPLICATION_SYSTEM_BUCKET,
-                    'application-metadata-bundles': C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET,
-                    'application-tibanna-logs': C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET,
-                    'foursight-envs': C4DatastoreExports.FOURSIGHT_ENV_BUCKET,
-                    'foursight-results': C4DatastoreExports.FOURSIGHT_RESULT_BUCKET,
-                    'foursight-application-versions': C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET
-                },
-                dict(self.APPLICATION_LAYER_BUCKETS, **self.FOURSIGHT_LAYER_BUCKETS)):
 
-            org_name = os.environ.get(S3_BUCKET_ORG)
-            # NOTE: In legacy CGAP, we'd want to be looking at S3_BUCKET_ENV, which did some backflips to address
-            #       the naming for foursight, so that webprod was still used even after we changed to blue/green,
-            #       but unless we're trying to make this deployment procedure cover that special case, it should
-            #       suffice (and use fewer environment variables) to only worry about ENV_NAME. -kmp 24-Jun-2021
-            env_name = os.environ.get(ENV_NAME)
-            org_prefix = (org_name + "-") if org_name else ""
-            bucket_name = bucket_template.format(env_name=env_name, org_prefix=org_prefix)
+        def add_and_export_s3_bucket(export_name, bucket_template):
+            bucket_name = self.resolve_bucket_name(bucket_template)
             bucket = self.build_s3_bucket(bucket_name)
             template.add_resource(bucket)
             template.add_output(self.output_s3_bucket(export_name, bucket_name))
+
+        for export_name, bucket_template in self.APPLICATION_LAYER_BUCKETS.items():
+            add_and_export_s3_bucket(export_name, bucket_template)
+        for export_name, bucket_template in self.FOURSIGHT_LAYER_BUCKETS.items():
+            add_and_export_s3_bucket(export_name, bucket_template)
 
         return template
 
@@ -285,7 +316,7 @@ class C4Datastore(C4Part):
             logical_id,
             Name=logical_id,
             Description='This secret defines the application configuration for the orchestrated environment.',
-            SecretString=json.dumps(self.APPLICATION_CONFIGURATION_TEMPLATE),
+            SecretString=json.dumps(self.application_configuration_template()),
             Tags=self.tags.cost_tag_array()
         )
 

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+verbose=FALSE
+if [ "$1" = "-v" -o "$1" = "--verbose" ]; then
+    verbose=TRUE
+    shift 1
+fi
+
+keyfile=${S3_ENCRYPT_KEY_FILE:-$HOME/.aws_test/s3_encrypt_key.txt}
+
+if [ -e "${keyfile}" ]; then
+    echo "The file ${keyfile} already exists."
+    if [ "${verbose}" = "TRUE" ]; then
+        content=`cat ${keyfile}`
+        echo "    \"S3_ENCRYPT_KEY\": \"${content}\""
+    fi
+    exit 1
+fi
+
+echo "Creating ${keyfile}..."
+
+# Make initially blank version of the file.
+touch ${keyfile}
+# Make the file unreadable by others
+chmod 600 ${keyfile}
+# Put data in the file
+openssl enc  -aes-256-gcm -k s3_encrypt_key -P \
+   | grep '^key=' \
+   | sed -E 's|^key=(.*)$|\1|' \
+   | tr '[:upper:]' '[:lower:]' \
+   > ${keyfile}
+# Make it so we can't delete the file accidentally
+chmod 400 ${keyfile}
+content=`cat ${keyfile}`
+
+echo "Created: ${keyfile}"
+echo "NOTE: Please copy this value into config.json as S3_ENCRYPT_KEY and then safeguard this secret."
+echo "    \"S3_ENCRYPT_KEY\": \"${content}\""
+echo "If you delete the secret your data will be lost without it."

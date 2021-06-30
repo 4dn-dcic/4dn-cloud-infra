@@ -1,5 +1,6 @@
 from src.stack import C4Stack, C4Name, C4Tags, C4Account, C4FoursightCGAPStack
 from src.parts import network, datastore, ecr, beanstalk, tibanna
+from ..base import register_stack_creator
 
 # Helper methods for construction of trial stacks
 
@@ -29,6 +30,7 @@ def c4_stack_trial_network_metadata():
 # Trial Stacks
 
 
+@register_stack_creator(name='network', kind='legacy')
 def c4_stack_trial_network(account: C4Account):
     parts = [network.C4Network]
     name, description = c4_stack_trial_network_metadata()
@@ -41,6 +43,7 @@ def c4_stack_trial_network(account: C4Account):
     )
 
 
+@register_stack_creator(name='datastore', kind='legacy')
 def c4_stack_trial_datastore(account: C4Account):
     name = 'datastore'
     parts = [datastore.C4Datastore]
@@ -61,6 +64,7 @@ def c4_stack_trial_beanstalk_meta():
     return name, description
 
 
+@register_stack_creator(name='beanstalk', kind='legacy')
 def c4_stack_trial_beanstalk(account: C4Account):
     name, description = c4_stack_trial_beanstalk_meta()
     parts = [beanstalk.C4Beanstalk]
@@ -73,6 +77,7 @@ def c4_stack_trial_beanstalk(account: C4Account):
     )
 
 
+@register_stack_creator(name='foursight', kind='legacy')
 def c4_stack_trial_foursight_cgap(account: C4Account):
     name = 'foursight'
     description = c4_stack_trial_description(name)
@@ -84,6 +89,7 @@ def c4_stack_trial_foursight_cgap(account: C4Account):
     )
 
 
+@register_stack_creator(name='tibanna', kind='legacy')
 def c4_stack_trial_tibanna(account: C4Account):
     name = 'tibanna'
     description = 'tibanna trial stack'
@@ -97,6 +103,7 @@ def c4_stack_trial_tibanna(account: C4Account):
     )
 
 
+@register_stack_creator(name='ecr', kind='legacy')
 def stack_trial_ecr(account: C4Account):
     name = 'ecr'
     parts = [ecr.C4ContainerRegistry]

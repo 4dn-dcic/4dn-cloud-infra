@@ -1,6 +1,6 @@
 from src.stack import C4Stack, C4Name, C4Tags, C4Account, C4FoursightCGAPStack
 from src.parts import network, datastore, ecr, iam, logging, ecs, appconfig
-
+from ..base import register_stack_creator
 
 # Stack metadata
 # 'alpha' in this case refers to the first iteration of CGAP Docker on ECS
@@ -27,6 +27,7 @@ def c4_alpha_stack_trial_metadata(name='network'):
 
 # Trial-Alpha (ECS) Stacks
 
+@register_stack_creator(name='appconfig', kind='alpha')
 def c4_alpha_stack_trial_appconfig(account: C4Account):
     """ Network stack for the ECS version of CGAP """
     name = 'appconfig'
@@ -41,6 +42,7 @@ def c4_alpha_stack_trial_appconfig(account: C4Account):
     )
 
 
+@register_stack_creator(name='network', kind='alpha')
 def c4_alpha_stack_trial_network(account: C4Account):
     """ Network stack for the ECS version of CGAP """
     parts = [network.C4Network]
@@ -54,6 +56,7 @@ def c4_alpha_stack_trial_network(account: C4Account):
     )
 
 
+@register_stack_creator(name='datastore', kind='alpha')
 def c4_ecs_stack_trial_datastore(account: C4Account):
     """ Datastore stack for the ECS version of CGAP """
     name = 'datastore'
@@ -68,6 +71,7 @@ def c4_ecs_stack_trial_datastore(account: C4Account):
     )
 
 
+@register_stack_creator(name='iam', kind='alpha')
 def c4_alpha_stack_trial_iam(account: C4Account):
     """ IAM Configuration for ECS CGAP """
     name = 'iam'
@@ -82,6 +86,7 @@ def c4_alpha_stack_trial_iam(account: C4Account):
     )
 
 
+@register_stack_creator(name='ecr', kind='alpha')
 def c4_alpha_stack_trial_ecr(account: C4Account):
     """ ECR stack for ECS version of CGAP
         depends on IAM above (does that mean it needs both parts?)
@@ -98,6 +103,7 @@ def c4_alpha_stack_trial_ecr(account: C4Account):
     )
 
 
+@register_stack_creator(name='logging', kind='alpha')
 def c4_alpha_stack_trial_logging(account: C4Account):
     """ Implements logging policies for ECS CGAP """
     name = 'logging'
@@ -112,6 +118,7 @@ def c4_alpha_stack_trial_logging(account: C4Account):
     )
 
 
+@register_stack_creator(name='ecs', kind='alpha')
 def c4_alpha_stack_trial_ecs(account: C4Account):
     """ ECS Stack """
     name = 'ecs'
@@ -126,6 +133,7 @@ def c4_alpha_stack_trial_ecs(account: C4Account):
     )
 
 
+@register_stack_creator(name='foursight', kind='alpha')
 def c4_alpha_stack_trial_foursight_cgap(account: C4Account):
     """ Foursight stack """
     name = 'foursight'

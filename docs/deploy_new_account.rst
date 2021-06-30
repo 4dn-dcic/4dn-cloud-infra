@@ -109,8 +109,15 @@ Upload a global env configuration to enable foursight. Automated upload script t
 Currently, you can upload the file `.chalice/cgap-mastertest` to the global bucket env, which, on the trial account, is
 `s3://foursight-cgap-mastertest-envs/cgap-mastertest`.
 
-To deploy foursight, use this command:
+To deploy foursight, use this command::
 
-::
     source ~/.aws_test/test_creds.sh
-    GLOBAL_BUCKET_ENV=foursight-cgap-mastertest-envs poetry run cli provision --trial --output_file out/foursight-dev-tmp/ --stage dev foursight --alpha --upload_change_set
+    poetry run cli provision --trial --output_file out/foursight-dev-tmp/ --stage dev foursight --alpha --upload_change_set
+    #############################################################################################################
+    # NOTE: It should no longer be necessary to add an environment variable here, such as:                      #
+    #       GLOBAL_BUCKET_ENV=foursight-cgap-mastertest-envs                                                    #
+    #       Instead you should add entries for "GLOBAL_BUCKET_ENV" and "GLOBAL_ENV_BUCKET" to your config.json  #
+    #       (The name is in transition, so for now please set both names. Eventually ony GLOBAL_ENV_BUCKET      #
+    #       will be needed.)                                                                                    #
+    #############################################################################################################
+

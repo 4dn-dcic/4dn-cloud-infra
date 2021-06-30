@@ -26,6 +26,12 @@ legacy:
 	# TODO provision Tibanna
 	@echo 'Validation Succeeded!'
 
+assure-s3-encrypt-key:
+	@./scripts/assure_s3_encrypt_key
+
+create-s3-encrypt-key:
+	@./scripts/create_s3_encrypt_key --verbose
+
 deploy-alpha-p1:
 	@echo 'CGAP Orchestration Phase 1: Uploading Base Templates'
 	@echo 'ORDER: iam, logging, network, ecr, datastore'
@@ -33,6 +39,7 @@ deploy-alpha-p1:
 	poetry run cli provision logging --validate --alpha --upload_change_set
 	poetry run cli provision network --validate --alpha --upload_change_set
 	poetry run cli provision ecr --validate --alpha --upload_change_set
+	make assure-s3-encrypt-key
 	poetry run cli provision datastore --validate --alpha --upload_change_set
 	@echo 'Datastore stacks takes ~15 minutes to come online.'
 	@echo 'While this happens, you should be:'

@@ -2,34 +2,18 @@ import argparse
 import logging
 import os
 import json
+
 from contextlib import contextmanager
 from dcicutils.misc_utils import file_contents
 from dcicutils.qa_utils import override_environ
-
-from src.constants import DEPLOYING_IAM_USER, ENV_NAME, ACCOUNT_NUMBER
-from src.info.aws_util import AWSUtil
-from src.exceptions import CLIException
-from src.part import C4Account
-from src.stack import C4FoursightCGAPStack
-from src.stacks.trial import (
-    c4_stack_trial_network,
-    c4_stack_trial_network_metadata,
-    c4_stack_trial_datastore,
-    c4_stack_trial_beanstalk,
-    c4_stack_trial_tibanna,
-    c4_stack_trial_foursight_cgap,
-)
-from src.stacks.trial_alpha import (
-    c4_alpha_stack_trial_metadata,
-    c4_alpha_stack_trial_network,
-    c4_alpha_stack_trial_appconfig,
-    c4_ecs_stack_trial_datastore,
-    c4_alpha_stack_trial_iam,
-    c4_alpha_stack_trial_ecr,
-    c4_alpha_stack_trial_logging,
-    c4_alpha_stack_trial_foursight_cgap,
-    c4_alpha_stack_trial_ecs
-)
+from .constants import DEPLOYING_IAM_USER, ENV_NAME, ACCOUNT_NUMBER, S3_ENCRYPT_KEY
+from .info.aws_util import AWSUtil
+from .base import lookup_stack_creator
+from .exceptions import CLIException
+from .part import C4Account
+from .stack import C4FoursightCGAPStack
+from .stacks.trial import c4_stack_trial_network_metadata, c4_stack_trial_tibanna
+from .stacks.trial_alpha import c4_alpha_stack_trial_metadata
 
 
 logging.basicConfig(level=logging.INFO)
@@ -55,20 +39,20 @@ class C4Client:
         """ Validates CloudFormation template at file_path """
         cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {args}'.format(
             mount_yaml=os.path.abspath(os.getcwd())+'/out/templates:/root/out/templates',
-            mount_creds='{creds_dir}:/root/.aws'.format(creds_dir=creds_dir),
+            mount_creds=f'{creds_dir}:/root/.aws',
             command='amazon/aws-cli cloudformation validate-template',
-            args='--template-body file://{file_path}'.format(file_path=file_path),
+            args=f'--template-body file://{file_path}',
         )
         logger.info('Validating provisioned template...')
         os.system(cmd)
 
     @staticmethod
     def build_template_flag(*, file_path):
-        return '--template-file {file_path}'.format(file_path=file_path)
+        return f'--template-file {file_path}'
 
     @staticmethod
     def build_stack_flag(*, stack_name):
-        return '--stack-name {stack_name}'.format(stack_name=stack_name)
+        return f'--stack-name {stack_name}'
 
     @staticmethod
     def build_parameter_override(*, param_name, value):
@@ -242,46 +226,15 @@ class C4Client:
     def resolve_alpha_stack(args):
         """ Figures out which stack to run in the ECS case. """
         account = C4Client.resolve_account(args)
-        if 'network' in args.stack:
-            stack = c4_alpha_stack_trial_network(account=account)
-        elif 'appconfig' in args.stack:
-            stack = c4_alpha_stack_trial_appconfig(account=account)
-        elif 'datastore' in args.stack:
-            stack = c4_ecs_stack_trial_datastore(account=account)
-        elif 'ecr' in args.stack:
-            stack = c4_alpha_stack_trial_ecr(account=account)
-        elif 'iam' in args.stack:
-            stack = c4_alpha_stack_trial_iam(account=account)
-        elif 'logging' in args.stack:
-            stack = c4_alpha_stack_trial_logging(account=account)
-        elif 'ecs' in args.stack:
-            stack = c4_alpha_stack_trial_ecs(account=account)
-        elif 'foursight' in args.stack:
-            stack = c4_alpha_stack_trial_foursight_cgap(account=account)
-        elif args.stack == 'all':
-            raise NotImplementedError('TODO')
-        else:
-            raise CLIException('Could not find suitable match for specified stack')
+        stack_creator = lookup_stack_creator(name=args.stack, kind='alpha', exact=False)
+        stack = stack_creator(account=account)
         return stack
 
     @staticmethod
     def resolve_legacy_stack(args):
         account = C4Client.resolve_account(args)
-        if args.stack == 'c4-network-trial':
-            stack = c4_stack_trial_network(account=account)
-        elif args.stack == 'c4-datastore-trial':
-            stack = c4_stack_trial_datastore(account=account)
-        elif args.stack == 'c4-beanstalk-trial':
-            stack = c4_stack_trial_beanstalk(account=account)
-        elif args.stack == 'c4-foursight-trial':
-            stack = c4_stack_trial_foursight_cgap(account=account)
-        elif args.stack == 'c4-tibanna-trial':
-            stack = c4_stack_trial_tibanna(account=account)
-        elif args.stack in C4Client.SUPPORTED_STACKS:
-            raise CLIException('Supported stack {} requires a resolver in `resolve_legacy_stack`'.format(args.stack))
-        else:
-            raise CLIException('Unsupported stack {}. Supported Stacks: {}'.format(
-                args.stack, C4Client.SUPPORTED_STACKS))
+        stack_creator = lookup_stack_creator(name=args.stack, kind='legacy', exact=True)
+        stack = stack_creator(account=account)
         return stack
 
     @classmethod
@@ -311,7 +264,7 @@ class C4Client:
 
     @classmethod
     @contextmanager
-    def validate_and_source_configuration(cls):
+    def validate_and_source_configuration(cls, *, creds_dir):
         """ Validates that required keys are in config.json and overrides the environ for the
             invocation of the infra build. Yields control once the environment has been
             adjusted, transferring back to the caller - see provision_stack.
@@ -319,7 +272,11 @@ class C4Client:
         if not os.path.exists(cls.CONFIGURATION):
             raise CLIException('Required configuration file not present! Write config.json')
         config = cls.load_config(cls.CONFIGURATION)
-        for required_key in [DEPLOYING_IAM_USER, ENV_NAME]:
+        if 'S3_ENCRYPT_KEY' not in config:
+            s3_key_file = os.path.join(creds_dir, "s3_encrypt_key.txt")
+            s3_encrypt_key = file_contents(s3_key_file).strip('\n')
+            config[S3_ENCRYPT_KEY] = s3_encrypt_key
+        for required_key in [DEPLOYING_IAM_USER, ENV_NAME, S3_ENCRYPT_KEY]:
             if required_key not in config:
                 raise CLIException('Required key in configuration file not present: %s' % required_key)
         with override_environ(**config):
@@ -339,7 +296,7 @@ class C4Client:
     @classmethod
     def provision_stack(cls, args):
         """ Implements 'provision' command. """
-        with cls.validate_and_source_configuration():
+        with cls.validate_and_source_configuration(creds_dir=args.creds_dir):
             if cls.is_legacy(args):
                 stack = cls.resolve_legacy_stack(args)
             else:
@@ -395,12 +352,13 @@ class C4Client:
 AWS_DEFAULT_TEST_CREDS_DIR_FILE = "~/.aws_test_creds_dir"
 AWS_DEFAULT_DEFAULT_TEST_CREDS_DIR = "~/.aws_test"
 
+
 def aws_default_test_creds_dir():
     file = os.path.expanduser(AWS_DEFAULT_TEST_CREDS_DIR_FILE)
     if os.path.exists(file):
-        dir = os.path.expanduser(file_contents(file).strip())
-        if isinstance(dir, str) and os.path.exists(dir) and os.path.isdir(dir):
-            return dir
+        creds_dir = os.path.expanduser(file_contents(file).strip())
+        if isinstance(creds_dir, str) and os.path.exists(creds_dir) and os.path.isdir(creds_dir):
+            return creds_dir
     return os.path.expanduser(AWS_DEFAULT_DEFAULT_TEST_CREDS_DIR)
 
 
