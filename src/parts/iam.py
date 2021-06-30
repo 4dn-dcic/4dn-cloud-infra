@@ -390,12 +390,14 @@ class C4IAM(C4Part):
 
     def ecs_s3_iam_user(self) -> User:
         """ Builds an IAM user for federating access to S3 files. """
+        logical_id = self.name.logical_id('ApplicationS3Federator')
         return User(
-            self.name.logical_id('application-%s-s3-federator' % os.environ.get(ENV_NAME)),
+            logical_id,
             Policies=[
                 self.ecs_s3_policy(),
                 self.ecs_s3_user_sts_policy(),
-            ]
+            ],
+            # Tags=self.tags.cost_tag_array(logical_id) does not accept tags - Will June 30th, 2021
         )
 
     @staticmethod
