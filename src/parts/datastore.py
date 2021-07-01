@@ -116,6 +116,8 @@ class C4Datastore(C4Part):
         'S3_ENCRYPT_KEY': CONFIGURATION_PLACEHOLDER,
         'SENTRY_DSN': CONFIGURATION_PLACEHOLDER,
         'reCaptchaSecret': CONFIGURATION_PLACEHOLDER,
+        'S3_AWS_ACCESS_KEY_ID': CONFIGURATION_PLACEHOLDER,
+        'S3_AWS_SECRET_ACCESS_KEY': CONFIGURATION_PLACEHOLDER,
     }
 
     def build_template(self, template: Template) -> Template:
