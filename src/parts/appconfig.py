@@ -34,7 +34,7 @@ ignorable(Output)
 
 
 class C4AppConfigExports(C4Exports):
-    """ Holds datastore export metadata. """
+    """ Holds AppConfig export metadata. """
     # Output ES URL for use by foursight/application
     ES_URL = 'ExportElasticSearchURL'
 
@@ -65,12 +65,12 @@ class C4AppConfigExports(C4Exports):
     def __init__(self):
         # The intention here is that Beanstalk/ECS stacks will use these outputs and reduce amount
         # of manual configuration
-        parameter = 'DatastoreStackNameParameter'
+        parameter = 'AppConfigStackNameParameter'
         super().__init__(parameter)
 
 
 class C4AppConfig(C4Part):
-    """ Defines the datastore stack - see resources created in build_template method. """
+    """ Defines the AppConfig stack - see resources created in build_template method. """
     APPLICATION_SECRET_STRING = 'ApplicationConfiguration'
     RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names
     EXPORTS = C4AppConfigExports()
