@@ -110,6 +110,7 @@ class C4ECSApplication(C4Part):
         indexer = template.add_resource(self.ecs_indexer_service())
         template.add_resource(self.ecs_ingester_task())
         ingester = template.add_resource(self.ecs_ingester_service())
+        template.add_resource(self.ecs_deployment_task(initial=True))
         template.add_resource(self.ecs_deployment_task())
         template.add_resource(self.ecs_deployment_service())
 
@@ -627,7 +628,7 @@ class C4ECSApplication(C4Part):
             ComparisonOperator='LessThanOrEqualToThreshold',
         )
 
-    def ecs_deployment_task(self, cpus='256', mem='512', identity=None) -> TaskDefinition:
+    def ecs_deployment_task(self, cpus='256', mem='512', identity=None, initial=False) -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
@@ -638,7 +639,7 @@ class C4ECSApplication(C4Part):
                              or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
         """
         return TaskDefinition(
-            'CGAPDeployment',
+            'CGAPInitialDeployment' if initial else 'CGAPDeployment',
             RequiresCompatibilities=['FARGATE'],
             Cpu=cpus,
             Memory=mem,
@@ -666,6 +667,10 @@ class C4ECSApplication(C4Part):
                         Environment(
                             Name='IDENTITY',
                             Value=identity or os.environ.get(IDENTITY) or self.LEGACY_DEFAULT_IDENTITY
+                        ),
+                        Environment(
+                            Name='INITIAL_DEPLOYMENT',
+                            Value="TRUE" if initial else "",
                         ),
                         Environment(
                             Name='application_type',
