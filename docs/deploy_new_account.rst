@@ -40,7 +40,7 @@ Note that the HMS email you use to create this account is treated as the 'root a
 Step Two: CGAP Orchestration with Cloud Formation
 -------------------------------------------------
 
-Note: you will need to request more elastic IPs from AWS, as described here_.
+Note: you will need to request more elastic IPs from AWS, as described _here.
 
 : _here https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html
 

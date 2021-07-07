@@ -133,7 +133,7 @@ class C4Datastore(C4Part):
         org_name = os.environ.get(S3_BUCKET_ORG)  # Result is allowed to be missing or empty if none desired.
         org_prefix = (org_name + "-") if org_name else ""
         bucket_name = bucket_template.format(env_name=env_name, org_prefix=org_prefix)
-        print(bucket_template,"=>",bucket_name)
+        # print(bucket_template,"=>",bucket_name)
         return bucket_name
 
     # Contains application configuration template, written to secrets manager
@@ -153,7 +153,7 @@ class C4Datastore(C4Part):
         # print("ENV_NAME=", repr(ENV_NAME))
         # print("env_name=", repr(env_name))
         result = cls.add_placeholders({
-            'deploying_iam_user': None,
+            'deploying_iam_user': os.environ.get(DEPLOYING_IAM_USER),
             'Auth0Client': None,
             'Auth0Secret': None,
             'ENV_NAME': env_name,
@@ -172,10 +172,10 @@ class C4Datastore(C4Part):
             'RDS_PORT': os.environ.get(RDS_DB_PORT) or cls.DEFAULT_RDS_PORT,
             'RDS_USERNAME': 'postgresql',
             'RDS_PASSWORD': None,
-            'S3_ENCRYPT_KEY': os.environ.get(S3_ENCRYPT_KEY),  # get from ~/.aws_test/.s3_encrypt_key.txt
+            'S3_ENCRYPT_KEY': None,
             # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
             'S3_BUCKET_ORG': os.environ.get(S3_BUCKET_ORG),
-            'SENTRY_DSN': None,
+            'SENTRY_DSN': "",
             'reCaptchaKey': None,
             'reCaptchaSecret': None,
             'S3_AWS_ACCESS_KEY_ID': None,
