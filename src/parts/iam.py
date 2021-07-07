@@ -1,5 +1,7 @@
+import os
+
 from troposphere import Region, AccountId, Template, Ref, Output, Join
-from troposphere.iam import Role, InstanceProfile, Policy
+from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey
 from awacs.ecr import (
     GetAuthorizationToken,
     GetDownloadUrlForLayer,
@@ -7,7 +9,7 @@ from awacs.ecr import (
     BatchCheckLayerAvailability,
 )
 from awacs.aws import PolicyDocument, Statement, Action, Principal
-
+from src.constants import ENV_NAME
 from src.part import C4Part
 from src.exports import C4Exports
 
@@ -20,6 +22,7 @@ class C4IAMExports(C4Exports):
     ECS_ASSUMED_IAM_ROLE = 'ExportECSAssumedIAMRole'
     ECS_INSTANCE_PROFILE = 'ExportECSInstanceProfile'
     AUTOSCALING_IAM_ROLE = 'ExportECSAutoscalingIAMRole'
+    S3_IAM_USER = 'ExportECSS3IAMUser'
 
     def __init__(self):
         parameter = 'IAMStackNameParameter'
@@ -46,11 +49,18 @@ class C4IAM(C4Part):
         template.add_resource(instance_profile)
         autoscaling_iam_role = self.ecs_autoscaling_role()
         template.add_resource(autoscaling_iam_role)
+        s3_iam_user = self.ecs_s3_iam_user()
+        template.add_resource(s3_iam_user)
+        s3_iam_user_access_key = self.ecs_s3_iam_user_access_key(s3_iam_user)
+        template.add_resource(s3_iam_user_access_key)  # TODO: properly extract and pass this key
 
         # add outputs
-        template.add_output(self.output_assumed_iam_role(iam_role))
-        template.add_output(self.output_assumed_iam_role(autoscaling_iam_role,
-                                                         export_name=C4IAMExports.AUTOSCALING_IAM_ROLE))
+        template.add_output(self.output_assumed_iam_role_or_user(iam_role,
+                                                                 export_name=C4IAMExports.ECS_ASSUMED_IAM_ROLE))
+        template.add_output(self.output_assumed_iam_role_or_user(autoscaling_iam_role,
+                                                                 export_name=C4IAMExports.AUTOSCALING_IAM_ROLE))
+        template.add_output(self.output_assumed_iam_role_or_user(s3_iam_user,
+                                                                 export_name=C4IAMExports.S3_IAM_USER))
         template.add_output(self.output_instance_profile(instance_profile))
         return template
 
@@ -78,8 +88,7 @@ class C4IAM(C4Part):
             ':', ['arn', 'aws', 'logs', Region, AccountId, 'log-group', log_group_name]
         )
 
-    # This should default to the ENV_NAME, not cgap-mastertest (before the *?)
-    def ecs_sqs_policy(self, prefix='cgap-mastertest*'):
+    def ecs_sqs_policy(self, prefix='*') -> Policy:
         """ Grants ECS access to ElasticSearch.
         """
         return Policy(
@@ -89,12 +98,12 @@ class C4IAM(C4Part):
                 Statement=dict(
                     Effect='Allow',
                     Action=['sqs:*'],  # TODO: prune this slightly?
-                    Resource=[self.build_sqs_arn(prefix)]
+                    Resource=[self.build_sqs_arn(prefix)]  # TODO: prune this slightly?
                 )
             )
         )
 
-    def ecs_es_policy(self, domain_name='c4datastore*'):
+    def ecs_es_policy(self, domain_name='c4datastore*') -> Policy:
         """ Grants ECS access to ElasticSearch.
         """
         return Policy(
@@ -111,7 +120,7 @@ class C4IAM(C4Part):
             )
         )
 
-    def ecs_secret_manager_policy(self, secret_name='dev/beanstalk/cgap-dev'):
+    def ecs_secret_manager_policy(self) -> Policy:
         """ Provides ECS access to the specified secret.
             The secret ID determines the environment name we are creating.
             TODO: Should this also be created here? Or manually uploaded?
@@ -134,7 +143,7 @@ class C4IAM(C4Part):
         )
 
     @staticmethod
-    def ecs_assume_role_policy():
+    def ecs_assume_role_policy() -> Policy:
         """ Allow ECS to assume this role. """
         return Policy(
             PolicyName='ECSAssumeIAMRolePolicy',
@@ -151,7 +160,7 @@ class C4IAM(C4Part):
         )
 
     @staticmethod
-    def ecs_access_policy():
+    def ecs_access_policy() -> Policy:
         """ Give ECS access to itself (and loadbalancing APIs). """
         return Policy(
             PolicyName='ECSManagementPolicy',
@@ -169,7 +178,7 @@ class C4IAM(C4Part):
         )
 
     @staticmethod
-    def ecs_log_policy():
+    def ecs_log_policy() -> Policy:
         """ Grants ECS container the ability to log things. """
         return Policy(
             PolicyName='ECSLoggingPolicy',
@@ -187,7 +196,7 @@ class C4IAM(C4Part):
         )
 
     @staticmethod
-    def ecs_ecr_policy():
+    def ecs_ecr_policy() -> Policy:
         """ Policy allowing ECS to pull ECR images. """
         return Policy(
             PolicyName='ECSECRPolicy',
@@ -207,7 +216,7 @@ class C4IAM(C4Part):
         )
 
     @staticmethod
-    def ecs_web_service_policy():
+    def ecs_web_service_policy() -> Policy:
         """ Policy needed by load balancer to allow target group registration. """
         return Policy(
             PolicyName='ECSWebServicePolicy',
@@ -228,7 +237,7 @@ class C4IAM(C4Part):
         )
 
     @staticmethod
-    def ecs_cfn_policy():
+    def ecs_cfn_policy() -> Policy:
         """ Gives access to the DescribeStacks API of cloudformation so that Application services can
             read outputs from stacks.
 
@@ -249,7 +258,7 @@ class C4IAM(C4Part):
         )
 
     @staticmethod
-    def ecs_s3_policy():
+    def ecs_s3_policy() -> Policy:
         """ Gives s3 read/write access. """
         return Policy(
             PolicyName='ECSS3Policy',
@@ -269,7 +278,7 @@ class C4IAM(C4Part):
         )
 
     @staticmethod
-    def ecs_autoscaling_access_policy():
+    def ecs_autoscaling_access_policy() -> Policy:
         """ Contains policies needed for the IAM role assumed by the autoscaling service. """
         return Policy(
             PolicyName='CGAPAutoscalingPolicy',
@@ -289,9 +298,29 @@ class C4IAM(C4Part):
             )
         )
 
-    def ecs_assumed_iam_role(self):
+    @staticmethod
+    def ecs_s3_user_sts_policy() -> Policy:
+        """ A policy allowing the GetFederationToken action, meant to be attached to the IAM
+            user who federates access to S3.
+        """
+        return Policy(
+            PolicyName='CGAPSTSPolicyforS3Access',
+            PolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": "sts:GetFederationToken",
+                        "Resource": "*"
+                    }
+                ]
+            }
+        )
+
+    def ecs_assumed_iam_role(self) -> Role:
         """ Builds a general purpose IAM role for use with ECS.
             TODO: split into several roles?
+            TODO: add STS GetFederationToken perm
         """
         policies = [
             self.ecs_secret_manager_policy(),  # to get env configuration
@@ -338,7 +367,7 @@ class C4IAM(C4Part):
             Policies=policies
         )
 
-    def ecs_autoscaling_role(self):
+    def ecs_autoscaling_role(self) -> Role:
         """ Assumed IAM Role for autoscaling. """
         return Role(
             self.AUTOSCALING_ROLE_NAME,
@@ -355,15 +384,36 @@ class C4IAM(C4Part):
             Policies=[self.ecs_autoscaling_access_policy()]
         )
 
-    def ecs_instance_profile(self):
+    def ecs_instance_profile(self) -> InstanceProfile:
         """ Builds an instance profile for the above ECS Role. """
         return InstanceProfile(
             self.INSTANCE_PROFILE_NAME,
             Roles=[Ref(self.ecs_assumed_iam_role())]
         )
 
-    def output_assumed_iam_role(self, resource: Role, export_name=C4IAMExports.ECS_ASSUMED_IAM_ROLE) -> Output:
-        """ Creates output for ECS assumed IAM role """
+    def ecs_s3_iam_user(self) -> User:
+        """ Builds an IAM user for federating access to S3 files. """
+        logical_id = self.name.logical_id('ApplicationS3Federator')
+        return User(
+            logical_id,
+            Policies=[
+                self.ecs_s3_policy(),
+                self.ecs_s3_user_sts_policy(),
+            ],
+            # Tags=self.tags.cost_tag_array(logical_id) does not accept tags - Will June 30th, 2021
+        )
+
+    @staticmethod
+    def ecs_s3_iam_user_access_key(s3_iam_user: User) -> AccessKey:
+        """ Builds an access key for the S3 IAM User """
+        return AccessKey(
+            'S3AccessKey', Status='Active', UserName=Ref(s3_iam_user)
+        )
+
+    def output_assumed_iam_role_or_user(self, resource, export_name) -> Output:
+        """ Creates output for assumed IAM roles/users
+            TODO: Standardize output generation into a single method
+        """
         logical_id = self.name.logical_id(export_name)
         return Output(
             logical_id,

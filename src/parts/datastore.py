@@ -106,10 +106,6 @@ class C4Datastore(C4Part):
     # TODO only use configuration placeholder for orchestration time values; otherwise, use src.constants values
     CONFIGURATION_PLACEHOLDER = 'XXX: ENTER VALUE'
 
-    CONFIGURATION_DEFAULT_LANG = 'en_US.UTF-8'
-    CONFIGURATION_DEFAULT_LC_ALL = 'en_US.UTF-8'
-    CONFIGURATION_DEFAULT_RDS_PORT = '5432'
-
     APPLICATION_CONFIGURATION_TEMPLATE = {
         'deploying_iam_user': CONFIGURATION_PLACEHOLDER,
         'Auth0Client': CONFIGURATION_PLACEHOLDER,
@@ -118,16 +114,16 @@ class C4Datastore(C4Part):
         'ENCODED_BS_ENV': CONFIGURATION_PLACEHOLDER,
         'ENCODED_DATA_SET': CONFIGURATION_PLACEHOLDER,
         'ENCODED_ES_SERVER': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_FILES_BUCKET': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_WFOUT_BUCKET': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_BLOBS_BUCKET': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_FILE_UPLOAD_BUCKET': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_FILE_WFOUT_BUCKET': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_BLOB_BUCKET': CONFIGURATION_PLACEHOLDER,
         'ENCODED_SYSTEM_BUCKET': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_METADATA_BUNDLE_BUCKET': CONFIGURATION_PLACEHOLDER,
-        'LANG': CONFIGURATION_DEFAULT_LANG,
-        'LC_ALL': CONFIGURATION_DEFAULT_LC_ALL,
+        'ENCODED_METADATA_BUNDLES_BUCKET': CONFIGURATION_PLACEHOLDER,
+        'LANG': 'en_US.UTF-8',
+        'LC_ALL': 'en_US.UTF-8',
         'RDS_HOSTNAME': CONFIGURATION_PLACEHOLDER,
         'RDS_DB_NAME': CONFIGURATION_PLACEHOLDER,
-        'RDS_PORT': CONFIGURATION_DEFAULT_RDS_PORT,
+        'RDS_PORT': '5432',
         'RDS_USERNAME': CONFIGURATION_PLACEHOLDER,
         'RDS_PASSWORD': CONFIGURATION_PLACEHOLDER,
         'S3_ENCRYPT_KEY': CONFIGURATION_PLACEHOLDER,
@@ -136,6 +132,8 @@ class C4Datastore(C4Part):
         'SENTRY_DSN': CONFIGURATION_PLACEHOLDER,
         'reCaptchaKey': CONFIGURATION_PLACEHOLDER,
         'reCaptchaSecret': CONFIGURATION_PLACEHOLDER,
+        'S3_AWS_ACCESS_KEY_ID': CONFIGURATION_PLACEHOLDER,
+        'S3_AWS_SECRET_ACCESS_KEY': CONFIGURATION_PLACEHOLDER,
     }
 
     def build_template(self, template: Template) -> Template:
@@ -246,6 +244,9 @@ class C4Datastore(C4Part):
         """ Uses AWS KMS to generate an AES-256 GCM Encryption Key for encryption when
             uploading sensitive information to S3. This value should be written to the
             application configuration and also passed to Foursight/Tibanna.
+
+            TODO: implement APIs to use this key correctly, cannot download/distribute from KMS
+            Note that when doing this, the KeyPolicy will need to be updated
         """
         deploying_iam_user = os.environ.get(DEPLOYING_IAM_USER)
         env_identifier = os.environ.get(ENV_NAME).replace('-', '')
