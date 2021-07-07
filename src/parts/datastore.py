@@ -150,8 +150,8 @@ class C4Datastore(C4Part):
 
     def application_configuration_template(cls):
         env_name = os.environ.get(ENV_NAME)
-        print("ENV_NAME=", repr(ENV_NAME))
-        print("env_name=", repr(env_name))
+        # print("ENV_NAME=", repr(ENV_NAME))
+        # print("env_name=", repr(env_name))
         result = cls.add_placeholders({
             'deploying_iam_user': None,
             'Auth0Client': None,
@@ -160,12 +160,11 @@ class C4Datastore(C4Part):
             'ENCODED_BS_ENV': env_name,
             'ENCODED_DATA_SET': 'prod',
             'ENCODED_ES_SERVER': None,
-            'ENCODED_BLOBS_BUCKET': cls.application_layer_bucket(C4DatastoreExports.APPLICATION_BLOBS_BUCKET),
-            'ENCODED_FILES_BUCKET': cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
-            'ENCODED_WFOUT_BUCKET': cls.application_layer_bucket(C4DatastoreExports.APPLICATION_WFOUT_BUCKET),
+            'ENCODED_FILE_UPLOAD_BUCKET': cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
+            'ENCODED_FILE_WFOUT_BUCKET': cls.application_layer_bucket(C4DatastoreExports.APPLICATION_WFOUT_BUCKET),
+            'ENCODED_BLOB_BUCKET': cls.application_layer_bucket(C4DatastoreExports.APPLICATION_BLOBS_BUCKET),
             'ENCODED_SYSTEM_BUCKET': cls.application_layer_bucket(C4DatastoreExports.APPLICATION_SYSTEM_BUCKET),
-            'ENCODED_METADATA_BUNDLE_BUCKET':
-                cls.application_layer_bucket(C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET),
+            'ENCODED_METADATA_BUNDLES_BUCKET': cls.application_layer_bucket(C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET),
             'LANG': 'en_US.UTF-8',
             'LC_ALL': 'en_US.UTF-8',
             'RDS_HOSTNAME': None,
@@ -174,14 +173,17 @@ class C4Datastore(C4Part):
             'RDS_USERNAME': 'postgresql',
             'RDS_PASSWORD': None,
             'S3_ENCRYPT_KEY': os.environ.get(S3_ENCRYPT_KEY),  # get from ~/.aws_test/.s3_encrypt_key.txt
-            'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
+            # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
             'S3_BUCKET_ORG': os.environ.get(S3_BUCKET_ORG),
             'SENTRY_DSN': None,
             'reCaptchaKey': None,
             'reCaptchaSecret': None,
+            'S3_AWS_ACCESS_KEY_ID': None,
+            'S3_AWS_SECRET_ACCESS_KEY': None,
         })
-        print("application_configuration_template() => %s" % json.dumps(result, indent=2))
+        # print("application_configuration_template() => %s" % json.dumps(result, indent=2))
         return result
+
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
@@ -277,6 +279,9 @@ class C4Datastore(C4Part):
         """ Uses AWS KMS to generate an AES-256 GCM Encryption Key for encryption when
             uploading sensitive information to S3. This value should be written to the
             application configuration and also passed to Foursight/Tibanna.
+
+            TODO: implement APIs to use this key correctly, cannot download/distribute from KMS
+            Note that when doing this, the KeyPolicy will need to be updated
         """
         deploying_iam_user = os.environ.get(DEPLOYING_IAM_USER)
         env_identifier = os.environ.get(ENV_NAME).replace('-', '')
