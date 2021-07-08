@@ -25,7 +25,8 @@ from dcicutils.misc_utils import as_seconds
 from src.constants import (
     ACCOUNT_NUMBER,
     DEPLOYING_IAM_USER, ENV_NAME,
-    S3_BUCKET_ORG, S3_ENCRYPT_KEY,
+    S3_BUCKET_ORG,
+    # S3_ENCRYPT_KEY,
     # RDS_AZ,
     RDS_DB_NAME, RDS_DB_PORT, RDS_STORAGE_SIZE, RDS_INSTANCE_SIZE,
     ES_DATA_TYPE, ES_DATA_COUNT,
@@ -174,7 +175,7 @@ class C4Datastore(C4Part):
             'RDS_PASSWORD': None,
             'S3_ENCRYPT_KEY': None,
             # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
-            'S3_BUCKET_ORG': os.environ.get(S3_BUCKET_ORG),
+            'ENCODED_S3_BUCKET_ORG': os.environ.get(S3_BUCKET_ORG),
             'SENTRY_DSN': "",
             'reCaptchaKey': None,
             'reCaptchaSecret': None,

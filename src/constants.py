@@ -8,7 +8,7 @@
 DEPLOYING_IAM_USER = 'deploying_iam_user'
 ENV_NAME = 'ENCODED_BS_ENV'  # probably should just be 'env.name'
 S3_BUCKET_ORG = "s3.bucket.org"  # was 'ENCODED_S3_BUCKET_ORG'
-S3_ENCRYPT_KEY = "S3_ENCRYPT_KEY"
+# S3_ENCRYPT_KEY = "S3_ENCRYPT_KEY"
 ACCOUNT_NUMBER = 'account_number'
 
 # RDS Configuration Options

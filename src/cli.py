@@ -6,7 +6,7 @@ import json
 from contextlib import contextmanager
 from dcicutils.misc_utils import file_contents
 from dcicutils.qa_utils import override_environ
-from .constants import DEPLOYING_IAM_USER, ENV_NAME, ACCOUNT_NUMBER, S3_ENCRYPT_KEY
+from .constants import DEPLOYING_IAM_USER, ENV_NAME, ACCOUNT_NUMBER   # , S3_ENCRYPT_KEY
 from .info.aws_util import AWSUtil
 from .base import lookup_stack_creator
 from .exceptions import CLIException
@@ -272,11 +272,13 @@ class C4Client:
         if not os.path.exists(cls.CONFIGURATION):
             raise CLIException('Required configuration file not present! Write config.json')
         config = cls.load_config(cls.CONFIGURATION)
-        if 'S3_ENCRYPT_KEY' not in config:
-            s3_key_file = os.path.join(creds_dir, "s3_encrypt_key.txt")
-            s3_encrypt_key = file_contents(s3_key_file).strip('\n')
-            config[S3_ENCRYPT_KEY] = s3_encrypt_key
-        for required_key in [DEPLOYING_IAM_USER, ENV_NAME, S3_ENCRYPT_KEY]:
+        # if 'S3_ENCRYPT_KEY' not in config:
+        #     s3_key_file = os.path.join(creds_dir, "s3_encrypt_key.txt")
+        #     s3_encrypt_key = file_contents(s3_key_file).strip('\n')
+        #     config[S3_ENCRYPT_KEY] = s3_encrypt_key
+        for required_key in [DEPLOYING_IAM_USER, ENV_NAME,
+                             # S3_ENCRYPT_KEY,
+                             ]:
             if required_key not in config:
                 raise CLIException('Required key in configuration file not present: %s' % required_key)
         with override_environ(**config):
