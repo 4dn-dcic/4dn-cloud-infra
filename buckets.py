@@ -1,3 +1,4 @@
+import os
 from foursight_core.buckets import Buckets as Buckets_from_core
 
 
@@ -6,7 +7,7 @@ class Buckets(Buckets_from_core):
     """ Create buckets for foursight """
 
     prefix = ''
-    envs = ['cgap-mastertest']  # XXX: make configurable
+    envs = [os.environ.get('ENV_NAME') or 'cgap-mastertest']  # XXX: make configurable
 
 
 def main():

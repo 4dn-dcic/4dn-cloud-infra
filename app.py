@@ -4,7 +4,7 @@ import logging
 from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
 from chalice import Chalice, Response, Cron
 from foursight_core.deploy import Deploy
-from dcicutils.misc_utils import environ_bool
+from dcicutils.misc_utils import environ_bool, remove_suffix
 
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(levelname)-8s %(message)s')
@@ -25,8 +25,19 @@ if DEBUG_CHALICE:
 app = Chalice(app_name='foursight_cgap_trial')
 STAGE = os.environ.get('chalice_stage', 'dev')
 HOST = os.environ.get('ES_HOST', None)
-FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'  # TODO: This should probably just be "foursight-cgap"
-DEFAULT_ENV = 'cgap-mastertest'  # This is typically overridden by something like config.json
+# previously FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'  # TODO: This should probably just be "foursight-cgap"
+FOURSIGHT_PREFIX = os.environ.get('FOURSIGHT_PREFIX')
+if not FOURSIGHT_PREFIX:
+    _GLOBAL_ENV_BUCKET = os.environ.get('GLOBAL_ENV_BUCKET') or os.environ.get('GLOBAL_BUCKET_ENV')
+    if _GLOBAL_ENV_BUCKET is not None:
+        print("_GLOBAL_ENV_BUCKET=", _GLOBAL_ENV_BUCKET)  # TODO: Temporary print statement, for debugging
+        FOURSIGHT_PREFIX = remove_suffix("-envs", _GLOBAL_ENV_BUCKET, required=True)
+        print(f"Inferred FOURSIGHT_PREFIX={FOURSIGHT_PREFIX}")
+    else:
+        raise RuntimeError("The FOURSIGHT_PREFIX environment variable is not set. Heuristics failed.")
+
+# DEFAULT_ENV = 'cgap-mastertest'  # This is typically overridden by something like config.json
+DEFAULT_ENV = os.environ.get('ENV_NAME')  #
 
 
 # This object usually in chalicelib/app_utils.py
@@ -38,7 +49,8 @@ class AppUtils(AppUtils_from_cgap):
     package_name = 'chalicelib'
     # check_setup is moved to vendor/ where it will be automatically placed at top level
     check_setup_dir = os.path.dirname(__file__)
-    html_main_title = 'Foursight-CGAP-Mastertest'
+    # This will heuristically mostly title-case te DEFAULT_ENV but will put CGAP in all-caps.
+    html_main_title = f'Foursight-{DEFAULT_ENV}'.title().replace("Cgap", "CGAP")  # was 'Foursight-CGAP-Mastertest'
 
 
 if DEBUG_CHALICE:

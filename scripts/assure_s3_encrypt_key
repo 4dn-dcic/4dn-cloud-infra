@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 
+verbose_arg=
+
 verbose=FALSE
 if [ "$1" = "-v" -o "$1" = "--verbose" ]; then
     verbose=TRUE
+    verbose_arg="--verbose"
     shift 1
 fi
 
@@ -16,5 +19,5 @@ if [ -e "${keyfile}" ]; then
     fi
 else
     echo "The file ${keyfile} does not exist. It will be created."
-    $(dirname $0)/create_s3_encrypt_key "$@"
+    $(dirname $0)/create_s3_encrypt_key ${verbose_arg}
 fi

@@ -103,9 +103,11 @@ class C4IAM(C4Part):
             )
         )
 
-    def ecs_es_policy(self, domain_name='c4datastore*') -> Policy:
+    def ecs_es_policy(self, domain_name=None) -> Policy:
         """ Grants ECS access to ElasticSearch.
         """
+        if domain_name is None:
+            domain_name = '*'  # TODO: Namespace better, such as 'c4datastore*' but with something that actually matches
         return Policy(
             PolicyName='ECSESAccessPolicy',
             PolicyDocument=dict(

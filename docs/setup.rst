@@ -66,8 +66,10 @@ config.json file at repo top level - use the JSON structure below as a template.
 
 ::
     {
-        "deploying_iam_user": <your IAM user name, not the full ARN>,
         "account_number": <your account number, found in the console>,
+        "identity": name of AWS Secret containing application configuration
+
+        "deploying_iam_user": <your IAM user name, not the full ARN>,
         "rds.instance_size": "db.t3.xlarge",
         "rds.storage_size": 20,
         "rds.db_name": "ebdb",
@@ -77,7 +79,7 @@ config.json file at repo top level - use the JSON structure below as a template.
         "elasticsearch.data_node_count": 2,  # current prod data node configuration
         "elasticsearch.data_node_type": "c5.2xlarge.elasticsearch",
         "elasticsearch.volume_size": 20,
-        "ecs.wsgi.count": 8,
+        "ecs.wsgi.count": 8,  # use a smaller value for testing. perhaps 2 or 4
         "ecs.wsgi.cpu": "256",
         "ecs.wsgi.mem": "512",
         "ecs.indexer.count": 4,
@@ -86,7 +88,6 @@ config.json file at repo top level - use the JSON structure below as a template.
         "ecs.ingester.count": 1,
         "ecs.ingester.cpu": "512",
         "ecs.ingester.mem": "1024",
-        "identity": name of AWS Secret containing application configuration
     }
 
 To configure the CGAP infrastructure (post-orchestration), you need to modify a JSON secret in AWS SecretsManager,

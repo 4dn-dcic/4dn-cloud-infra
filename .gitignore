@@ -26,7 +26,7 @@ __pycache__/
 # Credentials
 credentials.json
 token.pickle
-secrets.py
+secrets.*
 config.json
 config.*.json
 .s3_encrypt_key.txt

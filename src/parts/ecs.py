@@ -248,9 +248,9 @@ class C4ECSApplication(C4Part):
             Type='application',
         )
 
-    def output_application_url(self, env='cgap-mastertest') -> Output:
+    def output_application_url(self, env=None) -> Output:
         """ Outputs URL to access portal. """
-        env = os.environ.get(ENV_NAME) or env
+        env = env or os.environ.get(ENV_NAME) or 'cgap-mastertest'
         return Output(
             'ECSApplicationURL%s' % env.replace('-', ''),
             Description='URL of CGAP-Portal.',

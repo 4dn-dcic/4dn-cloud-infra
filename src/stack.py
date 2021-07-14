@@ -1,6 +1,8 @@
 from src.part import C4Name, C4Tags, C4Account, C4Part
 from chalicelib.package import PackageDeploy as PackageDeploy_from_cgap
-from src.constants import CHECK_RUNNER
+from src.constants import CHECK_RUNNER, FOURSIGHT_SECURITY_IDS, FOURSIGHT_SUBNET_IDS, ENV_NAME
+from .base import ConfigManager
+from .parts.datastore import C4Datastore
 from troposphere import Template
 from os.path import dirname
 import os
@@ -87,22 +89,42 @@ class C4Stack(BaseC4Stack):
 
 class C4FoursightCGAPStack(BaseC4Stack):
     def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account):
-        self.hardcoded_security_ids = ['sg-03f5fdd36be96bbf4']  # TODO fetch these dynamically
-        self.hardcoded_subnet_ids = ['subnet-09ed0bb672993c7ac', 'subnet-00778b903b357d331']
-        self.trial_creds = {
-            'S3_ENCRYPT_KEY': S3_ENCRYPT_KEY,
-            'CLIENT_ID': Auth0Client,
-            'CLIENT_SECRET': Auth0Secret,
-            'DEV_SECRET': ENCODED_SECRET,
-            'ES_HOST': ENCODED_ES_SERVER,
-        }
+        with ConfigManager.validate_and_source_configuration():
+            self.security_ids = self._get_security_ids()
+            self.subnet_ids = self._get_subnet_ids()
+            self.trial_creds = {
+                'S3_ENCRYPT_KEY': S3_ENCRYPT_KEY,
+                'CLIENT_ID': Auth0Client,
+                'CLIENT_SECRET': Auth0Secret,
+                'DEV_SECRET': ENCODED_SECRET,
+                'ES_HOST': ENCODED_ES_SERVER,
+                'ENV_NAME': 'cgap-mastertest-kmp'  # os.environ.get(ENV_NAME)
+            }
         super().__init__(description, name, tags, account)
+
+    def _get_security_ids(self):
+        # TODO: Fetch these dynamically. For the Alpha environment, the orginal value was hardwired as:
+        #       ['sg-03f5fdd36be96bbf4'].
+        security_ids_spec = os.environ.get(FOURSIGHT_SECURITY_IDS)
+        if not security_ids_spec:
+            raise RuntimeError(f"Environment variable {security_ids_spec} is not set.")
+        result = [spec.strip() for spec in security_ids_spec.split(",")]
+        return result
+
+    def _get_subnet_ids(self):
+        # TODO: Fetch these dynamically. For the ALPHA environment, the original value was hardwired as:
+        #       ['subnet-09ed0bb672993c7ac', 'subnet-00778b903b357d331']
+        subnet_ids_spec = os.environ.get(FOURSIGHT_SUBNET_IDS)
+        if not subnet_ids_spec:
+            raise RuntimeError(f"Environment variable {subnet_ids_spec} is not set.")
+        result = [spec.strip() for spec in subnet_ids_spec.split(",")]
+        return result
 
     def package(self, args):
         self.PackageDeploy.build_config_and_package(
             args,
-            security_ids=self.hardcoded_security_ids,
-            subnet_ids=self.hardcoded_subnet_ids,
+            security_ids=self.security_ids,
+            subnet_ids=self.subnet_ids,
             trial_creds=self.trial_creds,
             check_runner=os.environ.get(CHECK_RUNNER))
 

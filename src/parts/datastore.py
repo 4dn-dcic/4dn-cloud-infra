@@ -36,6 +36,7 @@ from src.constants import (
 from src.exports import C4Exports
 from src.part import C4Part
 from src.parts.network import C4NetworkExports
+from ..base import ConfigManager
 
 
 class C4DatastoreExports(C4Exports):
@@ -89,12 +90,20 @@ class C4Datastore(C4Part):
     # Intended to be .formatted with the deploying env_name
 
     APPLICATION_LAYER_BUCKETS = {
-        C4DatastoreExports.APPLICATION_BLOBS_BUCKET: 'application-{org_prefix}{env_name}-blobs',
-        C4DatastoreExports.APPLICATION_FILES_BUCKET: 'application-{org_prefix}{env_name}-files',
-        C4DatastoreExports.APPLICATION_WFOUT_BUCKET: 'application-{org_prefix}{env_name}-wfout',
-        C4DatastoreExports.APPLICATION_SYSTEM_BUCKET: 'application-{org_prefix}{env_name}-system',
-        C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET: 'application-{org_prefix}{env_name}-metadata-bundles',
-        C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET: 'application-{org_prefix}{env_name}-tibanna-logs',
+        # C4DatastoreExports.APPLICATION_BLOBS_BUCKET: 'application-{org_prefix}{env_name}-blobs',
+        # C4DatastoreExports.APPLICATION_FILES_BUCKET: 'application-{org_prefix}{env_name}-files',
+        # C4DatastoreExports.APPLICATION_WFOUT_BUCKET: 'application-{org_prefix}{env_name}-wfout',
+        # C4DatastoreExports.APPLICATION_SYSTEM_BUCKET: 'application-{org_prefix}{env_name}-system',
+        # C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET: 'application-{org_prefix}{env_name}-metadata-bundles',
+        # C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET: 'application-{org_prefix}{env_name}-tibanna-logs',
+
+        C4DatastoreExports.APPLICATION_BLOBS_BUCKET: ConfigManager.AppBucketTemplate.BLOBS,
+        C4DatastoreExports.APPLICATION_FILES_BUCKET: ConfigManager.AppBucketTemplate.FILES,
+        C4DatastoreExports.APPLICATION_WFOUT_BUCKET: ConfigManager.AppBucketTemplate.WFOUT,
+        C4DatastoreExports.APPLICATION_SYSTEM_BUCKET: ConfigManager.AppBucketTemplate.SYSTEM,
+        C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET: ConfigManager.AppBucketTemplate.METADATA_BUNDLES,
+        C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET: ConfigManager.AppBucketTemplate.TIBANNA_LOGS,
+
     }
 
     @classmethod
@@ -107,10 +116,15 @@ class C4Datastore(C4Part):
     # Envs describing the global foursight configuration in this account (could be updated)
     # Results bucket is the backing store for checks (they are also indexed into ES)
 
+    # FOURSIGHT_LAYER_PREFIX = 'foursight-{org_prefix}{env_name}'
+
     FOURSIGHT_LAYER_BUCKETS = {
-        C4DatastoreExports.FOURSIGHT_ENV_BUCKET: 'foursight-{org_prefix}{env_name}-envs',
-        C4DatastoreExports.FOURSIGHT_RESULT_BUCKET: 'foursight-{org_prefix}{env_name}-results',
-        C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET: 'foursight-{org_prefix}{env_name}-application-versions',
+        # C4DatastoreExports.FOURSIGHT_ENV_BUCKET: FOURSIGHT_LAYER_PREFIX + '-envs',
+        # C4DatastoreExports.FOURSIGHT_RESULT_BUCKET: FOURSIGHT_LAYER_PREFIX + '-results',
+        # C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET: FOURSIGHT_LAYER_PREFIX + '-application-versions',
+        C4DatastoreExports.FOURSIGHT_ENV_BUCKET: ConfigManager.FSBucketTemplate.ENVS,
+        C4DatastoreExports.FOURSIGHT_RESULT_BUCKET: ConfigManager.FSBucketTemplate.RESULTS,
+        C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET: ConfigManager.FSBucketTemplate.APPLICATION_VERSIONS,
     }
 
     @classmethod
@@ -121,21 +135,23 @@ class C4Datastore(C4Part):
 
     @classmethod
     def resolve_bucket_name(cls, bucket_template):
-        """
-        Resolves a bucket_template into a bucket_name (presuming an appropriate os.environ).
-        The ENCODED_BS_ENV and ENCODED_S3_BUCKET_ORG environment variables are expected to be in place at time of call.
-        """
-        # NOTE: In legacy CGAP, we'd want to be looking at S3_BUCKET_ENV, which did some backflips to address
-        #       the naming for foursight (including uses of prod_bucket_env), so that webprod was still used
-        #       even after we changed to blue/green, but unless we're trying to make this deployment procedure
-        #       cover that special case, it should suffice (and use fewer environment variables) to only worry
-        #       about ENV_NAME. -kmp 24-Jun-2021
-        env_name = os.environ[ENV_NAME]
-        org_name = os.environ.get(S3_BUCKET_ORG)  # Result is allowed to be missing or empty if none desired.
-        org_prefix = (org_name + "-") if org_name else ""
-        bucket_name = bucket_template.format(env_name=env_name, org_prefix=org_prefix)
-        # print(bucket_template,"=>",bucket_name)
-        return bucket_name
+        return ConfigManager.resolve_bucket_name(bucket_template)
+
+        # """
+        # Resolves a bucket_template into a bucket_name (presuming an appropriate os.environ).
+        # The ENCODED_BS_ENV and ENCODED_S3_BUCKET_ORG environment variables are expected to be in place at time of call.
+        # """
+        # # NOTE: In legacy CGAP, we'd want to be looking at S3_BUCKET_ENV, which did some backflips to address
+        # #       the naming for foursight (including uses of prod_bucket_env), so that webprod was still used
+        # #       even after we changed to blue/green, but unless we're trying to make this deployment procedure
+        # #       cover that special case, it should suffice (and use fewer environment variables) to only worry
+        # #       about ENV_NAME. -kmp 24-Jun-2021
+        # env_name = env_name or os.environ[ENV_NAME]
+        # org_name = org_name or os.environ.get(S3_BUCKET_ORG)  # Result is allowed to be missing or empty if none desired.
+        # org_prefix = (org_name + "-") if org_name else ""
+        # bucket_name = bucket_template.format(env_name=env_name, org_prefix=org_prefix)
+        # # print(bucket_template,"=>",bucket_name)
+        # return bucket_name
 
     # Contains application configuration template, written to secrets manager
     # NOTE: this configuration is NOT valid by default - it must be manually updated

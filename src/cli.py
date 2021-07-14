@@ -1,14 +1,17 @@
 import argparse
 import logging
 import os
-import json
+# import json
 
-from contextlib import contextmanager
-from dcicutils.misc_utils import file_contents
-from dcicutils.qa_utils import override_environ
-from .constants import DEPLOYING_IAM_USER, ENV_NAME, ACCOUNT_NUMBER   # , S3_ENCRYPT_KEY
+# from contextlib import contextmanager
+from dcicutils.misc_utils import ignored  # , file_contents, override_environ
+from .constants import (
+    # DEPLOYING_IAM_USER, ENV_NAME,
+    ACCOUNT_NUMBER,
+    # S3_ENCRYPT_KEY
+)
 from .info.aws_util import AWSUtil
-from .base import lookup_stack_creator
+from .base import lookup_stack_creator, ConfigManager
 from .exceptions import CLIException
 from .part import C4Account
 from .stack import C4FoursightCGAPStack
@@ -32,11 +35,13 @@ class C4Client:
     SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-tibanna-trial', 'c4-foursight-trial',
                         'c4-beanstalk-trial']
     REQUIRES_CAPABILITY_IAM = ['iam', 'foursight']  # these stacks require CAPABILITY_IAM, just IAM for now
-    CONFIGURATION = 'config.json'  # path to config file, top level by default
+    # CONFIGURATION = 'config.json'  # path to config file, top level by default
 
     @classmethod
-    def validate_cloudformation_template(cls, file_path, creds_dir):
+    def validate_cloudformation_template(cls, file_path):  # , creds_dir=None
         """ Validates CloudFormation template at file_path """
+        creds_dir = (  # creds_dir or
+                     ConfigManager.get_creds_dir())
         cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {args}'.format(
             mount_yaml=os.path.abspath(os.getcwd())+'/out/templates:/root/out/templates',
             mount_creds=f'{creds_dir}:/root/.aws',
@@ -82,10 +87,10 @@ class C4Client:
                 break
         return caps
 
+    # APPLICATION_BUCKET_TEMPLATE = "foursight-{org_prefix}{env_name}-applicaton-versions"
+
     @classmethod
-    def upload_chalice_package(cls, args, stack: C4FoursightCGAPStack,
-                               # TODO: this bucketname should come from config.json or some os.environ ...
-                               bucket='foursight-cgap-mastertest-application-versions'):
+    def upload_chalice_package(cls, args, stack: C4FoursightCGAPStack, bucket=None):
         """ Specific upload process for a chalice application, e.g. foursight. Assumes chalice package has been run.
             How this works:
             1. Mounts the output_file directory to the docker image's execution directory (/root/aws)
@@ -94,12 +99,18 @@ class C4Client:
             4. Runs aws cloudformation deploy, which generates a changeset based on this generated cloudformation.
         """
 
+        # TODO: this bucketname should come from config.json or some os.environ ...
+        if bucket is None:
+            bucket = ConfigManager.resolve_bucket_name(ConfigManager.FSBucketTemplate.APPLICATION_VERSIONS)  # cls.APPLICATION_BUCKET_TEMPLATE
+
+        creds_dir = ConfigManager.get_creds_dir()  # was args.creds_dir
+
         # Mounts the output_file directory to the docker image's execution directory (/root/aws)
         mount_chalice_package = '{}/{}:/aws'.format(os.path.abspath(os.getcwd()), args.output_file)
         # Creates mount point flags for creds and the chalice package
         mount_points = ' '.join([
                 '-v',
-                '{creds_dir}:/root/.aws'.format(creds_dir=args.creds_dir),
+                f'{creds_dir}:/root/.aws',  # was args.creds_dir
                 '-v',
                 mount_chalice_package,
             ])
@@ -146,6 +157,9 @@ class C4Client:
 
     @classmethod
     def upload_cloudformation_template(cls, args, stack, file_path):
+
+        creds_dir = ConfigManager.get_creds_dir()  # was args.creds_dir
+
         if cls.is_legacy(args):
             network_stack_name, _ = c4_stack_trial_network_metadata()
 
@@ -196,7 +210,7 @@ class C4Client:
 
         cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {flags}'.format(
             mount_yaml=os.path.abspath(os.getcwd())+'/out/templates:/root/out/templates',
-            mount_creds='{creds_dir}:/root/.aws'.format(creds_dir=args.creds_dir),
+            mount_creds=f'{creds_dir}:/root/.aws',  # was args.creds_dir
             command='amazon/aws-cli cloudformation deploy',
             flags=flags,
         )
@@ -217,9 +231,13 @@ class C4Client:
     @staticmethod
     def resolve_account(args):
         """ Figures out which account is in use based on the name of the creds dir"""
-        creds_file = '{}/test_creds.sh'.format(args.creds_dir)
+        ignored(args)
+        creds_dir = ConfigManager.get_creds_dir()  # was args.creds_dir
+        creds_file = f'{creds_dir}/test_creds.sh'
         account_number = os.environ.get(ACCOUNT_NUMBER)
-        account = C4Account(account_number=account_number, creds_dir=args.creds_dir, creds_file=creds_file)
+        account = C4Account(account_number=account_number,
+                            # creds_dir=creds_dir,
+                            creds_file=creds_file)
         return account
 
     @staticmethod
@@ -250,7 +268,8 @@ class C4Client:
             file_path = ''.join(['/root/', path, template_name])
             logger.info('Written template to {}'.format(file_path))
             if args.validate:
-                cls.validate_cloudformation_template(file_path=file_path, creds_dir=args.creds_dir)
+                cls.validate_cloudformation_template(file_path=file_path  # , creds_dir=args.creds_dir
+                                                     )
             return file_path
 
     @staticmethod
@@ -262,43 +281,49 @@ class C4Client:
             # view and print diffs
             logger.info('I do nothing right now!')  # dcic_utils.diff_utils.
 
-    @classmethod
-    @contextmanager
-    def validate_and_source_configuration(cls, *, creds_dir):
-        """ Validates that required keys are in config.json and overrides the environ for the
-            invocation of the infra build. Yields control once the environment has been
-            adjusted, transferring back to the caller - see provision_stack.
-        """
-        if not os.path.exists(cls.CONFIGURATION):
-            raise CLIException('Required configuration file not present! Write config.json')
-        config = cls.load_config(cls.CONFIGURATION)
+    # @classmethod
+    # @contextmanager
+    # def validate_and_source_configuration(cls, *, creds_dir):
+    #     """ Validates that required keys are in config.json and overrides the environ for the
+    #         invocation of the infra build. Yields control once the environment has been
+    #         adjusted, transferring back to the caller - see provision_stack.
+    #     """
+    #     with ConfigManager.validate_and_source_configuration(creds_dir=creds_dir
+    #             # , config_file=cls.CONFIGURATION
+    #                                                          ):
+    #         yield
+
+        # if not os.path.exists(cls.CONFIGURATION):
+        #     raise CLIException('Required configuration file not present! Write config.json')
+        # config = cls.load_config(cls.CONFIGURATION)
         # if 'S3_ENCRYPT_KEY' not in config:
         #     s3_key_file = os.path.join(creds_dir, "s3_encrypt_key.txt")
         #     s3_encrypt_key = file_contents(s3_key_file).strip('\n')
         #     config[S3_ENCRYPT_KEY] = s3_encrypt_key
-        for required_key in [DEPLOYING_IAM_USER, ENV_NAME,
-                             # S3_ENCRYPT_KEY,
-                             ]:
-            if required_key not in config:
-                raise CLIException('Required key in configuration file not present: %s' % required_key)
-        with override_environ(**config):
-            yield
+        # for required_key in [DEPLOYING_IAM_USER, ENV_NAME, S3_ENCRYPT_KEY]:
+        #     if required_key not in config:
+        #         raise CLIException('Required key in configuration file not present: %s' % required_key)
+        # with override_environ(**config):
+        #     yield
 
-    @classmethod
-    def load_config(cls, filename):
-        """
-        Loads a .json file, casting all the resulting dictionary values to strings
-        so they are suitable config file values.
-        """
-        with open(filename) as fp:
-            config = json.load(fp)
-            config = {k: str(v) for k, v in config.items()}
-            return config
+    # @classmethod
+    # def load_config(cls, filename):
+    #     """
+    #     Loads a .json file, casting all the resulting dictionary values to strings
+    #     so they are suitable config file values.
+    #     """
+    #     with open(filename) as fp:
+    #         config = json.load(fp)
+    #         config = {k: str(v) for k, v in config.items()}
+    #         return config
 
     @classmethod
     def provision_stack(cls, args):
         """ Implements 'provision' command. """
-        with cls.validate_and_source_configuration(creds_dir=args.creds_dir):
+
+        creds_dir = ConfigManager.get_creds_dir()  # was args.creds_dir
+
+        with ConfigManager.validate_and_source_configuration(creds_dir=creds_dir):
             if cls.is_legacy(args):
                 stack = cls.resolve_legacy_stack(args)
             else:
@@ -329,7 +354,7 @@ class C4Client:
         if args.init_tibanna:  # runs initial tibanna setup
             c4_tibanna_part.initial_deploy(dry_run=dry_run)
         elif args.tibanna_run:  # runs a workflow on tibanna
-            logger.warning('tibanna run on {}'.format(args.tibanna_run))
+            logger.warning(f'tibanna run on {args.tibanna_run}')
             c4_tibanna_part.tibanna_run(input=args.tibanna_run, dry_run=dry_run)
         elif args.cmd == [] or args.cmd[0] == 'help':  # displays tibanna help
             c4_tibanna_part.run_tibanna_cmd(['--help'])
@@ -351,24 +376,27 @@ class C4Client:
             aws_util.generate_s3_bucket_summary_tsv(dry_run=False)
 
 
-AWS_DEFAULT_TEST_CREDS_DIR_FILE = "~/.aws_test_creds_dir"
-AWS_DEFAULT_DEFAULT_TEST_CREDS_DIR = "~/.aws_test"
-
-
-def aws_default_test_creds_dir():
-    file = os.path.expanduser(AWS_DEFAULT_TEST_CREDS_DIR_FILE)
-    if os.path.exists(file):
-        creds_dir = os.path.expanduser(file_contents(file).strip())
-        if isinstance(creds_dir, str) and os.path.exists(creds_dir) and os.path.isdir(creds_dir):
-            return creds_dir
-    return os.path.expanduser(AWS_DEFAULT_DEFAULT_TEST_CREDS_DIR)
+# AWS_DEFAULT_TEST_CREDS_DIR_FILE = "~/.aws_test_creds_dir"
+# AWS_DEFAULT_DEFAULT_TEST_CREDS_DIR = "~/.aws_test"
+#
+#
+# def aws_default_test_creds_dir():
+#     # For anyone who doesn't want to use ~/.aws_test, you can put the dir you want in ~/.aws_test_creds_dir
+#     # However, you might also want to see the use_test_creds command in the c4-scripts repository. -kmp 8-Jul-2021
+#     file = os.path.expanduser(AWS_DEFAULT_TEST_CREDS_DIR_FILE)
+#     if os.path.exists(file):
+#         creds_dir = os.path.expanduser(file_contents(file).strip())
+#         if isinstance(creds_dir, str) and os.path.exists(creds_dir) and os.path.isdir(creds_dir):
+#             return creds_dir
+#     return os.path.expanduser(AWS_DEFAULT_DEFAULT_TEST_CREDS_DIR)
 
 
 def cli():
     """Set up and run the 4dn cloud infra command line scripts"""
     parser = argparse.ArgumentParser(description='4DN Cloud Infrastructure')
     parser.add_argument('--debug', action='store_true', help='Sets log level to debug')
-    parser.add_argument('--creds_dir', default=aws_default_test_creds_dir(), help='Sets aws creds dir', type=str)
+    parser.add_argument('--creds_dir', default=ConfigManager.compute_aws_default_test_creds_dir(),
+                        help='Sets aws creds dir', type=str)
     subparsers = parser.add_subparsers(help='Commands', dest='command')
 
     # Configure 'provision' command
@@ -418,6 +446,7 @@ def cli():
     parser_info.set_defaults(func=C4Client.info)
 
     args = parser.parse_args()
+    ConfigManager.set_creds_dir(args.creds_dir)  # This must be done as early as possible for good consistency.
 
     if args.debug:
         logger.setLevel(logging.DEBUG)

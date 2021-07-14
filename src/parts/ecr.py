@@ -106,10 +106,9 @@ class C4ContainerRegistry(C4Part):
                       ], Version='2012-10-17',
         )
 
-    def repository(self, name='cgap-mastertest'):
+    def repository(self, name=None):
         """ Builds the ECR Repository. """
-        if os.environ.get(ENV_NAME):
-            name = os.environ.get(ENV_NAME)
+        name = name or os.environ.get(ENV_NAME) or 'cgap-mastertest'
         return Repository(
             'cgapdocker',  # must be lowercase, appears unused?
             RepositoryName=name,  # might be we need many of these?

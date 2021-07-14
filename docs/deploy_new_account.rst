@@ -104,6 +104,17 @@ As part of the datastore provisioning, your new S3 buckets are online. There's a
 referenced in C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET. The name of your C4 deployment's global
 application bucket can be found on the 'Outputs' tab of your datastore CloudFormation stack.
 
+In this bucket, you will need to create a file corresponding to each environment you plan to use (probably just one).
+So if your global application S3 bucket is ``myorg-foursight-cgap-myenv-envs`` then you will want to visit
+that bucket in the AWS Console for S3 and upload a file that contains::
+
+    {
+        "fourfront": "<your-http-cgap-domain-here-with-no-trailing-slash>",
+        "es": "<your-https-elasticsearch-url-here-with-no-trailing-slash>",
+        "ff_env": "<your-ff-env-here>"
+    }
+
+
 Upload a global env configuration to enable foursight. Automated upload script to follow. TODO.
 
 Currently, you can upload the file `.chalice/cgap-mastertest` to the global bucket env, which, on the trial account, is
