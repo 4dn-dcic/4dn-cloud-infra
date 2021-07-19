@@ -1,13 +1,14 @@
 from src.stack import C4Stack, C4Name, C4Tags, C4Account, C4FoursightCGAPStack
 from src.parts import network, datastore, ecr, iam, logging, ecs  # , appconfig
-from ..base import register_stack_creator
+from ..base import register_stack_creator, COMMON_STACK_PREFIX
 
 # Stack metadata
 # 'alpha' in this case refers to the first iteration of CGAP Docker on ECS
 
 
 def c4_alpha_stack_trial_name(name):
-    return C4Name(name='c4-{}-trial-alpha'.format(name))
+    # e.g., if name='network, result will be c4-network-trial-alpha
+    return C4Name(name=f'{COMMON_STACK_PREFIX}{name}-trial-alpha')
 
 
 def c4_alpha_stack_trial_tags():

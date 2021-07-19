@@ -65,19 +65,19 @@ dev = ["coverage (>=5.3,<6.0)", "flake8 (>=3.8.4,<3.9.0)", "tox (>=3.20.1,<3.21.
 
 [[package]]
 name = "awscli"
-version = "1.19.111"
+version = "1.20.0"
 description = "Universal Command Line Environment for AWS."
 category = "main"
 optional = false
-python-versions = ">= 2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
+python-versions = ">= 3.6"
 
 [package.dependencies]
-botocore = "1.20.111"
+botocore = "1.21.0"
 colorama = ">=0.2.5,<0.4.4"
 docutils = ">=0.10,<0.16"
 PyYAML = ">=3.10,<5.5"
-rsa = {version = ">=3.1.2,<4.8", markers = "python_version > \"2.7\""}
-s3transfer = ">=0.4.0,<0.5.0"
+rsa = ">=3.1.2,<4.8"
+s3transfer = ">=0.5.0,<0.6.0"
 
 [[package]]
 name = "beautifulsoup4"
@@ -117,24 +117,24 @@ wcwidth = ">=0.1.4"
 
 [[package]]
 name = "boto3"
-version = "1.17.111"
+version = "1.18.0"
 description = "The AWS SDK for Python"
 category = "main"
 optional = false
-python-versions = ">= 2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
+python-versions = ">= 3.6"
 
 [package.dependencies]
-botocore = ">=1.20.111,<1.21.0"
+botocore = ">=1.21.0,<1.22.0"
 jmespath = ">=0.7.1,<1.0.0"
-s3transfer = ">=0.4.0,<0.5.0"
+s3transfer = ">=0.5.0,<0.6.0"
 
 [[package]]
 name = "botocore"
-version = "1.20.111"
+version = "1.21.0"
 description = "Low-level, data-driven core of boto 3."
 category = "main"
 optional = false
-python-versions = ">= 2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
+python-versions = ">= 3.6"
 
 [package.dependencies]
 jmespath = ">=0.7.1,<1.0.0"
@@ -216,7 +216,7 @@ event-file-poller = ["watchdog (==0.9.0)"]
 
 [[package]]
 name = "charset-normalizer"
-version = "2.0.1"
+version = "2.0.2"
 description = "The Real First Universal Charset Detector. Open, modern and actively maintained alternative to Chardet."
 category = "main"
 optional = false
@@ -474,7 +474,7 @@ uritemplate = ">=3.0.0,<4dev"
 
 [[package]]
 name = "google-auth"
-version = "1.32.1"
+version = "1.33.0"
 description = "Google Authentication Library"
 category = "main"
 optional = false
@@ -992,11 +992,11 @@ pyasn1 = ">=0.1.3"
 
 [[package]]
 name = "s3transfer"
-version = "0.4.2"
+version = "0.5.0"
 description = "An Amazon S3 Transfer Manager"
 category = "main"
 optional = false
-python-versions = "*"
+python-versions = ">= 3.6"
 
 [package.dependencies]
 botocore = ">=1.12.36,<2.0a.0"
@@ -1223,7 +1223,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.6.10,<3.7"
-content-hash = "87341ac45e3a6563c4cef7da76804633a66e7587a3c0359ab8d35199bb44c244"
+content-hash = "cf0e9fa8fa85adebefa85e5de72ef96a9e9cb54e31ab2432e76275e92145e72c"
 
 [metadata.files]
 ansicon = [
@@ -1251,8 +1251,8 @@ aws-sam-translator = [
     {file = "aws_sam_translator-1.37.0-py3-none-any.whl", hash = "sha256:26e4866627e4284afc367bee2bd04d3cf23cecc8ff879b419457715a738395a9"},
 ]
 awscli = [
-    {file = "awscli-1.19.111-py2.py3-none-any.whl", hash = "sha256:395cc774237145bbeb54350b5eee15916498fbdb982f8161049632b852bdf54d"},
-    {file = "awscli-1.19.111.tar.gz", hash = "sha256:4457f7abf0888149fbc6983614a74039adf662cad0f2c5fee35027e22372bd61"},
+    {file = "awscli-1.20.0-py3-none-any.whl", hash = "sha256:76e869d83aa190f3cffa2837f8a74ae9b088675b316967e3898aef57c98ad3b0"},
+    {file = "awscli-1.20.0.tar.gz", hash = "sha256:24c8a4b201589c6611dd43fff794b1701a46014e9ed60d8408d627bc37eaf89d"},
 ]
 beautifulsoup4 = [
     {file = "beautifulsoup4-4.9.3-py2-none-any.whl", hash = "sha256:4c98143716ef1cb40bf7f39a8e3eec8f8b009509e74904ba3a7b315431577e35"},
@@ -1269,12 +1269,12 @@ blessed = [
     {file = "blessed-1.17.6.tar.gz", hash = "sha256:a9a774fc6eda05248735b0d86e866d640ca2fef26038878f7e4d23f7749a1e40"},
 ]
 boto3 = [
-    {file = "boto3-1.17.111-py2.py3-none-any.whl", hash = "sha256:78476989e103ef0de7c2704399c8f229ca97a8a690b0f37cc4716d65e4e54256"},
-    {file = "boto3-1.17.111.tar.gz", hash = "sha256:13c36dd34d70a808926e0aab97bd6c9ab188fd46904583105653655661349346"},
+    {file = "boto3-1.18.0-py3-none-any.whl", hash = "sha256:22802b3b4806cafff41ed591e578f048789a8dd0deeff07d055cd6f59a7c6076"},
+    {file = "boto3-1.18.0.tar.gz", hash = "sha256:054e347824064b7cd77616f35596420eb4f6aca049ecc131a2aec23bcf4cf6ba"},
 ]
 botocore = [
-    {file = "botocore-1.20.111-py2.py3-none-any.whl", hash = "sha256:40a16019319691949411c98b8b55a103981274d0ac7d88c32143c384a1439bea"},
-    {file = "botocore-1.20.111.tar.gz", hash = "sha256:21fc74dba0d4d6297b322aa79ecb4476b9e03a84b3f38eee2bed47555f4b4013"},
+    {file = "botocore-1.21.0-py3-none-any.whl", hash = "sha256:0d46f0addc1d7930c42115a814e5e0c3399666f6d11c1e58d9ec726dfed02ada"},
+    {file = "botocore-1.21.0.tar.gz", hash = "sha256:84ea51660c758416f75ac612374156f6423a1d1ade449d38944de6eb8493cca2"},
 ]
 cachetools = [
     {file = "cachetools-4.2.2-py3-none-any.whl", hash = "sha256:2cc0b89715337ab6dbba85b5b50effe2b0c74e035d83ee8ed637cf52f12ae001"},
@@ -1296,8 +1296,8 @@ chalice = [
     {file = "chalice-1.23.0.tar.gz", hash = "sha256:8e3b26f8ec15197d8c04cd1edb0d692a490cb5ec179560183a403de63f21c1d7"},
 ]
 charset-normalizer = [
-    {file = "charset-normalizer-2.0.1.tar.gz", hash = "sha256:ad0da505736fc7e716a8da15bf19a985db21ac6415c26b34d2fafd3beb3d927e"},
-    {file = "charset_normalizer-2.0.1-py3-none-any.whl", hash = "sha256:b68b38179052975093d71c1b5361bf64afd80484697c1f27056e50593e695ceb"},
+    {file = "charset-normalizer-2.0.2.tar.gz", hash = "sha256:951567c2f7433a70ab63f1be67e5ee05d3925d9423306ecb71a3b272757bcc95"},
+    {file = "charset_normalizer-2.0.2-py3-none-any.whl", hash = "sha256:3c502a35807c9df35697b0f44b1d65008f83071ff29c69677c7c22573bc5a45a"},
 ]
 click = [
     {file = "click-7.1.2-py2.py3-none-any.whl", hash = "sha256:dacca89f4bfadd5de3d7489b7c8a566eee0d3676333fbb50030263894c38c0dc"},
@@ -1368,8 +1368,8 @@ google-api-python-client = [
     {file = "google_api_python_client-1.12.8-py2.py3-none-any.whl", hash = "sha256:3c4c4ca46b5c21196bec7ee93453443e477d82cbfa79234d1ce0645f81170eaf"},
 ]
 google-auth = [
-    {file = "google-auth-1.32.1.tar.gz", hash = "sha256:c7c215c74348ef24faef2f7b62f6d8e6b38824fe08b1e7b7b09a02d397eda7b3"},
-    {file = "google_auth-1.32.1-py2.py3-none-any.whl", hash = "sha256:9266252e11393943410354cf14a77bcca24dd2ccd9c4e1aef23034fe0fbae630"},
+    {file = "google-auth-1.33.0.tar.gz", hash = "sha256:9bd25d835c01ca3dd9045ea0b50f036e3fe3868ee2c5a9773a661925bbdf46ca"},
+    {file = "google_auth-1.33.0-py2.py3-none-any.whl", hash = "sha256:a756a33978fac611e4f00b69715b80e35467c30cc6262132d29d33a0e398ac55"},
 ]
 google-auth-httplib2 = [
     {file = "google-auth-httplib2-0.0.4.tar.gz", hash = "sha256:8d092cc60fb16517b12057ec0bba9185a96e3b7169d86ae12eae98e645b7bc39"},
@@ -1680,8 +1680,8 @@ rsa = [
     {file = "rsa-4.7.2.tar.gz", hash = "sha256:9d689e6ca1b3038bc82bf8d23e944b6b6037bc02301a574935b2dd946e0353b9"},
 ]
 s3transfer = [
-    {file = "s3transfer-0.4.2-py2.py3-none-any.whl", hash = "sha256:9b3752887a2880690ce628bc263d6d13a3864083aeacff4890c1c9839a5eb0bc"},
-    {file = "s3transfer-0.4.2.tar.gz", hash = "sha256:cb022f4b16551edebbb31a377d3f09600dbada7363d8c5db7976e7f47732e1b2"},
+    {file = "s3transfer-0.5.0-py3-none-any.whl", hash = "sha256:9c1dc369814391a6bda20ebbf4b70a0f34630592c9aa520856bf384916af2803"},
+    {file = "s3transfer-0.5.0.tar.gz", hash = "sha256:50ed823e1dc5868ad40c8dc92072f757aa0e653a192845c94a3b676f4a62da4c"},
 ]
 six = [
     {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},

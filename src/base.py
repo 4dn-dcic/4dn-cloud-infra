@@ -1,14 +1,19 @@
+import boto3
 import io
 import json
 import os
 
 from contextlib import contextmanager
-from dcicutils.misc_utils import decorator, file_contents, full_class_name, override_environ
+from dcicutils.misc_utils import (
+    decorator, file_contents, find_association, find_associations, full_class_name, override_environ,
+)
 from .exceptions import CLIException
 from .constants import ENV_NAME, S3_BUCKET_ORG, S3_ENCRYPT_KEY, DEPLOYING_IAM_USER
 
 
 REGISTERED_STACKS = {}
+
+COMMON_STACK_PREFIX = "c4-"
 
 STACK_KINDS = ['legacy', 'alpha']
 
@@ -160,3 +165,54 @@ class ConfigManager:
         ENVS = 'foursight-{org_prefix}{env_name}-envs'
         RESULTS = 'foursight-{org_prefix}{env_name}-results'
         APPLICATION_VERSIONS ='foursight-{org_prefix}{env_name}-application-versions'
+
+    CLOUDFORMATION = None
+
+    @classmethod
+    def _cloudformation(cls):
+        if cls.CLOUDFORMATION is None:
+            cls.CLOUDFORMATION = cloudformation = boto3.resource('cloudformation')
+        return cls.CLOUDFORMATION
+
+    @classmethod
+    def get_stack_output(cls, stack, output_id):
+        entry = find_association(stack.outputs, OutputKey=output_id)
+        return entry['OutputValue']
+
+    @classmethod
+    def lookup_stack(cls, stack_id):
+        return cls._cloudformation().Stack(stack_id)
+
+    @classmethod
+    def find_stack(cls, name_token):
+        # If name_token is network, the name might be c4-network-trial-alpha-stack or c4-network-trial-stack
+        # so we search by the prefix that is common. -kmp 19-Jul-2021
+        prefix = f"{COMMON_STACK_PREFIX}{name_token}-"
+        candidates = []
+        for stack in cls._cloudformation().stacks.all():
+            if prefix in stack.name:
+                candidates.append(stack)
+        [candidate] = candidates
+        return candidate
+
+    @classmethod
+    def find_stack_outputs(cls, key_or_pred, value_only=False):
+        results = {}
+        for stack in cls._cloudformation().stacks.all():
+            for found in find_associations(stack.outputs, OutputKey=key_or_pred):
+                results[found['OutputKey']] = found['OutputValue']
+        if value_only:
+            return list(results.values())
+        else:
+            return results
+
+    @classmethod
+    def find_stack_output(cls, key_or_pred, value_only=False):
+        results = cls.find_stack_outputs(key_or_pred, value_only=value_only)
+        n = len(results)
+        if n == 0:
+            return None
+        elif n == 1:
+            return results
+        else:
+            raise ValueError(f"Too many matches for {key_or_pred}: {results}")

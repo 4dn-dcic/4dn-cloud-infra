@@ -38,6 +38,7 @@ troposphere = "^2.7.1"
 
 [tool.poetry.dev-dependencies]
 chalice = "^1.21.4"
+wheel = ">=0.36.2,<1"
 
 [tool.poetry.scripts]
 cli = "src.cli:cli"

@@ -1,12 +1,13 @@
 from src.stack import C4Stack, C4Name, C4Tags, C4Account, C4FoursightCGAPStack
 from src.parts import network, datastore, ecr, beanstalk, tibanna
-from ..base import register_stack_creator
+from ..base import register_stack_creator, COMMON_STACK_PREFIX
 
 # Helper methods for construction of trial stacks
 
 
 def c4_stack_trial_name(name):
-    return C4Name(name='c4-{}-trial'.format(name))
+    # e.g., if name='network, result will be c4-network-trial
+    return C4Name(name=f'{COMMON_STACK_PREFIX}{name}-trial')
     # logical_id_prefix -> C4{Name}Trial
     # stack_name -> c4-{name}-trial-stack
 

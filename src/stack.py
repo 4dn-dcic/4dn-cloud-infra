@@ -1,13 +1,16 @@
-from src.part import C4Name, C4Tags, C4Account, C4Part
-from chalicelib.package import PackageDeploy as PackageDeploy_from_cgap
-from src.constants import CHECK_RUNNER, FOURSIGHT_SECURITY_IDS, FOURSIGHT_SUBNET_IDS, ENV_NAME
-from .base import ConfigManager
-from .parts.datastore import C4Datastore
-from troposphere import Template
-from os.path import dirname
 import os
-import sys
 import logging
+import re
+import sys
+
+from chalicelib.package import PackageDeploy as PackageDeploy_from_cgap
+from os.path import dirname
+from troposphere import Template, Ref
+from .base import COMMON_STACK_PREFIX, ConfigManager
+from .constants import CHECK_RUNNER, FOURSIGHT_SECURITY_IDS, FOURSIGHT_SUBNET_IDS, ENV_NAME
+from .part import C4Name, C4Tags, C4Account, C4Part
+from .parts.datastore import C4Datastore
+from .parts.network import C4NetworkExports
 
 
 # Attempt secret import - if file is not present, will default required values
@@ -88,9 +91,12 @@ class C4Stack(BaseC4Stack):
 
 
 class C4FoursightCGAPStack(BaseC4Stack):
+
+    NETWORK_EXPORTS = C4NetworkExports()
+
     def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account):
         with ConfigManager.validate_and_source_configuration():
-            self.security_ids = self._get_security_ids()
+            self.security_ids = self._get_security_group_ids()
             self.subnet_ids = self._get_subnet_ids()
             self.trial_creds = {
                 'S3_ENCRYPT_KEY': S3_ENCRYPT_KEY,
@@ -98,22 +104,62 @@ class C4FoursightCGAPStack(BaseC4Stack):
                 'CLIENT_SECRET': Auth0Secret,
                 'DEV_SECRET': ENCODED_SECRET,
                 'ES_HOST': ENCODED_ES_SERVER,
-                'ENV_NAME': 'cgap-mastertest-kmp'  # os.environ.get(ENV_NAME)
+                'ENV_NAME': os.environ.get(ENV_NAME)  # "cgap-mastertest-kmp"
             }
+        # print(f"self.trial_creds['ENV_NAME'] = {self.trial_creds['ENV_NAME']}")
         super().__init__(description, name, tags, account)
 
-    def _get_security_ids(self):
+    SECURITY_GROUP_EXPORT_PATTERN = re.compile('.*Network.*ExportApplicationSecurityGroup.*')
+
+    @classmethod
+    def _get_security_group_ids(cls):
+        # TODO: A lot of this can be simplified once it's shown to be working. -kmp 19-Jul-2021
         # TODO: Fetch these dynamically. For the Alpha environment, the orginal value was hardwired as:
         #       ['sg-03f5fdd36be96bbf4'].
+        #       Feels like [self.NETWORK_EXPORTS.import_value(C4NetworkExports.APPLICATION_SECURITY_GROUP)]
+        #       should do it, but I must be missing something. Trouble is that .import_value returns an import
+        #       object, not a string, and it's not json-serializable. -kmp 16-Jul-2021
+        try:
+            # e.g., name will be 'C4NetworkTrialAlphaExportApplicationSecurityGroup'
+            #       or might not contain '...Alpha...'
+            # Typically there will be only one output, but we allow several, so the result is returned as a list.
+            return ConfigManager.find_stack_outputs(cls.SECURITY_GROUP_EXPORT_PATTERN.match, value_only=True)
+            # cloudformation = boto3.resource('cloudformation')
+            # # There's probably a constant name to use instead
+            # network_stack = cloudformation.Stack('c4-network-trial-alpha-stack')
+            # entry = find_association(network_stack.outputs,
+            #                          OutputKey='C4NetworkTrialAlphaExportApplicationSecurityGroup')
+            # result = entry['OutputValue']
+            # print("Discovered security ID from network:", result)
+            # return result
+        except Exception:
+            pass
         security_ids_spec = os.environ.get(FOURSIGHT_SECURITY_IDS)
         if not security_ids_spec:
             raise RuntimeError(f"Environment variable {security_ids_spec} is not set.")
         result = [spec.strip() for spec in security_ids_spec.split(",")]
         return result
 
-    def _get_subnet_ids(self):
+    SUBNET_EXPORT_PATTERN = re.compile('.*Network.*ExportPrivateSubnet.*')
+
+    @classmethod
+    def _get_subnet_ids(cls):
+        # TODO: A lot of this can be simplified once it's shown to be working. -kmp 19-Jul-2021
         # TODO: Fetch these dynamically. For the ALPHA environment, the original value was hardwired as:
         #       ['subnet-09ed0bb672993c7ac', 'subnet-00778b903b357d331']
+        #       Feels like [
+        #           self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+        #           self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
+        #       ] should work, but as with _get_subnet_ids above, using an import object here doesn't help.
+        #       -kmp 16-Jul-2021
+        try:
+            # e.g., name will be 'C4NetworkTrialAlphaExportPrivateSubnetA' (or '...B')
+            #       or might not contain '...Alpha...'
+            # There will be several outputs (currently 2, but maybe more in the future), returned as a list.
+            return ConfigManager.find_stack_outputs(cls.SUBNET_EXPORT_PATTERN.match, value_only=True)
+        except Exception:
+            pass
+
         subnet_ids_spec = os.environ.get(FOURSIGHT_SUBNET_IDS)
         if not subnet_ids_spec:
             raise RuntimeError(f"Environment variable {subnet_ids_spec} is not set.")
