@@ -343,7 +343,7 @@ develop = ["mock", "pytest (>=3.0.0)", "pytest-cov", "pytz", "coverage (<5.0.0)"
 
 [[package]]
 name = "foursight-cgap"
-version = "0.4.9.1b24"
+version = "0.4.9.1b25"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -1273,7 +1273,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.6.10,<3.7"
-content-hash = "d2be491b88e4b4a8cd1686ace6c4d24bbd5b89dc1633cf2adc2be60b678127f3"
+content-hash = "e4c1dbad594723f937bc0040da74f57d2dcb60ec71ebb0681d7ed3f603017b3c"
 
 [metadata.files]
 ansicon = [
@@ -1388,8 +1388,8 @@ elasticsearch-dsl = [
     {file = "elasticsearch_dsl-6.4.0-py2.py3-none-any.whl", hash = "sha256:f60aea7fd756ac1fbe7ce114bbf4949aefbf495dfe8896640e787c67344f12f6"},
 ]
 foursight-cgap = [
-    {file = "foursight-cgap-0.4.9.1b24.tar.gz", hash = "sha256:407636efb38526c9e0353f73a878b99bc2c92331ae03b9929422af98f3876822"},
-    {file = "foursight_cgap-0.4.9.1b24-py3-none-any.whl", hash = "sha256:12303cfdad3403d010e31fb2dd1575cd55782857e7dd4c9f097d51ea924423e7"},
+    {file = "foursight-cgap-0.4.9.1b25.tar.gz", hash = "sha256:996ba55d0da08f1cd581413c507c24c10a0582c1a1505d00c564dde1763ff21b"},
+    {file = "foursight_cgap-0.4.9.1b25-py3-none-any.whl", hash = "sha256:49d6727c9f6407a664be937d22eea877265573ef8ecadeeabe70acc1071edd2d"},
 ]
 foursight-core = [
     {file = "foursight_core-0.1.9.1b33-py3-none-any.whl", hash = "sha256:b0c4bcca8e336b736ab59a42da3c2a9bb890c34b8a38b3680eb78c3f1b49a973"},
