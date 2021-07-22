@@ -149,7 +149,7 @@
         "title": "d) CGAP trigger VCF ingestion",
         "group": "Pipeline checks",
         "schedule": {
-            "manual_checks": {
+            "hourly_checks": {
                 "cgap-mastertest": {
                     "kwargs": {
                         "primary": true
@@ -305,7 +305,7 @@
        "title": "Metawfrs_to_run",
         "group": "Pipeline checks",
         "schedule": {
-            "manual_checks": {
+            "fifteen_min_checks_3": {
                 "cgap-mastertest": {
                     "kwargs": {"primary": true, "queue_action": "prod"},
                     "dependencies": []
@@ -317,7 +317,7 @@
         "title": "Metawfrs to check status",
         "group": "Pipeline checks",
         "schedule": {
-            "manual_checks": {
+            "fifteen_min_checks": {
                 "cgap-mastertest": {
                     "kwargs": {"primary": true, "queue_action": "prod"},
                     "dependencies": []
@@ -341,7 +341,7 @@
         "title": "Spot-failed Metawfrs",
         "group": "Pipeline checks",
         "schedule": {
-            "manual_checks": {
+            "fifteen_min_checks_2": {
                 "cgap-mastertest": {
                     "kwargs": {"primary": true, "queue_action": "prod"},
                     "dependencies": []
@@ -353,7 +353,7 @@
         "title": "Metawfrs to patch samples with processed files",
         "group": "Pipeline checks",
         "schedule": {
-            "manual_checks": {
+            "hourly_checks_2": {
                 "cgap-mastertest": {
                     "kwargs": {"primary": true},
                     "dependencies": []
@@ -365,7 +365,7 @@
         "title": "Metawfrs to patch sample processing with processed files",
         "group": "Pipeline checks",
         "schedule": {
-            "manual_checks": {
+            "hourly_checks_2": {
                 "cgap-mastertest": {
                     "kwargs": {"primary": true},
                     "dependencies": []
@@ -377,7 +377,7 @@
         "title": "Metawfrs to run line count qc",
         "group": "Pipeline checks",
         "schedule": {
-            "manual_checks": {
+            "hourly_checks": {
                 "cgap-mastertest": {
                     "kwargs": {"primary": true},
                     "dependencies": []
@@ -389,7 +389,7 @@
         "title": "a) md5 runs",
         "group": "Pipeline checks",
         "schedule": {
-            "manual_checks": {
+            "hourly_checks": {
                 "cgap-mastertest": {
                     "kwargs": {"primary": true},
                     "dependencies": []
