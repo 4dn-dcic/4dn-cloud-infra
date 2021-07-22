@@ -337,6 +337,18 @@
             }
         }
     },
+  "spot_failed_metawfrs" : {
+        "title": "Spot-failed Metawfrs",
+        "group": "Pipeline checks",
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {"primary": true, "queue_action": "prod"},
+                    "dependencies": []
+                }
+            }
+        }
+    },
   "metawfrs_to_patch_samples": {
         "title": "Metawfrs to patch samples with processed files",
         "group": "Pipeline checks",
