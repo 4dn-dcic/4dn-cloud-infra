@@ -149,7 +149,7 @@
         "title": "d) CGAP trigger VCF ingestion",
         "group": "Pipeline checks",
         "schedule": {
-            "manual_checks": {
+            "hourly_checks": {
                 "cgap-mastertest": {
                     "kwargs": {
                         "primary": true
@@ -300,7 +300,103 @@
         "display": [
             "cgap-mastertest"
         ]
-  }
+  },
+  "metawfrs_to_run":  {
+       "title": "Metawfrs_to_run",
+        "group": "Pipeline checks",
+        "schedule": {
+            "fifteen_min_checks_3": {
+                "cgap-mastertest": {
+                    "kwargs": {"primary": true, "queue_action": "prod"},
+                    "dependencies": []
+                }
+            }
+        }
+    },
+  "metawfrs_to_checkstatus" : {
+        "title": "Metawfrs to check status",
+        "group": "Pipeline checks",
+        "schedule": {
+            "fifteen_min_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {"primary": true, "queue_action": "prod"},
+                    "dependencies": []
+                }
+            }
+        }
+    },
+  "failed_metawfrs" : {
+        "title": "Failed Metawfrs",
+        "group": "Pipeline checks",
+        "schedule": {
+            "manual_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {"primary": true},
+                    "dependencies": []
+                }
+            }
+        }
+    },
+  "spot_failed_metawfrs" : {
+        "title": "Spot-failed Metawfrs",
+        "group": "Pipeline checks",
+        "schedule": {
+            "fifteen_min_checks_2": {
+                "cgap-mastertest": {
+                    "kwargs": {"primary": true, "queue_action": "prod"},
+                    "dependencies": []
+                }
+            }
+        }
+    },
+  "metawfrs_to_patch_samples": {
+        "title": "Metawfrs to patch samples with processed files",
+        "group": "Pipeline checks",
+        "schedule": {
+            "hourly_checks_2": {
+                "cgap-mastertest": {
+                    "kwargs": {"primary": true},
+                    "dependencies": []
+                }
+            }
+        }
+    },
+  "metawfrs_to_patch_sample_processing": {
+        "title": "Metawfrs to patch sample processing with processed files",
+        "group": "Pipeline checks",
+        "schedule": {
+            "hourly_checks_2": {
+                "cgap-mastertest": {
+                    "kwargs": {"primary": true},
+                    "dependencies": []
+                }
+            }
+        }
+    },
+  "metawfrs_to_check_linecount": {
+        "title": "Metawfrs to run line count qc",
+        "group": "Pipeline checks",
+        "schedule": {
+            "hourly_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {"primary": true},
+                    "dependencies": []
+                }
+            }
+        }
+    },
+  "md5runCGAP_status" : {
+        "title": "a) md5 runs",
+        "group": "Pipeline checks",
+        "schedule": {
+            "hourly_checks": {
+                "cgap-mastertest": {
+                    "kwargs": {"primary": true},
+                    "dependencies": []
+                }
+            }
+        }
+    }
 }
 
 
