@@ -132,12 +132,13 @@ class C4Network(C4Part):
                                                                  'com.amazonaws.us-east-1.ec2'))
         template.add_resource(self.create_vpc_interface_endpoint('ebs',
                                                                  'com.amazonaws.us-east-1.ebs'))
-        template.add_resource(self.create_vpc_interface_endpoint('dynamodb',
-                                                                 'com.amazonaws.us-east-1.dynamodb'))
         template.add_resource(self.create_vpc_interface_endpoint('lambda',
                                                                  'com.amazonaws.us-east-1.lambda'))
         template.add_resource(self.create_vpc_interface_endpoint('states',
                                                                  'com.amazonaws.us-east-1.states'))
+        # XXX: This one requires a gateway
+        # template.add_resource(self.create_vpc_interface_endpoint('dynamodb',
+        #                                                          'com.amazonaws.us-east-1.dynamodb'))
         return template
 
     def internet_gateway(self) -> InternetGateway:
