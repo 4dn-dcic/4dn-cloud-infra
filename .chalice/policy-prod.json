@@ -16,7 +16,8 @@
         "autoscaling:*",
         "iam:PassRole",
         "elasticloadbalancing:*",
-        "states:*"
+        "states:*",
+        "dynamodb:*"
       ],
       "Resource": [
         "*"
