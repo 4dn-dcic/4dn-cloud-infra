@@ -1,6 +1,8 @@
 import os
 import json
+import re
 import subprocess
+
 from dcicutils.misc_utils import dict_zip
 from troposphere import (
     Join, Ref, Template, Tags, Parameter, Output, GetAtt,
@@ -67,6 +69,22 @@ class C4DatastoreExports(C4Exports):
     APPLICATION_INDEXER_DLQ = 'ExportApplicationIndexerDLQ'
     APPLICATION_INGESTION_QUEUE = 'ExportApplicationIngestionQueue'
     APPLICATION_INDEXER_REALTIME_QUEUE = 'ExportApplicationIndexerRealtimeQueue'  # unused
+
+    # e.g., name will be C4DatastoreTrialAlphaExportElasticSearchURL
+    #       or might not contain '...Alpha...'
+    _ES_URL_EXPORT_PATTERN = re.compile('.*Datastore.*ElasticSearchURL.*')
+
+    @classmethod
+    def get_es_url(cls):
+        return ConfigManager.find_stack_output(cls._ES_URL_EXPORT_PATTERN.match, value_only=True)
+
+    # e.g., name will be C4DatastoreTrialAlphaExportFoursightEnvsBucket
+    #       or might not contain '...Alpha...'
+    _ENVS_BUCKET_EXPORT_PATTERN = re.compile(".*Datastore.*EnvsBucket")
+
+    @classmethod
+    def get_envs_bucket(cls):
+        return ConfigManager.find_stack_output(cls._ENVS_BUCKET_EXPORT_PATTERN.match, value_only=True)
 
     def __init__(self):
         # The intention here is that Beanstalk/ECS stacks will use these outputs and reduce amount

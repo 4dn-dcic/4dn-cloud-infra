@@ -11,6 +11,8 @@ from .exceptions import CLIException
 from .constants import ENV_NAME, S3_BUCKET_ORG, S3_ENCRYPT_KEY, DEPLOYING_IAM_USER
 
 
+_MISSING = object()
+
 REGISTERED_STACKS = {}
 
 COMMON_STACK_PREFIX = "c4-"
@@ -71,8 +73,8 @@ class ConfigManager:
         #       even after we changed to blue/green, but unless we're trying to make this deployment procedure
         #       cover that special case, it should suffice (and use fewer environment variables) to only worry
         #       about ENV_NAME. -kmp 24-Jun-2021
-        env_name = os.environ[ENV_NAME]
-        org_name = os.environ.get(S3_BUCKET_ORG)  # Result is allowed to be missing or empty if none desired.
+        env_name = ConfigManager.get_environ_var(ENV_NAME)
+        org_name = ConfigManager.get_environ_var(S3_BUCKET_ORG, default=None)  # Result is allowed to be missing or empty if none desired.
         org_prefix = (org_name + "-") if org_name else ""
         bucket_name = bucket_template.format(env_name=env_name, org_prefix=org_prefix)
         # print(bucket_template,"=>",bucket_name)
@@ -118,6 +120,14 @@ class ConfigManager:
 
     AWS_DEFAULT_TEST_CREDS_DIR_FILE = "~/.aws_test_creds_dir"
     AWS_DEFAULT_DEFAULT_TEST_CREDS_DIR = "~/.aws_test"
+
+    @classmethod
+    def get_environ_var(cls, env_var, default=_MISSING):
+        with cls.validate_and_source_configuration():
+            if default is _MISSING:
+                return os.environ[env_var]
+            else:
+                return os.environ.get(env_var)
 
     @classmethod
     def compute_aws_default_test_creds_dir(cls):
@@ -176,7 +186,7 @@ class ConfigManager:
 
     @classmethod
     def get_stack_output(cls, stack, output_id):
-        entry = find_association(stack.outputs, OutputKey=output_id)
+        entry = find_association(stack.outputs or [], OutputKey=output_id)
         return entry['OutputValue']
 
     @classmethod
@@ -199,7 +209,7 @@ class ConfigManager:
     def find_stack_outputs(cls, key_or_pred, value_only=False):
         results = {}
         for stack in cls._cloudformation().stacks.all():
-            for found in find_associations(stack.outputs, OutputKey=key_or_pred):
+            for found in find_associations(stack.outputs or [], OutputKey=key_or_pred):
                 results[found['OutputKey']] = found['OutputValue']
         if value_only:
             return list(results.values())
@@ -213,6 +223,8 @@ class ConfigManager:
         if n == 0:
             return None
         elif n == 1:
-            return results
+            return (results[0]  # in this case, result is a list, so take its first element
+                    if value_only
+                    else results)   # if not value-only, result is a dictionary, which is fine
         else:
             raise ValueError(f"Too many matches for {key_or_pred}: {results}")

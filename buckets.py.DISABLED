@@ -11,9 +11,11 @@ class Buckets(Buckets_from_core):
 
 
 def main():
+    # TODO: This really only wants to create the global_env_bucket data on a one-time basis
+    #       This uses legacy code that won't work in orchestration and we need to rewrite
     buckets = Buckets()
-    buckets.create_buckets()
-    buckets.configure_env_bucket()
+    buckets.create_buckets()  # calls obsolete code in foursight-core that we don't want to use any more, write new.
+    buckets.configure_env_bucket()  # ditto
 
 
 if __name__ == '__main__':

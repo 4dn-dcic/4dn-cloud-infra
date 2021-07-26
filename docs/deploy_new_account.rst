@@ -110,15 +110,21 @@ that bucket in the AWS Console for S3 and upload a file that contains::
 
     {
         "fourfront": "<your-http-cgap-domain-here-with-no-trailing-slash>",
-        "es": "<your-https-elasticsearch-url-here-with-no-trailing-slash>",
-        "ff_env": "<your-ff-env-here>"
+        "es": "<your-https-elasticsearch-url-here-with-:443-and-no-trailing-slash>",
+        "ff_env": "<env-name>"
     }
 
+The file ``.chalice/cgap-mastertest`` contains an example of what is loaded into our initial test account at
+``s3://foursight-cgap-mastertest-envs/cgap-mastertest``, but the specific name of the bucket to load into is
+different in each account because s3 namespacing requires that. Rather than manage this manually there
+is an automatic tool to help.
 
-Upload a global env configuration to enable foursight. Automated upload script to follow. TODO.
+To provision this bucket do::
 
-Currently, you can upload the file `.chalice/cgap-mastertest` to the global bucket env, which, on the trial account, is
-`s3://foursight-cgap-mastertest-envs/cgap-mastertest`.
+    assure-global-bucket-env <env-name>
+
+It should interactively confirm the environment that it will upload, and what accout it will upload into.  If the global env bucket
+has not been created yet for that account, it will complain, but that should have happened in the datastore stack.
 
 To deploy foursight, use this command::
 
@@ -131,4 +137,9 @@ To deploy foursight, use this command::
     #       (The name is in transition, so for now please set both names. Eventually ony GLOBAL_ENV_BUCKET      #
     #       will be needed.)                                                                                    #
     #############################################################################################################
+
+This will not entirely succeed on the first attempt. You'll need to run this a second time once various values have
+been created, but first you need to:
+
+TODO: INSERT INSTRUCTIONS FOR CONSTANTS TO UPDATE AFTER FIRST FOURSIGHT INSTALL.
 

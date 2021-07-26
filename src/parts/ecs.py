@@ -25,12 +25,14 @@ from troposphere.ecs import (
 )
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
 from troposphere.cloudwatch import Alarm, MetricDimension
+from src.base import ConfigManager
 from src.constants import (
     ENV_NAME, ECS_IMAGE_TAG,
     ECS_WSGI_COUNT, ECS_WSGI_CPU, ECS_WSGI_MEM,  # XXX: refactor
     ECS_INDEXER_COUNT, ECS_INDEXER_CPU, ECS_INDEXER_MEM,
     ECS_INGESTER_COUNT, ECS_INGESTER_CPU, ECS_INGESTER_MEM, IDENTITY,
 )
+from src.exports import C4Exports
 from src.part import C4Part
 from src.parts.network import C4NetworkExports, C4Network
 from src.parts.ecr import C4ECRExports
@@ -46,6 +48,26 @@ class C4ECSApplicationTypes:
     INDEXER = 'indexer'
     INGESTER = 'ingester'
     DEPLOYMENT = 'deployment'
+
+
+class C4ECSApplicationExports(C4Exports):
+    """ Holds ECS export metadata. """
+
+    @classmethod
+    def output_application_url_key(self, env):
+        return 'ECSApplicationURL%s' % env.replace('-', '')
+
+    @classmethod
+    def get_application_url(cls, env):
+        # e.g., applicaton_url_key = 'ECSApplicationURLcgapmastertest' for cgap-mastertest
+        application_url_key = cls.output_application_url_key(env)
+        application_url = ConfigManager.find_stack_output(application_url_key, value_only=True)
+        return application_url
+
+    def __init__(self):
+        # The intention here is that Beanstalk/ECS stacks will use these outputs and reduce manual configuration.
+        parameter = 'ECSStackNameParameter'
+        super().__init__(parameter)
 
 
 class C4ECSApplication(C4Part):
@@ -252,7 +274,7 @@ class C4ECSApplication(C4Part):
         """ Outputs URL to access portal. """
         env = env or os.environ.get(ENV_NAME) or 'cgap-mastertest'
         return Output(
-            'ECSApplicationURL%s' % env.replace('-', ''),
+            C4ECSApplicationExports.output_application_url_key(env),
             Description='URL of CGAP-Portal.',
             Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer(), 'DNSName')])
         )
