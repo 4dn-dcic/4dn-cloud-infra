@@ -108,13 +108,6 @@ class C4Datastore(C4Part):
     # Intended to be .formatted with the deploying env_name
 
     APPLICATION_LAYER_BUCKETS = {
-        # C4DatastoreExports.APPLICATION_BLOBS_BUCKET: 'application-{org_prefix}{env_name}-blobs',
-        # C4DatastoreExports.APPLICATION_FILES_BUCKET: 'application-{org_prefix}{env_name}-files',
-        # C4DatastoreExports.APPLICATION_WFOUT_BUCKET: 'application-{org_prefix}{env_name}-wfout',
-        # C4DatastoreExports.APPLICATION_SYSTEM_BUCKET: 'application-{org_prefix}{env_name}-system',
-        # C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET: 'application-{org_prefix}{env_name}-metadata-bundles',
-        # C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET: 'application-{org_prefix}{env_name}-tibanna-logs',
-
         C4DatastoreExports.APPLICATION_BLOBS_BUCKET: ConfigManager.AppBucketTemplate.BLOBS,
         C4DatastoreExports.APPLICATION_FILES_BUCKET: ConfigManager.AppBucketTemplate.FILES,
         C4DatastoreExports.APPLICATION_WFOUT_BUCKET: ConfigManager.AppBucketTemplate.WFOUT,
@@ -137,9 +130,6 @@ class C4Datastore(C4Part):
     # FOURSIGHT_LAYER_PREFIX = 'foursight-{org_prefix}{env_name}'
 
     FOURSIGHT_LAYER_BUCKETS = {
-        # C4DatastoreExports.FOURSIGHT_ENV_BUCKET: FOURSIGHT_LAYER_PREFIX + '-envs',
-        # C4DatastoreExports.FOURSIGHT_RESULT_BUCKET: FOURSIGHT_LAYER_PREFIX + '-results',
-        # C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET: FOURSIGHT_LAYER_PREFIX + '-application-versions',
         C4DatastoreExports.FOURSIGHT_ENV_BUCKET: ConfigManager.FSBucketTemplate.ENVS,
         C4DatastoreExports.FOURSIGHT_RESULT_BUCKET: ConfigManager.FSBucketTemplate.RESULTS,
         C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET: ConfigManager.FSBucketTemplate.APPLICATION_VERSIONS,
