@@ -53,7 +53,7 @@ def main(simulated_args=None):
         description="Resolve the foursight check_setup.json file based on template in check_json.template.json",
         epilog=EPILOG,  formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--env_name", default=DEFAULT_ENVIRONMENT,
+    parser.add_argument("--env_name", default=None,
                         help="name of the default environment to configure")
     parser.add_argument("--template_file", default=None,
                         help=f"template path to use for testing instead of {DEFAULT_TEMPLATE_FILE}")
