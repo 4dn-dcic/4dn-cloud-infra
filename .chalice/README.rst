@@ -1,3 +1,8 @@
+=========================
+About the .chalice folder
+=========================
+
+
 Populating the Global Env Bucket
 ================================
 
