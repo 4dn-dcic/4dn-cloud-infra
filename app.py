@@ -36,8 +36,7 @@ if not FOURSIGHT_PREFIX:
     else:
         raise RuntimeError("The FOURSIGHT_PREFIX environment variable is not set. Heuristics failed.")
 
-# DEFAULT_ENV = 'cgap-mastertest'  # This is typically overridden by something like config.json
-DEFAULT_ENV = os.environ.get('ENV_NAME')  #
+DEFAULT_ENV = os.environ.get('ENV_NAME', "cgap-uninitialized")
 
 
 # This object usually in chalicelib/app_utils.py
