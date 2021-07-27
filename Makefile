@@ -84,6 +84,9 @@ submission:  # TODO: This make target is highly account-specific and needs work 
 	@echo 'Associate this item with the output VCF by adding the VCF file to the "processed_files" field.'
 	@echo 'Once this is done, trigger ingestion with: "make ingestion". '
 
+test:
+	pytest -vv
+
 
 ingestion:
 	@echo 'Triggering ingestion'
@@ -94,9 +97,10 @@ info:
 	@: $(info Here are some 'make' options:)
 	   $(info - Use 'make alpha' to trigger validation of the alpha stack.)
 	   $(info - Use 'make build' to populate the current virtualenv with necessary libraries and commands.)
-	   $(info - Use 'make legacy' to trigger validation of the legacy stack.)
 	   $(info - Use 'make deploy-alpha-p1' to trigger phase 1 of the alpha deployment: change set upload of the IAM, Logging, Network, ECR and Datastore.)
 	   $(info - Use 'make deploy-alpha-p2' to trigger phase 2 of the alpha deployment: application version upload to ECR, ECS provisioning.)
+	   $(info - use 'make ingestion' to trigger the last phase of testing)
+	   $(info - Use 'make legacy' to trigger validation of the legacy stack.)
 	   $(info - use 'make provision-knowledge-base' to trigger phase 1 of testing)
 	   $(info - use 'make submission' to trigger phase 2 of testing, note manual steps after phase 2!)
-	   $(info - use 'make ingestion' to trigger the last phase of testing)
+	   $(info - use 'make test' to run unit tests. (These only test scattered things. Manual testing is essential.))
