@@ -202,7 +202,7 @@ class ConfigManager:
         for stack in cls._cloudformation().stacks.all():
             if prefix in stack.name:
                 candidates.append(stack)
-        [candidate] = candidates
+        [candidate] = candidates or [None]
         return candidate
 
     @classmethod
@@ -228,3 +228,31 @@ class ConfigManager:
                     else results)   # if not value-only, result is a dictionary, which is fine
         else:
             raise ValueError(f"Too many matches for {key_or_pred}: {results}")
+
+    @classmethod
+    def find_stack_resource(cls, stack_name_token, resource_logical_id, attr=None, default=None):
+        """
+        Looks up a resource or resource attribute in a given stack.
+
+        This is intended to use our mechanisms for looking up a stack in spite of its complex name,
+        and then returning a given resource or some attribute of it. For example:
+
+          ConfigManager.find_stack_resource('foursight', 'CheckRunner', 'physical_resource_id')
+
+        might find a stack named 'c4-foursight-trial-alpha-stack' and then would look up
+        the physical_resource_id of its CheckRunner resource. Without the final argument, the
+        resource itself is returned.
+
+        The default is returned if the stack doesn't exist, the named resource doesn't exist,
+        or (if a resource attribute is requested) no such attribute exists in the resource.
+        """
+        stack = cls.find_stack(stack_name_token)
+        if not stack:
+            return default
+        for summary in stack.resource_summaries.all():
+            if summary.logical_id == resource_logical_id:
+                if attr is None:
+                    return summary
+                else:
+                    return getattr(summary, attr, default)
+        return default

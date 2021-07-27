@@ -7,7 +7,7 @@ from chalicelib.package import PackageDeploy as PackageDeploy_from_cgap
 from os.path import dirname
 from troposphere import Template, Ref
 from .base import COMMON_STACK_PREFIX, ConfigManager
-from .constants import CHECK_RUNNER, FOURSIGHT_SECURITY_IDS, FOURSIGHT_SUBNET_IDS, ENV_NAME
+from .constants import ENV_NAME  # , CHECK_RUNNER, FOURSIGHT_SECURITY_IDS, FOURSIGHT_SUBNET_IDS
 from .part import C4Name, C4Tags, C4Account, C4Part
 from .parts.datastore import C4DatastoreExports
 from .parts.network import C4NetworkExports
@@ -116,7 +116,11 @@ class C4FoursightCGAPStack(BaseC4Stack):
             security_ids=self.security_ids,
             subnet_ids=self.subnet_ids,
             trial_creds=self.trial_creds,
-            check_runner=ConfigManager.get_environ_var(CHECK_RUNNER, default=None))
+            # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
+            # On the second attempt to create the stack, the physical resource ID will be used.
+            check_runner=(ConfigManager.find_stack_resource('foursight', 'CheckRunner', 'physical_resource_id')
+                          or "CheckRunner-PLACEHOLDER")
+        )
 
     class PackageDeploy(PackageDeploy_from_cgap):
 
