@@ -151,14 +151,11 @@ class C4Network(C4Part):
 
         # Add Bastion Host
         # template.add_resource(self.bastion_host())
-        # Add VPC Endpoints for AWS Services (to reduce NAT Gateway charges)
+        # Add VPC Interface Endpoints for AWS Services (to reduce NAT Gateway charges)
         # NOTE: the service names vary by region, so this may need to be configurable
         # See: aws ec2 describe-vpc-endpoint-services
         template.add_resource(self.create_vpc_interface_endpoint('sqs',
                                                                  'com.amazonaws.us-east-1.sqs'))
-        template.add_resource(self.create_vpc_interface_endpoint('s3',
-                                                                 'com.amazonaws.us-east-1.s3',
-                                                                 dns=False))
         template.add_resource(self.create_vpc_interface_endpoint('ecrapi',
                                                                  'com.amazonaws.us-east-1.ecr.api'))
         template.add_resource(self.create_vpc_interface_endpoint('ecrdkr',
@@ -169,7 +166,19 @@ class C4Network(C4Part):
                                                                  'com.amazonaws.us-east-1.ssm'))
         template.add_resource(self.create_vpc_interface_endpoint('logs',
                                                                  'com.amazonaws.us-east-1.logs'))
-
+        template.add_resource(self.create_vpc_interface_endpoint('ec2',
+                                                                 'com.amazonaws.us-east-1.ec2'))
+        template.add_resource(self.create_vpc_interface_endpoint('ebs',
+                                                                 'com.amazonaws.us-east-1.ebs'))
+        template.add_resource(self.create_vpc_interface_endpoint('lambda',
+                                                                 'com.amazonaws.us-east-1.lambda'))
+        template.add_resource(self.create_vpc_interface_endpoint('states',
+                                                                 'com.amazonaws.us-east-1.states'))
+        # Add VPC Gateway endpoints
+        template.add_resource(self.create_vpc_gateway_endpoint('dynamodb',
+                                                               'com.amazonaws.us-east-1.dynamodb'))
+        template.add_resource(self.create_vpc_gateway_endpoint('s3',
+                                                               'com.amazonaws.us-east-1.s3'))
         return template
 
     def internet_gateway(self) -> InternetGateway:
@@ -626,7 +635,7 @@ class C4Network(C4Part):
             :param dns: boolean on whether or not to provide private DNS (must be disabled for s3)
         """
         # com.amazonaws.us-east-1.sqs -> sqs
-        logical_id = self.name.logical_id('%sVPCEndpoint' % identifier)
+        logical_id = self.name.logical_id('%sVPCIEndpoint' % identifier)
         return VPCEndpoint(
             logical_id,
             VpcId=Ref(self.virtual_private_cloud()),
@@ -635,4 +644,21 @@ class C4Network(C4Part):
             ServiceName=service_name,
             SubnetIds=[Ref(self.private_subnet_a()), Ref(self.private_subnet_b())],
             SecurityGroupIds=[Ref(self.application_security_group())]
+        )
+
+    def create_vpc_gateway_endpoint(self, identifier, service_name) -> VPCEndpoint:
+        """ Creates a (gateway) VPC Endpoint for the given service_name (in private subnets).
+            See notes on S3 and DynamoDB:
+            https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints.html
+
+            :param identifier: a name to be used in the logical ID for this VPC Gateway Endpoint
+            :param service_name: the aws service name for this endpoint, see aws ec2 describe-vpc-endpoint-services
+        """
+        logical_id = self.name.logical_id('%sVPCGEndpoint' % identifier)
+        return VPCEndpoint(
+            logical_id,
+            VpcId=Ref(self.virtual_private_cloud()),
+            VpcEndpointType='Gateway',
+            ServiceName=service_name,
+            RouteTableIds=Ref(self.private_route_table())
         )

@@ -13,14 +13,14 @@ packages = [
 python = ">=3.6.10,<3.7"
 
 awacs = "^1.0.4"
-boto3 = "^1.15.16"
-botocore = "^1.18.16"
-cfn-flip = "^1.2.3"
-cfn-lint = "^0.48.1"  # a secondary check that catches more things than standard validate - Will 4/1/2021
-dcicutils = "^1.19.0"
-foursight-cgap = "0.4.9.1b27"
+boto3 = "^1.18.7"
+botocore = "^1.21.7"
+cfn-flip = "^1.2.3"  # do we need to specify this explicitly? -kmp 27-Jul-2021
+cfn-lint = "^0.48.3"  # a secondary check that catches more things than standard validate - Will 4/1/2021
+dcicutils = "^1.19.0"  # this version is the min as it contains first iteration of related utils
+foursight-cgap = "0.4.9.1b32"
 foursight-core = "0.1.9.1b37"
-future = "0.18.2"
+future = "^0.18.2"  # do we need to specify this explicitly, and should version really be pinned? -kmp 27-Jul-2021
 google-api-core = "^1.23.0"
 google-api-python-client = "^1.12.5"
 google-auth = "^1.23.0"
@@ -30,13 +30,14 @@ googleapis-common-protos = "^1.52.0"
 pyrsistent = "^0.17.3"
 python-levenshtein = "^0.12.2"
 pytest = "^5.1.2"
-submit-cgap = "^0.7.3"
-tibanna = "1.4.0b2"
+tibanna = "1.4.0b2"  # why only 1.4.0b0 in master?
 tqdm = "^4.60.0"
 troposphere = "^2.7.1"
 
 
 [tool.poetry.dev-dependencies]
+boto3-stubs = "^1.18.7"
+botocore-stubs = "^1.21.7"
 chalice = "^1.21.4"
 wheel = ">=0.36.2,<1"
 

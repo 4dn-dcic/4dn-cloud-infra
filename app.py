@@ -78,9 +78,37 @@ def morning_10am_utc():
 
 
 foursight_cron_by_schedule = {
+    'prod': {
+        'ten_min_checks': Cron('0/10', '*', '*', '*', '?', '*'),
+        'fifteen_min_checks': Cron('0/15', '*', '*', '*', '?', '*'),
+        'fifteen_min_checks_2': Cron('5/15', '*', '*', '*', '?', '*'),
+        'fifteen_min_checks_3': Cron('10/15', '*', '*', '*', '?', '*'),
+        'thirty_min_checks': Cron('0/30', '*', '*', '*', '?', '*'),
+        'hourly_checks': Cron('0', '0/1', '*', '*', '?', '*'),
+        'hourly_checks_2': Cron('15', '0/1', '*', '*', '?', '*'),
+        'early_morning_checks': Cron('0', '8', '*', '*', '?', '*'),
+        'morning_checks': Cron('0', '10', '*', '*', '?', '*'),
+        'morning_checks_2': Cron('15', '10', '*', '*', '?', '*'),
+        'evening_checks': Cron('0', '22', '*', '*', '?', '*'),
+        'monday_checks': Cron('0', '9', '?', '*', '2', '*'),
+        'monthly_checks': Cron('0', '9', '1', '*', '?', '*'),
+        'manual_checks': effectively_never(),
+    },
     'dev': {
-        'morning_checks': morning_10am_utc(),
-        'manual_checks': effectively_never()
+        'ten_min_checks': Cron('5/10', '*', '*', '*', '?', '*'),
+        'fifteen_min_checks': Cron('0/15', '*', '*', '*', '?', '*'),
+        'fifteen_min_checks_2': Cron('5/15', '*', '*', '*', '?', '*'),
+        'fifteen_min_checks_3': Cron('10/15', '*', '*', '*', '?', '*'),
+        'thirty_min_checks': Cron('15/30', '*', '*', '*', '?', '*'),
+        'hourly_checks': Cron('30', '0/1', '*', '*', '?', '*'),
+        'hourly_checks_2': Cron('45', '0/1', '*', '*', '?', '*'),
+        'early_morning_checks': Cron('0', '8', '*', '*', '?', '*'),
+        'morning_checks': Cron('30', '10', '*', '*', '?', '*'),
+        'morning_checks_2': Cron('45', '10', '*', '*', '?', '*'),
+        'evening_checks': Cron('0', '22', '*', '*', '?', '*'),
+        'monday_checks': Cron('30', '9', '?', '*', '2', '*'),
+        'monthly_checks': Cron('30', '9', '1', '*', '?', '*'),
+        'manual_checks': effectively_never(),
     }
 }
 
@@ -93,6 +121,31 @@ def manual_checks():
 @app.schedule(foursight_cron_by_schedule[STAGE]['morning_checks'])
 def morning_checks(event):
     app_utils_obj.queue_scheduled_checks('all', 'morning_checks')
+
+
+@app.schedule(foursight_cron_by_schedule[STAGE]['fifteen_min_checks'])
+def fifteen_min_checks(event):
+    app_utils_obj.queue_scheduled_checks('all', 'fifteen_min_checks')
+
+
+@app.schedule(foursight_cron_by_schedule[STAGE]['fifteen_min_checks_2'])
+def fifteen_min_checks_2(event):
+    app_utils_obj.queue_scheduled_checks('all', 'fifteen_min_checks_2')
+
+
+@app.schedule(foursight_cron_by_schedule[STAGE]['fifteen_min_checks_3'])
+def fifteen_min_checks_3(event):
+    app_utils_obj.queue_scheduled_checks('all', 'fifteen_min_checks_3')
+
+
+@app.schedule(foursight_cron_by_schedule[STAGE]['hourly_checks'])
+def hourly_checks(event):
+    app_utils_obj.queue_scheduled_checks('all', 'hourly_checks')
+
+
+@app.schedule(foursight_cron_by_schedule[STAGE]['hourly_checks_2'])
+def hourly_checks_2(event):
+    app_utils_obj.queue_scheduled_checks('all', 'hourly_checks_2')
 
 
 ###############################
