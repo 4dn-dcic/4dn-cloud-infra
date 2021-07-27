@@ -40,6 +40,5 @@ ECS_INGESTER_MEM = 'ecs.ingester.mem'
 IDENTITY = 'identity'  # XXX: import from dcicutils
 
 # Foursight Configuration Options
+# TODO: This might no longer be needed since we now compute the runner in stack.py. -kmp 27-Jul-2021
 CHECK_RUNNER = 'CHECK_RUNNER'
-# FOURSIGHT_SECURITY_IDS = 'foursight.security_ids'
-# FOURSIGHT_SUBNET_IDS = 'foursight.subnet_ids'
