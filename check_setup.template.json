@@ -4,7 +4,7 @@
         "group": "Metadata checks",
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {
                         "primary": true
                     }
@@ -12,7 +12,7 @@
             }
         },
         "display": [
-          "<env_name>"
+          "<env-name>"
         ]
     },
     "indexing_progress": {
@@ -20,7 +20,7 @@
         "group": "Elasticsearch checks",
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {
                         "primary": true
                     }
@@ -28,7 +28,7 @@
             }
         },
         "display": [
-          "<env_name>"
+          "<env-name>"
         ]
     },
     "status_of_elasticsearch_indices": {
@@ -37,7 +37,7 @@
         "conditions": ["put_env"],
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {
                         "primary": true
                     }
@@ -45,7 +45,7 @@
             }
         },
         "display": [
-          "<env_name>"
+          "<env-name>"
         ]
     },
     "indexing_records": {
@@ -54,7 +54,7 @@
         "conditions": ["put_env"],
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {
                         "primary": true
                     }
@@ -62,7 +62,7 @@
             }
         },
         "display": [
-          "<env_name>"
+          "<env-name>"
         ]
     },
     "change_in_item_counts": {
@@ -70,7 +70,7 @@
         "group": "Metadata checks",
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {
                         "primary": true
                     }
@@ -78,7 +78,7 @@
             }
         },
         "display": [
-          "<env_name>"
+          "<env-name>"
         ]
     },
     "page_children_routes": {
@@ -86,7 +86,7 @@
         "group": "Audit checks",
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {
                         "primary": true
                     }
@@ -94,7 +94,7 @@
             }
         },
         "display": [
-          "<env_name>"
+          "<env-name>"
         ]
     },
     "workflow_properties": {
@@ -102,7 +102,7 @@
         "group": "Audit checks",
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {
                         "primary": true
                     }
@@ -110,7 +110,7 @@
             }
         },
         "display": [
-          "<env_name>"
+          "<env-name>"
         ]
     },
     "check_validation_errors": {
@@ -118,7 +118,7 @@
         "group": "Audit checks",
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {
                         "primary": true
                     }
@@ -126,7 +126,7 @@
             }
         },
         "display": [
-          "<env_name>"
+          "<env-name>"
         ]
     },
     "check_suggested_enum_values": {
@@ -134,7 +134,7 @@
         "group": "Metadata checks",
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {
                         "primary": true
                     }
@@ -142,7 +142,7 @@
             }
         },
         "display": [
-          "<env_name>"
+          "<env-name>"
         ]
     },
     "ingest_vcf_status" : {
@@ -150,7 +150,7 @@
         "group": "Pipeline checks",
         "schedule": {
             "hourly_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {
                         "primary": true
                     }
@@ -158,7 +158,7 @@
             }
         },
         "display": [
-          "<env_name>"
+          "<env-name>"
         ]
     },
     "elastic_search_space" : {
@@ -166,7 +166,7 @@
         "group": "Elasticsearch checks",
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {
                         "primary": true
                     }
@@ -174,7 +174,7 @@
             }
         },
         "display": [
-          "<env_name>"
+          "<env-name>"
         ]
     },
     "elasticsearch_s3_count_diff" : {
@@ -182,7 +182,7 @@
         "group": "Elasticsearch checks",
         "schedule" : {
             "morning_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {"primary": true}
                 }
             }
@@ -193,7 +193,7 @@
         "group": "System checks",
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {
                         "primary": true
                     }
@@ -201,7 +201,7 @@
             }
         },
         "display": [
-          "<env_name>"
+          "<env-name>"
         ]
     },
     "core_project_status":{
@@ -209,7 +209,7 @@
         "group": "Metadata checks",
         "schedule": {
             "morning_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {
                         "primary": true,
                         "item_type": ["VariantSample", "Case", "Family",
@@ -221,7 +221,7 @@
             }
         },
         "display": [
-            "<env_name>"
+            "<env-name>"
         ]
     },
     "workflow_run_has_deleted_input_file": {
@@ -229,14 +229,14 @@
         "group": "Metadata checks",
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {"primary": true},
                     "dependencies": []
                 }
             }
         },
         "display": [
-            "<env_name>"
+            "<env-name>"
         ]
     },
     "update_variant_genelist":{
@@ -244,7 +244,7 @@
         "group": "Metadata checks",
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {
                         "primary": true,
                         "queue_action": "prod"
@@ -253,7 +253,7 @@
             }
         },
         "display": [
-            "<env_name>"
+            "<env-name>"
         ]
     },
    "long_running_wfrs_status" : {
@@ -261,14 +261,14 @@
         "group": "Pipeline checks",
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {"primary": true},
                     "dependencies": []
                 }
             }
         },
         "display": [
-            "<env_name>"
+            "<env-name>"
         ]
    },
     "ecs_status": {
@@ -276,14 +276,14 @@
         "group": "ECS Checks",
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {"primary": true},
                     "dependencies": []
                 }
             }
         },
         "display": [
-            "<env_name>"
+            "<env-name>"
         ]
     },
     "update_ecs_application_versions": {
@@ -291,14 +291,14 @@
         "group": "ECS Checks",
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {"primary": true},
                     "dependencies": []
                 }
             }
         },
         "display": [
-            "<env_name>"
+            "<env-name>"
         ]
     },
     "metawfrs_to_run":  {
@@ -306,7 +306,7 @@
         "group": "Pipeline checks",
         "schedule": {
             "fifteen_min_checks_3": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {"primary": true, "queue_action": "prod"},
                     "dependencies": []
                 }
@@ -318,7 +318,7 @@
         "group": "Pipeline checks",
         "schedule": {
             "fifteen_min_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {"primary": true, "queue_action": "prod"},
                     "dependencies": []
                 }
@@ -330,7 +330,7 @@
         "group": "Pipeline checks",
         "schedule": {
             "manual_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {"primary": true},
                     "dependencies": []
                 }
@@ -342,7 +342,7 @@
         "group": "Pipeline checks",
         "schedule": {
             "fifteen_min_checks_2": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {"primary": true, "queue_action": "prod"},
                     "dependencies": []
                 }
@@ -354,7 +354,7 @@
         "group": "Pipeline checks",
         "schedule": {
             "hourly_checks_2": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {"primary": true},
                     "dependencies": []
                 }
@@ -366,7 +366,7 @@
         "group": "Pipeline checks",
         "schedule": {
             "hourly_checks_2": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {"primary": true},
                     "dependencies": []
                 }
@@ -378,7 +378,7 @@
         "group": "Pipeline checks",
         "schedule": {
             "hourly_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {"primary": true},
                     "dependencies": []
                 }
@@ -390,7 +390,7 @@
         "group": "Pipeline checks",
         "schedule": {
             "hourly_checks": {
-                "<env_name>": {
+                "<env-name>": {
                     "kwargs": {"primary": true},
                     "dependencies": []
                 }

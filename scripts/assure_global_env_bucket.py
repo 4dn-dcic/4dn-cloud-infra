@@ -15,9 +15,9 @@ from src.base import ConfigManager
 def configure_env_bucket(env=None):
     # We don't do 'global_env_bucket = C4DatastoreExports.get_envs_bucket()' because the GLOBAL_ENV_BUCKET
     # is in the config and was presumably made to the same spec.
-    global_env_bucket = ConfigManager.get_environ_var(GLOBAL_ENV_BUCKET)
+    global_env_bucket = ConfigManager.get_config_setting(GLOBAL_ENV_BUCKET)
     s3 = boto3.client('s3')
-    env = env or ConfigManager.get_environ_var(ENV_NAME)
+    env = env or ConfigManager.get_config_setting(ENV_NAME)
     content = {
         "fourfront": C4ECSApplicationExports.get_application_url(env),
         "es": "https://" + C4DatastoreExports.get_es_url() + ":443",
@@ -32,7 +32,7 @@ def configure_env_bucket(env=None):
         raise
     body = json.dumps(content, indent=2).encode('utf-8')
     print(f"To be uploaded: {body.decode('utf-8')}")
-    if yes_or_no(f"Uplaod this into {env} in account {ConfigManager.get_environ_var(ACCOUNT_NUMBER)}?"):
+    if yes_or_no(f"Uplaod this into {env} in account {ConfigManager.get_config_setting(ACCOUNT_NUMBER)}?"):
         s3.put_object(Bucket=global_env_bucket, Key=env, Body=body)
     else:
         print("Aborted.")

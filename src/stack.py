@@ -105,7 +105,7 @@ class C4FoursightCGAPStack(BaseC4Stack):
                 'CLIENT_SECRET': Auth0Secret,
                 'DEV_SECRET': ENCODED_SECRET,
                 'ES_HOST': C4DatastoreExports.get_es_url() + ":443",
-                'ENV_NAME': ConfigManager.get_environ_var(ENV_NAME)  # "cgap-mastertest-kmp"
+                'ENV_NAME': ConfigManager.get_config_setting(ENV_NAME)  # "cgap-mastertest-kmp"
             }
         # print(f"self.trial_creds['ENV_NAME'] = {self.trial_creds['ENV_NAME']}")
         super().__init__(description, name, tags, account)

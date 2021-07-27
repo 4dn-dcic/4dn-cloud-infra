@@ -46,6 +46,9 @@ def lookup_stack_creator(name, kind, exact=False):
     raise CLIException("A %s stack %s %r was not found." % (kind, "called" if exact else "whose name contains", name))
 
 
+ROOT_DIR = os.path.dirname(os.path.dirname(__file__))  # Our parent dir
+
+
 class ConfigManager:
 
     # Singleton Pattern. All internal methods assume an instance. The class methods will assure the instance
@@ -73,8 +76,8 @@ class ConfigManager:
         #       even after we changed to blue/green, but unless we're trying to make this deployment procedure
         #       cover that special case, it should suffice (and use fewer environment variables) to only worry
         #       about ENV_NAME. -kmp 24-Jun-2021
-        env_name = ConfigManager.get_environ_var(ENV_NAME)
-        org_name = ConfigManager.get_environ_var(S3_BUCKET_ORG, default=None)  # Result is allowed to be missing or empty if none desired.
+        env_name = ConfigManager.get_config_setting(ENV_NAME)
+        org_name = ConfigManager.get_config_setting(S3_BUCKET_ORG, default=None)  # Result is allowed to be missing or empty if none desired.
         org_prefix = (org_name + "-") if org_name else ""
         bucket_name = bucket_template.format(env_name=env_name, org_prefix=org_prefix)
         # print(bucket_template,"=>",bucket_name)
@@ -107,7 +110,8 @@ class ConfigManager:
             config = {k: str(v) for k, v in config.items()}
             return config
 
-    CONFIG_FILE = 'config.json'  # path to config file, top level by default (previously named CONFIGURATION)
+    # path to config file, top level by default (previously named CONFIGURATION)
+    CONFIG_FILE = os.path.join(ROOT_DIR, 'config.json')
 
     @classmethod
     @contextmanager
@@ -122,12 +126,14 @@ class ConfigManager:
     AWS_DEFAULT_DEFAULT_TEST_CREDS_DIR = "~/.aws_test"
 
     @classmethod
-    def get_environ_var(cls, env_var, default=_MISSING):
+    def get_config_setting(cls, var, default=_MISSING):
         with cls.validate_and_source_configuration():
+            # At some point, we can & should get rid of the use of os.environ
+            # and just get this straight from the config.
             if default is _MISSING:
-                return os.environ[env_var]
+                return os.environ[var]
             else:
-                return os.environ.get(env_var)
+                return os.environ.get(var)
 
     @classmethod
     def compute_aws_default_test_creds_dir(cls):

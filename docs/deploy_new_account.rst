@@ -123,10 +123,20 @@ To provision this bucket do::
 
     assure-global-bucket-env <env-name>
 
-It should interactively confirm the environment that it will upload, and what accout it will upload into.  If the global env bucket
-has not been created yet for that account, it will complain, but that should have happened in the datastore stack.
+It should interactively confirm the environment that it will upload, and what accout it will upload into.
+If the global env bucket has not been created yet for that account, it will complain, but that should have
+happened in the datastore stack.
 
-To deploy foursight, use this command::
+You'll also need to initialize the foursight checks for your environment. This will create the file
+``vendor/check_setup.py`` that you need for use with Foursight. To do this, do::
+
+    resolve-foursight-checks
+
+(The ``resolve-foursight-checks`` command copies ``check-setup.template.py`` into ``vendor/check-setup.py``,
+replacing ``"<env-name>"`` with your chosen environment name, which is taken from the setting of ``ENCODED_BS_ENV``
+in your ``config.json``.)
+
+At this point, you should be ready to deploy foursight. To do so, use this command::
 
     source ~/.aws_test/test_creds.sh
     poetry run cli provision --trial --output_file out/foursight-dev-tmp/ --stage dev foursight --alpha --upload_change_set
@@ -139,7 +149,4 @@ To deploy foursight, use this command::
     #############################################################################################################
 
 This will not entirely succeed on the first attempt. You'll need to run this a second time once various values have
-been created, but first you need to:
-
-TODO: INSERT INSTRUCTIONS FOR CONSTANTS TO UPDATE AFTER FIRST FOURSIGHT INSTALL.
-
+been created.

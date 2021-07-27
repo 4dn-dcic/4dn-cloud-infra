@@ -682,7 +682,7 @@ description = "Serverless Chalice Application for Monitoring"
 name = "foursight-core"
 optional = false
 python-versions = ">=3.6,<3.7"
-version = "0.1.9.1b37"
+version = "0.1.9.1b38"
 
 [package.dependencies]
 Jinja2 = "2.10.1"
@@ -1609,7 +1609,7 @@ docs = ["sphinx", "jaraco.packaging (>=8.2)", "rst.linker (>=1.9)"]
 testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-cov", "pytest-enabler (>=1.0.1)", "jaraco.itertools", "func-timeout", "pytest-black (>=0.3.7)", "pytest-mypy"]
 
 [metadata]
-content-hash = "fa679eb1e070554c2a50397737ca2d60a555337f4bcdf379a8f1bf37e1e814e4"
+content-hash = "5bbc2e5f9845f6740fac5436d49617f43c80318c531914e1225fb20ab7c6cb90"
 python-versions = ">=3.6.10,<3.7"
 
 [metadata.files]
@@ -1732,8 +1732,8 @@ foursight-cgap = [
     {file = "foursight_cgap-0.4.9.1b32-py3-none-any.whl", hash = "sha256:4a576f34c1361766ad4482e22339a759a4c0e100dc4141e79646bf748dc7de72"},
 ]
 foursight-core = [
-    {file = "foursight_core-0.1.9.1b37-py3-none-any.whl", hash = "sha256:1a2ea7c34911bb9c62b401bf584842e9dbb3863bd85d2ff763d243d9bbfcc51f"},
-    {file = "foursight_core-0.1.9.1b37.tar.gz", hash = "sha256:4522d113b11a721e05809add7b71740e6dee42a65a8905645b389d5f7d859f68"},
+    {file = "foursight_core-0.1.9.1b38-py3-none-any.whl", hash = "sha256:321e8d8b6210139cbb4a885e1a04673a251eb0c91e68ba55cee890b6324a4c66"},
+    {file = "foursight_core-0.1.9.1b38.tar.gz", hash = "sha256:edbad72f1ce23aedc971fc3661c115cde64c833620df2ad2875845331a7ed1fe"},
 ]
 future = [
     {file = "future-0.18.2.tar.gz", hash = "sha256:b1bead90b70cf6ec3f0710ae53a525360fa360d306a86583adc6bf83a4db537d"},

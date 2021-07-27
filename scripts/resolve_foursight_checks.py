@@ -3,24 +3,26 @@ import io
 import json
 import os
 
-from dcicutils.misc_utils import full_class_name
+from dcicutils.misc_utils import full_class_name, file_contents
+from src.constants import ENV_NAME
+from src.base import ConfigManager
 
 
 EPILOG = __doc__
 
-DEFAULT_ENVIRONMENT = 'cgap-mastertest'
+DEFAULT_ENVIRONMENT = json.loads(file_contents(ConfigManager.CONFIG_FILE))[ENV_NAME]
 DEFAULT_TEMPLATE_FILE = "check_setup.template.json"
 DEFAULT_TARGET_FILE = "vendor/check_setup.json"
 
-ENV_NAME_MARKER = "<env_name>"
+ENV_NAME_MARKER = "<env-name>"
 
 
 def resolve_foursight_checks(env_name=None, template_file=None, target_file=None):
     """
-    Substitutes the given env_name for the JSON string token "<env_name>" in the content of the template file,
+    Substitutes the given env_name for the JSON string token "<env-name>" in the content of the template file,
     writing the result as the target file.
     """
-    env_name = env_name or os.environ.get("ENV_NAME") or DEFAULT_ENVIRONMENT
+    env_name = env_name or DEFAULT_ENVIRONMENT
     template_file = template_file or DEFAULT_TEMPLATE_FILE
     target_file = target_file or DEFAULT_TARGET_FILE
     with io.open(template_file, 'r') as input_fp:
@@ -54,7 +56,7 @@ def main(simulated_args=None):
         epilog=EPILOG,  formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--env_name", default=None,
-                        help="name of the default environment to configure")
+                        help=f"name of environment to configure (default {DEFAULT_ENVIRONMENT})")
     parser.add_argument("--template_file", default=None,
                         help=f"template path to use for testing instead of {DEFAULT_TEMPLATE_FILE}")
     parser.add_argument("--target_file", default=None,
