@@ -79,6 +79,7 @@ class ConfigManager:
         env_name = ConfigManager.get_config_setting(ENV_NAME)
         org_name = ConfigManager.get_config_setting(S3_BUCKET_ORG, default=None)  # Result is allowed to be missing or empty if none desired.
         org_prefix = (org_name + "-") if org_name else ""
+        org_or_env_name = org_name or env_name  # compatibility. original account didn't have an org, so used env_name
         bucket_name = bucket_template.format(env_name=env_name, org_prefix=org_prefix)
         # print(bucket_template,"=>",bucket_name)
         return bucket_name
@@ -178,6 +179,7 @@ class ConfigManager:
 
     class FSBucketTemplate:
 
+        # TODO: Should this be ENVS = 'foursight-{org_or_env_name}-envs' ?
         ENVS = 'foursight-{org_prefix}{env_name}-envs'
         RESULTS = 'foursight-{org_prefix}{env_name}-results'
         APPLICATION_VERSIONS ='foursight-{org_prefix}{env_name}-application-versions'
