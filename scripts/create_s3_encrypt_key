@@ -1,5 +1,30 @@
 #!/usr/bin/env bash
 
+openssl_vendor=`openssl version | cut -d ' ' -f 1`
+
+if [ -z "${openssl_vendor}" ]; then
+  echo "OpenSSL is not installed."
+  echo "You can install it on MacOS by using brew."
+  exit 1
+elif [ "${openssl_vendor}" != "OpenSSL" ]; then
+  echo "Your openssl version ($(openssl version) from $(which openssl)) is probably incompatible."
+  brew_openssl_dir=`brew --prefix openssl`
+  if [ -n "${brew_openssl_dir}" ]; then
+    brew_openssl_version=`${brew_openssl_dir}/bin/openssl version | cut -d ' ' -f 1-2`
+    echo "Brew has already installed ${brew_openssl_version} on this machine."
+    echo "To use the brew version, add this to your ~/.bash_profile or ~/.bashrc:"
+    echo "  export PATH=${brew_openssl_dir}/bin:\$PATH"
+  else
+    echo "You can get the right version on MacOS by using brew."
+  fi
+  exit 1
+fi
+
+if [ ! -e "~/.aws_test" ]; then
+  echo "The file ~/.aws_test does not exist. You may not have the right credentials selected."
+  exit 1
+fi
+
 verbose=FALSE
 if [ "$1" = "-v" -o "$1" = "--verbose" ]; then
     verbose=TRUE
