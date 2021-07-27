@@ -67,6 +67,16 @@ You can request this from the 'Service Quotas' console_.
     #############################################################################
     docker run --rm -it -v ~/.aws_test:/root/.aws amazon/aws-cli iam create-service-linked-role --aws-service-name ecs.amazonaws.com
 
+    ################################################################################
+    # You will need to make sure you have an s3 encrypt key for your test account. #
+    # You want to create this only one time and to be careful about where you      #
+    # keep it. This script will store it in your ~/.aws_test/ directory as         #
+    # s3_encrypt_key.txt and will set appropriate permissions so it is hard for    #
+    # others to see and hard for you to accidentally delete. Other deployment      #
+    # tools know to look for it in this location.                                  #
+    ################################################################################
+    make assure-s3-encrypt-key
+
     poetry run cli provision datastore --validate --alpha --upload_change_set
 
 More info: https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/slr-es.html
