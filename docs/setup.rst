@@ -66,28 +66,33 @@ config.json file at repo top level - use the JSON structure below as a template.
 
 ::
     {
-        "account_number": <your account number, found in the console>,
-        "identity": name of AWS Secret containing application configuration
-
         "deploying_iam_user": <your IAM user name, not the full ARN>,
-        "rds.instance_size": "db.t3.xlarge",
-        "rds.storage_size": 20,
-        "rds.db_name": "ebdb",
-        "rds.az": "us-east-1a",
-        "elasticsearch.master_node_count": 3,  # XXX: Not enabled currently
-        "elasticsearch.master_node_type": "c5.large.elasticsearch",
-        "elasticsearch.data_node_count": 2,  # current prod data node configuration
-        "elasticsearch.data_node_type": "c5.2xlarge.elasticsearch",
-        "elasticsearch.volume_size": 20,
-        "ecs.wsgi.count": 8,  # use a smaller value for testing. perhaps 2 or 4
-        "ecs.wsgi.cpu": "256",
-        "ecs.wsgi.mem": "512",
+        "account_number": <your account number, found in the console>,
+        "identity": <name of AWS Secret containing application configuration>,
+        "ENCODED_BS_ENV": <the-environment-you-want>,
+        "GLOBAL_ENV_BUCKET": <name of the global env bucket>,
+        "GLOBAL_BUCKET_ENV": <same as GLOBAL_ENV_BUCKET, but for backward compatibility>,
+        "s3.bucket.org": <a short name meant to uniquely identify your organization>,
+
         "ecs.indexer.count": 4,
         "ecs.indexer.cpu": "256",
         "ecs.indexer.mem": "512",
         "ecs.ingester.count": 1,
         "ecs.ingester.cpu": "512",
         "ecs.ingester.mem": "1024",
+        "ecs.wsgi.count": 8,  # use a smaller value for testing. perhaps 2 or 4
+        "ecs.wsgi.cpu": "256",
+        "ecs.wsgi.mem": "512",
+        "elasticsearch.data_node_count": 2,  # current prod data node configuration
+        "elasticsearch.data_node_type": "c5.2xlarge.elasticsearch",
+        "elasticsearch.master_node_count": 3,  # XXX: Not enabled currently
+        "elasticsearch.master_node_type": "c5.large.elasticsearch",
+        "elasticsearch.volume_size": 20,
+        "rds.az": "us-east-1a",
+        "rds.db_name": "ebdb",
+        "rds.db_port": "5432",
+        "rds.instance_size": "db.t3.xlarge",
+        "rds.storage_size": 20,
     }
 
 To configure the CGAP infrastructure (post-orchestration), you need to modify a JSON secret in AWS SecretsManager,
