@@ -4,14 +4,14 @@
     {
       "Action": [
         "s3:*",
-        "elasticbeanstalk:*",
         "lambda:*",
         "sqs:*",
         "es:*",
         "rds:*",
         "ec2:*",
         "ecs:*",
-        "cloudformation:*"
+        "cloudformation:*",
+        "states:*"
       ],
       "Resource": [
         "*"
