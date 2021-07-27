@@ -150,3 +150,6 @@ At this point, you should be ready to deploy foursight. To do so, use this comma
 
 This will not entirely succeed on the first attempt. You'll need to run this a second time once various values have
 been created.
+
+At this point, Foursight should work but you won't be able to login without registering the generated domain with auth0.
+
