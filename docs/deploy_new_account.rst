@@ -133,7 +133,7 @@ To provision this bucket do::
 
     assure-global-bucket-env <env-name>
 
-It should interactively confirm the environment that it will upload, and what accout it will upload into.
+It should interactively confirm the environment that it will upload, and what account it will upload into.
 If the global env bucket has not been created yet for that account, it will complain, but that should have
 happened in the datastore stack.
 
@@ -142,7 +142,7 @@ You'll also need to initialize the foursight checks for your environment. This w
 
     resolve-foursight-checks
 
-(The ``resolve-foursight-checks`` command copies ``check-setup.template.py`` into ``vendor/check-setup.py``,
+(The ``resolve-foursight-checks`` command copies ``check_setup.template.json`` into ``vendor/check_setup.json``,
 replacing ``"<env-name>"`` with your chosen environment name, which is taken from the setting of ``ENCODED_BS_ENV``
 in your ``config.json``.)
 
