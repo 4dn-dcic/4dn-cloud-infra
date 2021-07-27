@@ -34,12 +34,6 @@ class C4NetworkExports(C4Exports):
         # e.g., for the Alpha environment, the orginal value was hardwired as: ['sg-03f5fdd36be96bbf4']
         computed_result = ConfigManager.find_stack_outputs(cls._APPLICATION_SECURITY_GROUP_EXPORT_PATTERN.match,
                                                            value_only=True)
-        # security_ids_spec = ConfigManager.get_environ_var(FOURSIGHT_SECURITY_IDS, default=None)
-        # if security_ids_spec:  # We can get rid of this soon, but for now assure it's consistent.
-        #     declared_result = [spec.strip() for spec in security_ids_spec.split(",")]
-        #     if computed_result and sorted(declared_result) != sorted(computed_result):  # order doesn't matter
-        #         raise ValueError(f"Declared value of {FOURSIGHT_SECURITY_IDS}, {declared_result},"
-        #                          f" does not match computed result, {computed_result}.")
         return computed_result
 
     # e.g., name will be 'C4NetworkTrialAlphaExportPrivateSubnetA' (or '...B')
@@ -51,14 +45,7 @@ class C4NetworkExports(C4Exports):
         # There will be several outputs (currently 2, but maybe more in the future), returned as a list.
         # e.g., for the Alpha environment, the original value was hand-coded as:
         #       ['subnet-09ed0bb672993c7ac', 'subnet-00778b903b357d331']
-
         computed_result = ConfigManager.find_stack_outputs(cls._PRIVATE_SUBNET_EXPORT_PATTERN.match, value_only=True)
-        # subnet_ids_spec = ConfigManager.get_environ_var(FOURSIGHT_SUBNET_IDS, default=None)
-        # if subnet_ids_spec:  # We can get rid of this soon, but for now assure it's consistent.
-        #     declared_result = [spec.strip() for spec in subnet_ids_spec.split(",")]
-        #     if computed_result and sorted(declared_result) != sorted(computed_result):  # order doesn't matter
-        #         raise ValueError(f"Declared value of {FOURSIGHT_SUBNET_IDS}, {declared_result},"
-        #                          f" does not match computed result, {computed_result}.")
         return computed_result
 
     def __init__(self):
