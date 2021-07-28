@@ -15,7 +15,7 @@ from .base import lookup_stack_creator, ConfigManager
 from .exceptions import CLIException
 from .part import C4Account
 from .stack import C4FoursightCGAPStack
-from .stacks.trial import c4_stack_trial_network_metadata, c4_stack_trial_tibanna
+# from .stacks.trial import c4_stack_trial_network_metadata, c4_stack_trial_tibanna
 from .stacks.trial_alpha import c4_alpha_stack_trial_metadata
 
 
@@ -160,22 +160,24 @@ class C4Client:
 
         creds_dir = ConfigManager.get_creds_dir()  # was args.creds_dir
 
-        if cls.is_legacy(args):
-            network_stack_name, _ = c4_stack_trial_network_metadata()
+        # if cls.is_legacy(args):
+        #     network_stack_name, _ = c4_stack_trial_network_metadata()
+        #
+        #     parameter_flags = [
+        #         '--parameter-overrides',  # the flag itself
+        #         cls.build_parameter_override(param_name='NetworkStackNameParameter',
+        #                                      value=network_stack_name.stack_name),
+        #     ]
+        #
+        #     flags = cls.build_flags(
+        #         template_flag=cls.build_template_flag(file_path=file_path),
+        #         stack_flag=cls.build_stack_flag(stack_name=stack.name.stack_name),
+        #         parameter_flags=' '.join(parameter_flags),
+        #         capability_flags=cls.build_capability_param(stack),  # defaults to IAM
+        #     )
+        # else:
+        if True:  # We don't want to consider the legacy case any more. -kmp&will 28-Jul-2021
 
-            parameter_flags = [
-                '--parameter-overrides',  # the flag itself
-                cls.build_parameter_override(param_name='NetworkStackNameParameter',
-                                             value=network_stack_name.stack_name),
-            ]
-
-            flags = cls.build_flags(
-                template_flag=cls.build_template_flag(file_path=file_path),
-                stack_flag=cls.build_stack_flag(stack_name=stack.name.stack_name),
-                parameter_flags=' '.join(parameter_flags),
-                capability_flags=cls.build_capability_param(stack),  # defaults to IAM
-            )
-        else:
             network_stack_name, _ = c4_alpha_stack_trial_metadata(name='network')  # XXX: constants
             iam_stack_name, _ = c4_alpha_stack_trial_metadata(name='iam')
             ecr_stack_name, _ = c4_alpha_stack_trial_metadata(name='ecr')
@@ -224,9 +226,10 @@ class C4Client:
     @staticmethod
     def is_legacy(args):
         """ 'legacy' in this case is beanstalk """
-        if args.alpha:
-            return False
-        return True
+        result = not args.alpha
+        if result:
+            raise NotImplementedError("We don't implement legacy support any more.")
+        return result
 
     @staticmethod
     def resolve_account(args):
@@ -324,9 +327,10 @@ class C4Client:
         creds_dir = ConfigManager.get_creds_dir()  # was args.creds_dir
 
         with ConfigManager.validate_and_source_configuration(creds_dir=creds_dir):
-            if cls.is_legacy(args):
-                stack = cls.resolve_legacy_stack(args)
-            else:
+            # if cls.is_legacy(args):
+            #     stack = cls.resolve_legacy_stack(args)
+            # else:
+            if True:  # We're not considering the legacy case any more. -kmp&will 28-Jul-2021
                 stack = cls.resolve_alpha_stack(args)
 
             # Handle foursight
@@ -344,22 +348,24 @@ class C4Client:
     @classmethod
     def manage_tibanna(cls, args):
         """ Implements 'tibanna' command. """
-        account = C4Client.resolve_account(args)
-        c4_tibanna = c4_stack_trial_tibanna(account=account)
-        c4_tibanna_part = c4_tibanna.parts[0]  # better way to reference tibanna part
-        if args.confirm:
-            dry_run = False
-        else:
-            dry_run = True
-        if args.init_tibanna:  # runs initial tibanna setup
-            c4_tibanna_part.initial_deploy(dry_run=dry_run)
-        elif args.tibanna_run:  # runs a workflow on tibanna
-            logger.warning(f'tibanna run on {args.tibanna_run}')
-            c4_tibanna_part.tibanna_run(input=args.tibanna_run, dry_run=dry_run)
-        elif args.cmd == [] or args.cmd[0] == 'help':  # displays tibanna help
-            c4_tibanna_part.run_tibanna_cmd(['--help'])
-        else:  # runs given tibanna command directly
-            c4_tibanna_part.run_tibanna_cmd(args.cmd, dry_run=dry_run)
+        # We want to install tibanna differently. -kmp&will 28-Jul-2021
+        raise NotImplementedError("c4_stack_trial_tibanna is not implemented (in manage_tibanna).")
+        # account = C4Client.resolve_account(args)
+        # c4_tibanna = c4_stack_trial_tibanna(account=account)
+        # c4_tibanna_part = c4_tibanna.parts[0]  # better way to reference tibanna part
+        # if args.confirm:
+        #     dry_run = False
+        # else:
+        #     dry_run = True
+        # if args.init_tibanna:  # runs initial tibanna setup
+        #     c4_tibanna_part.initial_deploy(dry_run=dry_run)
+        # elif args.tibanna_run:  # runs a workflow on tibanna
+        #     logger.warning(f'tibanna run on {args.tibanna_run}')
+        #     c4_tibanna_part.tibanna_run(input=args.tibanna_run, dry_run=dry_run)
+        # elif args.cmd == [] or args.cmd[0] == 'help':  # displays tibanna help
+        #     c4_tibanna_part.run_tibanna_cmd(['--help'])
+        # else:  # runs given tibanna command directly
+        #     c4_tibanna_part.run_tibanna_cmd(args.cmd, dry_run=dry_run)
 
     @staticmethod
     def info(args):
@@ -447,6 +453,9 @@ def cli():
 
     args = parser.parse_args()
     ConfigManager.set_creds_dir(args.creds_dir)  # This must be done as early as possible for good consistency.
+
+    if not args.alpha:
+        raise NotImplementedError("We don't implement the non --alpha case any more.")
 
     if args.debug:
         logger.setLevel(logging.DEBUG)
