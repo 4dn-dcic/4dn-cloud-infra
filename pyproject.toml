@@ -44,12 +44,15 @@ wheel = ">=0.36.2,<1"
 [tool.poetry.scripts]
 assure-global-bucket-env = "scripts.assure_global_env_bucket:main"
 cli = "src.cli:cli"
+deploy-ecs = "scripts.deploy_ecs:main"
 load-knowledge-base = "scripts.load_knowledge_base:main"
+open-foursight-url = "scripts.find_foursight:open_foursight_url_main"
+show-foursight-url = "scripts.find_foursight:show_foursight_url_main"
 queue-ingestion = "scripts.queue_ingestion:main"
 resolve-foursight-checks = "scripts.resolve_foursight_checks:main"
 upload-application-version = "scripts.upload_application_version:main"
 upload-file-processed = "scripts.upload_file_processed:main"
-deploy-ecs = "scripts.deploy_ecs:main"
+
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

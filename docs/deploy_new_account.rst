@@ -40,13 +40,12 @@ Note that the HMS email you use to create this account is treated as the 'root a
 Step Two: CGAP Orchestration with Cloud Formation
 -------------------------------------------------
 
-Note: you will need to request more elastic IPs from AWS, as described _here.
+Note: you will need to request more elastic IPs from AWS,
+as described
+`here <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html>`_.
 
-: _here https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html
-
-You can request this from the 'Service Quotas' console_.
-
-: _console https://console.aws.amazon.com/servicequotas/home/services/ec2/quotas
+You can request this from the `Service Quotas console
+<https://console.aws.amazon.com/servicequotas/home/services/ec2/quotas>`_.
 
 * Upload base templates required for starting the application.
 
@@ -84,17 +83,16 @@ More info: https://docs.aws.amazon.com/elasticsearch-service/latest/developergui
 
 These will take about fifteen minutes or so to finish provisioning, and should be run in order.
 While they are instantiating, write the global application configuration in secrets manager.
-There is more documentation on this is in `docs/setup.rst`.
+There is more documentation on this is in ``docs/setup.rst``.
 
 Once your new ECR comes online, upload an application image to it.
 See the cgap-portal Makefile. Push the image tag specified in ``config.json`` prior to deploying ECS.
 
 * Once all base stacks have finishing instantiating -- all stacks should be in state `UPDATE_COMPLETE` -- you can
-  provision the application stack.
-
-   ::
+  provision the application stack by doing::
 
      poetry run cli provision ecs --validate --alpha --upload_change_set
+
 
 * Once the application has finishing instantiating, you can deploy the portal.
 
@@ -161,5 +159,19 @@ At this point, you should be ready to deploy foursight. To do so, use this comma
 This will not entirely succeed on the first attempt. You'll need to run this a second time once various values have
 been created.
 
-At this point, Foursight should work but you won't be able to login without registering the generated domain with auth0.
+At this point, Foursight should be working.
+
+**NOTE:**
+You may not be able to login without registering the generated domain with auth0.
+To see the URL use::
+
+    show-foursight-url
+
+The output should look like::
+
+    https://pme0nsfegf.execute-api.us-east-1.amazonaws.com/api/view/cgap-mastertest-kmp
+
+To open the URL instead, use::
+
+    open-foursight-url
 
