@@ -25,7 +25,7 @@ from troposphere.kms import Key
 from dcicutils.env_utils import prod_bucket_env
 from dcicutils.misc_utils import as_seconds
 from src.constants import (
-    ACCOUNT_NUMBER,
+    # ACCOUNT_NUMBER,
     DEPLOYING_IAM_USER, ENV_NAME,
     S3_BUCKET_ORG,
     # S3_ENCRYPT_KEY,
@@ -456,7 +456,7 @@ class C4Datastore(C4Part):
             options['DomainEndpointOptions'] = DomainEndpointOptions(EnforceHTTPS=True)
         except NotImplementedError:
             pass
-        account_num = os.environ.get(ACCOUNT_NUMBER)
+        # account_num = os.environ.get(ACCOUNT_NUMBER)
         return Domain(
             logical_id,
             DomainName=domain_name,
