@@ -1,8 +1,10 @@
 import io
-import os
-from tqdm import tqdm
 import json
+import os
+
 from dcicutils import ff_utils
+from tqdm import tqdm
+
 
 # Precondition: both of these must exist
 PATH_TO_CREDS = os.path.expanduser('~/.cgap-keys.json')

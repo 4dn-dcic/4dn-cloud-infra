@@ -3,8 +3,8 @@ import boto3
 import subprocess
 
 from dcicutils.misc_utils import find_association
-from src.base import ConfigManager
-from src.constants import ENV_NAME
+from ..base import ConfigManager
+from ..constants import ENV_NAME
 
 
 EPILOG = __doc__
@@ -40,11 +40,7 @@ def show_foursight_url_main(simulated_args=None):
     )
     parser.add_argument("--region", default=None, help="name of AWS region to use")
     parser.add_argument("--env_name", default=None, help="name of environment to configure")
-    parser.add_argument('--creds_dir', default=ConfigManager.compute_aws_default_test_creds_dir(),
-                        help='Sets aws creds dir', type=str)
     args = parser.parse_args(args=simulated_args)
-    # print(f"creds_dir={args.creds_dir}")
-    ConfigManager.set_creds_dir(args.creds_dir)  # This must be done as early as possible for good consistency.
 
     print(get_foursight_url(region=args.region, env_name=args.env_name))
 
@@ -56,10 +52,6 @@ def open_foursight_url_main(simulated_args=None):
     )
     parser.add_argument("--region", default=None, help="name of AWS region to use")
     parser.add_argument("--env_name", default=None, help="name of environment to configure")
-    parser.add_argument('--creds_dir', default=ConfigManager.compute_aws_default_test_creds_dir(),
-                        help='Sets aws creds dir', type=str)
     args = parser.parse_args(args=simulated_args)
-    # print(f"creds_dir={args.creds_dir}")
-    ConfigManager.set_creds_dir(args.creds_dir)  # This must be done as early as possible for good consistency.
 
     open_foursight_url(region=args.region, env_name=args.env_name)

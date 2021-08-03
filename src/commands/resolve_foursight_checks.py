@@ -3,9 +3,9 @@ import io
 import json
 import os
 
-from dcicutils.misc_utils import full_class_name, file_contents
-from src.constants import ENV_NAME
-from src.base import ConfigManager
+from dcicutils.misc_utils import full_class_name, file_contents, json_leaf_subst
+from ..base import ConfigManager
+from ..constants import ENV_NAME
 
 
 EPILOG = __doc__
@@ -27,26 +27,26 @@ def resolve_foursight_checks(env_name=None, template_file=None, target_file=None
     target_file = target_file or DEFAULT_TARGET_FILE
     with io.open(template_file, 'r') as input_fp:
         template_value = json.load(input_fp)
-    checks = json_subst_all(template_value, {ENV_NAME_MARKER: env_name})
+    checks = json_leaf_subst(template_value, {ENV_NAME_MARKER: env_name})
     with io.open(target_file, 'w') as output_fp:
         json.dump(checks, output_fp, indent=2)
         output_fp.write('\n')  # Write a trailing newline
         print(f"{os.path.abspath(target_file)} written.")
 
 
-def json_subst_all(exp, substitutions):  # This might want to move to dcicutils.misc_utils later
-    """
-    Given an expression and some substitutions, substitutes all occurrences of the given
-    """
-    def do_subst(e):
-        return json_subst_all(e, substitutions)
-    if isinstance(exp, dict):
-        return {do_subst(k): do_subst(v) for k, v in exp.items()}
-    elif isinstance(exp, list):
-        return [do_subst(e) for e in exp]
-    elif exp in substitutions:  # Something atomic like a string or number
-        return substitutions[exp]
-    return exp
+# def json_subst_all(exp, substitutions):  # This might want to move to dcicutils.misc_utils later
+#     """
+#     Given an expression and some substitutions, substitutes all occurrences of the given
+#     """
+#     def do_subst(e):
+#         return json_subst_all(e, substitutions)
+#     if isinstance(exp, dict):
+#         return {do_subst(k): do_subst(v) for k, v in exp.items()}
+#     elif isinstance(exp, list):
+#         return [do_subst(e) for e in exp]
+#     elif exp in substitutions:  # Something atomic like a string or number
+#         return substitutions[exp]
+#     return exp
 
 
 def main(simulated_args=None):

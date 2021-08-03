@@ -1,21 +1,16 @@
 import argparse
 import boto3
 import json
-import datetime
-import os
-import re
 
 from dcicutils.command_utils import yes_or_no
-from src.parts.datastore import C4DatastoreExports
-from src.parts.ecs import C4ECSApplicationExports
-from src.constants import ENV_NAME, GLOBAL_ENV_BUCKET, ACCOUNT_NUMBER
-from src.base import ConfigManager
+from ..base import ConfigManager
+from ..constants import ENV_NAME, ACCOUNT_NUMBER
+from ..parts.datastore import C4DatastoreExports
+from ..parts.ecs import C4ECSApplicationExports
 
 
 def configure_env_bucket(env=None):
-    # We don't do 'global_env_bucket = C4DatastoreExports.get_envs_bucket()' because the GLOBAL_ENV_BUCKET
-    # is in the config and was presumably made to the same spec.
-    global_env_bucket = ConfigManager.get_config_setting(GLOBAL_ENV_BUCKET)
+    global_env_bucket = C4DatastoreExports.get_envs_bucket()  # ConfigManager.get_config_setting(GLOBAL_ENV_BUCKET)
     s3 = boto3.client('s3')
     env = env or ConfigManager.get_config_setting(ENV_NAME)
     content = {
@@ -41,13 +36,9 @@ def configure_env_bucket(env=None):
 def main():
     parser = argparse.ArgumentParser(description='Assures presence and initialization of the global env bucket.')
     parser.add_argument('--env_name', help='The environment name to assure', default=None, type=str)
-    parser.add_argument('--creds_dir', default=ConfigManager.compute_aws_default_test_creds_dir(),
-                        help='Sets aws creds dir', type=str)
     args = parser.parse_args()
-    # print(f"creds_dir={args.creds_dir}")
-    ConfigManager.set_creds_dir(args.creds_dir)  # This must be done as early as possible for good consistency.
 
-    with ConfigManager.validate_and_source_configuration(creds_dir=ConfigManager.compute_aws_default_test_creds_dir()):
+    with ConfigManager.validate_and_source_configuration():
         configure_env_bucket(env=args.env_name)
 
 

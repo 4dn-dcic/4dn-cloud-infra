@@ -1,7 +1,9 @@
 import io
 import os
 import json
+
 from dcicutils import ff_utils
+
 
 # Precondition: both of these must exist
 PATH_TO_CREDS = os.path.expanduser('~/.cgap-keys.json')

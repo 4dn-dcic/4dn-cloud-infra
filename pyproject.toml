@@ -17,7 +17,7 @@ boto3 = "^1.18.7"
 botocore = "^1.21.7"
 cfn-flip = "^1.2.3"  # do we need to specify this explicitly? -kmp 27-Jul-2021
 cfn-lint = "^0.48.3"  # a secondary check that catches more things than standard validate - Will 4/1/2021
-dcicutils = "^1.19.0"  # this version is the min as it contains first iteration of related utils
+dcicutils = "1.20.0.1b1"  # Beta of "^1.21.0". Get json_leaf_subst and conjoined_list from this version or higher
 foursight-cgap = "0.4.9.1b32"
 foursight-core = "0.1.9.1b38"
 future = "^0.18.2"  # do we need to specify this explicitly, and should version really be pinned? -kmp 27-Jul-2021
@@ -42,16 +42,16 @@ chalice = "^1.21.4"
 wheel = ">=0.36.2,<1"
 
 [tool.poetry.scripts]
-assure-global-bucket-env = "scripts.assure_global_env_bucket:main"
+assure-global-bucket-env = "src.commands.assure_global_env_bucket:main"
 cli = "src.cli:cli"
-deploy-ecs = "scripts.deploy_ecs:main"
-load-knowledge-base = "scripts.load_knowledge_base:main"
-open-foursight-url = "scripts.find_foursight:open_foursight_url_main"
-show-foursight-url = "scripts.find_foursight:show_foursight_url_main"
-queue-ingestion = "scripts.queue_ingestion:main"
-resolve-foursight-checks = "scripts.resolve_foursight_checks:main"
-upload-application-version = "scripts.upload_application_version:main"
-upload-file-processed = "scripts.upload_file_processed:main"
+deploy-ecs = "src.commands.deploy_ecs:main"
+load-knowledge-base = "src.commands.load_knowledge_base:main"
+open-foursight-url = "src.commands.find_foursight:open_foursight_url_main"
+show-foursight-url = "src.commands.find_foursight:show_foursight_url_main"
+queue-ingestion = "src.commands.queue_ingestion:main"
+resolve-foursight-checks = "src.commands.resolve_foursight_checks:main"
+upload-application-version = "src.commands.upload_application_version:main"
+upload-file-processed = "src.commands.upload_file_processed:main"
 
 
 [build-system]
