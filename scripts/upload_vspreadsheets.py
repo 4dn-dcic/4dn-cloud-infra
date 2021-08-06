@@ -4,6 +4,7 @@ import csv
 import pickle
 import os.path
 
+from dcicutils.misc_utils import ignorable
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -105,6 +106,7 @@ def main():
     create_named_ranges_body = {
         'namedRanges': named_ranges
     }
+    ignorable(create_named_ranges_body)  # it would get used if code below is uncommented
     # TODO create named ranges dynamically (this script works because the named ranges are pre-defined)
     # res = sheet.create(body=create_named_ranges_body).execute()
 
@@ -125,8 +127,8 @@ def main():
             range=v,
             valueInputOption=VALUE_INPUT_OPTION,
             body=body
-        #).execute()
-        )   # TODO fix to run the script after debugging summary
+        #).execute()  # noQA - yeah, the indentation is odd, but what we're doing here is odd, too.
+        )   # TODO: fix to run the script after debugging summary
         results.append(result)
 
     print('Uploading Summary...')

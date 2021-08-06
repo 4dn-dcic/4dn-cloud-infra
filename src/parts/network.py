@@ -1,3 +1,4 @@
+import logging
 import re
 
 from troposphere import Ref, GetAtt, Output, Template
@@ -6,11 +7,10 @@ from troposphere.ec2 import (
     Subnet, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment, NatGateway, EIP, Instance, NetworkInterfaceProperty,
     VPCEndpoint,
 )
-from src.base import ConfigManager
-from src.part import C4Part
-# from src.constants import FOURSIGHT_SUBNET_IDS, FOURSIGHT_SECURITY_IDS
-from src.exports import C4Exports
-import logging
+from ..base import ConfigManager
+# from ..constants import FOURSIGHT_SUBNET_IDS, FOURSIGHT_SECURITY_IDS
+from ..exports import C4Exports
+from ..part import C4Part
 
 
 class C4NetworkExports(C4Exports):

@@ -4,7 +4,7 @@ import subprocess
 
 from dcicutils.misc_utils import find_association
 from ..base import ConfigManager
-from ..constants import ENV_NAME
+from ..constants import Settings
 
 
 EPILOG = __doc__
@@ -18,7 +18,7 @@ def get_foursight_url(region=None, env_name=None):
     if region is None:
         region = api_gateway.meta.region_name
     if env_name is None:
-        env_name = ConfigManager.get_config_setting(ENV_NAME)
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
     rest_apis = api_gateway.get_rest_apis()['items']
     foursight_api = find_association(rest_apis, name=lambda x: x.startswith("foursight_"))
     if not foursight_api:

@@ -33,3 +33,5 @@ def test_register_stack_creator_and_lookup_stack_creator():
     assert lookup_stack_creator(name='bar', kind='legacy', exact=False) == create_legacy_bar_stack
     assert lookup_stack_creator(name='foo', kind='alpha', exact=False) == create_alpha_foo_stack
     assert lookup_stack_creator(name='bar', kind='alpha', exact=False) == create_alpha_bar_stack
+
+

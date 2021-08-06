@@ -1,30 +1,16 @@
 import os
 import logging
-import re
 import sys
 
 from chalicelib.package import PackageDeploy as PackageDeploy_from_cgap
+from dcicutils.misc_utils import PRINT, override_environ
 from os.path import dirname
-from troposphere import Template, Ref
-from .base import COMMON_STACK_PREFIX, ConfigManager
-from .constants import ENV_NAME  # , CHECK_RUNNER, FOURSIGHT_SECURITY_IDS, FOURSIGHT_SUBNET_IDS
+from troposphere import Template
+from .base import ConfigManager
+from .constants import Secrets, Settings
 from .part import C4Name, C4Tags, C4Account, C4Part
 from .parts.datastore import C4DatastoreExports
 from .parts.network import C4NetworkExports
-from .parts.ecs import C4ECSApplicationExports
-
-
-# Attempt secret import - if file is not present, will default required values
-# into dummy values - intended for use with build - Will 5/27/21
-try:
-    from src.secrets import S3_ENCRYPT_KEY, Auth0Secret, Auth0Client, ENCODED_SECRET  # , ENCODED_ES_SERVER
-except ImportError:
-    S3_ENCRYPT_KEY = 'dummy'
-    Auth0Secret = 'dummy'
-    Auth0Client = 'dummy'
-    # ENCODED_ES_SERVER = 'dummy'
-    ENCODED_SECRET = 'dummy'
-
 
 # Version string identifies template capabilities. Ref:
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/format-version-structure.html
@@ -39,7 +25,7 @@ class BaseC4Stack:
         self.description = description
 
     def __str__(self):
-        return '<Stack {}>'.format(self.name)
+        return f'<Stack {self.name}>'
 
     @staticmethod
     def write_template_file(template_text, template_file):
@@ -80,14 +66,14 @@ class C4Stack(BaseC4Stack):
         try:
             current_yaml = self.template.to_yaml()
         except TypeError as e:
-            print('TypeError when generating template..did you pass an uninstantiated class method as a Ref?')
+            PRINT('TypeError when generating template..did you pass an uninstantiated class method as a Ref?')
             raise e
         path, template_file = self.name.version_name(template_text=current_yaml)
         if stdout:
-            print(current_yaml, file=sys.stdout)
+            PRINT(current_yaml, file=sys.stdout)
         else:
             self.write_template_file(current_yaml, ''.join([path, template_file]))
-            logging.info('Wrote template to {}'.format(template_file))
+            logging.info(f'Wrote template to {template_file}')
         return self.template, path, template_file
 
 
@@ -99,28 +85,37 @@ class C4FoursightCGAPStack(BaseC4Stack):
         with ConfigManager.validate_and_source_configuration():
             self.security_ids = C4NetworkExports.get_security_ids()
             self.subnet_ids = C4NetworkExports.get_subnet_ids()
+            self.global_env_bucket = C4DatastoreExports.get_envs_bucket()
             self.trial_creds = {
-                'S3_ENCRYPT_KEY': S3_ENCRYPT_KEY,
-                'CLIENT_ID': Auth0Client,
-                'CLIENT_SECRET': Auth0Secret,
-                'DEV_SECRET': ENCODED_SECRET,
+                'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY),
+                'CLIENT_ID': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT),
+                'CLIENT_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET),
+                'DEV_SECRET': ConfigManager.get_config_secret(Secrets.ENCODED_SECRET),
                 'ES_HOST': C4DatastoreExports.get_es_url() + ":443",
-                'ENV_NAME': ConfigManager.get_config_setting(ENV_NAME)  # "cgap-mastertest-kmp"
+                'ENV_NAME': ConfigManager.get_config_setting(Settings.ENV_NAME)  # e.g., "cgap-mastertest"
             }
         # print(f"self.trial_creds['ENV_NAME'] = {self.trial_creds['ENV_NAME']}")
         super().__init__(description, name, tags, account)
 
     def package(self, args):
-        self.PackageDeploy.build_config_and_package(
-            args,
-            security_ids=self.security_ids,
-            subnet_ids=self.subnet_ids,
-            trial_creds=self.trial_creds,
-            # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
-            # On the second attempt to create the stack, the physical resource ID will be used.
-            check_runner=(ConfigManager.find_stack_resource('foursight', 'CheckRunner', 'physical_resource_id')
-                          or "CheckRunner-PLACEHOLDER")
-        )
+        # TODO (C4-691): foursight_core presently picks up the global bucket env as an environment variable.
+        #       We should fix it to pass the argument lexically instead, as shown below.
+        #       Meanwhile, too, we're transitioning the name of the variable (from GLOBAL_BUCKET_ENV
+        #       to GLOBAL_ENV_BUCKET), so we compatibly bind both variables just in case that
+        #       name change goes into effect first. -kmp 4-Aug-2021
+        with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
+            self.PackageDeploy.build_config_and_package(
+                args,
+                # TODO (C4-691): It would be better to change foursight_core to pass this information lexically:
+                # global_env_bucket=self.global_env_bucket,
+                security_ids=self.security_ids,
+                subnet_ids=self.subnet_ids,
+                trial_creds=self.trial_creds,
+                # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
+                # On the second attempt to create the stack, the physical resource ID will be used.
+                check_runner=(ConfigManager.find_stack_resource('foursight', 'CheckRunner', 'physical_resource_id')
+                              or "CheckRunner-PLACEHOLDER")
+            )
 
     class PackageDeploy(PackageDeploy_from_cgap):
 
@@ -128,4 +123,4 @@ class C4FoursightCGAPStack(BaseC4Stack):
         CONFIG_BASE['app_name'] = 'foursight-trial'
 
         config_dir = dirname(dirname(__file__))
-        print(config_dir)
+        print(f"Config dir: {config_dir}")

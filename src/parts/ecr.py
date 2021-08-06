@@ -1,4 +1,11 @@
-import os
+import awacs.ecr as ecr
+
+from awacs.aws import (
+    Allow,
+    Policy,
+    AWSPrincipal,
+    Statement,
+)
 from troposphere import (
     AccountId,
     Region,
@@ -9,17 +16,11 @@ from troposphere import (
     Parameter
 )
 from troposphere.ecr import Repository
-from awacs.aws import (
-    Allow,
-    Policy,
-    AWSPrincipal,
-    Statement,
-)
-import awacs.ecr as ecr
-from src.constants import ENV_NAME
-from src.parts.iam import C4IAMExports
-from src.part import C4Part
-from src.exports import C4Exports
+from ..base import ConfigManager
+from ..constants import Settings
+from ..parts.iam import C4IAMExports
+from ..part import C4Part
+from ..exports import C4Exports
 
 
 class C4ECRExports(C4Exports):
@@ -99,16 +100,20 @@ class C4ContainerRegistry(C4Part):
 
     def ecr_access_policy(self):
         """ Contains ECR access policy """
-        return Policy(Statement=[
-                          # 2 statements - push/pull to whoever will be uploading the image
-                          # and pull to the assumed IAM role
-                          self.ecr_push_acl(), self.ecr_pull_acl()
-                      ], Version='2012-10-17',
+        return Policy(
+            Statement=[
+                # Two statements:
+                # 1. push/pull to whoever will be uploading the image
+                self.ecr_push_acl(),
+                # 2. pull to the assumed IAM role
+                self.ecr_pull_acl()
+            ],
+            Version='2012-10-17',
         )
 
     def repository(self, name=None):
         """ Builds the ECR Repository. """
-        name = name or os.environ.get(ENV_NAME) or 'cgap-mastertest'
+        name = name or ConfigManager.get_config_setting(Settings.ENV_NAME)
         return Repository(
             'cgapdocker',  # must be lowercase, appears unused?
             RepositoryName=name,  # might be we need many of these?

@@ -1,5 +1,5 @@
-import os
 import json
+
 from dcicutils.misc_utils import ignorable
 from troposphere import (
     # Join,
@@ -15,19 +15,11 @@ except ImportError:
     def DomainEndpointOptions(*args, **kwargs):  # noQA
         raise NotImplementedError('DomainEndpointOptions')
 from troposphere.secretsmanager import Secret
-from src.constants import (
-    # ACCOUNT_NUMBER,
-    # DEPLOYING_IAM_USER,
-    ENV_NAME,
-    # RDS_AZ,
-    # RDS_DB_NAME, RDS_STORAGE_SIZE, RDS_INSTANCE_SIZE,
-    # ES_DATA_TYPE, ES_DATA_COUNT,
-    # ES_MASTER_COUNT, ES_MASTER_TYPE,
-    # ES_VOLUME_SIZE
-)
-from src.exports import C4Exports
-from src.part import C4Part
-from src.parts.network import C4NetworkExports
+from ..base import ConfigManager
+from ..constants import Settings
+from ..exports import C4Exports
+from ..part import C4Part
+from ..parts.network import C4NetworkExports
 
 
 ignorable(Output)
@@ -127,7 +119,7 @@ class C4AppConfig(C4Part):
         """ Returns the application configuration secret. Note that this pushes up just a
             template - you must fill it out according to the specification in the README.
         """
-        env_identifier = os.environ.get(ENV_NAME).replace('-', '')
+        env_identifier = ConfigManager.get_config_setting(Settings.ENV_NAME).replace('-', '')
         if not env_identifier:
             raise Exception('Did not set required key in .env! Should never get here.')
         logical_id = self.name.logical_id(self.APPLICATION_SECRET_STRING) + env_identifier

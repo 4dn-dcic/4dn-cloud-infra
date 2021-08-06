@@ -1,7 +1,8 @@
 import logging
+
 from troposphere import Template
 from troposphere.s3 import Bucket, Private
-from src.part import C4Part
+from ..part import C4Part
 
 logger = logging.getLogger(__name__)
 

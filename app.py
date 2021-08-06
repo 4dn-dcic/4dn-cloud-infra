@@ -1,10 +1,12 @@
-import os
 import json
 import logging
-from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
+import os
+
 from chalice import Chalice, Response, Cron
+from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
+from dcicutils.exceptions import InvalidParameterError
+from dcicutils.misc_utils import environ_bool, remove_suffix, ignored
 from foursight_core.deploy import Deploy
-from dcicutils.misc_utils import environ_bool, remove_suffix
 
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(levelname)-8s %(message)s')
@@ -119,31 +121,37 @@ def manual_checks():
 
 @app.schedule(foursight_cron_by_schedule[STAGE]['morning_checks'])
 def morning_checks(event):
+    ignored(event)
     app_utils_obj.queue_scheduled_checks('all', 'morning_checks')
 
 
 @app.schedule(foursight_cron_by_schedule[STAGE]['fifteen_min_checks'])
 def fifteen_min_checks(event):
+    ignored(event)
     app_utils_obj.queue_scheduled_checks('all', 'fifteen_min_checks')
 
 
 @app.schedule(foursight_cron_by_schedule[STAGE]['fifteen_min_checks_2'])
 def fifteen_min_checks_2(event):
+    ignored(event)
     app_utils_obj.queue_scheduled_checks('all', 'fifteen_min_checks_2')
 
 
 @app.schedule(foursight_cron_by_schedule[STAGE]['fifteen_min_checks_3'])
 def fifteen_min_checks_3(event):
+    ignored(event)
     app_utils_obj.queue_scheduled_checks('all', 'fifteen_min_checks_3')
 
 
 @app.schedule(foursight_cron_by_schedule[STAGE]['hourly_checks'])
 def hourly_checks(event):
+    ignored(event)
     app_utils_obj.queue_scheduled_checks('all', 'hourly_checks')
 
 
 @app.schedule(foursight_cron_by_schedule[STAGE]['hourly_checks_2'])
 def hourly_checks_2(event):
+    ignored(event)
     app_utils_obj.queue_scheduled_checks('all', 'hourly_checks_2')
 
 
@@ -330,7 +338,8 @@ def get_environment_route(environ):
 #
 #     Protected route
 #     """
-#     if app_utils_obj.check_authorization(app.current_request.to_dict(), environ):  # TODO (C4-138) Centralize authorization check
+#     # TODO (C4-138) Centralize authorization check
+#     if app_utils_obj.check_authorization(app.current_request.to_dict(), environ):
 #         return app_utils_obj.run_delete_environment(environ)
 #     else:
 #         return app_utils_obj.forbidden_response()
@@ -347,6 +356,7 @@ def check_runner(event, context):
     the checks. Self propogates. event is a dict of information passed into
     the lambda at invocation time.
     """
+    ignored(context)
     if not event:
         return
     app_utils_obj.run_check_runner(event)
@@ -357,9 +367,20 @@ def check_runner(event, context):
 ########################
 
 
+def compute_valid_deploy_stages():
+    return list(Deploy.CONFIG_BASE['stages'].keys()).extend('test')
+
+
+class InvalidDeployStage(InvalidParameterError):
+
+    @classmethod
+    def compute_valid_options(cls):
+        return compute_valid_deploy_stages()
+
+
 def set_stage(stage):
-    if stage != 'test' and stage not in Deploy.CONFIG_BASE['stages']:
-        print('ERROR! Input stage is not valid. Must be one of: %s' % str(list(Deploy.CONFIG_BASE['stages'].keys()).extend('test')))
+    if stage not in compute_valid_deploy_stages():
+        raise InvalidDeployStage(parameter='stage', value=stage)
     os.environ['chalice_stage'] = stage
 
 

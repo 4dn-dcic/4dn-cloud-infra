@@ -1,6 +1,7 @@
-from src.stack import C4Stack, C4Name, C4Tags, C4Account, C4FoursightCGAPStack
-from src.parts import network, datastore, ecr, iam, logging, ecs  # , appconfig
 from ..base import register_stack_creator, COMMON_STACK_PREFIX
+from ..parts import network, datastore, ecr, iam, logging, ecs  # , appconfig
+from ..stack import C4Stack, C4Name, C4Tags, C4Account, C4FoursightCGAPStack
+
 
 # Stack metadata
 # 'alpha' in this case refers to the first iteration of CGAP Docker on ECS

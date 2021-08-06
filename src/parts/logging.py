@@ -1,6 +1,6 @@
 from troposphere import logs, Template, Output, Ref
-from src.part import C4Part
-from src.exports import C4Exports
+from ..part import C4Part
+from ..exports import C4Exports
 
 
 class C4LoggingExports(C4Exports):

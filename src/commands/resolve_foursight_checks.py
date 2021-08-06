@@ -5,12 +5,12 @@ import os
 
 from dcicutils.misc_utils import full_class_name, file_contents, json_leaf_subst
 from ..base import ConfigManager
-from ..constants import ENV_NAME
+from ..constants import Settings
 
 
 EPILOG = __doc__
 
-DEFAULT_ENVIRONMENT = json.loads(file_contents(ConfigManager.CONFIG_FILE))[ENV_NAME]
+DEFAULT_ENVIRONMENT = ConfigManager.get_config_setting(Settings.ENV_NAME)
 DEFAULT_TEMPLATE_FILE = "check_setup.template.json"
 DEFAULT_TARGET_FILE = "vendor/check_setup.json"
 

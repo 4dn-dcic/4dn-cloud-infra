@@ -1,17 +1,14 @@
-import os
-
-from troposphere import Region, AccountId, Template, Ref, Output, Join
-from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey
+from awacs.aws import PolicyDocument, Statement, Action, Principal
 from awacs.ecr import (
     GetAuthorizationToken,
     GetDownloadUrlForLayer,
     BatchGetImage,
     BatchCheckLayerAvailability,
 )
-from awacs.aws import PolicyDocument, Statement, Action, Principal
-from src.constants import ENV_NAME
-from src.part import C4Part
-from src.exports import C4Exports
+from troposphere import Region, AccountId, Template, Ref, Output, Join
+from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey
+from ..part import C4Part
+from ..exports import C4Exports
 
 
 class C4IAMExports(C4Exports):
@@ -341,8 +338,8 @@ class C4IAM(C4Part):
             # XXX: AWSServiceRoleForECS needed for running ECS (?)
             ManagedPolicyArns=[
                 "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
-# Maybe?
-#                "arn:aws:iam::aws:policy/aws-service-role/AmazonECSServiceRolePolicy"
+                # Maybe?
+                # "arn:aws:iam::aws:policy/aws-service-role/AmazonECSServiceRolePolicy"
             ],
             # IMPORTANT: BOTH ECS and EC2 need AssumeRole
             AssumeRolePolicyDocument=PolicyDocument(

@@ -35,7 +35,7 @@ class C4Tags:
 
 class C4Account:
     """ Helper class for working with an AWS account """
-    def __init__(self, account_number, creds_file='~/.aws_test/test_creds.sh'):
+    def __init__(self, account_number, creds_file):  # previous default '~/.aws_test/test_creds.sh'
         self.account_number = str(account_number)
         self.creds_file = creds_file
 
