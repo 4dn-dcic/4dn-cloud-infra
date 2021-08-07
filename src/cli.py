@@ -10,7 +10,7 @@ from .info.aws_util import AWSUtil
 from .base import lookup_stack_creator, ConfigManager
 from .exceptions import CLIException
 from .part import C4Account
-from .stack import C4FoursightCGAPStack
+from .stack import C4FoursightCGAPStack, BaseC4FoursightStack
 # from .stacks.trial import c4_stack_trial_network_metadata, c4_stack_trial_tibanna
 from .stacks.trial_alpha import c4_alpha_stack_trial_metadata
 
@@ -84,7 +84,7 @@ class C4Client:
     # APPLICATION_BUCKET_TEMPLATE = "foursight-{org_prefix}{env_name}-applicaton-versions"
 
     @classmethod
-    def upload_chalice_package(cls, *, output_file, stack: C4FoursightCGAPStack, bucket=None):
+    def upload_chalice_package(cls, *, output_file, stack: BaseC4FoursightStack, bucket=None):
         """ Specific upload process for a chalice application, e.g. foursight. Assumes chalice package has been run.
             How this works:
             1. Mounts the output_file directory to the docker image's execution directory (/root/aws)
@@ -202,14 +202,6 @@ class C4Client:
         os.system(cmd)
 
     @staticmethod
-    def is_legacy(args):
-        """ 'legacy' in this case is beanstalk """
-        result = not args.alpha
-        if result:
-            raise NotImplementedError("We don't implement legacy support any more.")
-        return result
-
-    @staticmethod
     def resolve_account():
         """ Figures out which account is in use. """  # Used to be based on the name of the creds dir. Not any more.
         creds_dir = ConfigManager.get_aws_creds_dir()
@@ -228,10 +220,13 @@ class C4Client:
 
     @staticmethod
     def resolve_legacy_stack(args):
-        account = C4Client.resolve_account()
-        stack_creator = lookup_stack_creator(name=args.stack, kind='legacy', exact=True)
-        stack = stack_creator(account=account)
-        return stack
+
+        raise NotImplementedError("resolve_legacy_stack() has been removed.")
+
+        # account = C4Client.resolve_account()
+        # stack_creator = lookup_stack_creator(name=args.stack, kind='legacy', exact=True)
+        # stack = stack_creator(account=account)
+        # return stack
 
     @classmethod
     def write_and_validate_template(cls, stack, use_stdout_and_exit, validate):
@@ -249,18 +244,23 @@ class C4Client:
                 cls.validate_cloudformation_template(file_path=file_path)
             return file_path
 
-    @staticmethod
-    def view_changes(args):
-        # TODO implement me
-        if args.view_changes:
-            # fetch current template from cloudformation, convert to json
-            # generate current template as json
-            # view and print diffs
-            logger.info('I do nothing right now!')  # dcic_utils.diff_utils.
+    @classmethod
+    def view_changes(cls, stack, file_path):
+        ignored(stack, file_path)  # we probably need to use these when we implement this.
+        # TODO: Implement this.
+        #       1. Fetch current template from cloudformation.
+        #       2. Convert template to json.
+        #       3. Generate current template as json.
+        #       4. view and print diffs using dcic_utils.diff_utils.
+        logger.info('I do nothing right now!')
 
     @classmethod
-    def _is_foursight_stack_name(cls, stack_name):
+    def is_foursight_stack_name(cls, stack_name):  # Method probably not needed. -kmp 6-Aug-2021
         return 'foursight' in stack_name
+
+    @classmethod
+    def is_foursight_stack(cls, stack):
+        return isinstance(stack, BaseC4FoursightStack)
 
     @classmethod
     def provision_stack(cls, args):
@@ -269,26 +269,34 @@ class C4Client:
         stack_name = args.stack
         upload_change_set = args.upload_change_set
         output_file = args.output_file
+        use_stdout_and_exit = args.stdout
+        validate = args.validate
+        view_changes = args.view_changes
 
         with ConfigManager.validate_and_source_configuration():
 
-            # We're not considering the legacy case any more, so not conditional on is_legacy. -kmp&will 28-Jul-2021
             stack = cls.resolve_alpha_stack(stack_name=stack_name)
 
             # Handle foursight
-            if cls._is_foursight_stack_name(stack_name):  # specific case for foursight template build + upload
-                stack.package(args)
+            if cls.is_foursight_stack(stack):  # If this errs, go back to cls._is_foursight_stack_name(stack_name)
+                # Specific case for foursight template build + upload
+                stack.package_foursight_stack(args)
                 if upload_change_set:
                     cls.upload_chalice_package(output_file=output_file, stack=stack)
-            # Handle 4dn-cloud-infra stacks
+
             else:
-                # NOTE: This will exit without continuing if --stdout arg was provided.
+                # Handle 4dn-cloud-infra stacks
                 file_path = cls.write_and_validate_template(stack=stack,
-                                                            use_stdout_and_exit=args.stdout,
-                                                            validate=args.validate)
-                cls.view_changes(args)  # does nothing as of right now
+                                                            # NOTE: This function will exit without continuing
+                                                            #       if a '--stdout' arg was provided.
+                                                            use_stdout_and_exit=use_stdout_and_exit,
+                                                            validate=validate)
+                if view_changes:
+                    # NOTE: This is a stub that does nothing for now. -kmp 5-Aug-2021
+                    cls.view_changes(stack=stack, file_path=file_path)
                 if upload_change_set:
-                    cls.upload_cloudformation_template(stack=stack, file_path=file_path)  # if desired
+                    # If requested with '--upload_change_set', upload to CloudFormation...
+                    cls.upload_cloudformation_template(stack=stack, file_path=file_path)
 
     @classmethod
     def manage_tibanna(cls, args):
@@ -315,14 +323,19 @@ class C4Client:
     @staticmethod
     def info(args):
         """ Implements 'info' command """
+
+        upload = args.upload
+        versioned = args.versioned
+        s3 = args.s3
+
         aws_util = AWSUtil()
-        if args.upload and args.versioned:
+        if upload and versioned:
             # TODO add GSheet functionality as a src util
-            logger.info('Use ./bin/upload_vspreadsheets.py to upload versioned s3 spreadsheets')
-        if args.versioned:
+            logger.info('Use ./scripts/upload_vspreadsheets to upload versioned s3 spreadsheets')
+        if versioned:
             logger.info('Generating versioned s3 buckets summary tsv...')
             aws_util.generate_versioned_files_summary_tsvs()
-        if args.s3:
+        if s3:
             logger.info('Generating s3 buckets info summary tsv at {}...'.format(aws_util.BUCKET_SUMMARY_FILENAME))
             aws_util.generate_s3_bucket_summary_tsv(dry_run=False)
 

@@ -4,6 +4,7 @@ import json
 import os
 
 from contextlib import contextmanager
+from dcicutils.exceptions import InvalidParameterError
 from dcicutils.lang_utils import conjoined_list
 from dcicutils.misc_utils import (
     check_true, decorator, find_association, find_associations, override_environ, ignorable
@@ -18,13 +19,14 @@ REGISTERED_STACKS = {}
 
 COMMON_STACK_PREFIX = "c4-"
 
-STACK_KINDS = ['legacy', 'alpha']
+STACK_KINDS = ['alpha']  # No longer supporting 'legacy' stacks
+
 
 
 @decorator()
 def register_stack_creator(*, name, kind):
     if kind not in STACK_KINDS:
-        raise SyntaxError("A stack kind must be one of %s." % " or ".join(STACK_KINDS))
+        raise InvalidParameterError(parameter="kind", value=kind, options=STACK_KINDS)
 
     def register_stack_creation_function(fn):
         subregistry = REGISTERED_STACKS.get(kind)
@@ -38,12 +40,14 @@ def register_stack_creator(*, name, kind):
 
 def lookup_stack_creator(name, kind, exact=False):
     if kind not in STACK_KINDS:
-        raise ValueError("A stack kind must be one of %s." % " or ".join(STACK_KINDS))
+        raise InvalidParameterError(parameter="kind", value=kind, options=STACK_KINDS)
+
     for stack_short_name, stack_creator in REGISTERED_STACKS[kind].items():
         if exact and name == stack_short_name:
             return stack_creator
         elif not exact and stack_short_name in name:
             return stack_creator
+
     raise CLIException("A %s stack %s %r was not found." % (kind, "called" if exact else "whose name contains", name))
 
 

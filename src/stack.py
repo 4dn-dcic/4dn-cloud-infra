@@ -3,7 +3,7 @@ import logging
 import sys
 
 from chalicelib.package import PackageDeploy as PackageDeploy_from_cgap
-from dcicutils.misc_utils import PRINT, override_environ
+from dcicutils.misc_utils import PRINT, override_environ, full_class_name
 from os.path import dirname
 from troposphere import Template
 from .base import ConfigManager
@@ -77,6 +77,13 @@ class C4Stack(BaseC4Stack):
         return self.template, path, template_file
 
 
+class BaseC4FoursightStack(BaseC4Stack):
+
+    def package_foursight_stack(self, args):
+        class_name = full_class_name(self)
+        raise NotImplementedError(f"{class_name} does not implement required method 'package_foursight_stack'.")
+
+
 class C4FoursightCGAPStack(BaseC4Stack):
 
     NETWORK_EXPORTS = C4NetworkExports()
@@ -92,17 +99,19 @@ class C4FoursightCGAPStack(BaseC4Stack):
                 'CLIENT_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET),
                 'DEV_SECRET': ConfigManager.get_config_secret(Secrets.ENCODED_SECRET),
                 'ES_HOST': C4DatastoreExports.get_es_url() + ":443",
-                'ENV_NAME': ConfigManager.get_config_setting(Settings.ENV_NAME)  # e.g., "cgap-mastertest"
+                'ENV_NAME': ConfigManager.get_config_setting(Settings.ENV_NAME)
             }
         # print(f"self.trial_creds['ENV_NAME'] = {self.trial_creds['ENV_NAME']}")
         super().__init__(description, name, tags, account)
 
-    def package(self, args):
-        # TODO (C4-691): foursight_core presently picks up the global bucket env as an environment variable.
+    def package_foursight_stack(self, args):
+        # TODO (C4-691): foursight-core presently picks up the global bucket env as an environment variable.
         #       We should fix it to pass the argument lexically instead, as shown below.
         #       Meanwhile, too, we're transitioning the name of the variable (from GLOBAL_BUCKET_ENV
         #       to GLOBAL_ENV_BUCKET), so we compatibly bind both variables just in case that
         #       name change goes into effect first. -kmp 4-Aug-2021
+        # TODO (C4-692): foursight-core presently wants us to pass an 'args' argument (from 'argparser').
+        #       It should instead ask for all the various arguments it plans to look at.
         with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
             self.PackageDeploy.build_config_and_package(
                 args,
