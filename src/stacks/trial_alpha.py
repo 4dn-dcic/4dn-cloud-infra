@@ -9,7 +9,10 @@ from ..stack import C4Stack, C4Name, C4Tags, C4Account, C4FoursightCGAPStack
 
 def c4_alpha_stack_trial_name(name):
     # e.g., if name='network, result will be c4-network-trial-alpha
-    return C4Name(name=f'{COMMON_STACK_PREFIX}{name}-trial-alpha')
+    # return C4Name(name=f'{COMMON_STACK_PREFIX}{name}-trial-alpha')
+
+    # Experimentally return something simpler...
+    return C4Name(name=f'{COMMON_STACK_PREFIX}{name}')
 
 
 def c4_alpha_stack_trial_tags():
