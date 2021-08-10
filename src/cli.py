@@ -4,13 +4,13 @@ import os
 # import json
 
 # from contextlib import contextmanager
-from dcicutils.misc_utils import ignored  # , file_contents, override_environ
+from dcicutils.misc_utils import ignored, PRINT  # , file_contents, override_environ
 from .constants import Settings
 from .info.aws_util import AWSUtil
 from .base import lookup_stack_creator, ConfigManager
 from .exceptions import CLIException
 from .part import C4Account
-from .stack import C4FoursightCGAPStack, BaseC4FoursightStack
+from .stack import BaseC4FoursightStack  # , C4FoursightCGAPStack
 # from .stacks.trial import c4_stack_trial_network_metadata, c4_stack_trial_tibanna
 from .stacks.trial_alpha import c4_alpha_stack_trial_metadata
 
@@ -34,10 +34,17 @@ class C4Client:
     # CONFIGURATION = 'config.json'  # path to config file, top level by default
 
     @classmethod
+    def _out_templates_mapping_for_mount(cls) -> str:
+        templates_dir = ConfigManager.templates_dir()
+        docker_templates_dir = ConfigManager.templates_dir(relative_to='/root')
+        mount_yaml = f"{templates_dir}:{docker_templates_dir}"
+        return mount_yaml
+
+    @classmethod
     def validate_cloudformation_template(cls, file_path):
         """ Validates CloudFormation template at file_path """
         creds_dir = ConfigManager.get_aws_creds_dir()
-        mount_yaml = os.path.abspath(os.getcwd()) + '/out/templates:/root/out/templates'
+        mount_yaml = cls._out_templates_mapping_for_mount()
         mount_creds = f'{creds_dir}:/root/.aws'
         validation_cmd = 'amazon/aws-cli cloudformation validate-template'
         validation_args = f'--template-body file://{file_path}'
@@ -95,7 +102,9 @@ class C4Client:
 
         # TODO: this bucketname should come from config.json or some os.environ ...
         if bucket is None:
-            bucket = ConfigManager.resolve_bucket_name(ConfigManager.FSBucketTemplate.APPLICATION_VERSIONS)  # cls.APPLICATION_BUCKET_TEMPLATE
+            bucket = ConfigManager.resolve_bucket_name(
+                ConfigManager.FSBucketTemplate.APPLICATION_VERSIONS  # cls.APPLICATION_BUCKET_TEMPLATE
+            )
 
         creds_dir = ConfigManager.get_aws_creds_dir()
 
@@ -189,7 +198,7 @@ class C4Client:
         )
 
         cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {flags}'.format(
-            mount_yaml=os.path.abspath(os.getcwd())+'/out/templates:/root/out/templates',
+            mount_yaml=cls._out_templates_mapping_for_mount(),
             mount_creds=f'{creds_dir}:/root/.aws',
             command='amazon/aws-cli cloudformation deploy',
             flags=flags,
@@ -237,8 +246,10 @@ class C4Client:
             stack.print_template(stdout=True)
             exit(0)  # if this is specified, we definitely don't want to upload
         else:
-            template_object, path, template_name = stack.print_template()
-            file_path = ''.join(['/root/', path, template_name])
+            template_object, template_name = stack.print_template()
+            # path = ConfigManager.RELATIVE_TEMPLATES_DIR + "/"
+            # file_path = ''.join(['/root/', path, template_name])
+            file_path = os.path.join(ConfigManager.templates_dir(relative_to='/root'), template_name)
             logger.info('Written template to {}'.format(file_path))
             if validate:
                 cls.validate_cloudformation_template(file_path=file_path)
@@ -275,11 +286,14 @@ class C4Client:
 
         with ConfigManager.validate_and_source_configuration():
 
+            print("Account=", ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER))
+            print("AWS_ACCESS_KEY_ID=", os.environ.get("AWS_ACCESS_KEY_ID"))
+
             stack = cls.resolve_alpha_stack(stack_name=stack_name)
 
             # Handle foursight
-            if cls.is_foursight_stack(stack):  # If this errs, go back to cls._is_foursight_stack_name(stack_name)
-                # Specific case for foursight template build + upload
+            if cls.is_foursight_stack(stack):
+                            # Specific case for foursight template build + upload
                 stack.package_foursight_stack(args)
                 if upload_change_set:
                     cls.upload_chalice_package(output_file=output_file, stack=stack)
@@ -295,7 +309,7 @@ class C4Client:
                     # NOTE: This is a stub that does nothing for now. -kmp 5-Aug-2021
                     cls.view_changes(stack=stack, file_path=file_path)
                 if upload_change_set:
-                    # If requested with '--upload_change_set', upload to CloudFormation...
+                    # If requested with '--upload-change-set', upload to CloudFormation...
                     cls.upload_cloudformation_template(stack=stack, file_path=file_path)
 
     @classmethod
@@ -350,21 +364,43 @@ def cli():
     # TODO flag for log level
     parser_provision = subparsers.add_parser('provision', help='Provisions cloud resources for CGAP/4DN')
     parser_provision.add_argument('stack', help='Select stack to operate on: {}'.format(C4Client.SUPPORTED_STACKS))
-    parser_provision.add_argument('--alpha', action='store_true', help='Triggers building of the Alpha (ECS) stack',
-                                  default=False)
+    parser_provision.add_argument('--alpha', dest='warn_alpha_arg_deprecated', action='store_true',
+                                  help="This argument is deprecated because 'alpha' is the default."
+                                       " You can suppress it with --no-alpha.")
+    parser_provision.add_argument('--no-alpha', '--legacy',
+                                  dest='alpha',
+                                  action='store_false',
+                                  help='Triggers building of the Alpha (ECS) stack',
+                                  default=True)
     parser_provision.add_argument('--stdout', action='store_true', help='Writes template to STDOUT only')
     parser_provision.add_argument('--validate', action='store_true', help='Verifies template')
-    parser_provision.add_argument('--view_changes', action='store_true', help='TBD: view changes made to template')
+    parser_provision.add_argument('--view-changes',
+                                  '--view_changes',  # for compatibility
+                                  dest="view_changes",
+                                  action='store_true', help='TBD: view changes made to template')
     parser_provision.add_argument('--stage', type=str, choices=['dev', 'prod'],
                                   help="package stage. Must be one of 'prod' or 'dev' (foursight only)")
-    parser_provision.add_argument('--merge_template', type=str,
+    parser_provision.add_argument('--merge-template',
+                                  '--merge_template',  # for compatibility
+                                  dest="merge_template",
+                                  type=str,
                                   help='Location of a YAML template to be merged into the generated template \
                                   (foursight only)')
-    parser_provision.add_argument('--output_file', type=str,
+    parser_provision.add_argument("--output-file",
+                                  '--output_file',  # for compatibility
+                                  dest="output_file",
+                                  type=str,
                                   help='Location of a directory for output cloudformation (foursight only)')
-    parser_provision.add_argument('--trial', action='store_true',
-                                  help='Use TRIAL creds when building the config (foursight only; experimental)')
-    parser_provision.add_argument('--upload_change_set', action='store_true',
+    parser_provision.add_argument('--trial', dest='warn_trial_arg_deprecated', action='store_true',
+                                  help="This argument is deprecated because 'trial' is the default."
+                                       " You can suppress it with --no-trial.")
+    parser_provision.add_argument('--no-trial', '--production', action='store_false', dest='trial', default=True,
+                                  help='Suppress use of TRIAL creds when building the config'
+                                       ' (foursight only; experimental)')
+    parser_provision.add_argument('--upload-change-set',
+                                  '--upload_change_set',  # for compatibility
+                                  dest="upload_change_set",
+                                  action='store_true',
                                   help='Uploads template and provisions change set')
     parser_provision.set_defaults(func=C4Client.provision_stack)
 
@@ -374,9 +410,15 @@ def cli():
     parser_tibanna = subparsers.add_parser('tibanna', help='Helps manage and provision tibanna for CGAP/4DN')
     parser_tibanna.add_argument('cmd', type=str, nargs='*',
                                 help='Runs the tibanna command-line for the trial account')
-    parser_tibanna.add_argument('--init_tibanna', action='store_true',
+    parser_tibanna.add_argument("--init-tibanna",
+                                '--init_tibanna',  # for compatibility
+                                dest="init_tibanna",
+                                action='store_true',
                                 help='Initializes tibanna group with private buckets. Requires c4-tibanna-trial.')
-    parser_tibanna.add_argument('--tibanna_run', nargs='?', default=None,
+    parser_tibanna.add_argument('--tibanna-run',
+                                '--tibanna_run',  # for compatibility
+                                dest="tibanna_run",
+                                nargs='?', default=None,
                                 const='tibanna_inputs/trial_tibanna_test_input.json',
                                 help='Runs a sample tibanna input using private buckets. Requires c4-tibanna-trial.')
     parser_tibanna.add_argument('--confirm', action='store_true',
@@ -395,7 +437,14 @@ def cli():
     args = parser.parse_args()
 
     if not args.alpha:
-        raise NotImplementedError("We don't implement the non --alpha case any more.")
+        raise NotImplementedError("We don't implement the --no-alpha (or --legacy) case any more.")
+    elif args.warn_alpha_arg_deprecated:
+        PRINT("The --alpha argument is deprecated, since it is now the default.")
+
+    if not args.trial:
+        raise NotImplementedError("We don't support the --no-trial (or --production) case right now.")
+    elif args.warn_trial_arg_deprecated:
+        PRINT("The --trial argument is deprecated, since it is now the default.")
 
     if args.debug:
         logger.setLevel(logging.DEBUG)

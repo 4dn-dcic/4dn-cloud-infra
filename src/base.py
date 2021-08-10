@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from dcicutils.exceptions import InvalidParameterError
 from dcicutils.lang_utils import conjoined_list
 from dcicutils.misc_utils import (
-    check_true, decorator, find_association, find_associations, override_environ, ignorable
+    check_true, decorator, file_contents, find_association, find_associations, ignorable, override_environ,
 )
 from .exceptions import CLIException
 from .constants import Secrets, Settings
@@ -56,6 +56,15 @@ ROOT_DIR = os.path.dirname(os.path.dirname(__file__))  # Our parent dir
 
 class ConfigManager:
 
+    RELATIVE_TEMPLATES_DIR = 'out/templates'
+
+    @classmethod
+    def templates_dir(cls, relative_to=None) -> str:
+        if relative_to is None:
+            relative_to = os.path.abspath(os.getcwd())
+        templates_dir = os.path.join(relative_to, ConfigManager.RELATIVE_TEMPLATES_DIR)
+        return templates_dir
+
     # Singleton Pattern. All internal methods assume an instance. The class methods will assure the instance
     # and then jump to the corresponding method.
 
@@ -94,11 +103,16 @@ class ConfigManager:
     REQUIRED_CONFIGS = [Settings.ACCOUNT_NUMBER, Settings.DEPLOYING_IAM_USER, Settings.ENV_NAME]
     REQUIRED_SECRETS = [Secrets.AUTH0_CLIENT, Secrets.AUTH0_SECRET, Secrets.ENCODED_SECRET, Secrets.S3_ENCRYPT_KEY]
 
+    _CACHED_CONFIG = None
+
     def _get_config(self):
         """ Validates that required keys are in config.json and overrides the environ for the
             invocation of the infra build. Yields control once the environment has been
             adjusted, transferring back to the caller - see provision_stack.
         """
+        if self._CACHED_CONFIG is not None:
+            return self._CACHED_CONFIG
+
         if not os.path.exists(self.CONFIG_FILE):
             raise CLIException(f'The required configuration file, {self.CONFIG_FILE}, is not present.')
         config = self._load_config(self.CONFIG_FILE)
@@ -108,6 +122,12 @@ class ConfigManager:
         if not os.path.exists(self.SECRETS_FILE):
             raise CLIException(f'The required configuration file, {self.SECRETS_FILE}, is not present.')
         secrets = self._load_config(self.SECRETS_FILE)
+        if True:
+            if not secrets.get(Secrets.S3_ENCRYPT_KEY):  # if missing or empty, try to default from file
+                secrets[Secrets.S3_ENCRYPT_KEY] = ConfigManager.get_s3_encrypt_key_from_file()
+        else:
+            print(f"WARNING: {Secrets.S3_ENCRYPT_KEY} is not in {self.SECRETS_FILE},"
+                  f" and the file {self.S3_ENCRYPT_KEY_FILE} does not exist.")
         check_true(set(self.REQUIRED_SECRETS) <= secrets.keys(),
                    f"The file {self.SECRETS_FILE} is expected to contain"
                    f" secrets {conjoined_list(self.REQUIRED_SECRETS)}.")
@@ -115,6 +135,8 @@ class ConfigManager:
             if k in config and config[k] != v:
                 raise RuntimeError(f"The key {k} occurs in both {self.CONFIG_FILE} and {self.SECRETS_FILE}.")
             config[k] = v
+
+        self._CACHED_CONFIG = config
         return config
 
     @classmethod
@@ -123,6 +145,7 @@ class ConfigManager:
         Loads a .json file, casting all the resulting dictionary values to strings
         so they are suitable config file values.
         """
+        print("LOADING", filename)
         with io.open(filename) as fp:
             config = json.load(fp)
             config = {k: str(v) for k, v in config.items()}
@@ -131,7 +154,7 @@ class ConfigManager:
     # path to config files, top level by default (previously named CONFIGURATION)
     CONFIG_FILE = os.path.join(ROOT_DIR, 'custom', 'config.json')
     SECRETS_FILE = os.path.join(ROOT_DIR, 'custom', 'secrets.json')
-    AWS_CREDS_DIR = os.path.join(ROOT_DIR, 'config', 'aws_creds')    # It's OK to link to ~/.aws_test/ or some such.
+    AWS_CREDS_DIR = os.path.join(ROOT_DIR, 'custom', 'aws_creds')    # It's OK to link to ~/.aws_test/ or some such.
 
     @classmethod
     def get_aws_creds_dir(cls):
@@ -139,6 +162,7 @@ class ConfigManager:
         Returns the creds_dir we will use.
         To ensure consistency, once this is looked at, the value cannot be changed.
         """
+        print(f"Using creds dir {cls.AWS_CREDS_DIR} (=> {os.path.abspath(cls.AWS_CREDS_DIR)}) ...")
         return cls.AWS_CREDS_DIR
 
     @classmethod
@@ -148,6 +172,12 @@ class ConfigManager:
         config = singleton._get_config()
         with override_environ(**config):
             yield
+
+    S3_ENCRYPT_KEY_FILE = os.path.join(ROOT_DIR, "custom/aws_creds/s3_encrypt_key.txt")
+
+    @classmethod
+    def get_s3_encrypt_key_from_file(cls):
+        return file_contents(cls.S3_ENCRYPT_KEY_FILE).strip()
 
     @classmethod
     def get_config_secret(cls, var, default=_MISSING, use_default_if_empty=True):
@@ -268,3 +298,10 @@ class ConfigManager:
                 else:
                     return getattr(summary, attr, default)
         return default
+
+
+USE_SHORT_EXPORT_NAMES = True  # TODO: Remove when debugged
+
+def exportify(name):
+    return name if USE_SHORT_EXPORT_NAMES else f"Export{name}"
+

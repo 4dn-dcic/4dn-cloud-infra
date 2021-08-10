@@ -27,7 +27,7 @@ def configure_env_bucket(env=None):
         raise
     body = json.dumps(content, indent=2).encode('utf-8')
     print(f"To be uploaded: {body.decode('utf-8')}")
-    if yes_or_no(f"Uplaod this into {env} in account {ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER)}?"):
+    if yes_or_no(f"Upload this into {env} in account {ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER)}?"):
         s3.put_object(Bucket=global_env_bucket, Key=env, Body=body)
     else:
         print("Aborted.")

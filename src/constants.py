@@ -9,8 +9,9 @@ class Secrets:
     AUTH0_CLIENT = "Auth0Client"
     AUTH0_SECRET = "Auth0Secret"
     ENCODED_SECRET = "ENCODED_SECRET"
+    RECAPTCHA_KEY = 'reCaptchaKey'
+    RECAPTCHA_SECRET = 'reCaptchaSecret'
     S3_ENCRYPT_KEY = "S3_ENCRYPT_KEY"
-
 
 
 # AUTH0_CLIENT = Secrets.AUTH0_CLIENT

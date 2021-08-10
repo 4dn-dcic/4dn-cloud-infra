@@ -68,23 +68,34 @@ class C4Stack(BaseC4Stack):
         except TypeError as e:
             PRINT('TypeError when generating template..did you pass an uninstantiated class method as a Ref?')
             raise e
-        path, template_file = self.name.version_name(template_text=current_yaml)
+        # path, template_file = self.name.version_name(template_text=current_yaml)
+        template_file = self.name.version_name(template_text=current_yaml)
+        # path = ConfigManager.RELATIVE_TEMPLATES_DIR + "/"
         if stdout:
             PRINT(current_yaml, file=sys.stdout)
         else:
-            self.write_template_file(current_yaml, ''.join([path, template_file]))
-            logging.info(f'Wrote template to {template_file}')
-        return self.template, path, template_file
+            # full_template_path = ''.join([path, template_file])
+            full_template_path = os.path.join(ConfigManager.templates_dir(), template_file)
+            self.write_template_file(current_yaml, full_template_path)
+            mode = 0o600
+            os.chmod(full_template_path, mode)
+            msg = f'Wrote template to {full_template_path} (mode {mode:o})'  # was template_file
+            PRINT(msg)
+            logging.info(msg)
+        return self.template, template_file  # was self.template, path, template_file
 
 
 class BaseC4FoursightStack(BaseC4Stack):
+    """ This abstract class exists so that later if we want to make separate fourfront and cgap foursight classes,
+        we can type-discriminate on the abstract class.
+    """
 
     def package_foursight_stack(self, args):
         class_name = full_class_name(self)
         raise NotImplementedError(f"{class_name} does not implement required method 'package_foursight_stack'.")
 
 
-class C4FoursightCGAPStack(BaseC4Stack):
+class C4FoursightCGAPStack(BaseC4FoursightStack):
 
     NETWORK_EXPORTS = C4NetworkExports()
 

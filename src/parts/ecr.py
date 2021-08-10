@@ -118,6 +118,7 @@ class C4ContainerRegistry(C4Part):
             'cgapdocker',  # must be lowercase, appears unused?
             RepositoryName=name,  # might be we need many of these?
             RepositoryPolicyText=self.ecr_access_policy(),
+            ImageScanningConfiguration={"ScanOnPush": True},
             # Tags=self.tags.cost_tag_array(), XXX: bug in troposphere - does not take tags array
         )
 

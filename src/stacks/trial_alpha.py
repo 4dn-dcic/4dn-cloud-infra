@@ -20,7 +20,7 @@ def c4_alpha_stack_trial_tags():
 
 
 def c4_alpha_stack_trial_description(stack):
-    return 'AWS CloudFormation CGAP {0} template: trial {0} setup for cgap-portal environment using ECS'.format(stack)
+    return f"AWS CloudFormation CGAP {stack} template, for use in an ECS-based CGAP environment."
 
 
 def c4_alpha_stack_trial_metadata(name='network'):
