@@ -10,7 +10,11 @@ from ..parts.ecs import C4ECSApplicationExports
 
 
 def configure_env_bucket(env=None):
-    global_env_bucket = C4DatastoreExports.get_envs_bucket()  # ConfigManager.get_config_setting(Settings.GLOBAL_ENV_BUCKET)
+    """
+    This will upload an appropriate entry into the global env bucket for the given env,
+    which defaults to the config-declared environment if not specified.
+    """
+    global_env_bucket = C4DatastoreExports.get_env_bucket()  # ConfigManager.get_config_setting(Settings.GLOBAL_ENV_BUCKET)
     s3 = boto3.client('s3')
     env = env or ConfigManager.get_config_setting(Settings.ENV_NAME)
     content = {

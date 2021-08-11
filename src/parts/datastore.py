@@ -39,8 +39,8 @@ class C4DatastoreExports(C4Exports):
     # Output secrets info
     APPLICATION_CONFIGURATION_SECRET_NAME = exportify("ApplicationConfigurationSecretName")
 
-    # Output envs bucket and result bucket
-    FOURSIGHT_ENV_BUCKET = exportify('FoursightEnvsBucket')
+    # Output env bucket and result bucket
+    FOURSIGHT_ENV_BUCKET = exportify('FoursightEnvBucket')
     FOURSIGHT_RESULT_BUCKET = exportify('FoursightResultBucket')
     FOURSIGHT_APPLICATION_VERSION_BUCKET = exportify('FoursightApplicationVersionBucket')
 
@@ -68,13 +68,14 @@ class C4DatastoreExports(C4Exports):
     def get_es_url(cls):
         return ConfigManager.find_stack_output(cls._ES_URL_EXPORT_PATTERN.match, value_only=True)
 
-    # e.g., name will be C4DatastoreTrialAlphaExportFoursightEnvsBucket
+    # e.g., name will be C4DatastoreTrialAlphaExportFoursightEnvBucket
     #       or might not contain '...Alpha...'
-    _ENVS_BUCKET_EXPORT_PATTERN = re.compile(".*Datastore.*EnvsBucket")
+    # Also, name change in progress from EnvsBucket turning to EnvBucket, so match both
+    _ENV_BUCKET_EXPORT_PATTERN = re.compile(".*Datastore.*Env.*Bucket")
 
     @classmethod
-    def get_envs_bucket(cls):
-        return ConfigManager.find_stack_output(cls._ENVS_BUCKET_EXPORT_PATTERN.match, value_only=True)
+    def get_env_bucket(cls):
+        return ConfigManager.find_stack_output(cls._ENV_BUCKET_EXPORT_PATTERN.match, value_only=True)
 
     def __init__(self):
         # The intention here is that Beanstalk/ECS stacks will use these outputs and reduce amount

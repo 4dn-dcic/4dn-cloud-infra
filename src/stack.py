@@ -103,7 +103,7 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
         with ConfigManager.validate_and_source_configuration():
             self.security_ids = C4NetworkExports.get_security_ids()
             self.subnet_ids = C4NetworkExports.get_subnet_ids()
-            self.global_env_bucket = C4DatastoreExports.get_envs_bucket()
+            self.global_env_bucket = C4DatastoreExports.get_env_bucket()
             self.trial_creds = {
                 'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY),
                 'CLIENT_ID': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT),

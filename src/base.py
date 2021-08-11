@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from dcicutils.exceptions import InvalidParameterError
 from dcicutils.lang_utils import conjoined_list
 from dcicutils.misc_utils import (
-    check_true, decorator, file_contents, find_association, find_associations, ignorable, override_environ,
+    PRINT, check_true, decorator, file_contents, find_association, find_associations, ignorable, override_environ,
 )
 from .exceptions import CLIException
 from .constants import Secrets, Settings
@@ -94,9 +94,13 @@ class ConfigManager:
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         # The org_name is allowed to be missing or empty if none desired.
         org_name = ConfigManager.get_config_setting(Settings.S3_BUCKET_ORG, default=None)
-        org_prefix = (org_name + "-") if org_name else ""
+        org_prefix = f"cgap-{org_name}-" if org_name else ""
         org_or_env_name = org_name or env_name  # compatibility. original account didn't have an org, so used env_name
-        bucket_name = bucket_template.format(env_name=env_name, org_prefix=org_prefix, org_or_env_name=org_or_env_name)
+        maybe_env_name = "" if org_name else f"{env_name}-"
+        bucket_name = bucket_template.format(env_name=env_name, org_prefix=org_prefix, maybe_env_name=maybe_env_name,
+                                             # being phased out:
+                                             org_or_env_name=org_or_env_name
+                                             )
         # print(bucket_template,"=>",bucket_name)
         return bucket_name
 
@@ -126,7 +130,7 @@ class ConfigManager:
             if not secrets.get(Secrets.S3_ENCRYPT_KEY):  # if missing or empty, try to default from file
                 secrets[Secrets.S3_ENCRYPT_KEY] = ConfigManager.get_s3_encrypt_key_from_file()
         else:
-            print(f"WARNING: {Secrets.S3_ENCRYPT_KEY} is not in {self.SECRETS_FILE},"
+            PRINT(f"WARNING: {Secrets.S3_ENCRYPT_KEY} is not in {self.SECRETS_FILE},"
                   f" and the file {self.S3_ENCRYPT_KEY_FILE} does not exist.")
         check_true(set(self.REQUIRED_SECRETS) <= secrets.keys(),
                    f"The file {self.SECRETS_FILE} is expected to contain"
@@ -145,7 +149,6 @@ class ConfigManager:
         Loads a .json file, casting all the resulting dictionary values to strings
         so they are suitable config file values.
         """
-        print("LOADING", filename)
         with io.open(filename) as fp:
             config = json.load(fp)
             config = {k: str(v) for k, v in config.items()}
@@ -162,7 +165,11 @@ class ConfigManager:
         Returns the creds_dir we will use.
         To ensure consistency, once this is looked at, the value cannot be changed.
         """
-        print(f"Using creds dir {cls.AWS_CREDS_DIR} (=> {os.path.abspath(cls.AWS_CREDS_DIR)}) ...")
+        caveat = ""
+        effective_creds_dir = os.path.abspath(cls.AWS_CREDS_DIR)
+        if cls.AWS_CREDS_DIR != effective_creds_dir:
+            caveat = f" (=> {effective_creds_dir})"
+        PRINT(f"Using creds dir {cls.AWS_CREDS_DIR}{caveat} ...")
         return cls.AWS_CREDS_DIR
 
     @classmethod
@@ -202,21 +209,47 @@ class ConfigManager:
                 else:  # some other false value than None or "", for example zero (0).
                     return found
 
-    class AppBucketTemplate:
+    # This is another change in bucket naming I want to phase in soon. Old names left in place for now while
+    # I do some testing on the system that just came up. -kmp 10-Aug-2021
+    USE_NEW_BUCKET_NAMES = False
 
-        BLOBS = 'application-{org_prefix}{env_name}-blobs'
-        FILES = 'application-{org_prefix}{env_name}-files'
-        WFOUT = 'application-{org_prefix}{env_name}-wfout'
-        SYSTEM = 'application-{org_prefix}{env_name}-system'
-        METADATA_BUNDLES = 'application-{org_prefix}{env_name}-metadata-bundles'
-        TIBANNA_LOGS = 'application-{org_prefix}{env_name}-tibanna-logs'
+    if USE_NEW_BUCKET_NAMES:
 
-    class FSBucketTemplate:
+        class AppBucketTemplate:
 
-        # TODO: Should this be ENVS = 'foursight-{org_or_env_name}-envs' ?
-        ENVS = 'foursight-{org_or_env_name}-envs'  # 'foursight-{org_prefix}{env_name}-envs'
-        RESULTS = 'foursight-{org_prefix}{env_name}-results'
-        APPLICATION_VERSIONS = 'foursight-{org_prefix}{env_name}-application-versions'
+            BLOBS = '{org_prefix}application-{env_name}-blobs'
+            FILES = '{org_prefix}application-{env_name}-files'
+            WFOUT = '{org_prefix}application-{env_name}-wfout'
+            SYSTEM = '{org_prefix}application-{env_name}-system'
+            METADATA_BUNDLES = '{org_prefix}application-{env_name}-metadata-bundles'
+            TIBANNA_LOGS = '{org_prefix}application-{env_name}-tibanna-logs'
+
+    else:
+
+        class AppBucketTemplate:
+
+            BLOBS = 'application-{org_prefix}{env_name}-blobs'
+            FILES = 'application-{org_prefix}{env_name}-files'
+            WFOUT = 'application-{org_prefix}{env_name}-wfout'
+            SYSTEM = 'application-{org_prefix}{env_name}-system'
+            METADATA_BUNDLES = 'application-{org_prefix}{env_name}-metadata-bundles'
+            TIBANNA_LOGS = 'application-{org_prefix}{env_name}-tibanna-logs'
+
+    if USE_NEW_BUCKET_NAMES:
+
+        class FSBucketTemplate:
+
+            ENVS = '{org_prefix}foursight-{maybe_env_name}-envs'
+            RESULTS = '{org_prefix}foursight-{env_name}-results'
+            APPLICATION_VERSIONS = '{org_prefix}foursight-{env_name}-application-versions'
+
+    else:
+
+        class FSBucketTemplate:
+
+            ENVS = 'foursight-{org_or_env_name}-envs'  # 'foursight-{org_prefix}{env_name}-envs'
+            RESULTS = 'foursight-{org_prefix}{env_name}-results'
+            APPLICATION_VERSIONS = 'foursight-{org_prefix}{env_name}-application-versions'
 
     CLOUDFORMATION = None
 
