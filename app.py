@@ -1,10 +1,12 @@
-import os
 import json
 import logging
-from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
+import os
+
 from chalice import Chalice, Response, Cron
+from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
+from dcicutils.exceptions import InvalidParameterError
+from dcicutils.misc_utils import environ_bool, remove_suffix, ignored
 from foursight_core.deploy import Deploy
-from dcicutils.misc_utils import environ_bool, remove_suffix
 
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(levelname)-8s %(message)s')
@@ -39,6 +41,21 @@ if not FOURSIGHT_PREFIX:
 DEFAULT_ENV = os.environ.get('ENV_NAME', "cgap-uninitialized")
 
 
+class SingletonManager():
+
+    def __init__(self, singleton_class, *singleton_args, **singleton_kwargs):
+        self._singleton = None
+        self._singleton_class = singleton_class
+        self._singleton_args = singleton_args
+        self._singleton_kwargs = singleton_kwargs
+
+    @property
+    def singleton(self):
+        if not self._singleton:
+            self._singleton = self._singleton_class(*self._singleton_args or (), **self._singleton_kwargs or {})
+        return self._singleton
+
+
 # This object usually in chalicelib/app_utils.py
 class AppUtils(AppUtils_from_cgap):
     # overwriting parent class
@@ -55,7 +72,10 @@ class AppUtils(AppUtils_from_cgap):
 if DEBUG_CHALICE:
     logger.warning('creating app utils object')
 
-app_utils_obj = AppUtils()
+
+# app_utils_obj = AppUtils()
+app_utils_manager = SingletonManager(AppUtils)
+
 
 if DEBUG_CHALICE:
     logger.warning('got app utils object')
@@ -114,37 +134,43 @@ foursight_cron_by_schedule = {
 
 @app.schedule(foursight_cron_by_schedule[STAGE]['manual_checks'])
 def manual_checks():
-    app_utils_obj.queue_scheduled_checks('all', 'manual_checks')
+    app_utils_manager.singleton.queue_scheduled_checks('all', 'manual_checks')
 
 
 @app.schedule(foursight_cron_by_schedule[STAGE]['morning_checks'])
 def morning_checks(event):
-    app_utils_obj.queue_scheduled_checks('all', 'morning_checks')
+    ignored(event)
+    app_utils_manager.singleton.queue_scheduled_checks('all', 'morning_checks')
 
 
 @app.schedule(foursight_cron_by_schedule[STAGE]['fifteen_min_checks'])
 def fifteen_min_checks(event):
-    app_utils_obj.queue_scheduled_checks('all', 'fifteen_min_checks')
+    ignored(event)
+    app_utils_manager.singleton.queue_scheduled_checks('all', 'fifteen_min_checks')
 
 
 @app.schedule(foursight_cron_by_schedule[STAGE]['fifteen_min_checks_2'])
 def fifteen_min_checks_2(event):
-    app_utils_obj.queue_scheduled_checks('all', 'fifteen_min_checks_2')
+    ignored(event)
+    app_utils_manager.singleton.queue_scheduled_checks('all', 'fifteen_min_checks_2')
 
 
 @app.schedule(foursight_cron_by_schedule[STAGE]['fifteen_min_checks_3'])
 def fifteen_min_checks_3(event):
-    app_utils_obj.queue_scheduled_checks('all', 'fifteen_min_checks_3')
+    ignored(event)
+    app_utils_manager.singleton.queue_scheduled_checks('all', 'fifteen_min_checks_3')
 
 
 @app.schedule(foursight_cron_by_schedule[STAGE]['hourly_checks'])
 def hourly_checks(event):
-    app_utils_obj.queue_scheduled_checks('all', 'hourly_checks')
+    ignored(event)
+    app_utils_manager.singleton.queue_scheduled_checks('all', 'hourly_checks')
 
 
 @app.schedule(foursight_cron_by_schedule[STAGE]['hourly_checks_2'])
 def hourly_checks_2(event):
-    app_utils_obj.queue_scheduled_checks('all', 'hourly_checks_2')
+    ignored(event)
+    app_utils_manager.singleton.queue_scheduled_checks('all', 'hourly_checks_2')
 
 
 ###############################
@@ -159,7 +185,7 @@ def auth0_callback():
     Will return a redirect to view on error/any missing callback info.
     """
     request = app.current_request
-    return app_utils_obj.auth0_callback(request, DEFAULT_ENV)
+    return app_utils_manager.singleton.auth0_callback(request, DEFAULT_ENV)
 
 
 @app.route('/', methods=['GET'])
@@ -169,7 +195,7 @@ def index():
     Non-protected route
     """
     logger.warning('in root route')
-    domain, context = app_utils_obj.get_domain_and_context(app.current_request.to_dict())
+    domain, context = app_utils_manager.singleton.get_domain_and_context(app.current_request.to_dict())
     logger.warning('got domain and context')
     resp_headers = {'Location': context + 'api/view/' + DEFAULT_ENV}  # special casing 'api' for the chalice app root
     return Response(status_code=302, body=json.dumps(resp_headers),
@@ -182,11 +208,11 @@ def introspect(environ):
     Test route
     """
     logger.warning('in introspect route')
-    auth = app_utils_obj.check_authorization(app.current_request.to_dict(), environ)
+    auth = app_utils_manager.singleton.check_authorization(app.current_request.to_dict(), environ)
     if auth:
         return Response(status_code=200, body=json.dumps(app.current_request.to_dict()))
     else:
-        return app_utils_obj.forbidden_response()
+        return app_utils_manager.singleton.forbidden_response()
 
 
 @app.route('/view_run/{environ}/{check}/{method}', methods=['GET'])
@@ -196,15 +222,15 @@ def view_run_route(environ, check, method):
     """
     logger.warning('in view_run route for {} {} {}'.format(environ, check, method))
     req_dict = app.current_request.to_dict()
-    domain, context = app_utils_obj.get_domain_and_context(req_dict)
+    domain, context = app_utils_manager.singleton.get_domain_and_context(req_dict)
     query_params = req_dict.get('query_params', {})
-    if app_utils_obj.check_authorization(req_dict, environ):
+    if app_utils_manager.singleton.check_authorization(req_dict, environ):
         if method == 'action':
-            return app_utils_obj.view_run_action(environ, check, query_params, context)
+            return app_utils_manager.singleton.view_run_action(environ, check, query_params, context)
         else:
-            return app_utils_obj.view_run_check(environ, check, query_params, context)
+            return app_utils_manager.singleton.view_run_check(environ, check, query_params, context)
     else:
-        return app_utils_obj.forbidden_response(context)
+        return app_utils_manager.singleton.forbidden_response(context)
 
 
 @app.route('/view/{environ}', methods=['GET'])
@@ -213,10 +239,10 @@ def view_route(environ):
     Non-protected route
     """
     req_dict = app.current_request.to_dict()
-    domain, context = app_utils_obj.get_domain_and_context(req_dict)
-    check_authorization = app_utils_obj.check_authorization(req_dict, environ)
+    domain, context = app_utils_manager.singleton.get_domain_and_context(req_dict)
+    check_authorization = app_utils_manager.singleton.check_authorization(req_dict, environ)
     logger.warning('result of check authorization: {}'.format(check_authorization))
-    return app_utils_obj.view_foursight(environ, check_authorization, domain, context)
+    return app_utils_manager.singleton.view_foursight(environ, check_authorization, domain, context)
 
 
 @app.route('/view/{environ}/{check}/{uuid}', methods=['GET'])
@@ -225,11 +251,11 @@ def view_check_route(environ, check, uuid):
     Protected route
     """
     req_dict = app.current_request.to_dict()
-    domain, context = app_utils_obj.get_domain_and_context(req_dict)
-    if app_utils_obj.check_authorization(req_dict, environ):
-        return app_utils_obj.view_foursight_check(environ, check, uuid, True, domain, context)
+    domain, context = app_utils_manager.singleton.get_domain_and_context(req_dict)
+    if app_utils_manager.singleton.check_authorization(req_dict, environ):
+        return app_utils_manager.singleton.view_foursight_check(environ, check, uuid, True, domain, context)
     else:
-        return app_utils_obj.forbidden_response()
+        return app_utils_manager.singleton.forbidden_response()
 
 
 @app.route('/history/{environ}/{check}', methods=['GET'])
@@ -242,9 +268,9 @@ def history_route(environ, check):
     query_params = req_dict.get('query_params')
     start = int(query_params.get('start', '0')) if query_params else 0
     limit = int(query_params.get('limit', '25')) if query_params else 25
-    domain, context = app_utils_obj.get_domain_and_context(req_dict)
-    return app_utils_obj.view_foursight_history(environ, check, start, limit,
-                                                app_utils_obj.check_authorization(req_dict, environ), domain, context)
+    domain, context = app_utils_manager.singleton.get_domain_and_context(req_dict)
+    return app_utils_manager.singleton.view_foursight_history(environ, check, start, limit,
+                                                app_utils_manager.singleton.check_authorization(req_dict, environ), domain, context)
 
 
 @app.route('/checks/{environ}/{check}/{uuid}', methods=['GET'])
@@ -252,10 +278,10 @@ def get_check_with_uuid_route(environ, check, uuid):
     """
     Protected route
     """
-    if app_utils_obj.check_authorization(app.current_request.to_dict(), environ):
-        return app_utils_obj.run_get_check(environ, check, uuid)
+    if app_utils_manager.singleton.check_authorization(app.current_request.to_dict(), environ):
+        return app_utils_manager.singleton.run_get_check(environ, check, uuid)
     else:
-        return app_utils_obj.forbidden_response()
+        return app_utils_manager.singleton.forbidden_response()
 
 
 @app.route('/checks/{environ}/{check}', methods=['GET'])
@@ -263,10 +289,10 @@ def get_check_route(environ, check):
     """
     Protected route
     """
-    if app_utils_obj.check_authorization(app.current_request.to_dict(), environ):
-        return app_utils_obj.run_get_check(environ, check, None)
+    if app_utils_manager.singleton.check_authorization(app.current_request.to_dict(), environ):
+        return app_utils_manager.singleton.run_get_check(environ, check, None)
     else:
-        return app_utils_obj.forbidden_response()
+        return app_utils_manager.singleton.forbidden_response()
 
 
 @app.route('/checks/{environ}/{check}', methods=['PUT'])
@@ -281,11 +307,11 @@ def put_check_route(environ, check):
     Protected route
     """
     request = app.current_request
-    if app_utils_obj.check_authorization(request.to_dict(), environ):
+    if app_utils_manager.singleton.check_authorization(request.to_dict(), environ):
         put_data = request.json_body
-        return app_utils_obj.run_put_check(environ, check, put_data)
+        return app_utils_manager.singleton.run_put_check(environ, check, put_data)
     else:
-        return app_utils_obj.forbidden_response()
+        return app_utils_manager.singleton.forbidden_response()
 
 
 @app.route('/environments/{environ}', methods=['GET'])
@@ -293,10 +319,10 @@ def get_environment_route(environ):
     """
     Protected route
     """
-    if app_utils_obj.check_authorization(app.current_request.to_dict(), environ):
-        return app_utils_obj.run_get_environment(environ)
+    if app_utils_manager.singleton.check_authorization(app.current_request.to_dict(), environ):
+        return app_utils_manager.singleton.run_get_environment(environ)
     else:
-        return app_utils_obj.forbidden_response()
+        return app_utils_manager.singleton.forbidden_response()
 
 # NOTE: the environment is created through this repository, so this API
 #       should be unnecessary.
@@ -311,11 +337,11 @@ def get_environment_route(environ):
 #     Protected route
 #     """
 #     request = app.current_request
-#     if app_utils_obj.check_authorization(request.to_dict(), environ):
+#     if app_utils_manager.singleton.check_authorization(request.to_dict(), environ):
 #         env_data = request.json_body
-#         return app_utils_obj.run_put_environment(environ, env_data)
+#         return app_utils_manager.singleton.run_put_environment(environ, env_data)
 #     else:
-#         return app_utils_obj.forbidden_response()
+#         return app_utils_manager.singleton.forbidden_response()
 
 
 # NOTE: this functionality is disabled for safety reasons.
@@ -330,10 +356,11 @@ def get_environment_route(environ):
 #
 #     Protected route
 #     """
-#     if app_utils_obj.check_authorization(app.current_request.to_dict(), environ):  # TODO (C4-138) Centralize authorization check
-#         return app_utils_obj.run_delete_environment(environ)
+#     # TODO (C4-138) Centralize authorization check
+#     if app_utils_manager.singleton.check_authorization(app.current_request.to_dict(), environ):
+#         return app_utils_manager.singleton.run_delete_environment(environ)
 #     else:
-#         return app_utils_obj.forbidden_response()
+#         return app_utils_manager.singleton.forbidden_response()
 
 
 #######################
@@ -347,9 +374,10 @@ def check_runner(event, context):
     the checks. Self propogates. event is a dict of information passed into
     the lambda at invocation time.
     """
+    ignored(context)
     if not event:
         return
-    app_utils_obj.run_check_runner(event)
+    app_utils_manager.singleton.run_check_runner(event)
 
 
 ########################
@@ -357,11 +385,23 @@ def check_runner(event, context):
 ########################
 
 
+def compute_valid_deploy_stages():
+    return list(Deploy.CONFIG_BASE['stages'].keys()) + ['test']
+
+
+class InvalidDeployStage(InvalidParameterError):
+
+    @classmethod
+    def compute_valid_options(cls):
+        return compute_valid_deploy_stages()
+
+
 def set_stage(stage):
-    if stage != 'test' and stage not in Deploy.CONFIG_BASE['stages']:
-        print('ERROR! Input stage is not valid. Must be one of: %s' % str(list(Deploy.CONFIG_BASE['stages'].keys()).extend('test')))
+    if stage not in compute_valid_deploy_stages():
+        raise InvalidDeployStage(parameter='stage', value=stage)
     os.environ['chalice_stage'] = stage
 
 
 def set_timeout(timeout):
-    app_utils_obj.set_timeout(timeout)
+    app_utils_manager.singleton.set_timeout(timeout)
+

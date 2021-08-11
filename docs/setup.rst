@@ -14,7 +14,8 @@ dependencies via poetry_.
 .. _pyenv: https://github.com/pyenv/pyenv
 .. _poetry: https://python-poetry.org/
 
-::
+For example::
+
     pyenv install 3.6.10
     # Builds or rebuilds the env, version found in `.python-version`
     pyenv exec python -m venv --clear infraenv
@@ -27,22 +28,19 @@ dependencies via poetry_.
 Access To Test Account
 ----------------------
 
-You can install them in ~/.aws_test . You can set up a credentials file:
+You can install them in ``custom/aws_creds`` . You can set up a credentials file::
 
-::
     [default]
     aws_access_key_id = XXX
     aws_secret_access_key = XXX
 
-a config file:
+a config file::
 
-::
     [default]
     region = us-east-1
 
-and a test_creds.sh file:
+and a test_creds.sh file::
 
-::
     export AWS_ACCESS_KEY_ID=XXX
     export AWS_SECRET_ACCESS_KEY=XXX
     export AWS_DEFAULT_REGION=us-east-1
@@ -64,7 +62,9 @@ config.json file at repo top level - use the JSON structure below as a template.
 * You'll need to remove the comments because, unlike Python, `.json` dictionary files have no comment syntax.
 * Note that you DO NOT and SHOULD NOT put AWS Keys in this file!
 
-::
+The format is JSON, though remember that JSON files, unlike Python files, cannot have comments and cannot have
+a trailing comma inside a list or dictionary::
+
     {
         "deploying_iam_user": <your IAM user name, not the full ARN>,
         "account_number": <your account number, found in the console>,
@@ -92,16 +92,15 @@ config.json file at repo top level - use the JSON structure below as a template.
         "rds.db_name": "ebdb",
         "rds.db_port": "5432",
         "rds.instance_size": "db.t3.xlarge",
-        "rds.storage_size": 20,
+        "rds.storage_size": 20
     }
 
 To configure the CGAP infrastructure (post-orchestration), you need to modify a JSON secret in AWS SecretsManager,
 identified by the stack prefix. At minimum, the values below must be present. These values will all have a placeholders
 in the generated application configuration secret. Some values need to be retrieved from the administrator configuring
 the system. Note that Auth0 configuration is NOT part of the setup at this time - it assumes an existing Auth0
-application and that the orchestrating user has access. Comments seek to guide the user on where to find each value.
+application and that the orchestrating user has access. Comments seek to guide the user on where to find each value::
 
-::
     # Required props for deployment
     deploying_iam_user = "the power IAM user who is orchestrating the infrastructure"
     Auth0Client = "Get from Auth0"
@@ -132,11 +131,12 @@ Tibanna Setup
 -------------
 
 Each tibanna command is wrapped on execution, so the environment vars required for the tibanna cli configuration are
-sourced with the command's execution. This requires a `test_creds.sh` file in `~/.aws_test/test_creds.sh` by default.
+sourced with the command's execution. This requires a `test_creds.sh` file in the creds directory (which is
+``custom/aws_creds`` in your repository, though you can link that to ``~/.aws_test/test_creds.sh`` if you want
+compatibility with the way we used to do it).
 
-This file can look like this, with IAM creds to the correct account filled in:
+This file can look like this, with IAM creds to the correct account filled in::
 
-::
     export AWS_ACCESS_KEY_ID=<ACCESS_KEY_HERE>
     export AWS_SECRET_ACCESS_KEY=<SECRET_HERE>
     export AWS_DEFAULT_REGION=us-east-1

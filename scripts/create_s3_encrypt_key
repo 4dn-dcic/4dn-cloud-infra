@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+rootdir="$(dirname $(dirname $0))"
+
 openssl_vendor=`openssl version | cut -d ' ' -f 1`
 
 if [ -z "${openssl_vendor}" ]; then
@@ -20,8 +22,12 @@ elif [ "${openssl_vendor}" != "OpenSSL" ]; then
   exit 1
 fi
 
-if [ ! -e "~/.aws_test" ]; then
-  echo "The file ~/.aws_test does not exist. You may not have the right credentials selected."
+keydir="${rootdir}/custom/aws_creds"
+
+
+
+if [ ! -e "${keydir}" ]; then
+  echo "The file ${keydir} does not exist. You may not have the right credentials selected."
   exit 1
 fi
 
@@ -31,7 +37,7 @@ if [ "$1" = "-v" -o "$1" = "--verbose" ]; then
     shift 1
 fi
 
-keyfile=${S3_ENCRYPT_KEY_FILE:-$HOME/.aws_test/s3_encrypt_key.txt}
+keyfile=${S3_ENCRYPT_KEY_FILE:-${keydir}/s3_encrypt_key.txt}
 
 if [ -e "${keyfile}" ]; then
     echo "The file ${keyfile} already exists."

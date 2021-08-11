@@ -1,6 +1,7 @@
-from src.stack import C4Stack, C4Name, C4Tags, C4Account, C4FoursightCGAPStack
-from src.parts import network, datastore, ecr, iam, logging, ecs  # , appconfig
 from ..base import register_stack_creator, COMMON_STACK_PREFIX
+from ..parts import network, datastore, ecr, iam, logging, ecs  # , appconfig
+from ..stack import C4Stack, C4Name, C4Tags, C4Account, C4FoursightCGAPStack
+
 
 # Stack metadata
 # 'alpha' in this case refers to the first iteration of CGAP Docker on ECS
@@ -8,7 +9,10 @@ from ..base import register_stack_creator, COMMON_STACK_PREFIX
 
 def c4_alpha_stack_trial_name(name):
     # e.g., if name='network, result will be c4-network-trial-alpha
-    return C4Name(name=f'{COMMON_STACK_PREFIX}{name}-trial-alpha')
+    # return C4Name(name=f'{COMMON_STACK_PREFIX}{name}-trial-alpha')
+
+    # Experimentally return something simpler...
+    return C4Name(name=f'{COMMON_STACK_PREFIX}{name}')
 
 
 def c4_alpha_stack_trial_tags():
@@ -16,7 +20,7 @@ def c4_alpha_stack_trial_tags():
 
 
 def c4_alpha_stack_trial_description(stack):
-    return 'AWS CloudFormation CGAP {0} template: trial {0} setup for cgap-portal environment using ECS'.format(stack)
+    return f"AWS CloudFormation CGAP {stack} template, for use in an ECS-based CGAP environment."
 
 
 def c4_alpha_stack_trial_metadata(name='network'):

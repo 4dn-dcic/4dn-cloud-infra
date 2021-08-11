@@ -2,8 +2,11 @@ import hashlib
 import logging
 import os
 import re
+
 from datetime import datetime
+from dcicutils.misc_utils import remove_prefix, snake_case_to_camel_case
 from troposphere import Tag, Tags, Template
+
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +38,7 @@ class C4Tags:
 
 class C4Account:
     """ Helper class for working with an AWS account """
-    def __init__(self, account_number, creds_file='~/.aws_test/test_creds.sh'):
+    def __init__(self, account_number, creds_file):  # previous default '~/.aws_test/test_creds.sh'
         self.account_number = str(account_number)
         self.creds_file = creds_file
 
@@ -49,25 +52,42 @@ class C4Account:
         os.system(command_with_creds)
 
 
+def camelize(name):  # when this is debugged, this name can go away and tests can be simplified
+    return snake_case_to_camel_case(name, separator='-')
+    # return ''.join([i.capitalize() for i in name.split('-')])
+
 class C4Name:
     """ Helper class for working with stack names and resource name construction """
     def __init__(self, name):
         self.name = name
-        self.stack_name = '{}-stack'.format(name)
-        self.logical_id_prefix = ''.join([i.capitalize() for i in name.split('-')])
+        self.stack_name = f'{name}-stack'  # was '{}-stack'.format(name)
+        self.logical_id_prefix = camelize(name)
 
     def __str__(self):
         return self.name
 
     def instance_name(self, suffix):
         """ Build an instance name for an EC2 instance, given a suffix """
-        return '{0}-{1}'.format(self.name, suffix)
+        return f'{self.name}-{suffix}'  # was '{0}-{1}'.format(self.name, suffix)
 
-    def logical_id(self, resource):
+    def logical_id(self, resource, context=""):
         """ Build the Cloud Formation 'Logical Id' for a resource.
             Takes string s and returns s with uniform resource prefix added.
             Can also be used to construct Name tags for resources. """
-        return '{0}{1}'.format(self.logical_id_prefix, resource)
+        # Don't add the prefix redundantly.
+        resource_name = str(resource)
+        if resource_name.startswith(self.logical_id_prefix):
+            if context:
+                context = f"In {context}: "
+            else:
+                context = ""
+            print(f"{context}{self}.logical_id({resource!r}) => {resource_name}")
+            return resource_name
+        res = self.logical_id_prefix + resource_name
+        print(f"{context}{self}.logical_id({resource!r}) => {res}")
+        return res
+
+
 
     @staticmethod
     def bucket_name_from_logical_id(logical_id):
@@ -80,18 +100,18 @@ class C4Name:
             naming convention. """
         return name.lower()  # correct?
 
-    def version_name(self, template_text, file_type='yml'):
+    def version_name(self, template_text, file_type='yml') -> str:
         """ Helper method for creating a file name for a specific template version, based on the stack name,
             current date, and the template text's md5sum. Defaults to a yml file type.
             Returns a tuple of (path, version name). """
         stack_name = self.stack_name
         today = str(datetime.now().date())
         md5sum = hashlib.new('md5', bytes(template_text, 'utf-8')).hexdigest()
-        path = 'out/templates/'
+        # path = 'out/templates/'
         filename = '{stack_name}-{today}-{md5sum}.{file_type}'.format(
             stack_name=stack_name, today=today, md5sum=md5sum, file_type=file_type)
 
-        return path, filename
+        return filename  # was path, filename
 
 
 class C4Part:
@@ -116,3 +136,10 @@ class C4Part:
             :type template: Template
         """
         return template
+
+    def trim_name(self, item):
+        item_string = str(item)
+        return remove_prefix(self.name.logical_id_prefix, item_string, required=False)
+
+    def trim_names(self, items):
+        return [self.trim_name(item) for item in items]

@@ -9,7 +9,11 @@ if [ "$1" = "-v" -o "$1" = "--verbose" ]; then
     shift 1
 fi
 
-keyfile=${S3_ENCRYPT_KEY_FILE:-$HOME/.aws_test/s3_encrypt_key.txt}
+keyfile=${S3_ENCRYPT_KEY_FILE:-$(dirname $(dirname $0))/custom/aws_creds/s3_encrypt_key.txt}
+
+if [ "${VERBOSE}" = "TRUE" ]; then
+    echo "Keyfile: ${keyfile}"
+fi
 
 if [ -e "${keyfile}" ]; then
     echo "The file ${keyfile} already exists."

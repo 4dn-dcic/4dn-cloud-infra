@@ -1,4 +1,4 @@
-import os
+from dcicutils.misc_utils import ignorable
 from troposphere import (
     Parameter,
     Join,
@@ -9,6 +9,8 @@ from troposphere import (
     Output,
     GetAtt
 )
+from troposphere.cloudwatch import Alarm, MetricDimension
+from troposphere.ec2 import SecurityGroup, SecurityGroupRule
 from troposphere.ecs import (
     Cluster,
     TaskDefinition,
@@ -23,21 +25,14 @@ from troposphere.ecs import (
     CapacityProviderStrategyItem,
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
-from troposphere.ec2 import SecurityGroup, SecurityGroupRule
-from troposphere.cloudwatch import Alarm, MetricDimension
-from src.base import ConfigManager
-from src.constants import (
-    ENV_NAME, ECS_IMAGE_TAG,
-    ECS_WSGI_COUNT, ECS_WSGI_CPU, ECS_WSGI_MEM,  # XXX: refactor
-    ECS_INDEXER_COUNT, ECS_INDEXER_CPU, ECS_INDEXER_MEM,
-    ECS_INGESTER_COUNT, ECS_INGESTER_CPU, ECS_INGESTER_MEM, IDENTITY,
-)
-from src.exports import C4Exports
-from src.part import C4Part
-from src.parts.network import C4NetworkExports, C4Network
-from src.parts.ecr import C4ECRExports
-from src.parts.iam import C4IAMExports
-from src.parts.logging import C4LoggingExports
+from ..base import ConfigManager
+from ..constants import Settings
+from ..exports import C4Exports
+from ..part import C4Part
+from ..parts.network import C4NetworkExports, C4Network
+from ..parts.ecr import C4ECRExports
+from ..parts.iam import C4IAMExports
+from ..parts.logging import C4LoggingExports
 
 
 class C4ECSApplicationTypes:
@@ -54,7 +49,7 @@ class C4ECSApplicationExports(C4Exports):
     """ Holds ECS export metadata. """
 
     @classmethod
-    def output_application_url_key(self, env):
+    def output_application_url_key(cls, env):
         return 'ECSApplicationURL%s' % env.replace('-', '')
 
     @classmethod
@@ -87,7 +82,7 @@ class C4ECSApplication(C4Part):
     LOGGING_EXPORTS = C4LoggingExports()
     AMI = 'ami-0be13a99cd970f6a9'  # latest amazon linux 2 ECS optimized
     LB_NAME = 'AppLB'
-    IMAGE_TAG = os.environ.get(ECS_IMAGE_TAG) or 'latest'
+    IMAGE_TAG = ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, 'latest')
     LEGACY_DEFAULT_IDENTITY = 'dev/beanstalk/cgap-dev'
 
     def build_template(self, template: Template) -> Template:
@@ -130,8 +125,10 @@ class C4ECSApplication(C4Part):
         template.add_resource(portal)
         template.add_resource(self.ecs_indexer_task())
         indexer = template.add_resource(self.ecs_indexer_service())
+        ignorable(indexer)
         template.add_resource(self.ecs_ingester_task())
         ingester = template.add_resource(self.ecs_ingester_service())
+        ignorable(ingester)
         template.add_resource(self.ecs_deployment_task(initial=True))
         template.add_resource(self.ecs_deployment_task())
         template.add_resource(self.ecs_deployment_service())
@@ -159,12 +156,14 @@ class C4ECSApplication(C4Part):
         template.add_output(self.output_application_url())
         return template
 
-    def ecs_cluster(self) -> Cluster:
+    @classmethod
+    def ecs_cluster(cls) -> Cluster:
         """ Creates an ECS cluster for use with this portal deployment. """
         return Cluster(
-            os.environ.get(ENV_NAME, 'CGAPDockerCluster').replace('-', ''),  # Fallback, but should always be set
+            # Fallback, but should always be set
+            ConfigManager.get_config_setting(Settings.ENV_NAME, 'CGAPDockerCluster').replace('-', ''),
             CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
-            # Tags=self.tags.cost_tag_array() XXX: bug in troposphere - does not take tags array
+            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
     @staticmethod
@@ -178,7 +177,9 @@ class C4ECSApplication(C4Part):
 
     @staticmethod
     def ecs_web_worker_port() -> Parameter:
-        """ Parameter for the portal port - by default 8000 (requires change to nginx config on cgap-portal to modify) """
+        """
+        Parameter for the portal port - by default 8000 (requires change to nginx config on cgap-portal to modify)
+        """
         return Parameter(
             'WebWorkerPort',
             Description='Web worker container exposed port',
@@ -250,7 +251,7 @@ class C4ECSApplication(C4Part):
 
     def ecs_application_load_balancer(self) -> elbv2.LoadBalancer:
         """ Application load balancer for the portal ECS Task. """
-        env_identifier = os.environ.get(ENV_NAME).replace('-', '')
+        env_identifier = ConfigManager.get_config_setting(Settings.ENV_NAME).replace('-', '')
         if not env_identifier:
             raise Exception('Did not set required key in .env! Should never get here.')
         logical_id = self.name.logical_id(env_identifier)
@@ -272,7 +273,7 @@ class C4ECSApplication(C4Part):
 
     def output_application_url(self, env=None) -> Output:
         """ Outputs URL to access portal. """
-        env = env or os.environ.get(ENV_NAME) or 'cgap-mastertest'
+        env = env or ConfigManager.get_config_setting(Settings.ENV_NAME)  # ENV_NAME is a required setting
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
             Description='URL of CGAP-Portal.',
@@ -296,7 +297,7 @@ class C4ECSApplication(C4Part):
             Tags=self.tags.cost_tag_array()
         )
 
-    def ecs_portal_task(self, cpus='256', mem='512', identity=None) -> TaskDefinition:
+    def ecs_portal_task(self, cpus='256', mem='512', identity=None) -> TaskDefinition:   # XXX: refactor
         """ Defines the portal Task (serve HTTP requests).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
@@ -309,8 +310,8 @@ class C4ECSApplication(C4Part):
         return TaskDefinition(
             'CGAPportal',
             RequiresCompatibilities=['FARGATE'],
-            Cpu=os.environ.get(ECS_WSGI_CPU) or cpus,
-            Memory=os.environ.get(ECS_WSGI_MEM) or mem,
+            Cpu=ConfigManager.get_config_setting(Settings.ECS_WSGI_CPU, cpus),
+            Memory=ConfigManager.get_config_setting(Settings.ECS_WSGI_MEM, mem),
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
@@ -329,19 +330,22 @@ class C4ECSApplication(C4Part):
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
                         Options={
-                            'awslogs-group': self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+                            'awslogs-group':
+                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'cgap-portal'
                         }
                     ),
                     Environment=[
-                        # VERY IMPORTANT - this environment variable determines which identity in the secrets manager to use
-                        # If this secret does not exist, things will not start up correctly - this is ok in the short term,
-                        # but shortly after orchestration the secret value should be set.
+                        # VERY IMPORTANT - this environment variable determines which identity in the secrets manager
+                        # to use. If this secret does not exist, things will not start up correctly - this is ok in
+                        # the short term, but shortly after orchestration the secret value should be set.
                         # Note this applies to all other tasks as well.
                         Environment(
                             Name='IDENTITY',
-                            Value=identity or os.environ.get(IDENTITY) or self.LEGACY_DEFAULT_IDENTITY,
+                            Value=(identity
+                                   or ConfigManager.get_config_setting(Settings.IDENTITY,
+                                                                       self.LEGACY_DEFAULT_IDENTITY)),
                         ),
                         Environment(
                             Name='application_type',
@@ -361,12 +365,12 @@ class C4ECSApplication(C4Part):
 
             :param concurrency: # of concurrent tasks to run - since this setup is intended for use with
                                 production, this value is 8, approximately matching our current resources.
-        """
+        """  # noQA - ignore line length issues
         return Service(
             "CGAPportalService",
             Cluster=Ref(self.ecs_cluster()),
             DependsOn=['ECSLBListener'],  # XXX: Hardcoded, important!
-            DesiredCount=os.environ.get(ECS_WSGI_COUNT) or concurrency,
+            DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(
                     ContainerName='portal',  # this must match Name in TaskDefinition (ContainerDefinition)
@@ -411,8 +415,8 @@ class C4ECSApplication(C4Part):
         return TaskDefinition(
             'CGAPIndexer',
             RequiresCompatibilities=['FARGATE'],
-            Cpu=os.environ.get(ECS_INDEXER_CPU) or cpus,
-            Memory=os.environ.get(ECS_INDEXER_MEM) or mem,
+            Cpu=ConfigManager.get_config_setting(Settings.ECS_INDEXER_CPU, cpus),
+            Memory=ConfigManager.get_config_setting(Settings.ECS_INDEXER_MEM, mem),
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
@@ -428,7 +432,8 @@ class C4ECSApplication(C4Part):
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
                         Options={
-                            'awslogs-group': self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+                            'awslogs-group':
+                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'cgap-indexer'
                         }
@@ -436,7 +441,8 @@ class C4ECSApplication(C4Part):
                     Environment=[
                         Environment(
                             Name='IDENTITY',
-                            Value=identity or os.environ.get(IDENTITY) or self.LEGACY_DEFAULT_IDENTITY,
+                            Value=(identity or
+                                   ConfigManager.get_config_setting(Settings.IDENTITY, self.LEGACY_DEFAULT_IDENTITY)),
                         ),
                         Environment(
                             Name='application_type',
@@ -460,7 +466,7 @@ class C4ECSApplication(C4Part):
         return Service(
             "CGAPIndexerService",
             Cluster=Ref(self.ecs_cluster()),
-            DesiredCount=os.environ.get(ECS_INDEXER_COUNT) or concurrency,
+            DesiredCount=ConfigManager.get_config_setting(Settings.ECS_INDEXER_COUNT, concurrency),
             CapacityProviderStrategy=[
                 CapacityProviderStrategyItem(
                     CapacityProvider='FARGATE',
@@ -496,7 +502,8 @@ class C4ECSApplication(C4Part):
             Namespace='AWS/SQS',
             MetricName='ApproximateNumberOfMessagesVisible',
             Dimensions=[
-                MetricDimension(Name='QueueName', Value=os.environ.get(ENV_NAME) + '-secondary-indexer-queue'),
+                MetricDimension(Name='QueueName',
+                                Value=ConfigManager.get_config_setting(Settings.ENV_NAME) + '-secondary-indexer-queue'),
             ],
             Statistic='Maximum',
             Period='300',
@@ -516,7 +523,8 @@ class C4ECSApplication(C4Part):
             Namespace='AWS/SQS',
             MetricName='ApproximateNumberOfMessagesVisible',
             Dimensions=[
-                MetricDimension(Name='QueueName', Value=os.environ.get(ENV_NAME) + '-secondary-indexer-queue'),
+                MetricDimension(Name='QueueName',
+                                Value=ConfigManager.get_config_setting(Settings.ENV_NAME) + '-secondary-indexer-queue'),
             ],
             Statistic='Maximum',
             Period='300',
@@ -538,8 +546,8 @@ class C4ECSApplication(C4Part):
         return TaskDefinition(
             'CGAPIngester',
             RequiresCompatibilities=['FARGATE'],
-            Cpu=os.environ.get(ECS_INGESTER_CPU) or cpus,
-            Memory=os.environ.get(ECS_INGESTER_MEM) or mem,
+            Cpu=ConfigManager.get_config_setting(Settings.ECS_INGESTER_CPU, cpus),
+            Memory=ConfigManager.get_config_setting(Settings.ECS_INGESTER_MEM, mem),
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
@@ -555,7 +563,8 @@ class C4ECSApplication(C4Part):
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
                         Options={
-                            'awslogs-group': self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+                            'awslogs-group':
+                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'cgap-ingester'
                         }
@@ -563,7 +572,9 @@ class C4ECSApplication(C4Part):
                     Environment=[
                         Environment(
                             Name='IDENTITY',
-                            Value=identity or os.environ.get(IDENTITY) or self.LEGACY_DEFAULT_IDENTITY
+                            Value=(identity
+                                   or ConfigManager.get_config_setting(Settings.IDENTITY,
+                                                                       self.LEGACY_DEFAULT_IDENTITY)),
                         ),
                         Environment(
                             Name='application_type',
@@ -584,7 +595,7 @@ class C4ECSApplication(C4Part):
         return Service(
             "CGAPIngesterService",
             Cluster=Ref(self.ecs_cluster()),
-            DesiredCount=os.environ.get(ECS_INGESTER_COUNT) or 1,
+            DesiredCount=ConfigManager.get_config_setting(Settings.ECS_INGESTER_COUNT, 1),
             TaskDefinition=Ref(self.ecs_ingester_task()),
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
@@ -621,7 +632,8 @@ class C4ECSApplication(C4Part):
             Namespace='AWS/SQS',
             MetricName='ApproximateNumberOfMessagesVisible',
             Dimensions=[
-                MetricDimension(Name='QueueName', Value=os.environ.get(ENV_NAME) + '-ingestion-queue'),
+                MetricDimension(Name='QueueName',
+                                Value=ConfigManager.get_config_setting(Settings.ENV_NAME) + '-ingestion-queue'),
             ],
             Statistic='Maximum',
             Period='300',
@@ -641,7 +653,8 @@ class C4ECSApplication(C4Part):
             Namespace='AWS/SQS',
             MetricName='ApproximateNumberOfMessagesVisible',
             Dimensions=[
-                MetricDimension(Name='QueueName', Value=os.environ.get(ENV_NAME) + '-ingestion-queue'),
+                MetricDimension(Name='QueueName',
+                                Value=ConfigManager.get_config_setting(Settings.ENV_NAME) + '-ingestion-queue'),
             ],
             Statistic='Maximum',
             Period='300',
@@ -659,6 +672,9 @@ class C4ECSApplication(C4Part):
             :param identity: name of secret containing the identity information for this environment
                              (defaults to value of environment variable IDENTITY,
                              or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
+            :param initial: boolean saying whether this task is intended to do the first deploy.
+                            If it is, the environment variable INITIAL_DEPLOYMENT gets set to True,
+                            causing a different initialization sequence.
         """
         return TaskDefinition(
             'CGAPInitialDeployment' if initial else 'CGAPDeployment',
@@ -680,7 +696,8 @@ class C4ECSApplication(C4Part):
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
                         Options={
-                            'awslogs-group': self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+                            'awslogs-group':
+                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'cgap-deployment'
                         }
@@ -688,7 +705,8 @@ class C4ECSApplication(C4Part):
                     Environment=[
                         Environment(
                             Name='IDENTITY',
-                            Value=identity or os.environ.get(IDENTITY) or self.LEGACY_DEFAULT_IDENTITY
+                            Value=(identity or
+                                   ConfigManager.get_config_setting(Settings.IDENTITY, self.LEGACY_DEFAULT_IDENTITY)),
                         ),
                         Environment(
                             Name='INITIAL_DEPLOYMENT',

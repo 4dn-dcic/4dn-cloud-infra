@@ -1,13 +1,12 @@
 import boto3
+import concurrent.futures
 import csv
 import logging
 import sys
 
-import concurrent.futures
 from botocore.exceptions import ClientError
 from datetime import datetime, timedelta
-
-from src.info.pricing_calculator import PricingCalculator
+from .pricing_calculator import PricingCalculator
 
 
 class AWSUtil:

@@ -32,9 +32,11 @@ Note that the HMS email you use to create this account is treated as the 'root a
   resources. More information on this bootstrap step to be documented. As a result of this step, you should have this
   account's credentials in a configurable `.aws` directory, by default, `.aws_test/credentials`.
 
-  In these instructions, we assume you'll be using test credentials in ``~/.aws_test``.
-  If you're using credentials in locations, you may want to make ``~/.aws_test`` be a symbolic link
-  to the one you are actively using.
+  In these instructions, we assume you'll be using test credentials in ``custom/aws_creds`` (which can be a link to
+  ``~/.aws_test`` if you're using our old paradigm). Using an in-repository directory will allow you to have different
+  sandboxes with different credentials. For example, you may want to have multiple ``~/.aws_test.xxx`` folders and
+  link the ``custom/aws_creds`` folder in any given sandbox to the appropriate credentials directory, that might be
+  shared.
 
 
 Step Two: CGAP Orchestration with Cloud Formation
@@ -51,10 +53,10 @@ You can request this from the `Service Quotas console
 
 ::
 
-    poetry run cli provision iam --validate --alpha --upload_change_set
-    poetry run cli provision logging --validate --alpha --upload_change_set
-    poetry run cli provision network --validate --alpha --upload_change_set
-    poetry run cli provision ecr --validate --alpha --upload_change_set
+    poetry run cli provision iam --validate --upload_change_set
+    poetry run cli provision logging --validate --upload_change_set
+    poetry run cli provision network --validate --upload_change_set
+    poetry run cli provision ecr --validate --upload_change_set
 
     #############################################################################
     # This next command is a temporary workaround to manually create            #
@@ -64,19 +66,25 @@ You can request this from the `Service Quotas console
     #   aws iam create-service-linked-role --aws-service-name es.amazonaws.com  #
     # So this is the way to do that using docker.                               #
     #############################################################################
-    docker run --rm -it -v ~/.aws_test:/root/.aws amazon/aws-cli iam create-service-linked-role --aws-service-name ecs.amazonaws.com
+    docker run --rm -it -v `pwd`/custom/aws_creds:/root/.aws amazon/aws-cli iam create-service-linked-role --aws-service-name ecs.amazonaws.com
 
     ################################################################################
     # You will need to make sure you have an s3 encrypt key for your test account. #
     # You want to create this only one time and to be careful about where you      #
-    # keep it. This script will store it in your ~/.aws_test/ directory as         #
+    # keep it. This script will store it in your ./custom/aws_creds directory as   #
     # s3_encrypt_key.txt and will set appropriate permissions so it is hard for    #
-    # others to see and hard for you to accidentally delete. Other deployment      #
-    # tools know to look for it in this location.                                  #
+    # others to see and hard for you to accidentally delete. The script will tell  #
+    # you the name of the key that you need to assure you add to your secrets in   #
+    # ./custom/secrets.json so that you can use it consistently going forward.     #
+    #                                                                              #
+    # NOTE WELL: Use the --verbose options ONLY interactively since it will        #
+    #   output a secret that you should not capture in a script or log.  If you    #
+    #   want to put this into a file for error-checking purposes, don't use        #
+    #   the --verbose arg.                                                         #
     ################################################################################
-    make assure-s3-encrypt-key
+    ./scripts/assure_s3_encrypt-key --verbose
 
-    poetry run cli provision datastore --validate --alpha --upload_change_set
+    poetry run cli provision datastore --validate --upload_change_set
 
 More info: https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/slr-es.html
 
@@ -85,25 +93,80 @@ These will take about fifteen minutes or so to finish provisioning, and should b
 While they are instantiating, write the global application configuration in secrets manager.
 There is more documentation on this is in ``docs/setup.rst``.
 
-Once your new ECR comes online, upload an application image to it.
-See the cgap-portal Makefile. Push the image tag specified in ``config.json`` prior to deploying ECS.
+
+Step Three (Intermission): Push a cgap-portal Image
+---------------------------------------------------
+
+**NOTE:** This step is done from the ``cgap-portal`` repo.
+
+* Once your new ECR comes online, upload an application image to it.
+  See the cgap-portal Makefile. Push the image tag specified in ``config.json`` prior to deploying ECS.
+
+
+Step Four: More CGAP Orchestration with Cloud Formation
+-------------------------------------------------------
 
 * Once all base stacks have finishing instantiating -- all stacks should be in state `UPDATE_COMPLETE` -- you can
   provision the application stack by doing::
 
-     poetry run cli provision ecs --validate --alpha --upload_change_set
+     poetry run cli provision ecs --validate --upload_change_set
 
 
 * Once the application has finishing instantiating, you can deploy the portal.
 
-To do this in the console, navigate to the ECS Console and locate the Deployment Service. Invoke this task in the newly
-created VPC and private subnets. Attach the Application and DB security groups. (An automated deploy script to follow.)
+Deploying CGAP
+~~~~~~~~~~~~~~
 
-With this done, once the deployment container is online, logs will immediately stream to the task, and Cloudwatch.
+To deploy the CGAP portal you have uploaded:
+
+* Navigate to `the ECS console in AWS <https://console.aws.amazon.com/ecs/home?region=us-east-1#/taskDefinitions>`_.
+
+* Select `the Task Definitions tab <https://console.aws.amazon.com/ecs/home?region=us-east-1#/taskDefinitions>`_.
+
+* Check the radio button next to the task name itself for the task that has ``InitialDeployment`` in its name.
+  (It will be a more complicated name like ``c4-ecs-stack-CGAPInitialDeployment-uhQKq2UsJoPx``, but there is only
+  one with ``InitialDeployment`` in its name.)
+
+  NOTE WELL: This is _not_ the task just named ``Deployment``. Make sure it says ``InitialDeployment``.
+
+* With the radio button for the ``InitialDeployment`` item checked, an ``Actions`` pull-down menu should appear
+  at the top. Pull that down to find a Run Task Action and select that to invoke the task. (It will still need to
+  ask you some questions.)
+
+* Trying to run the task will prompt you for various kinds of data on a separate page.
+
+  * Select a ``Launch type`` of ``FARGATE``.
+
+  * As a ``Cluster VPC``, select the one named ``C4NetworkVPC`` (at the ``10.x.x.x`` IP address).
+
+  * For ``Subnets``, make sure to select both *private* subnets (and *not* the public ones).
+
+  * For ``Security groups``, select ``Edit``. This will take you to a new page that lets you set values:
+
+    * Choose ``Existing Security Group``
+    * Select the group named ``C4NetworkDBSecurityGroup``.
+    * Select the group named ``C4NetworkApplicationSecurityGroup``.
+    * Once both security groups are selected, click ``Save`` at the bottom to return to where
+      you were in specifying task options.
+
+  * For ``Auto-assign public IP``, select ``DISABLED``.
+
+  * Once all of these are set, click ``Run Task`` at the bottom.
+
+**NOTE:** In the future, we hope to have an automated script for setting all of this.
+
+At this point you'll have to wait briefly for provisioning. You can navigate back to
+`the ECS console in AWS <https://console.aws.amazon.com/ecs/home?region=us-east-1#/taskDefinitions>`_,
+and select the stack you're building. It might have a name that looks like
+``c4-ecs-stack-cgapsupertest-Id3abyB8OGv1``.  On the page for that stack, select the ``Tasks`` tab,
+you can see the status of running tasks. Wait for them to not be in state ``PROVISIONING``.
+
+With this task run, once the deployment container is online,
+logs will immediately stream to the task, and Cloudwatch.
 
 
-Step Three: Finalizing CGAP Configuration
------------------------------------------
+Step Five: Finalizing CGAP Configuration
+----------------------------------------
 
 At this point, the application and its required resources have come online. Here, we upload env configuration to enable
 foursight checks on the application.
@@ -146,8 +209,8 @@ in your ``config.json``.)
 
 At this point, you should be ready to deploy foursight. To do so, use this command::
 
-    source ~/.aws_test/test_creds.sh
-    poetry run cli provision --trial --output_file out/foursight-dev-tmp/ --stage dev foursight --alpha --upload_change_set
+    source custom/aws_creds/test_creds.sh
+    poetry run cli provision --output_file out/foursight-dev-tmp/ --stage dev foursight --upload_change_set
     #############################################################################################################
     # NOTE: It should no longer be necessary to add an environment variable here, such as:                      #
     #       GLOBAL_BUCKET_ENV=foursight-cgap-mastertest-envs                                                    #

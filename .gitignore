@@ -40,6 +40,8 @@ config.json
 config.*.json
 .s3_encrypt_key.txt
 s3_encrypt_key.txt
+custom
+custom.*
 
 # PyCharm metadata
 .idea/
