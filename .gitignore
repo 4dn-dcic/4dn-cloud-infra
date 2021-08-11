@@ -2,21 +2,46 @@
 # Conventions vary, including env, venv, or longer names like cgap_env,
 # but typically they end in "env".
 *env/
+
+# Chalice support (for Foursight)
 .chalice/deployments/
 .chalice/deployed/
 .chalice/venv/
 .chalice/config.json
-dist/
+
+# Configuration
 requirements.txt
+config.json
+
+# Distribution / packaging
+dist/
+*.egg-info
+
+# Python
 *.pyc
+__pycache__/
+
+# Mac folder metadata
 .DS_Store
+
+# Credentials
 credentials.json
 token.pickle
-__pycache__/
+secrets.py
+
+# PyCharm metadata
 .idea/
+
+# Input and Output
+
 log/
 out/
 in/
-secrets.py
-config.json
 test_data/knowledge_base/temp-local-inserts/*
+DEBUGLOG-*
+*.log
+
+# Backup files (Emacs, etc.)
+*~
+~$*
+.~*#
