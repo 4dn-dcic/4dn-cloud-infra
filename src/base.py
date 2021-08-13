@@ -22,7 +22,6 @@ COMMON_STACK_PREFIX = "c4-"
 STACK_KINDS = ['alpha']  # No longer supporting 'legacy' stacks
 
 
-
 @decorator()
 def register_stack_creator(*, name, kind):
     if kind not in STACK_KINDS:
@@ -92,14 +91,20 @@ class ConfigManager:
         #       cover that special case, it should suffice (and use fewer environment variables) to only worry
         #       about ENV_NAME. -kmp 24-Jun-2021
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        env_part = f"{env_name}-"
         # The org_name is allowed to be missing or empty if none desired.
         org_name = ConfigManager.get_config_setting(Settings.S3_BUCKET_ORG, default=None)
-        org_prefix = f"cgap-{org_name}-" if org_name else ""
-        org_or_env_name = org_name or env_name  # compatibility. original account didn't have an org, so used env_name
-        maybe_env_name = "" if org_name else f"{env_name}-"
-        bucket_name = bucket_template.format(env_name=env_name, org_prefix=org_prefix, maybe_env_name=maybe_env_name,
-                                             # being phased out:
-                                             org_or_env_name=org_or_env_name
+        org_part = f"{org_name}-" if org_name else ""
+        ecosystem_name = ConfigManager.get_config_setting(Settings.S3_BUCKET_ECOSYSTEM, default="main")
+        ecosystem_part = f"{ecosystem_name}-" if ecosystem_name else ""
+        app_kind = ConfigManager.get_config_setting(Settings.APP_KIND)
+        base_prefix = f"{app_kind}{org_part}{ecosystem_part}"
+        foursight_prefix = f"{base_prefix}foursight-"
+        application_prefix = f"{base_prefix}application-"
+        bucket_name = bucket_template.format(env_name=env_name,
+                                             env_part=env_part,
+                                             application_prefix=application_prefix,
+                                             foursight_prefix=foursight_prefix,
                                              )
         # print(bucket_template,"=>",bucket_name)
         return bucket_name
@@ -126,9 +131,8 @@ class ConfigManager:
         if not os.path.exists(self.SECRETS_FILE):
             raise CLIException(f'The required configuration file, {self.SECRETS_FILE}, is not present.')
         secrets = self._load_config(self.SECRETS_FILE)
-        if True:
-            if not secrets.get(Secrets.S3_ENCRYPT_KEY):  # if missing or empty, try to default from file
-                secrets[Secrets.S3_ENCRYPT_KEY] = ConfigManager.get_s3_encrypt_key_from_file()
+        if not secrets.get(Secrets.S3_ENCRYPT_KEY):  # if missing or empty, try to default from file
+            secrets[Secrets.S3_ENCRYPT_KEY] = ConfigManager.get_s3_encrypt_key_from_file()
         else:
             PRINT(f"WARNING: {Secrets.S3_ENCRYPT_KEY} is not in {self.SECRETS_FILE},"
                   f" and the file {self.S3_ENCRYPT_KEY_FILE} does not exist.")
@@ -209,47 +213,51 @@ class ConfigManager:
                 else:  # some other false value than None or "", for example zero (0).
                     return found
 
-    # This is another change in bucket naming I want to phase in soon. Old names left in place for now while
-    # I do some testing on the system that just came up. -kmp 10-Aug-2021
-    USE_NEW_BUCKET_NAMES = False
+    class GenericAppBucketTemplate:
 
-    if USE_NEW_BUCKET_NAMES:
+        BLOBS = '{application_prefix}{env_part}blobs'
+        FILES = '{application_prefix}{env_part}files'
+        WFOUT = '{application_prefix}{env_part}wfout'
+        SYSTEM = '{application_prefix}{env_part}system'
+        METADATA_BUNDLES = '{application_prefix}{env_part}metadata-bundles'
+        TIBANNA_LOGS = '{application_prefix}tibanna-logs'  # NOTE: Shared in ecosystem. No {env_part}
 
-        class AppBucketTemplate:
+    class GenericFSBucketTemplate:
 
-            BLOBS = '{org_prefix}application-{env_name}-blobs'
-            FILES = '{org_prefix}application-{env_name}-files'
-            WFOUT = '{org_prefix}application-{env_name}-wfout'
-            SYSTEM = '{org_prefix}application-{env_name}-system'
-            METADATA_BUNDLES = '{org_prefix}application-{env_name}-metadata-bundles'
-            TIBANNA_LOGS = '{org_prefix}application-{env_name}-tibanna-logs'
+        ENVS = '{foursight_prefix}envs'  # NOTE: Shared in ecosystem. No {env_part}
+        RESULTS = '{foursight_prefix}{env_part}results'
+        APPLICATION_VERSIONS = '{foursight_prefix}{env_part}application-versions'
 
-    else:
+    class OriginalAppBucketTemplate:
 
-        class AppBucketTemplate:
+        BLOBS = '{application_prefix}{env_part}blobs'
+        FILES = '{application_prefix}{env_part}files'
+        WFOUT = '{application_prefix}{env_part}wfout'
+        SYSTEM = '{application_prefix}{env_part}system'
+        METADATA_BUNDLES = '{application_prefix}{env_part}metadata-bundles'
+        TIBANNA_LOGS = '{application_prefix}tibanna-logs'  # NOTE: Shared in ecosystem. No {env_part}
 
-            BLOBS = 'application-{org_prefix}{env_name}-blobs'
-            FILES = 'application-{org_prefix}{env_name}-files'
-            WFOUT = 'application-{org_prefix}{env_name}-wfout'
-            SYSTEM = 'application-{org_prefix}{env_name}-system'
-            METADATA_BUNDLES = 'application-{org_prefix}{env_name}-metadata-bundles'
-            TIBANNA_LOGS = 'application-{org_prefix}{env_name}-tibanna-logs'
+    class OriginalFSBucketTemplate:
 
-    if USE_NEW_BUCKET_NAMES:
+        ENVS = '{foursight_prefix}envs'  # NOTE: Shared in ecosystem. No {env_part}
+        RESULTS = '{foursight_prefix}{env_part}results'
+        APPLICATION_VERSIONS = '{foursight_prefix}{env_part}application-versions'
 
-        class FSBucketTemplate:
+    ORIGINAL_ACCOUNT_NUMBER = '645819926742'
 
-            ENVS = '{org_prefix}foursight-{maybe_env_name}-envs'
-            RESULTS = '{org_prefix}foursight-{env_name}-results'
-            APPLICATION_VERSIONS = '{org_prefix}foursight-{env_name}-application-versions'
+    @classmethod
+    def get_app_bucket_template(cls, kind):
+        if ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER) == cls.ORIGINAL_ACCOUNT_NUMBER:
+            getattr(cls.OriginalAppBucketTemplate, kind)
+        else:
+            getattr(cls.GenericAppBucketTemplate, kind)
 
-    else:
-
-        class FSBucketTemplate:
-
-            ENVS = 'foursight-{org_or_env_name}-envs'  # 'foursight-{org_prefix}{env_name}-envs'
-            RESULTS = 'foursight-{org_prefix}{env_name}-results'
-            APPLICATION_VERSIONS = 'foursight-{org_prefix}{env_name}-application-versions'
+    @classmethod
+    def get_fs_bucket_template(cls, kind):
+        if ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER) == cls.ORIGINAL_ACCOUNT_NUMBER:
+            getattr(cls.OriginalFSBucketTemplate, kind)
+        else:
+            getattr(cls.GenericFSBucketTemplate, kind)
 
     CLOUDFORMATION = None
 
@@ -335,6 +343,6 @@ class ConfigManager:
 
 USE_SHORT_EXPORT_NAMES = True  # TODO: Remove when debugged
 
+
 def exportify(name):
     return name if USE_SHORT_EXPORT_NAMES else f"Export{name}"
-

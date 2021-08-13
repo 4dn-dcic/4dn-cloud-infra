@@ -119,7 +119,8 @@ class C4IAM(C4Part):
             )
         )
 
-    def ecs_secret_manager_policy(self) -> Policy:
+    @classmethod
+    def ecs_secret_manager_policy(cls) -> Policy:
         """ Provides ECS access to the specified secret.
             The secret ID determines the environment name we are creating.
             TODO: Should this also be created here? Or manually uploaded?
@@ -337,8 +338,19 @@ class C4IAM(C4Part):
             # IMPORTANT: Required for EC2s to associate with ECS
             # XXX: AWSServiceRoleForECS needed for running ECS (?)
             ManagedPolicyArns=[
-                # "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
-                "arn:aws:iam::aws:policy/aws-service-role/AmazonECSServiceRolePolicy"
+                "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
+                # NOTE: Will thinks that THIS is what we need, not the above:
+                #
+                # "arn:aws:iam::aws:policy/aws-service-role/AmazonECSServiceRolePolicy"
+                #
+                #   but using that URL gets me:
+                #
+                #   Cannot attach a Service Role Policy to a Customer Role.
+                #   (Service: AmazonIdentityManagement;
+                #    Status Code: 400;
+                #    Error Code: PolicyNotAttachable;
+                #    Request ID: 14573591-6e7c-4fd3-8d74-47edc41df495;
+                #    Proxy: null)
             ],
             # IMPORTANT: BOTH ECS and EC2 need AssumeRole
             AssumeRolePolicyDocument=PolicyDocument(
@@ -348,20 +360,19 @@ class C4IAM(C4Part):
                     Action=[
                         Action('sts', 'AssumeRole')
                     ],
-                    Principal=Principal('Service', 'ecs.amazonaws.com')
-            ), Statement(
-                    Effect='Allow',
-                    Action=[
-                        Action('sts', 'AssumeRole')
-                    ],
-                    Principal=Principal('Service', 'ec2.amazonaws.com')
-            ), Statement(
-                    Effect='Allow',
-                    Action=[
-                        Action('sts', 'AssumeRole')
-                    ],
-                    Principal=Principal('Service', 'ecs-tasks.amazonaws.com')
-            )]),
+                    Principal=Principal('Service', 'ecs.amazonaws.com')),
+                    Statement(
+                        Effect='Allow',
+                        Action=[
+                            Action('sts', 'AssumeRole')
+                        ],
+                    Principal=Principal('Service', 'ec2.amazonaws.com')),
+                    Statement(
+                        Effect='Allow',
+                        Action=[
+                            Action('sts', 'AssumeRole')
+                        ],
+                        Principal=Principal('Service', 'ecs-tasks.amazonaws.com'))]),
             Policies=policies
         )
 

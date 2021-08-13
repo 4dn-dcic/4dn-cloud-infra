@@ -88,7 +88,7 @@ class C4Client:
                 break
         return caps
 
-    # APPLICATION_BUCKET_TEMPLATE = "foursight-{org_prefix}{env_name}-applicaton-versions"
+    # APPLICATION_BUCKET_TEMPLATE = "{foursight_prefix}{env_part}application-versions"
 
     @classmethod
     def upload_chalice_package(cls, *, output_file, stack: BaseC4FoursightStack, bucket=None):
@@ -103,7 +103,7 @@ class C4Client:
         # TODO: this bucketname should come from config.json or some os.environ ...
         if bucket is None:
             bucket = ConfigManager.resolve_bucket_name(
-                ConfigManager.FSBucketTemplate.APPLICATION_VERSIONS  # cls.APPLICATION_BUCKET_TEMPLATE
+                ConfigManager.get_fs_bucket_template('APPLICATION_VERSIONS')  # cls.APPLICATION_BUCKET_TEMPLATE
             )
 
         creds_dir = ConfigManager.get_aws_creds_dir()
@@ -294,7 +294,12 @@ class C4Client:
             # Handle foursight
             if cls.is_foursight_stack(stack):
                             # Specific case for foursight template build + upload
-                stack.package_foursight_stack(args)
+
+                if not use_stdout_and_exit and not output_file:
+                    output_file = f"out/foursight-{args.stage}-tmp/"
+                    PRINT(f"Using default output location: {output_file}")
+
+                stack.package_foursight_stack(args)  # <-- this will implicitly use args.stage, among others
                 if upload_change_set:
                     cls.upload_chalice_package(output_file=output_file, stack=stack)
 
@@ -379,7 +384,8 @@ def cli():
                                   dest="view_changes",
                                   action='store_true', help='TBD: view changes made to template')
     parser_provision.add_argument('--stage', type=str, choices=['dev', 'prod'],
-                                  help="package stage. Must be one of 'prod' or 'dev' (foursight only)")
+                                  help="package stage. Must be one of 'prod' or 'dev' (foursight only)",
+                                  default='dev')
     parser_provision.add_argument('--merge-template',
                                   '--merge_template',  # for compatibility
                                   dest="merge_template",
@@ -390,7 +396,8 @@ def cli():
                                   '--output_file',  # for compatibility
                                   dest="output_file",
                                   type=str,
-                                  help='Location of a directory for output cloudformation (foursight only)')
+                                  help='Location of a directory for output cloudformation (foursight only)',
+                                  )
     parser_provision.add_argument('--trial', dest='warn_trial_arg_deprecated', action='store_true',
                                   help="This argument is deprecated because 'trial' is the default."
                                        " You can suppress it with --no-trial.")

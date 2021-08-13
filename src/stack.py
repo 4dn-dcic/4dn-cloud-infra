@@ -125,7 +125,7 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
         #       It should instead ask for all the various arguments it plans to look at.
         with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
             self.PackageDeploy.build_config_and_package(
-                args,
+                args,  # <-- The args.stage argument gets implicitly used in here, among others.
                 # TODO (C4-691): It would be better to change foursight_core to pass this information lexically:
                 # global_env_bucket=self.global_env_bucket,
                 security_ids=self.security_ids,

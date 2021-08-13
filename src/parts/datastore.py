@@ -99,13 +99,13 @@ class C4Datastore(C4Part):
     # Intended to be .formatted with the deploying env_name
 
     APPLICATION_LAYER_BUCKETS = {
-        C4DatastoreExports.APPLICATION_BLOBS_BUCKET: ConfigManager.AppBucketTemplate.BLOBS,
-        C4DatastoreExports.APPLICATION_FILES_BUCKET: ConfigManager.AppBucketTemplate.FILES,
-        C4DatastoreExports.APPLICATION_WFOUT_BUCKET: ConfigManager.AppBucketTemplate.WFOUT,
-        C4DatastoreExports.APPLICATION_SYSTEM_BUCKET: ConfigManager.AppBucketTemplate.SYSTEM,
-        C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET: ConfigManager.AppBucketTemplate.METADATA_BUNDLES,
-        C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET: ConfigManager.AppBucketTemplate.TIBANNA_LOGS,
-
+        C4DatastoreExports.APPLICATION_BLOBS_BUCKET: ConfigManager.get_app_bucket_template('BLOBS'),
+        C4DatastoreExports.APPLICATION_FILES_BUCKET: ConfigManager.get_app_bucket_template('FILES'),
+        C4DatastoreExports.APPLICATION_WFOUT_BUCKET: ConfigManager.get_app_bucket_template('WFOUT'),
+        C4DatastoreExports.APPLICATION_SYSTEM_BUCKET: ConfigManager.get_app_bucket_template('SYSTEM'),
+        C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET:
+            ConfigManager.get_app_bucket_template('METADATA_BUNDLES'),
+        C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET: ConfigManager.get_app_bucket_template('TIBANNA_LOGS'),
     }
 
     @classmethod
@@ -118,12 +118,13 @@ class C4Datastore(C4Part):
     # Envs describing the global foursight configuration in this account (could be updated)
     # Results bucket is the backing store for checks (they are also indexed into ES)
 
-    # FOURSIGHT_LAYER_PREFIX = 'foursight-{org_prefix}{env_name}'
+    # FOURSIGHT_LAYER_PREFIX = '{foursight_prefix}{env_name}'
 
     FOURSIGHT_LAYER_BUCKETS = {
-        C4DatastoreExports.FOURSIGHT_ENV_BUCKET: ConfigManager.FSBucketTemplate.ENVS,
-        C4DatastoreExports.FOURSIGHT_RESULT_BUCKET: ConfigManager.FSBucketTemplate.RESULTS,
-        C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET: ConfigManager.FSBucketTemplate.APPLICATION_VERSIONS,
+        C4DatastoreExports.FOURSIGHT_ENV_BUCKET: ConfigManager.get_fs_bucket_template('ENVS'),
+        C4DatastoreExports.FOURSIGHT_RESULT_BUCKET: ConfigManager.get_fs_bucket_template('RESULTS'),
+        C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET:
+            ConfigManager.get_fs_bucket_template('APPLICATION_VERSIONS'),
     }
 
     @classmethod
@@ -167,6 +168,7 @@ class C4Datastore(C4Part):
             'ENCODED_BS_ENV': env_name,
             'ENCODED_DATA_SET': 'prod',
             'ENCODED_ES_SERVER':  C4DatastoreExports.get_es_url(), # None,
+            'ENCODED_IDENTITY': None,  # This is the name of the Secrets Manager with all our identity's secrets
             'ENCODED_FILE_UPLOAD_BUCKET':
                 cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
             'ENCODED_FILE_WFOUT_BUCKET':
@@ -177,6 +179,10 @@ class C4Datastore(C4Part):
                 cls.application_layer_bucket(C4DatastoreExports.APPLICATION_SYSTEM_BUCKET),
             'ENCODED_METADATA_BUNDLES_BUCKET':
                 cls.application_layer_bucket(C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET),
+            'ENCODED_TIBANNA_LOGS_BUCKET':
+                cls.application_layer_bucket(C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET),
+
+
             'LANG': 'en_US.UTF-8',
             'LC_ALL': 'en_US.UTF-8',
             'RDS_HOSTNAME': None,
@@ -455,8 +461,11 @@ class C4Datastore(C4Part):
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
             TODO allow master node configuration
         """
-        domain_id_token = 'ES%s' % ConfigManager.get_config_setting(Settings.ENV_NAME, '').replace('-', '')
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        camel_env = snake_case_to_camel_case(env_name)
+        domain_id_token = f"ElasticSearch{camel_env}"
         logical_id = self.name.logical_id(domain_id_token)
+        domain_name_token = f"{env_name}-es"
         domain_name = self.name.domain_name(domain_id_token)
         options = {}
         try:  # feature not yet supported by troposphere

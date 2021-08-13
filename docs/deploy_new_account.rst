@@ -84,7 +84,7 @@ You can request this from the `Service Quotas console
     ################################################################################
     ./scripts/assure_s3_encrypt-key --verbose
 
-    poetry run cli provision datastore --validate --upload_change_set
+    poetry run cli provision datastore --validate --upload-change-set
 
 More info: https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/slr-es.html
 
@@ -109,7 +109,7 @@ Step Four: More CGAP Orchestration with Cloud Formation
 * Once all base stacks have finishing instantiating -- all stacks should be in state `UPDATE_COMPLETE` -- you can
   provision the application stack by doing::
 
-     poetry run cli provision ecs --validate --upload_change_set
+     poetry run cli provision ecs --validate --upload-change-set
 
 
 * Once the application has finishing instantiating, you can deploy the portal.
@@ -210,16 +210,18 @@ in your ``config.json``.)
 At this point, you should be ready to deploy foursight. To do so, use this command::
 
     source custom/aws_creds/test_creds.sh
-    poetry run cli provision --output_file out/foursight-dev-tmp/ --stage dev foursight --upload_change_set
+    poetry run cli provision foursight --upload-change-set
     #############################################################################################################
     # NOTE: It should no longer be necessary to add an environment variable here, such as:                      #
     #       GLOBAL_BUCKET_ENV=foursight-cgap-mastertest-envs                                                    #
     #       Instead you should add entries for "GLOBAL_BUCKET_ENV" and "GLOBAL_ENV_BUCKET" to your config.json  #
     #       (The name is in transition, so for now please set both names. Eventually ony GLOBAL_ENV_BUCKET      #
     #       will be needed.)                                                                                    #
+    #       It should also no longer be necessary to provide --output-file out/foursight-dev-tmp/ --stage dev   #
+    #       on the command line because these are now the default for this provision operation.                 #
     #############################################################################################################
 
-This will not entirely succeed on the first attempt. You'll need to run this a second time once various values have
+**NOTE WELL:** This will not entirely succeed on the first attempt. You'll need to run this a second time once various values have
 been created.
 
 At this point, Foursight should be working.
