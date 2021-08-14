@@ -32,6 +32,9 @@ assure-s3-encrypt-key:
 create-s3-encrypt-key:
 	@./scripts/create_s3_encrypt_key --verbose
 
+clear-poetry-cache:  # clear poetry/pypi cache. for user to do explicitly, never automatic
+	poetry cache clear pypi --all
+
 deploy-alpha-p1:
 	@echo 'CGAP Orchestration Phase 1: Uploading Base Templates'
 	@echo 'ORDER: iam, logging, network, ecr, datastore'
@@ -97,6 +100,7 @@ info:
 	@: $(info Here are some 'make' options:)
 	   $(info - Use 'make alpha' to trigger validation of the alpha stack.)
 	   $(info - Use 'make build' to populate the current virtualenv with necessary libraries and commands.)
+	   $(info - Use 'make clear-poetry-cache' to clear the poetry pypi cache if in a bad state. (Safe, but later recaching can be slow.))
 	   $(info - Use 'make deploy-alpha-p1' to trigger phase 1 of the alpha deployment: change set upload of the IAM, Logging, Network, ECR and Datastore.)
 	   $(info - Use 'make deploy-alpha-p2' to trigger phase 2 of the alpha deployment: application version upload to ECR, ECS provisioning.)
 	   $(info - use 'make ingestion' to trigger the last phase of testing)
