@@ -1,4 +1,4 @@
-from dcicutils.misc_utils import ignorable
+from dcicutils.misc_utils import ignorable  # , snake_case_to_camel_case
 from troposphere import (
     Parameter,
     Join,
@@ -25,7 +25,7 @@ from troposphere.ecs import (
     CapacityProviderStrategyItem,
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
-from ..base import ConfigManager
+from ..base import ConfigManager, camelize
 from ..constants import Settings
 from ..exports import C4Exports
 from ..part import C4Part
@@ -50,7 +50,7 @@ class C4ECSApplicationExports(C4Exports):
 
     @classmethod
     def output_application_url_key(cls, env):
-        return 'ECSApplicationURL%s' % env.replace('-', '')
+        return f'ECSApplicationURLfor{camelize(env)}'
 
     @classmethod
     def get_application_url(cls, env):
@@ -159,9 +159,11 @@ class C4ECSApplication(C4Part):
     @classmethod
     def ecs_cluster(cls) -> Cluster:
         """ Creates an ECS cluster for use with this portal deployment. """
+        env = ConfigManager.get_config_setting(Settings.ENV_NAME)
         return Cluster(
             # Fallback, but should always be set
-            ConfigManager.get_config_setting(Settings.ENV_NAME, 'CGAPDockerCluster').replace('-', ''),
+            f'CGAPDockerClusterFor{camelize(env)}',
+            # ConfigManager.get_config_setting(Settings.ENV_NAME, 'CGAPDockerCluster').replace('-', ''),
             CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
             # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
@@ -254,7 +256,7 @@ class C4ECSApplication(C4Part):
         env_identifier = ConfigManager.get_config_setting(Settings.ENV_NAME).replace('-', '')
         if not env_identifier:
             raise Exception('Did not set required key in .env! Should never get here.')
-        logical_id = self.name.logical_id(env_identifier)
+        logical_id = self.name.logical_id(env_identifier, context='ecs_application_load_balancer')
         return elbv2.LoadBalancer(
             logical_id,
             IpAddressType='ipv4',
@@ -273,7 +275,7 @@ class C4ECSApplication(C4Part):
 
     def output_application_url(self, env=None) -> Output:
         """ Outputs URL to access portal. """
-        env = env or ConfigManager.get_config_setting(Settings.ENV_NAME)  # ENV_NAME is a required setting
+        env = env or ConfigManager.get_config_setting(Settings.ENV_NAME)
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
             Description='URL of CGAP-Portal.',
@@ -442,6 +444,8 @@ class C4ECSApplication(C4Part):
                         Environment(
                             Name='IDENTITY',
                             Value=(identity or
+                                   # TODO: We should be able to discover this value without
+                                   #       it being in the config.json -kmp 13-Aug-2021
                                    ConfigManager.get_config_setting(Settings.IDENTITY, self.LEGACY_DEFAULT_IDENTITY)),
                         ),
                         Environment(

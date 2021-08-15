@@ -4,8 +4,9 @@ import os
 import re
 
 from datetime import datetime
-from dcicutils.misc_utils import remove_prefix, snake_case_to_camel_case
+from dcicutils.misc_utils import remove_prefix
 from troposphere import Tag, Tags, Template
+from .base import camelize
 
 
 logger = logging.getLogger(__name__)
@@ -52,16 +53,12 @@ class C4Account:
         os.system(command_with_creds)
 
 
-def camelize(name):  # when this is debugged, this name can go away and tests can be simplified
-    return snake_case_to_camel_case(name, separator='-')
-    # return ''.join([i.capitalize() for i in name.split('-')])
-
 class C4Name:
     """ Helper class for working with stack names and resource name construction """
-    def __init__(self, name):
+    def __init__(self, name, title_token=None):
         self.name = name
         self.stack_name = f'{name}-stack'  # was '{}-stack'.format(name)
-        self.logical_id_prefix = camelize(name)
+        self.logical_id_prefix = title_token or camelize(name)
 
     def __str__(self):
         return self.name
@@ -86,8 +83,6 @@ class C4Name:
         res = self.logical_id_prefix + resource_name
         print(f"{context}{self}.logical_id({resource!r}) => {res}")
         return res
-
-
 
     @staticmethod
     def bucket_name_from_logical_id(logical_id):
@@ -121,11 +116,10 @@ class C4Part:
     """
     # Ref: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/pseudo-parameter-reference.html
 
-    def __init__(self, name: C4Name, tags: C4Tags, account: C4Account, **kwargs):
+    def __init__(self, name: C4Name, tags: C4Tags, account: C4Account):
         self.name = name
         self.tags = tags
         self.account = account
-        super().__init__(**kwargs)
 
     def __str__(self):
         return str(self.name)

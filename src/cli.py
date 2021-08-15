@@ -12,7 +12,7 @@ from .exceptions import CLIException
 from .part import C4Account
 from .stack import BaseC4FoursightStack  # , C4FoursightCGAPStack
 # from .stacks.trial import c4_stack_trial_network_metadata, c4_stack_trial_tibanna
-from .stacks.trial_alpha import c4_alpha_stack_trial_metadata
+from .stacks.alpha_stacks import c4_alpha_stack_metadata
 
 
 logging.basicConfig(level=logging.INFO)
@@ -165,12 +165,12 @@ class C4Client:
 
         # NOTE: We don't want to consider the legacy case any more. -kmp&will 28-Jul-2021
 
-        network_stack_name, _ = c4_alpha_stack_trial_metadata(name='network')  # XXX: constants
-        iam_stack_name, _ = c4_alpha_stack_trial_metadata(name='iam')
-        ecr_stack_name, _ = c4_alpha_stack_trial_metadata(name='ecr')
-        logging_stack_name, _ = c4_alpha_stack_trial_metadata(name='logging')
+        network_stack_name, _ = c4_alpha_stack_metadata(name='network')  # XXX: constants
+        iam_stack_name, _ = c4_alpha_stack_metadata(name='iam')
+        ecr_stack_name, _ = c4_alpha_stack_metadata(name='ecr')
+        logging_stack_name, _ = c4_alpha_stack_metadata(name='logging')
         # TODO incorporate datastore output to ECS stack
-        datastore_stack_name, _ = c4_alpha_stack_trial_metadata(name='datastore')
+        datastore_stack_name, _ = c4_alpha_stack_metadata(name='datastore')
 
         # if we are building a leaf stack, our upload doesn't require these parameter overrides
         # since we are not importing values from other stacks
@@ -291,12 +291,14 @@ class C4Client:
 
             stack = cls.resolve_alpha_stack(stack_name=stack_name)
 
-            # Handle foursight
-            if cls.is_foursight_stack(stack):
-                            # Specific case for foursight template build + upload
+            if cls.is_foursight_stack(stack):  # Handle foursight
+
+                # A foursight template build + upload is done differently than other stacks.
 
                 if not use_stdout_and_exit and not output_file:
+                    # If arguments not supplied in this case, we do some useful defaulting.
                     output_file = f"out/foursight-{args.stage}-tmp/"
+                    args.output_file = output_file
                     PRINT(f"Using default output location: {output_file}")
 
                 stack.package_foursight_stack(args)  # <-- this will implicitly use args.stage, among others

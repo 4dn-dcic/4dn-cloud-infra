@@ -7,6 +7,7 @@ from awacs.ecr import (
 )
 from troposphere import Region, AccountId, Template, Ref, Output, Join
 from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey
+from ..base import exportify
 from ..part import C4Part
 from ..exports import C4Exports
 
@@ -16,10 +17,10 @@ class C4IAMExports(C4Exports):
             * assumed IAM role for ECS container
             * corresponding instance profile
     """
-    ECS_ASSUMED_IAM_ROLE = 'ExportECSAssumedIAMRole'
-    ECS_INSTANCE_PROFILE = 'ExportECSInstanceProfile'
-    AUTOSCALING_IAM_ROLE = 'ExportECSAutoscalingIAMRole'
-    S3_IAM_USER = 'ExportECSS3IAMUser'
+    ECS_ASSUMED_IAM_ROLE = exportify('ECSAssumedIAMRole')  # was 'ExportECSAssumedIAMRole'
+    ECS_INSTANCE_PROFILE = exportify('ECSInstanceProfile')  # was 'ExportECSInstanceProfile'
+    AUTOSCALING_IAM_ROLE = exportify('ECSAutoscalingIAMRole')  # was 'ExportECSAutoscalingIAMRole'
+    S3_IAM_USER = exportify('ECSS3IAMUser')  # was 'ExportECSS3IAMUser'
 
     def __init__(self):
         parameter = 'IAMStackNameParameter'

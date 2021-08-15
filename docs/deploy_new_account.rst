@@ -49,9 +49,7 @@ as described
 You can request this from the `Service Quotas console
 <https://console.aws.amazon.com/servicequotas/home/services/ec2/quotas>`_.
 
-* Upload base templates required for starting the application.
-
-::
+* Upload base templates required for starting the application::
 
     poetry run cli provision iam --validate --upload_change_set
     poetry run cli provision logging --validate --upload_change_set
@@ -103,7 +101,76 @@ Step Three (Intermission): Push a cgap-portal Image
   See the cgap-portal Makefile. Push the image tag specified in ``config.json`` prior to deploying ECS.
 
 
-Step Four: More CGAP Orchestration with Cloud Formation
+Step Four: Fill out any remaining application secrets
+-----------------------------------------------------
+
+* Many secrets are pre-filled, but some will need to be set.
+
+  * Go to the Secrets Manager
+
+  * There are two secrets. Information from the RDS secret will be needed in this action, but we'll start in the
+    one with a longer name, like ``C4DatastoreApplicationConfigurationCgapSupertest``, where ``CgapSupertest``
+    is what in this example corresponded to a ``cgap-supertest`` environment. You may have named your environment
+    differently, so the name you see will vary.  Click into the environment-related resource.
+
+  * Find the page section called ``Secret value`` and click on ``Retrieve secret value``.
+
+  * You can now see the secret but you'll need to edit it. Click ``Edit``.
+
+  * You'll now have to do a scavenger hunt to obtain values for anything marked ``XXX: ENTER VALUE``.
+
+    * The ``AWS_ACCESS_KEY_ID`` is obtained from your system administrator.
+      This is not your AWS access key ID, but the ID of the daemon user that will run the CGAP application.
+
+    * The ``AWS_SECRET_ACCESS_KEY`` is obtained from your system administrator.
+      This is not your AWS secret access key, but the key of the daemon user that will run the CGAP application.
+
+      **Please observe proper security protocols while holding this secret on your local machine.**
+
+    * The ``ENCODED_ES_SERVER`` will look like::
+
+         vpc-yourenv-a1b2c3d4e5f6etc.us-east-1.es.amazonaws.com:443
+
+      You can obtain it by this procedure:
+
+      * Go to `the ElasticSearch service in the AWS console
+        <https://console.aws.amazon.com/es/home?region=us-east-1#>`_.
+      * Click into the service for your environment. (There is usually only one.)
+      * Copy the ``VPC Endpoint`` but
+
+        * Remove the initial ``https://``.
+        * Remove any trailing slash.
+        * Add ``:443`` at the end.
+
+    * The ``ENCODED_IDENTITY`` is the name of the secrets resource itself. It's the non-RDS secret you are
+      filling out. It will look something like
+      ``C4DatastoreApplicationConfigurationCgapSupertest``.
+
+    * The ``RDS_HOSTNAME`` is obtained from the RDS secret in the Secrets Manager that
+      you passed by in getting to this page.
+
+      You can obtain it by this procedure:
+
+      * Go to ``the Secrets Manager in the AWS console
+        <https://console.aws.amazon.com/secretsmanager/home?region=us-east-1#!/listSecrets>`_.
+      * Click into the resource with a name like ``C4DatastoreRDSSecret``.
+      * In the page section called ``Secret value``, click on ``Retrieve secret value``.
+        (You do not need to press ``Edit`` here.)
+      * The value named ``host`` is the value for ``RDS_HOSTNAME`` in the other secret we are constructing.
+      * The value named ``password`` will be needed for ``RDS_PASSWORD`` in that other secret.
+
+    * The ``RDS_PASSWORD`` also comes from the RDS secret in the Secrets Manager. See item immediately above.
+
+      **Please observe proper security protocols while holding this secret on your local machine.**
+
+    * The ``SENTRY_DSN`` is empty. You don't need to fill this for the system to work, but it won't connect to
+      Sentry unless you supply this.
+
+      A Sentry account allows you to partition its alerting capabilities on a per-tracked-resource basis
+      using what it calls a Domain Source Identifier (DSN). Such setup is beyond the scope of this document.
+
+
+Step Five: More CGAP Orchestration with Cloud Formation
 -------------------------------------------------------
 
 * Once all base stacks have finishing instantiating -- all stacks should be in state `UPDATE_COMPLETE` -- you can
@@ -146,17 +213,18 @@ To deploy the CGAP portal you have uploaded:
     * Choose ``Existing Security Group``
     * Select the group named ``C4NetworkDBSecurityGroup``.
     * Select the group named ``C4NetworkApplicationSecurityGroup``.
-    * Once both security groups are selected, click ``Save`` at the bottom to return to where
+    * Select the group named ``C4NetworkHTTPSSecurityGroup``.
+    * Once all security groups are selected, click ``Save`` at the bottom to return to where
       you were in specifying task options.
 
   * For ``Auto-assign public IP``, select ``DISABLED``.
 
-  * Once all of these are set, click ``Run Task`` at the bottom.
+  * Once all of these are set, click ``Run Task`` at the bottom right of the page.
 
 **NOTE:** In the future, we hope to have an automated script for setting all of this.
 
 At this point you'll have to wait briefly for provisioning. You can navigate back to
-`the ECS console in AWS <https://console.aws.amazon.com/ecs/home?region=us-east-1#/taskDefinitions>`_,
+`the Clusters tab of the ECS console in AWS <https://console.aws.amazon.com/ecs/home?region=us-east-1#/clusters>`_,
 and select the stack you're building. It might have a name that looks like
 ``c4-ecs-stack-cgapsupertest-Id3abyB8OGv1``.  On the page for that stack, select the ``Tasks`` tab,
 you can see the status of running tasks. Wait for them to not be in state ``PROVISIONING``.
@@ -165,7 +233,7 @@ With this task run, once the deployment container is online,
 logs will immediately stream to the task, and Cloudwatch.
 
 
-Step Five: Finalizing CGAP Configuration
+Step Six: Finalizing CGAP Configuration
 ----------------------------------------
 
 At this point, the application and its required resources have come online. Here, we upload env configuration to enable

@@ -1,5 +1,6 @@
-import os
+import json
 import logging
+import os
 import sys
 
 from chalicelib.package import PackageDeploy as PackageDeploy_from_cgap
@@ -56,6 +57,8 @@ class C4Stack(BaseC4Stack):
             template = p.build_template(template)
         return template
 
+    OWNER_READ_ONLY_PERMISSION = 0o600
+
     def print_template(self, stdout=False, remake=True):
         """ Helper method for generating and printing a YAML template.
             If remake is set to true, rebuilds the template. If stdout is set to true, prints to stdout.
@@ -77,7 +80,7 @@ class C4Stack(BaseC4Stack):
             # full_template_path = ''.join([path, template_file])
             full_template_path = os.path.join(ConfigManager.templates_dir(), template_file)
             self.write_template_file(current_yaml, full_template_path)
-            mode = 0o600
+            mode = self.OWNER_READ_ONLY_PERMISSION
             os.chmod(full_template_path, mode)
             msg = f'Wrote template to {full_template_path} (mode {mode:o})'  # was template_file
             PRINT(msg)
@@ -100,6 +103,7 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
     NETWORK_EXPORTS = C4NetworkExports()
 
     def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account):
+
         with ConfigManager.validate_and_source_configuration():
             self.security_ids = C4NetworkExports.get_security_ids()
             self.subnet_ids = C4NetworkExports.get_subnet_ids()
@@ -116,26 +120,29 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
         super().__init__(description, name, tags, account)
 
     def package_foursight_stack(self, args):
-        # TODO (C4-691): foursight-core presently picks up the global bucket env as an environment variable.
-        #       We should fix it to pass the argument lexically instead, as shown below.
-        #       Meanwhile, too, we're transitioning the name of the variable (from GLOBAL_BUCKET_ENV
-        #       to GLOBAL_ENV_BUCKET), so we compatibly bind both variables just in case that
-        #       name change goes into effect first. -kmp 4-Aug-2021
-        # TODO (C4-692): foursight-core presently wants us to pass an 'args' argument (from 'argparser').
-        #       It should instead ask for all the various arguments it plans to look at.
-        with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
-            self.PackageDeploy.build_config_and_package(
-                args,  # <-- The args.stage argument gets implicitly used in here, among others.
-                # TODO (C4-691): It would be better to change foursight_core to pass this information lexically:
-                # global_env_bucket=self.global_env_bucket,
-                security_ids=self.security_ids,
-                subnet_ids=self.subnet_ids,
-                trial_creds=self.trial_creds,
-                # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
-                # On the second attempt to create the stack, the physical resource ID will be used.
-                check_runner=(ConfigManager.find_stack_resource('foursight', 'CheckRunner', 'physical_resource_id')
-                              or "CheckRunner-PLACEHOLDER")
-            )
+        # # TODO (C4-691): foursight-core presently picks up the global bucket env as an environment variable.
+        # #       We should fix it to pass the argument lexically instead, as shown below.
+        # #       Meanwhile, too, we're transitioning the name of the variable (from GLOBAL_BUCKET_ENV
+        # #       to GLOBAL_ENV_BUCKET), so we compatibly bind both variables just in case that
+        # #       name change goes into effect first. -kmp 4-Aug-2021
+        # # TODO (C4-692): foursight-core presently wants us to pass an 'args' argument (from 'argparser').
+        # #       It should instead ask for all the various arguments it plans to look at.
+        # with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
+        self.PackageDeploy.build_config_and_package(
+            None,  # This used to take args, but now we pass the parts of args w ecare about explicitly...
+            merge_template=args.merge_template,
+            output_file=args.output_file,
+            stage=args.stage,
+            trial=args.trial,
+            global_env_bucket=self.global_env_bucket,
+            security_ids=self.security_ids,
+            subnet_ids=self.subnet_ids,
+            trial_creds=self.trial_creds,
+            # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
+            # On the second attempt to create the stack, the physical resource ID will be used.
+            check_runner=(ConfigManager.find_stack_resource('foursight', 'CheckRunner', 'physical_resource_id')
+                          or "CheckRunner-PLACEHOLDER")
+        )
 
     class PackageDeploy(PackageDeploy_from_cgap):
 

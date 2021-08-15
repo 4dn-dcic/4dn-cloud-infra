@@ -1,7 +1,7 @@
 import json
 import re
 
-from dcicutils.misc_utils import as_seconds, snake_case_to_camel_case
+from dcicutils.misc_utils import as_seconds
 from troposphere import (
     Join, Ref, Template, Tags, Parameter, Output, GetAtt,
     AccountId
@@ -20,7 +20,7 @@ from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.s3 import Bucket, Private
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
-from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX
+from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX, camelize, dehyphenate
 from ..constants import Settings, Secrets
 from ..exports import C4Exports
 from ..part import C4Part
@@ -165,24 +165,25 @@ class C4Datastore(C4Part):
             'Auth0Client': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
             'Auth0Secret': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET, default=None),
             'ENV_NAME': env_name,
+            'ENCODED_APPLICATION_BUCKET_PREFIX': cls.resolve_bucket_name("{application_prefix}"),
             'ENCODED_BS_ENV': env_name,
             'ENCODED_DATA_SET': 'prod',
             'ENCODED_ES_SERVER':  C4DatastoreExports.get_es_url(), # None,
+            'ENCODED_FOURSIGHT_BUCKET_PREFIX': cls.resolve_bucket_name("{foursight_prefix}"),
             'ENCODED_IDENTITY': None,  # This is the name of the Secrets Manager with all our identity's secrets
             'ENCODED_FILE_UPLOAD_BUCKET':
-                cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
             'ENCODED_FILE_WFOUT_BUCKET':
-                cls.application_layer_bucket(C4DatastoreExports.APPLICATION_WFOUT_BUCKET),
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_WFOUT_BUCKET),
             'ENCODED_BLOB_BUCKET':
-                cls.application_layer_bucket(C4DatastoreExports.APPLICATION_BLOBS_BUCKET),
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_BLOBS_BUCKET),
             'ENCODED_SYSTEM_BUCKET':
-                cls.application_layer_bucket(C4DatastoreExports.APPLICATION_SYSTEM_BUCKET),
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_SYSTEM_BUCKET),
             'ENCODED_METADATA_BUNDLES_BUCKET':
-                cls.application_layer_bucket(C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET),
-            'ENCODED_TIBANNA_LOGS_BUCKET':
-                cls.application_layer_bucket(C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET),
-
-
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET),
+            'ENCODED_S3_BUCKET_ORG': ConfigManager.get_config_setting(Settings.S3_BUCKET_ORG, default=None),
+            'ENCODED_TIBANNA_OUTPUT_BUCKET':
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET),
             'LANG': 'en_US.UTF-8',
             'LC_ALL': 'en_US.UTF-8',
             'RDS_HOSTNAME': None,
@@ -193,7 +194,6 @@ class C4Datastore(C4Part):
             'S3_ENCRYPT_KEY': ConfigManager.get_config_setting(Secrets.S3_ENCRYPT_KEY,
                                                                ConfigManager.get_s3_encrypt_key_from_file()),
             # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
-            'ENCODED_S3_BUCKET_ORG': ConfigManager.get_config_setting(Settings.S3_BUCKET_ORG, default=None),
             'SENTRY_DSN': "",
             'reCaptchaKey': ConfigManager.get_config_secret(Secrets.RECAPTCHA_KEY, default=None),
             'reCaptchaSecret': ConfigManager.get_config_secret(Secrets.RECAPTCHA_SECRET, default=None),
@@ -262,7 +262,7 @@ class C4Datastore(C4Part):
     def build_s3_bucket_resource_name(cls, bucket_name):
         # bucket_name_parts = bucket_name.split('-')
         # resource_name = ''.join(bucket_name_parts),  # Name != BucketName
-        res = snake_case_to_camel_case(COMMON_STACK_PREFIX + 'bucket-' + bucket_name, separator='-')
+        res = camelize(COMMON_STACK_PREFIX + 'bucket-' + bucket_name)
         print(f"bucket {bucket_name} => {res}")
         return res
 
@@ -343,7 +343,7 @@ class C4Datastore(C4Part):
         """ Returns the application configuration secret. Note that this pushes up just a
             template - you must fill it out according to the specification in the README.
         """
-        env_identifier = snake_case_to_camel_case(ConfigManager.get_config_setting(Settings.ENV_NAME), separator='-')
+        env_identifier = camelize(ConfigManager.get_config_setting(Settings.ENV_NAME))
         logical_id = self.name.logical_id(self.APPLICATION_SECRET_STRING) + env_identifier
         return Secret(
             logical_id,
@@ -367,7 +367,7 @@ class C4Datastore(C4Part):
         )
 
     def rds_instance_name(self, env_name):
-        camelized = snake_case_to_camel_case(env_name, separator='-')
+        camelized = camelize(env_name)
         return f"RDSfor{camelized}"
 
     def rds_instance(self, instance_size='db.t3.medium',
@@ -409,7 +409,6 @@ class C4Datastore(C4Part):
 #     def rds_password(self, resource: DBInstance) -> str:
 #         import pdb; pdb.set_trace()
 #         return GetAtt(resource, 'Endpoint.Password')
-
 
     def output_rds_url(self, resource: DBInstance) -> Output:
         """ Outputs RDS URL """
@@ -462,18 +461,15 @@ class C4Datastore(C4Part):
             TODO allow master node configuration
         """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        camel_env = snake_case_to_camel_case(env_name)
-        domain_id_token = f"ElasticSearch{camel_env}"
-        logical_id = self.name.logical_id(domain_id_token)
-        domain_name_token = f"{env_name}-es"
-        domain_name = self.name.domain_name(domain_id_token)
+        logical_id = self.name.logical_id(f"ElasticSearch{camelize(env_name)}")
+        domain_name = self.name.domain_name(f"es-{dehyphenate(env_name)}")
         options = {}
         try:  # feature not yet supported by troposphere
             options['DomainEndpointOptions'] = DomainEndpointOptions(EnforceHTTPS=True)
         except NotImplementedError:
             pass
         # account_num = ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER)
-        return Domain(
+        domain = Domain(
             logical_id,
             DomainName=domain_name,
             NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
@@ -499,6 +495,7 @@ class C4Datastore(C4Part):
             Tags=self.tags.cost_tag_array(name=domain_name),
             **options,
         )
+        return domain
 
     def output_es_url(self, resource: Domain) -> Output:
         """ Outputs ES URL """
@@ -535,7 +532,6 @@ class C4Datastore(C4Part):
             Description="Name of the application configuration secret",
             Export=self.EXPORTS.export(export_name)
         )
-
 
     def output_sqs_instance(self, export_name: str, resource: Queue) -> Output:
         """ Builds an output for SQS """

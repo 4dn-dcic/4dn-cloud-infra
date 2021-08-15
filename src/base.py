@@ -8,6 +8,7 @@ from dcicutils.exceptions import InvalidParameterError
 from dcicutils.lang_utils import conjoined_list
 from dcicutils.misc_utils import (
     PRINT, check_true, decorator, file_contents, find_association, find_associations, ignorable, override_environ,
+    snake_case_to_camel_case,
 )
 from .exceptions import CLIException
 from .constants import Secrets, Settings
@@ -18,8 +19,18 @@ _MISSING = object()
 REGISTERED_STACKS = {}
 
 COMMON_STACK_PREFIX = "c4-"
+COMMON_STACK_PREFIX_CAMEL_CASE = "C4"
 
 STACK_KINDS = ['alpha']  # No longer supporting 'legacy' stacks
+
+
+def camelize(name):  # when this is debugged, this name can go away and tests can be simplified
+    return snake_case_to_camel_case(name, separator='-')
+    # return ''.join([i.capitalize() for i in name.split('-')])
+
+
+def dehyphenate(name):
+    return name.replace('-', '')
 
 
 @decorator()
@@ -98,7 +109,7 @@ class ConfigManager:
         ecosystem_name = ConfigManager.get_config_setting(Settings.S3_BUCKET_ECOSYSTEM, default="main")
         ecosystem_part = f"{ecosystem_name}-" if ecosystem_name else ""
         app_kind = ConfigManager.get_config_setting(Settings.APP_KIND)
-        base_prefix = f"{app_kind}{org_part}{ecosystem_part}"
+        base_prefix = f"{app_kind}-{org_part}{ecosystem_part}"
         foursight_prefix = f"{base_prefix}foursight-"
         application_prefix = f"{base_prefix}application-"
         bucket_name = bucket_template.format(env_name=env_name,
@@ -248,16 +259,16 @@ class ConfigManager:
     @classmethod
     def get_app_bucket_template(cls, kind):
         if ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER) == cls.ORIGINAL_ACCOUNT_NUMBER:
-            getattr(cls.OriginalAppBucketTemplate, kind)
+            return getattr(cls.OriginalAppBucketTemplate, kind)
         else:
-            getattr(cls.GenericAppBucketTemplate, kind)
+            return getattr(cls.GenericAppBucketTemplate, kind)
 
     @classmethod
     def get_fs_bucket_template(cls, kind):
         if ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER) == cls.ORIGINAL_ACCOUNT_NUMBER:
-            getattr(cls.OriginalFSBucketTemplate, kind)
+            return getattr(cls.OriginalFSBucketTemplate, kind)
         else:
-            getattr(cls.GenericFSBucketTemplate, kind)
+            return getattr(cls.GenericFSBucketTemplate, kind)
 
     CLOUDFORMATION = None
 
