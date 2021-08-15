@@ -265,10 +265,11 @@ class C4ECSApplication(C4Part):
             SecurityGroups=[
                 Ref(self.ecs_lb_security_group())
             ],
-            Subnets=[
-                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
-                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
-            ],
+            Subnets=[self.NETWORK_EXPORTS.import_value(subnet_key) for subnet_key in C4NetworkExports.PUBLIC_SUBNETS],
+            # Subnets=[
+            #     self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
+            #     self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
+            # ],
             Tags=self.tags.cost_tag_array(name=logical_id),
             Type='application',
         )
@@ -396,8 +397,12 @@ class C4ECSApplication(C4Part):
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
-                    Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
+                    Subnets=[
+                        self.NETWORK_EXPORTS.import_value(subnet_key)
+                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                    ],
+                    # Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                    #          self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
@@ -487,8 +492,12 @@ class C4ECSApplication(C4Part):
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
-                    Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
+                    Subnets=[
+                        self.NETWORK_EXPORTS.import_value(subnet_key)
+                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                    ],
+                    # Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                    #          self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
@@ -604,8 +613,12 @@ class C4ECSApplication(C4Part):
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
-                    Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
+                    Subnets=[
+                        self.NETWORK_EXPORTS.import_value(subnet_key)
+                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                    ],
+                    # Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                    #          self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
@@ -757,8 +770,12 @@ class C4ECSApplication(C4Part):
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
-                    Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
+                    Subnets=[
+                        self.NETWORK_EXPORTS.import_value(subnet_key)
+                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                    ],
+                    # Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                    #          self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),

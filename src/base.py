@@ -2,6 +2,7 @@ import boto3
 import io
 import json
 import os
+import re
 
 from contextlib import contextmanager
 from dcicutils.exceptions import InvalidParameterError
@@ -18,8 +19,11 @@ _MISSING = object()
 
 REGISTERED_STACKS = {}
 
-COMMON_STACK_PREFIX = "c4-"
-COMMON_STACK_PREFIX_CAMEL_CASE = "C4"
+# Since Fourfront and CGAP are not intended to be in the same account, having different security requirements,
+# we use the prefix C4 which is intended as the union of those two things.
+
+COMMON_STACK_PREFIX = 'C4'
+COMMON_STACK_PREFIX_PART = 'c4-'
 
 STACK_KINDS = ['alpha']  # No longer supporting 'legacy' stacks
 
@@ -102,7 +106,6 @@ class ConfigManager:
         #       cover that special case, it should suffice (and use fewer environment variables) to only worry
         #       about ENV_NAME. -kmp 24-Jun-2021
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        env_part = f"{env_name}-"
         # The org_name is allowed to be missing or empty if none desired.
         org_name = ConfigManager.get_config_setting(Settings.S3_BUCKET_ORG, default=None)
         org_part = f"{org_name}-" if org_name else ""
@@ -110,10 +113,12 @@ class ConfigManager:
         ecosystem_part = f"{ecosystem_name}-" if ecosystem_name else ""
         app_kind = ConfigManager.get_config_setting(Settings.APP_KIND)
         base_prefix = f"{app_kind}-{org_part}{ecosystem_part}"
-        foursight_prefix = f"{base_prefix}foursight-"
-        application_prefix = f"{base_prefix}application-"
-        bucket_name = bucket_template.format(env_name=env_name,
-                                             env_part=env_part,
+        application_prefix = f"{base_prefix}application"
+        foursight_prefix = f"{base_prefix}foursight"
+        bucket_name = bucket_template.format(app_kind=app_kind,
+                                             env_name=env_name,
+                                             org_name=org_name, org_part=org_part,
+                                             ecosystem_name=ecosystem_name, ecosystem_part=ecosystem_part,
                                              application_prefix=application_prefix,
                                              foursight_prefix=foursight_prefix,
                                              )
@@ -226,33 +231,33 @@ class ConfigManager:
 
     class GenericAppBucketTemplate:
 
-        BLOBS = '{application_prefix}{env_part}blobs'
-        FILES = '{application_prefix}{env_part}files'
-        WFOUT = '{application_prefix}{env_part}wfout'
-        SYSTEM = '{application_prefix}{env_part}system'
-        METADATA_BUNDLES = '{application_prefix}{env_part}metadata-bundles'
-        TIBANNA_LOGS = '{application_prefix}tibanna-logs'  # NOTE: Shared in ecosystem. No {env_part}
+        BLOBS = '{application_prefix}-{env_name}-blobs'
+        FILES = '{application_prefix}-{env_name}-files'
+        WFOUT = '{application_prefix}-{env_name}-wfout'
+        SYSTEM = '{application_prefix}-{env_name}-system'
+        METADATA_BUNDLES = '{application_prefix}-{env_name}-metadata-bundles'
+        TIBANNA_LOGS = '{application_prefix}-tibanna-logs'  # NOTE: Shared in ecosystem. No {env_name}-
 
     class GenericFSBucketTemplate:
 
-        ENVS = '{foursight_prefix}envs'  # NOTE: Shared in ecosystem. No {env_part}
-        RESULTS = '{foursight_prefix}{env_part}results'
-        APPLICATION_VERSIONS = '{foursight_prefix}{env_part}application-versions'
+        ENVS = '{foursight_prefix}-envs'  # NOTE: Shared in ecosystem. No {env_name}-
+        RESULTS = '{foursight_prefix}-{env_name}-results'
+        APPLICATION_VERSIONS = '{foursight_prefix}-{env_name}-application-versions'
 
     class OriginalAppBucketTemplate:
 
-        BLOBS = '{application_prefix}{env_part}blobs'
-        FILES = '{application_prefix}{env_part}files'
-        WFOUT = '{application_prefix}{env_part}wfout'
-        SYSTEM = '{application_prefix}{env_part}system'
-        METADATA_BUNDLES = '{application_prefix}{env_part}metadata-bundles'
-        TIBANNA_LOGS = '{application_prefix}tibanna-logs'  # NOTE: Shared in ecosystem. No {env_part}
+        BLOBS = '{application_prefix}-{env_name}-blobs'
+        FILES = '{application_prefix}-{env_name}-files'
+        WFOUT = '{application_prefix}-{env_name}-wfout'
+        SYSTEM = '{application_prefix}-{env_name}-system'
+        METADATA_BUNDLES = '{application_prefix}-{env_name}-metadata-bundles'
+        TIBANNA_LOGS = '{application_prefix}-tibanna-logs'  # NOTE: Shared in ecosystem. No {env_name}-
 
     class OriginalFSBucketTemplate:
 
-        ENVS = '{foursight_prefix}envs'  # NOTE: Shared in ecosystem. No {env_part}
-        RESULTS = '{foursight_prefix}{env_part}results'
-        APPLICATION_VERSIONS = '{foursight_prefix}{env_part}application-versions'
+        ENVS = '{foursight_prefix}-envs'  # NOTE: Shared in ecosystem. No {env_name}-
+        RESULTS = '{foursight_prefix}-{env_name}-results'
+        APPLICATION_VERSIONS = '{foursight_prefix}-{env_name}-application-versions'
 
     ORIGINAL_ACCOUNT_NUMBER = '645819926742'
 
@@ -291,7 +296,7 @@ class ConfigManager:
     def find_stack(cls, name_token):
         # If name_token is network, the name might be c4-network-trial-alpha-stack or c4-network-trial-stack
         # so we search by the prefix that is common. -kmp 19-Jul-2021
-        prefix = f"{COMMON_STACK_PREFIX}{name_token}-"
+        prefix = f"{COMMON_STACK_PREFIX_PART}{name_token}-"
         candidates = []
         for stack in cls._cloudformation().stacks.all():
             if prefix in stack.name:
@@ -357,3 +362,22 @@ USE_SHORT_EXPORT_NAMES = True  # TODO: Remove when debugged
 
 def exportify(name):
     return name if USE_SHORT_EXPORT_NAMES else f"Export{name}"
+
+
+VALID_APP_KINDS = ['cgap', 'ff']
+
+APP_KIND = ConfigManager.get_config_setting(Settings.APP_KIND)
+
+if APP_KIND not in VALID_APP_KINDS:
+    raise InvalidParameterError(parameter=Settings.APP_KIND, value=APP_KIND, options=VALID_APP_KINDS)
+
+ENV_NAME = ConfigManager.get_config_setting(Settings.ENV_NAME)
+
+if not ENV_NAME or not re.match("[a-z][a-z0-9-]*", ENV_NAME):
+    raise ValueError(f"The value of {Settings.ENV_NAME} must begin with an alphabetic"
+                     f" and only contain alphanumerics or hyphens.")
+
+DEPLOYING_IAM_USER = ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER)
+
+if not DEPLOYING_IAM_USER:
+    raise ValueError(f"A setting for {Settings.DEPLOYING_IAM_USER} is required.")

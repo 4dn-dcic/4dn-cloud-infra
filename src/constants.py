@@ -35,9 +35,11 @@ class Settings:
 
     RDS_INSTANCE_SIZE = 'rds.instance_size'
     RDS_STORAGE_SIZE = 'rds.storage_size'
+    RDS_STORAGE_TYPE = 'rds.storage_type'
     RDS_DB_NAME = 'rds.db_name'              # parameter default if empty or missing = "ebdb"
     RDS_DB_PORT = 'rds.db_port'              # parameter default if empty or missing = "5432"
     RDS_AZ = 'rds.az'                        # TODO: Ignored for now. Always defaults to "us-east-1"
+    RDS_POSTGRES_VERSION = 'rds.postgres_version'
 
     # ES Configuration Options
 

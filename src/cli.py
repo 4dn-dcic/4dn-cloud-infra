@@ -88,7 +88,7 @@ class C4Client:
                 break
         return caps
 
-    # APPLICATION_BUCKET_TEMPLATE = "{foursight_prefix}{env_part}application-versions"
+    # APPLICATION_BUCKET_TEMPLATE = "{foursight_prefix}-{env_name}-application-versions"
 
     @classmethod
     def upload_chalice_package(cls, *, output_file, stack: BaseC4FoursightStack, bucket=None):

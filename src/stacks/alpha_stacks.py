@@ -1,4 +1,4 @@
-from ..base import register_stack_creator, COMMON_STACK_PREFIX, COMMON_STACK_PREFIX_CAMEL_CASE
+from ..base import register_stack_creator, COMMON_STACK_PREFIX_PART, COMMON_STACK_PREFIX
 from ..parts import network, datastore, ecr, iam, logging, ecs  # , appconfig
 from ..stack import C4Stack, C4Name, C4Tags, C4Account, C4FoursightCGAPStack
 
@@ -8,11 +8,11 @@ from ..stack import C4Stack, C4Name, C4Tags, C4Account, C4FoursightCGAPStack
 
 def c4_alpha_stack_name(name, camel_case_name=None):
     # e.g., if name='network, result will be c4-network-trial-alpha
-    # return C4Name(name=f'{COMMON_STACK_PREFIX}{name}-trial-alpha')
+    # return C4Name(name=f'{COMMON_STACK_PREFIX_PART}{name}-trial-alpha')
 
     # Experimentally return something simpler...
-    return C4Name(name=f'{COMMON_STACK_PREFIX}{name}',
-                  title_token=(f'{COMMON_STACK_PREFIX_CAMEL_CASE}{camel_case_name}'
+    return C4Name(name=f'{COMMON_STACK_PREFIX_PART}{name}',
+                  title_token=(f'{COMMON_STACK_PREFIX}{camel_case_name}'
                                if camel_case_name else None))
 
 
