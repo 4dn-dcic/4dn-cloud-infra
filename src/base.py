@@ -2,6 +2,7 @@ import boto3
 import io
 import json
 import os
+import re
 
 from contextlib import contextmanager
 from dcicutils.exceptions import InvalidParameterError
@@ -18,6 +19,8 @@ _MISSING = object()
 
 REGISTERED_STACKS = {}
 
+# Since Fourfront and CGAP are not intended to be in the same account, having different security requirements,
+# we use the prefix C4 which is intended as the union of those two things.
 COMMON_STACK_PREFIX = "c4-"
 COMMON_STACK_PREFIX_CAMEL_CASE = "C4"
 
@@ -357,3 +360,24 @@ USE_SHORT_EXPORT_NAMES = True  # TODO: Remove when debugged
 
 def exportify(name):
     return name if USE_SHORT_EXPORT_NAMES else f"Export{name}"
+
+
+VALID_APP_KINDS = ['cgap', 'ff']
+
+APP_KIND = ConfigManager.get_config_setting(Settings.APP_KIND)
+
+if APP_KIND not in VALID_APP_KINDS:
+    raise InvalidParameterError(parameter=Settings.APP_KIND, value=APP_KIND, options=VALID_APP_KINDS)
+
+ENV_NAME = ConfigManager.get_config_setting(Settings.ENV_NAME)
+
+if not ENV_NAME or not re.match("[a-z][a-z0-9-]*", ENV_NAME):
+    raise ValueError(f"The value of {Settings.ENV_NAME} must begin with an alphabetic"
+                     f" and only contain alphanumerics or hyphens.")
+
+DEPLOYING_IAM_USER = ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER)
+
+if not DEPLOYING_IAM_USER:
+    raise ValueError(f"A setting for {Settings.DEPLOYING_IAM_USER} is required.")
+
+ECOSYSTEM = ConfigManager.get_config_setting(Settings.S3_BUCKET_ECOSYSTEM, default='main')
