@@ -133,7 +133,7 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
         # #       It should instead ask for all the various arguments it plans to look at.
         # with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
         self.PackageDeploy.build_config_and_package(
-            None,  # This used to take args, but now we pass the parts of args w ecare about explicitly...
+            args,  # this should not be needed any more, but we didn't quite write the code that way
             merge_template=args.merge_template,
             output_file=args.output_file,
             stage=args.stage,

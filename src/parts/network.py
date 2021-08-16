@@ -64,6 +64,8 @@ class C4NetworkExports(C4Exports):
         # e.g., for the Alpha environment, the original value was hand-coded as:
         #       ['subnet-09ed0bb672993c7ac', 'subnet-00778b903b357d331']
         computed_result = ConfigManager.find_stack_outputs(cls._PRIVATE_SUBNET_EXPORT_PATTERN.match, value_only=True)
+        if not computed_result:
+            raise RuntimeError("get_subnet_ids() was expected to return a non-empty list.")
         return computed_result
 
     def __init__(self):
