@@ -63,6 +63,10 @@ class C4AppConfigExports(C4Exports):
 
 class C4AppConfig(C4Part):
     """ Defines the AppConfig stack - see resources created in build_template method. """
+    STACK_NAME_TOKEN = "appconfig"
+    STACK_TITLE_TOKEN = "AppConfig"
+    SHARING = 'env'
+
     APPLICATION_SECRET_STRING = 'ApplicationConfiguration'
     RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names
     EXPORTS = C4AppConfigExports()

@@ -9,7 +9,7 @@ from os.path import dirname
 from troposphere import Template
 from .base import ConfigManager
 from .constants import Secrets, Settings
-from .part import C4Name, C4Tags, C4Account, C4Part
+from .part import C4Name, C4Tags, C4Account, C4Part, StackNameMixin
 from .parts.datastore import C4DatastoreExports
 from .parts.network import C4NetworkExports
 
@@ -88,7 +88,7 @@ class C4Stack(BaseC4Stack):
         return self.template, template_file  # was self.template, path, template_file
 
 
-class BaseC4FoursightStack(BaseC4Stack):
+class BaseC4FoursightStack(BaseC4Stack, StackNameMixin):
     """ This abstract class exists so that later if we want to make separate fourfront and cgap foursight classes,
         we can type-discriminate on the abstract class.
     """
@@ -99,6 +99,10 @@ class BaseC4FoursightStack(BaseC4Stack):
 
 
 class C4FoursightCGAPStack(BaseC4FoursightStack):
+
+    STACK_NAME_TOKEN = "foursight-cgap"
+    STACK_TITLE_TOKEN = "FoursightCGAP"
+    SHARING = 'env'
 
     NETWORK_EXPORTS = C4NetworkExports()
 

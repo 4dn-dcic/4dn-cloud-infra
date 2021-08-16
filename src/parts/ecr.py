@@ -16,7 +16,7 @@ from troposphere import (
     Parameter
 )
 from troposphere.ecr import Repository
-from ..base import ConfigManager
+from ..base import ConfigManager, ECOSYSTEM
 from ..constants import Settings
 from ..parts.iam import C4IAMExports
 from ..part import C4Part
@@ -25,7 +25,7 @@ from ..exports import C4Exports
 
 class C4ECRExports(C4Exports):
     """ Holds exports for ECR. """
-    ECR_REPO_URL = 'ECRRepoURL'
+    REPO_URL = 'RepoURL'
 
     def __init__(self):
         parameter = 'ECRStackNameParameter'
@@ -36,8 +36,12 @@ class C4ContainerRegistry(C4Part):
     """ Contains a classmethod that builds an ECR template for this stack.
         NOTE: IAM setup must be done before this.
     """
-    EXPORTS = C4ECRExports()
     IAM_EXPORTS = C4IAMExports()
+    EXPORTS = C4ECRExports()
+
+    STACK_NAME_TOKEN = "ecr"
+    STACK_TITLE_TOKEN = "ECR"
+    SHARING = 'ecosystem'
 
     def build_template(self, template: Template) -> Template:
         # Adds IAM Stack Parameter
@@ -111,12 +115,14 @@ class C4ContainerRegistry(C4Part):
             Version='2012-10-17',
         )
 
-    def repository(self, name=None):
+    def repository(self, repo_name=None):
         """ Builds the ECR Repository. """
-        name = name or ConfigManager.get_config_setting(Settings.ENV_NAME)
+        # We used to do this by environment, but now we make it per ecosystem.
+        # repo_name = repo_name or ConfigManager.get_config_setting(Settings.ENV_NAME)
+        repo_name = repo_name or ECOSYSTEM
         return Repository(
             'cgapdocker',  # must be lowercase, appears unused?
-            RepositoryName=name,  # might be we need many of these?
+            RepositoryName=repo_name,  # might be we need many of these?
             RepositoryPolicyText=self.ecr_access_policy(),
             ImageScanningConfiguration={"ScanOnPush": True},
             # Tags=self.tags.cost_tag_array(), XXX: bug in troposphere - does not take tags array
@@ -124,7 +130,7 @@ class C4ContainerRegistry(C4Part):
 
     def output_repo_url(self, resource: Repository):
         """ Generates repo URL output """
-        export_name = C4ECRExports.ECR_REPO_URL
+        export_name = C4ECRExports.REPO_URL
         logical_id = self.name.logical_id(export_name)
         return Output(
             logical_id,

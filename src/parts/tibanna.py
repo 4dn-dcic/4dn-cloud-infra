@@ -13,6 +13,9 @@ class C4Tibanna(C4Part):
     # tibanna groups:
     # tibanna_unicorn_trial_tibanna_unicorn_01 - uses public buckets on the prod account for testing
     # tibanna_unicorn_trial_tibanna_unicorn_02 - uses private buckets on the trial account, configured here
+    STACK_NAME_TOKEN = "tibanna"
+    STACK_TITLE_TOKEN = "Tibanna"
+    SHARING = 'ecosystem'
 
     @staticmethod
     def bucket_names(bucket_id=TRIAL_ID):

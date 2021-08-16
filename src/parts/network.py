@@ -14,39 +14,29 @@ from ..exports import C4Exports
 from ..part import C4Part
 
 
-SUBNETS = {
-    'PrivateSubnetA': {'name': 'PrivateSubnetA', 'cidr_block': '10.0.0.0/18', 'az': 'us-east-1a', 'kind': 'private'},
-    'PublicSubnetA': {'name': 'PublicSubnetA', 'cidr_block': '10.0.64.0/18', 'az': 'us-east-1a', 'kind': 'public'},
-    'PrivateSubnetB': {'name': 'PrivateSubnetB', 'cidr_block': '10.0.128.0/18', 'az': 'us-east-1b', 'kind': 'private'},
-    'PublicSubnetB': {'name': 'PublicSubnetB', 'cidr_block': '10.0.192.0/18', 'az': 'us-east-1b', 'kind': 'public'},
-}
-
-
-def all_private_subnets():
-    result = [exportify(name) for name, entry in SUBNETS.items() if entry['kind'] == 'private']
-    return result
-
-
-def all_public_subnets():
-    result = [exportify(name) for name, entry in SUBNETS.items() if entry['kind'] == 'public']
-    return result
-
-
 class C4NetworkExports(C4Exports):
     """ Helper class for working with network exported resources and their input values """
     VPC = 'VPC'  # 'ExportVPC'
 
-    PRIVATE_SUBNETS = all_private_subnets()
+    _SUBNETS = {
+        'PrivateSubnetA': {'name': 'PrivateSubnetA', 'cidr_block': '10.0.0.0/18', 'az': 'us-east-1a', 'kind': 'private'},
+        'PublicSubnetA': {'name': 'PublicSubnetA', 'cidr_block': '10.0.64.0/18', 'az': 'us-east-1a', 'kind': 'public'},
+        'PrivateSubnetB': {'name': 'PrivateSubnetB', 'cidr_block': '10.0.128.0/18', 'az': 'us-east-1b', 'kind': 'private'},
+        'PublicSubnetB': {'name': 'PublicSubnetB', 'cidr_block': '10.0.192.0/18', 'az': 'us-east-1b', 'kind': 'public'},
+    }
 
-    PRIVATE_SUBNET_A = exportify(PRIVATE_SUBNETS[0])  # deprecated
-    PRIVATE_SUBNET_B = exportify(PRIVATE_SUBNETS[1])  # deprecated
+    PRIVATE_SUBNETS = [exportify(name) for name, entry in _SUBNETS.items() if entry['kind'] == 'private']
 
-    PUBLIC_SUBNETS = all_public_subnets()
+    # PRIVATE_SUBNET_A = exportify(PRIVATE_SUBNETS[0])  # deprecated
+    # PRIVATE_SUBNET_B = exportify(PRIVATE_SUBNETS[1])  # deprecated
 
-    PUBLIC_SUBNET_A = exportify(PUBLIC_SUBNETS[0])  # deprecated
-    PUBLIC_SUBNET_B = exportify(PUBLIC_SUBNETS[1])  # deprecated
+    PUBLIC_SUBNETS = [exportify(name) for name, entry in _SUBNETS.items() if entry['kind'] == 'public']
+
+    # PUBLIC_SUBNET_A = exportify(PUBLIC_SUBNETS[0])  # deprecated
+    # PUBLIC_SUBNET_B = exportify(PUBLIC_SUBNETS[1])  # deprecated
 
     # XXX: Can we name this something more generic? -Will
+    # I got rid of the word "Export". Is that enough? -kmp 14-Aug-2021
     APPLICATION_SECURITY_GROUP =  exportify('ApplicationSecurityGroup')
     DB_SECURITY_GROUP = exportify('DBSecurityGroup')
     HTTPS_SECURITY_GROUP = exportify('HTTPSSecurityGroup')
@@ -69,6 +59,7 @@ class C4NetworkExports(C4Exports):
 
     @classmethod
     def get_subnet_ids(cls):
+        # TODO: This could perhaps be better computed from cls._SUBNETS -kmp 14-Aug-2021
         # There will be several outputs (currently 2, but maybe more in the future), returned as a list.
         # e.g., for the Alpha environment, the original value was hand-coded as:
         #       ['subnet-09ed0bb672993c7ac', 'subnet-00778b903b357d331']
@@ -95,6 +86,9 @@ class C4Network(C4Part):
     DB_PORT_LOW = 5400
     DB_PORT_HIGH = 5499
     EXPORTS = C4NetworkExports()
+    STACK_NAME_TOKEN = "network"
+    STACK_TITLE_TOKEN = "Network"
+    SHARING = 'ecosystem'
 
     def build_template(self, template: Template) -> Template:
         """ Add network resources to template """
@@ -386,17 +380,20 @@ class C4Network(C4Part):
         return self._get_subnets('private')
 
     def _get_subnets(self, kind) -> List[Subnet]:
-        key = self.SUBNETS_KEY_MAP[kind]
-        if not getattr(self, key):
+        subnets_key = self.SUBNETS_KEY_MAP[kind]
+        subnets = getattr(self, subnets_key)
+        if not subnets:
             subnets = {}
-            for name, entry in SUBNETS.items():
+            for name, entry in C4NetworkExports._SUBNETS.items():
                 if entry['kind'] == kind:
                     cidr_block = entry['cidr_block']
                     az = entry['az']
                     subnet = self.build_subnet(name, cidr_block, self.virtual_private_cloud(), az)
                     subnets[name] = subnet
-            setattr(self, key, subnets)
-        return getattr(self, key).values()
+            setattr(self, subnets_key, subnets)
+        result = list(subnets.values())
+        # print(f"_get_subnets({kind}) => {result}")
+        return result
 
     # def private_subnet_a(self) -> Subnet:
     #     """ Define private subnet A """

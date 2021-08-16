@@ -59,40 +59,40 @@ def test_c4_account():
     assert account.creds_file == sample_creds_file
 
 
-def test_c4_part():
-
-    sample_name = C4Name('sample-part')
-    sample_tags = C4Tags()
-    sample_account = C4Account(account_number='123', creds_file='no_such_file.sh')
-    part = C4Part(name=sample_name, tags=sample_tags, account=sample_account)
-
-    assert part.name == sample_name
-    assert part.tags == sample_tags
-    assert part.account == sample_account
-
-
-def test_c4_part_trim_name():
-
-    # NOTE: It might be nice to make the trimming case-insensitive, but probably it doesn't matter.
-    #       This mostly only comes up because of using the title part of something else that will
-    #       have started with the same data.
-
-    part = C4Part(name=C4Name('sample-part'),
-                  tags=C4Tags(),
-                  account=C4Account(account_number='123',
-                                    creds_file='no_such_file.sh'))
-
-    assert part.trim_name("Stuff") == "Stuff"
-    assert part.trim_name("MoreStuff") == "MoreStuff"
-    assert part.trim_name("SamplePartStuff") == "Stuff"
-    assert part.trim_name("SAMPLEPartStuff") == "SAMPLEPartStuff"  # See note above
-
-    part = C4Part(name=C4Name('foo-part', title_token='FOOPart'),
-                  tags=C4Tags(),
-                  account=C4Account(account_number='123',
-                                    creds_file='no_such_file.sh'))
-
-    assert part.trim_name("Stuff") == "Stuff"
-    assert part.trim_name("MoreStuff") == "MoreStuff"
-    assert part.trim_name("FOOPartStuff") == "Stuff"
-    assert part.trim_name("FooPartStuff") == "FooPartStuff"  # See note above
+# def test_c4_part():
+#
+#     sample_name = C4Name('sample-part')
+#     sample_tags = C4Tags()
+#     sample_account = C4Account(account_number='123', creds_file='no_such_file.sh')
+#     part = C4Part(name=sample_name, tags=sample_tags, account=sample_account)
+#
+#     assert part.name == sample_name
+#     assert part.tags == sample_tags
+#     assert part.account == sample_account
+#
+#
+# def test_c4_part_trim_name():
+#
+#     # NOTE: It might be nice to make the trimming case-insensitive, but probably it doesn't matter.
+#     #       This mostly only comes up because of using the title part of something else that will
+#     #       have started with the same data.
+#
+#     part = C4Part(name=C4Name('sample-part'),
+#                   tags=C4Tags(),
+#                   account=C4Account(account_number='123',
+#                                     creds_file='no_such_file.sh'))
+#
+#     assert part.trim_name("Stuff") == "Stuff"
+#     assert part.trim_name("MoreStuff") == "MoreStuff"
+#     assert part.trim_name("SamplePartStuff") == "Stuff"
+#     assert part.trim_name("SAMPLEPartStuff") == "SAMPLEPartStuff"  # See note above
+#
+#     part = C4Part(name=C4Name('foo-part', title_token='FOOPart'),
+#                   tags=C4Tags(),
+#                   account=C4Account(account_number='123',
+#                                     creds_file='no_such_file.sh'))
+#
+#     assert part.trim_name("Stuff") == "Stuff"
+#     assert part.trim_name("MoreStuff") == "MoreStuff"
+#     assert part.trim_name("FOOPartStuff") == "Stuff"
+#     assert part.trim_name("FooPartStuff") == "FooPartStuff"  # See note above

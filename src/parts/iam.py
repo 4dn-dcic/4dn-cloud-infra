@@ -36,6 +36,9 @@ class C4IAM(C4Part):
     INSTANCE_PROFILE_NAME = 'CGAPECSInstanceProfile'
     AUTOSCALING_ROLE_NAME = 'CGAPECSAutoscalingRole'
     EXPORTS = C4IAMExports()
+    STACK_NAME_TOKEN = "iam"
+    STACK_TITLE_TOKEN = "IAM"
+    SHARING = 'ecosystem'
 
     def build_template(self, template: Template) -> Template:
         """ Builds current IAM template, currently just the ECS assumed IAM role

@@ -14,6 +14,9 @@ class C4LoggingExports(C4Exports):
 
 class C4Logging(C4Part):
     EXPORTS = C4LoggingExports()
+    STACK_NAME_TOKEN = "logging"
+    STACK_TITLE_TOKEN = "Logging"
+    SHARING = 'ecosystem'
 
     def build_template(self, template: Template) -> Template:
         log_group = logs.LogGroup(

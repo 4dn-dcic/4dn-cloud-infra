@@ -18,6 +18,7 @@ from .constants import Secrets, Settings
 _MISSING = object()
 
 REGISTERED_STACKS = {}
+REGISTERED_STACK_CLASSES = {}
 
 # Since Fourfront and CGAP are not intended to be in the same account, having different security requirements,
 # we use the prefix C4 which is intended as the union of those two things.
@@ -37,10 +38,14 @@ def dehyphenate(name):
 
 
 @decorator()
-def register_stack_creator(*, name, kind):
+def register_stack_creator(*, name, kind, implementation_class):
+    registered_classes = REGISTERED_STACK_CLASSES.get(kind)
+    if registered_classes is None:
+        REGISTERED_STACK_CLASSES[kind] = registered_classes = {}
+    registered_classes[name] = implementation_class
+    print(f"Registered {kind} class {name} as {implementation_class}.")
     if kind not in STACK_KINDS:
         raise InvalidParameterError(parameter="kind", value=kind, options=STACK_KINDS)
-
     def register_stack_creation_function(fn):
         subregistry = REGISTERED_STACKS.get(kind)
         if not subregistry:
@@ -49,6 +54,15 @@ def register_stack_creator(*, name, kind):
         return fn
 
     return register_stack_creation_function
+
+
+def registered_stack_class(name, *, kind):
+    if not isinstance(name, str):
+        return name
+    try:
+        return REGISTERED_STACK_CLASSES[kind][name]
+    except Exception:
+        raise ValueError(f"No {kind} class {name!r} has been defined.")
 
 
 def lookup_stack_creator(name, kind, exact=False):

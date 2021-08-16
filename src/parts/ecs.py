@@ -85,6 +85,10 @@ class C4ECSApplication(C4Part):
     IMAGE_TAG = ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, 'latest')
     LEGACY_DEFAULT_IDENTITY = 'dev/beanstalk/cgap-dev'
 
+    STACK_NAME_TOKEN = "ecs"
+    STACK_TITLE_TOKEN = "ECS"
+    SHARING = 'env'
+
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
         template.add_parameter(Parameter(
@@ -265,10 +269,11 @@ class C4ECSApplication(C4Part):
             SecurityGroups=[
                 Ref(self.ecs_lb_security_group())
             ],
-            Subnets=[
-                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
-                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
-            ],
+            Subnets=[self.NETWORK_EXPORTS.import_value(subnet_key) for subnet_key in C4NetworkExports.PUBLIC_SUBNETS],
+            # Subnets=[
+            #     self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
+            #     self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
+            # ],
             Tags=self.tags.cost_tag_array(name=logical_id),
             Type='application',
         )
@@ -322,7 +327,7 @@ class C4ECSApplication(C4Part):
                     Name='portal',
                     Essential=True,
                     Image=Join("", [
-                        self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+                        self.ECR_EXPORTS.import_value(C4ECRExports.REPO_URL),
                         ':',
                         self.IMAGE_TAG,
                     ]),
@@ -396,8 +401,12 @@ class C4ECSApplication(C4Part):
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
-                    Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
+                    Subnets=[
+                        self.NETWORK_EXPORTS.import_value(subnet_key)
+                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                    ],
+                    # Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                    #          self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
@@ -427,7 +436,7 @@ class C4ECSApplication(C4Part):
                     Name='Indexer',
                     Essential=True,
                     Image=Join('', [
-                        self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+                        self.ECR_EXPORTS.import_value(C4ECRExports.REPO_URL),
                         ':',
                         self.IMAGE_TAG,
                     ]),
@@ -487,8 +496,12 @@ class C4ECSApplication(C4Part):
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
-                    Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
+                    Subnets=[
+                        self.NETWORK_EXPORTS.import_value(subnet_key)
+                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                    ],
+                    # Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                    #          self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
@@ -560,7 +573,7 @@ class C4ECSApplication(C4Part):
                     Name='Ingester',
                     Essential=True,
                     Image=Join("", [
-                        self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+                        self.ECR_EXPORTS.import_value(C4ECRExports.REPO_URL),
                         ':',
                         self.IMAGE_TAG
                     ]),
@@ -604,8 +617,12 @@ class C4ECSApplication(C4Part):
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
-                    Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
+                    Subnets=[
+                        self.NETWORK_EXPORTS.import_value(subnet_key)
+                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                    ],
+                    # Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                    #          self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
@@ -693,7 +710,7 @@ class C4ECSApplication(C4Part):
                     Name='DeploymentAction',
                     Essential=True,
                     Image=Join("", [
-                        self.ECR_EXPORTS.import_value(C4ECRExports.ECR_REPO_URL),
+                        self.ECR_EXPORTS.import_value(C4ECRExports.REPO_URL),
                         ':',
                         self.IMAGE_TAG,
                     ]),
@@ -757,8 +774,12 @@ class C4ECSApplication(C4Part):
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
-                    Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                             self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
+                    Subnets=[
+                        self.NETWORK_EXPORTS.import_value(subnet_key)
+                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                    ],
+                    # Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                    #          self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
