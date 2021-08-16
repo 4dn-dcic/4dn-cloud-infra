@@ -25,7 +25,7 @@ from troposphere.ecs import (
     CapacityProviderStrategyItem,
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
-from ..base import ConfigManager, camelize
+from ..base import ConfigManager, camelize, dehyphenate
 from ..constants import Settings
 from ..exports import C4Exports
 from ..part import C4Part
@@ -163,11 +163,11 @@ class C4ECSApplication(C4Part):
     @classmethod
     def ecs_cluster(cls) -> Cluster:
         """ Creates an ECS cluster for use with this portal deployment. """
-        env = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         return Cluster(
             # Fallback, but should always be set
-            f'CGAPDockerClusterFor{camelize(env)}',
-            # ConfigManager.get_config_setting(Settings.ENV_NAME, 'CGAPDockerCluster').replace('-', ''),
+            f'CGAPDockerClusterFor{camelize(env_name)}',
+            # dehyphenate(ConfigManager.get_config_setting(Settings.ENV_NAME, 'CGAPDockerCluster'))
             CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
             # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
@@ -257,14 +257,13 @@ class C4ECSApplication(C4Part):
 
     def ecs_application_load_balancer(self) -> elbv2.LoadBalancer:
         """ Application load balancer for the portal ECS Task. """
-        env_identifier = ConfigManager.get_config_setting(Settings.ENV_NAME).replace('-', '')
-        if not env_identifier:
-            raise Exception('Did not set required key in .env! Should never get here.')
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        env_identifier = dehyphenate(env_name)
         logical_id = self.name.logical_id(env_identifier, context='ecs_application_load_balancer')
         return elbv2.LoadBalancer(
             logical_id,
             IpAddressType='ipv4',
-            Name=logical_id,
+            Name=env_name,  # was logical_id
             Scheme='internet-facing',
             SecurityGroups=[
                 Ref(self.ecs_lb_security_group())

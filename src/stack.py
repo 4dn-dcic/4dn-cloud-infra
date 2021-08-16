@@ -100,8 +100,8 @@ class BaseC4FoursightStack(BaseC4Stack, StackNameMixin):
 
 class C4FoursightCGAPStack(BaseC4FoursightStack):
 
-    STACK_NAME_TOKEN = "foursight-cgap"
-    STACK_TITLE_TOKEN = "FoursightCGAP"
+    STACK_NAME_TOKEN = "foursight"
+    STACK_TITLE_TOKEN = "Foursight"
     SHARING = 'env'
 
     NETWORK_EXPORTS = C4NetworkExports()
