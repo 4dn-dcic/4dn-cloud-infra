@@ -1,3 +1,4 @@
+from dcicutils.cloudformation_utils import make_required_key_for_ecs_application_url
 from dcicutils.misc_utils import ignorable  # , snake_case_to_camel_case
 from troposphere import (
     Parameter,
@@ -49,13 +50,15 @@ class C4ECSApplicationExports(C4Exports):
     """ Holds ECS export metadata. """
 
     @classmethod
-    def output_application_url_key(cls, env):
-        return f'ECSApplicationURLfor{camelize(env)}'
+    def output_application_url_key(cls, env_name):
+        # dcicutils.cloudformation_utils depends on this for now, so be careful changing it. -kmp 16-Aug-2021
+        # return f'ECSApplicationURL{dehyphenate(env_name)}'
+        return make_required_key_for_ecs_application_url(env_name)
 
     @classmethod
-    def get_application_url(cls, env):
+    def get_application_url(cls, env_name):
         # e.g., applicaton_url_key = 'ECSApplicationURLcgapmastertest' for cgap-mastertest
-        application_url_key = cls.output_application_url_key(env)
+        application_url_key = cls.output_application_url_key(env_name)
         application_url = ConfigManager.find_stack_output(application_url_key, value_only=True)
         return application_url
 

@@ -180,8 +180,8 @@ class C4Datastore(C4Part):
         # print("env_name=", repr(env_name))
         result = cls.add_placeholders({
             'deploying_iam_user': ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER),  # required
-            'AWS_ACCESS_KEY_ID': None,
-            'AWS_SECRET_ACCESS_KEY': None,
+            'S3_AWS_ACCESS_KEY_ID': None,
+            'S3_AWS_SECRET_ACCESS_KEY': None,
             'Auth0Client': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
             'Auth0Secret': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET, default=None),
             'ENV_NAME': env_name,

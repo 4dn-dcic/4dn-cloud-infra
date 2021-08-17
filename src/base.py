@@ -5,6 +5,9 @@ import os
 import re
 
 from contextlib import contextmanager
+from dcicutils.cloudformation_utils import (
+    dehyphenate, camelize, make_required_key_for_ecs_application_url, DEFAULT_ECOSYSTEM,
+)
 from dcicutils.exceptions import InvalidParameterError
 from dcicutils.lang_utils import conjoined_list
 from dcicutils.misc_utils import (
@@ -27,14 +30,18 @@ COMMON_STACK_PREFIX_CAMEL_CASE = "C4"
 
 STACK_KINDS = ['alpha']  # No longer supporting 'legacy' stacks
 
-
-def camelize(name):  # when this is debugged, this name can go away and tests can be simplified
-    return snake_case_to_camel_case(name, separator='-')
-    # return ''.join([i.capitalize() for i in name.split('-')])
-
-
-def dehyphenate(name):
-    return name.replace('-', '')
+# All of this is now imported from dcicutils.cloudformation_utils -kmp 17-Aug-2021
+#
+# DEFAULT_ECOSYSTEM = 'main'
+#
+#
+# def camelize(name):  # when this is debugged, this name can go away and tests can be simplified
+#     return snake_case_to_camel_case(name, separator='-')
+#     # return ''.join([i.capitalize() for i in name.split('-')])
+#
+#
+# def dehyphenate(name):
+#     return name.replace('-', '')
 
 
 @decorator()
@@ -123,7 +130,7 @@ class ConfigManager:
         # The org_name is allowed to be missing or empty if none desired.
         org_name = ConfigManager.get_config_setting(Settings.S3_BUCKET_ORG, default=None)
         org_part = f"{org_name}-" if org_name else ""
-        ecosystem_name = ConfigManager.get_config_setting(Settings.S3_BUCKET_ECOSYSTEM, default="main")
+        ecosystem_name = ConfigManager.get_config_setting(Settings.S3_BUCKET_ECOSYSTEM, default=DEFAULT_ECOSYSTEM)
         ecosystem_part = f"{ecosystem_name}-" if ecosystem_name else ""
         app_kind = ConfigManager.get_config_setting(Settings.APP_KIND)
         base_prefix = f"{app_kind}-{org_part}{ecosystem_part}"
@@ -394,4 +401,4 @@ DEPLOYING_IAM_USER = ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USE
 if not DEPLOYING_IAM_USER:
     raise ValueError(f"A setting for {Settings.DEPLOYING_IAM_USER} is required.")
 
-ECOSYSTEM = ConfigManager.get_config_setting(Settings.S3_BUCKET_ECOSYSTEM, default='main')
+ECOSYSTEM = ConfigManager.get_config_setting(Settings.S3_BUCKET_ECOSYSTEM, default=DEFAULT_ECOSYSTEM)

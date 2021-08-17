@@ -14,23 +14,29 @@ def test_camelize():
 
 def test_register_stack_creator_and_lookup_stack_creator():
 
-    @register_stack_creator(name='foo', kind='alpha')
+    class DummyFooImplementationClass:
+        pass
+
+    class DummyBarImplementationClass:
+        pass
+
+    @register_stack_creator(name='foo', kind='alpha', implementation_class=DummyFooImplementationClass)
     def create_alpha_foo_stack():
         return 'alpha-foo'
 
     with pytest.raises(InvalidParameterError):  # We've disabled legacy support
 
-        @register_stack_creator(name='foo', kind='legacy')
+        @register_stack_creator(name='foo', kind='legacy', implementation_class=DummyFooImplementationClass)
         def create_legacy_foo_stack():
             return 'legacy-foo'
 
-    @register_stack_creator(name='bar', kind='alpha')
+    @register_stack_creator(name='bar', kind='alpha', implementation_class=DummyBarImplementationClass)
     def create_alpha_bar_stack():
         return 'alpha-bar'
 
     with pytest.raises(InvalidParameterError):
 
-        @register_stack_creator(name='bar', kind='legacy')
+        @register_stack_creator(name='bar', kind='legacy', implementation_class=DummyBarImplementationClass)
         def create_legacy_bar_stack():
             return 'legacy-bar'
 
