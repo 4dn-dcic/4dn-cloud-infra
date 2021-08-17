@@ -1250,17 +1250,6 @@ docutils = ">=0.14"
 
 [[package]]
 category = "main"
-description = "Python extension for computing string edit distances and similarities."
-name = "python-levenshtein"
-optional = false
-python-versions = "*"
-version = "0.12.2"
-
-[package.dependencies]
-setuptools = "*"
-
-[[package]]
-category = "main"
 description = "World timezone definitions, modern and historical"
 name = "pytz"
 optional = false
@@ -1609,7 +1598,7 @@ docs = ["sphinx", "jaraco.packaging (>=8.2)", "rst.linker (>=1.9)"]
 testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-cov", "pytest-enabler (>=1.0.1)", "jaraco.itertools", "func-timeout", "pytest-black (>=0.3.7)", "pytest-mypy"]
 
 [metadata]
-content-hash = "46f5add01e54682c969eb9baed8be7c3634ae11857ef8ca88b67033c1e3d6f5d"
+content-hash = "d32fcdc07e94092e7d2e0f3be62e9279682d8250d1e1f626d1eeac89209da62d"
 python-versions = ">=3.6.10,<3.7"
 
 [metadata.files]
@@ -2001,9 +1990,6 @@ python-lambda-4dn = [
     {file = "python-lambda-4dn-0.12.3.tar.gz", hash = "sha256:41765ea05224c035e146c89d60ef23d0d2c043ccc79e380cbeae60143547b1dc"},
     {file = "python_lambda_4dn-0.12.3-py2.py3-none-any.whl", hash = "sha256:a87fd330fcf6702165904dbe884610df5bf029c55cd2cc176d22f788b04a5f21"},
     {file = "python_lambda_4dn-0.12.3-py3.6.egg", hash = "sha256:1a93754ef6ca05d2aa9bcc63c9dbc9256657ee89e637f4fef5989e144836cb91"},
-]
-python-levenshtein = [
-    {file = "python-Levenshtein-0.12.2.tar.gz", hash = "sha256:dc2395fbd148a1ab31090dd113c366695934b9e85fe5a4b2a032745efd0346f6"},
 ]
 pytz = [
     {file = "pytz-2020.5-py2.py3-none-any.whl", hash = "sha256:16962c5fb8db4a8f63a26646d8886e9d769b6c511543557bc84e9569fb9a9cb4"},
