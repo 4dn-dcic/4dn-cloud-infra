@@ -1,5 +1,4 @@
 from dcicutils.cloudformation_utils import make_required_key_for_ecs_application_url
-from dcicutils.misc_utils import ignorable  # , snake_case_to_camel_case
 from troposphere import (
     Parameter,
     Join,
@@ -131,11 +130,9 @@ class C4ECSApplication(C4Part):
         portal = self.ecs_portal_service()
         template.add_resource(portal)
         template.add_resource(self.ecs_indexer_task())
-        indexer = template.add_resource(self.ecs_indexer_service())
-        ignorable(indexer)
+        template.add_resource(self.ecs_indexer_service())
         template.add_resource(self.ecs_ingester_task())
-        ingester = template.add_resource(self.ecs_ingester_service())
-        ignorable(ingester)
+        template.add_resource(self.ecs_ingester_service())
         template.add_resource(self.ecs_deployment_task(initial=True))
         template.add_resource(self.ecs_deployment_task())
         template.add_resource(self.ecs_deployment_service())
@@ -350,6 +347,9 @@ class C4ECSApplication(C4Part):
                         # to use. If this secret does not exist, things will not start up correctly - this is ok in
                         # the short term, but shortly after orchestration the secret value should be set.
                         # Note this applies to all other tasks as well.
+                        #
+                        # NOTE ALSO - if the missing parts of the secrets are not filled out manually, the system will
+                        # not come online. There's info on how to fill them out in docs/deploy-new-account.rst
                         Environment(
                             Name='IDENTITY',
                             Value=(identity
@@ -722,7 +722,7 @@ class C4ECSApplication(C4Part):
                             'awslogs-group':
                                 self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': 'cgap-deployment'
+                            'awslogs-stream-prefix': 'cgap-initial-deployment' if initial else 'cgap-deployment',
                         }
                     ),
                     Environment=[

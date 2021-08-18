@@ -41,7 +41,7 @@ if not FOURSIGHT_PREFIX:
 DEFAULT_ENV = os.environ.get('ENV_NAME', "cgap-uninitialized")
 
 
-class SingletonManager():
+class SingletonManager():  # TODO: Move to dcicutils
 
     def __init__(self, singleton_class, *singleton_args, **singleton_kwargs):
         self._singleton = None
@@ -74,6 +74,8 @@ if DEBUG_CHALICE:
 
 
 # app_utils_obj = AppUtils()
+# TODO: Will asks if this isn't redundant with other things done to keep this from being re-evaluated.
+#       We weren't sure and will look again at this another time. -kmp 17-Aug-2021
 app_utils_manager = SingletonManager(AppUtils)
 
 
@@ -386,6 +388,7 @@ def check_runner(event, context):
 
 
 def compute_valid_deploy_stages():
+    # TODO: Will wants to know why "test" is here. -kmp 17-Aug-2021
     return list(Deploy.CONFIG_BASE['stages'].keys()) + ['test']
 
 

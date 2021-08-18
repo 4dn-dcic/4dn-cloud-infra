@@ -287,10 +287,21 @@ At this point, you should be ready to deploy foursight. To do so, use this comma
     #       will be needed.)                                                                                    #
     #       It should also no longer be necessary to provide --output-file out/foursight-dev-tmp/ --stage dev   #
     #       on the command line because these are now the default for this provision operation.                 #
+    # NOTE: Will wants an explanation of 'dev' vs 'prod' here.                                                  #
     #############################################################################################################
 
-**NOTE WELL:** This will not entirely succeed on the first attempt. You'll need to run this a second time once various values have
-been created.
+* Go to the console and execute the change set.
+
+**NOTE WELL:** This will ALWAYS not entirely succeed on the first attempt.
+Some information is only available after completely executing the first change set.
+We'll change that in the future.
+For now, you'll need to run this a second time once various values have been created.
+
+* Deploy the deployment action a second time, same as the first::
+
+   poetry run cli provision foursight --upload-change-set
+
+* Of course you'll have to go to the console and execute the change set.
 
 At this point, Foursight should be working.
 
