@@ -61,6 +61,7 @@ config.json file at repo top level - use the JSON structure below as a template.
 
 * You'll need to remove the comments because, unlike Python, `.json` dictionary files have no comment syntax.
 * Note that you DO NOT and SHOULD NOT put AWS Keys in this file!
+* Some of the values it wants won't be known until after deploying ``datastore``, so don't worry about that.
 
 The format is JSON, though remember that JSON files, unlike Python files, cannot have comments and cannot have
 a trailing comma inside a list or dictionary::
@@ -102,7 +103,7 @@ the system. Note that Auth0 configuration is NOT part of the setup at this time 
 application and that the orchestrating user has access. Comments seek to guide the user on where to find each value::
 
     # Required props for deployment
-    deploying_iam_user = "the power IAM user who is orchestrating the infrastructure"
+    deploying_iam_user = "the power IAM user who is orchestrating the infrastructure (may soon not be needed)"
     Auth0Client = "Get from Auth0"
     Auth0Secret = "Get from Auth0"
     ENV_NAME = "desired env_name, for example: cgap-mastertest"

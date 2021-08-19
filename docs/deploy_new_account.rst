@@ -64,7 +64,7 @@ You can request this from the `Service Quotas console
     #   aws iam create-service-linked-role --aws-service-name es.amazonaws.com  #
     # So this is the way to do that using docker.                               #
     #############################################################################
-    docker run --rm -it -v `pwd`/custom/aws_creds:/root/.aws amazon/aws-cli iam create-service-linked-role --aws-service-name ecs.amazonaws.com
+    docker run --rm -it -v `pwd`/custom/aws_creds:/root/.aws amazon/aws-cli iam create-service-linked-role --aws-service-name es.amazonaws.com
 
     ################################################################################
     # You will need to make sure you have an s3 encrypt key for your test account. #
@@ -80,7 +80,7 @@ You can request this from the `Service Quotas console
     #   want to put this into a file for error-checking purposes, don't use        #
     #   the --verbose arg.                                                         #
     ################################################################################
-    ./scripts/assure_s3_encrypt-key --verbose
+    ./scripts/assure_s3_encrypt_key --verbose
 
     poetry run cli provision datastore --validate --upload-change-set
 
