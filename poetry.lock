@@ -656,7 +656,7 @@ description = "Serverless Chalice Application for Monitoring"
 name = "foursight-cgap"
 optional = false
 python-versions = ">=3.6,<3.7"
-version = "0.4.9.2b36"
+version = "0.4.9.2b37"
 
 [package.dependencies]
 Jinja2 = "2.10.1"
@@ -674,7 +674,7 @@ google-api-python-client = ">=1.12.5,<2.0.0"
 magma-suite = "0.2.6"
 pytest = "5.1.2"
 pytz = ">=2020.1,<2021.0"
-tibanna-ff = "0.20.1b1"
+tibanna-ff = ">=0.21.0.0b0,<0.22.0.0"
 
 [[package]]
 category = "main"
@@ -1416,7 +1416,7 @@ description = "Tibanna runs portable pipelines (in CWL/WDL) on the AWS Cloud."
 name = "tibanna"
 optional = false
 python-versions = "*"
-version = "1.4.0b2"
+version = "1.4.1"
 
 [package.dependencies]
 Benchmark-4dn = ">=0.5.8"
@@ -1432,11 +1432,11 @@ description = "Tibanna runs portable pipelines (in CWL/WDL) on the AWS Cloud."
 name = "tibanna-ff"
 optional = false
 python-versions = "*"
-version = "0.20.1b1"
+version = "0.21.0.0b0"
 
 [package.dependencies]
-dcicutils = ">=1.19.0"
-tibanna = ">=1.4.0b0"
+dcicutils = ">=2.0.0"
+tibanna = ">=1.4.1"
 
 [[package]]
 category = "main"
@@ -1598,7 +1598,7 @@ docs = ["sphinx", "jaraco.packaging (>=8.2)", "rst.linker (>=1.9)"]
 testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-cov", "pytest-enabler (>=1.0.1)", "jaraco.itertools", "func-timeout", "pytest-black (>=0.3.7)", "pytest-mypy"]
 
 [metadata]
-content-hash = "c83b7ce4d78024dd999acb5d0f7af0251f3eecacc0f2b583fcc8c2630a9e05e9"
+content-hash = "19e967c3aa7d5fa65db9a2ad6194385d27a3e99efe6794e4b259492fc9eebea4"
 python-versions = ">=3.6.10,<3.7"
 
 [metadata.files]
@@ -1717,8 +1717,8 @@ elasticsearch-dsl = [
     {file = "elasticsearch_dsl-6.4.0-py2.py3-none-any.whl", hash = "sha256:f60aea7fd756ac1fbe7ce114bbf4949aefbf495dfe8896640e787c67344f12f6"},
 ]
 foursight-cgap = [
-    {file = "foursight-cgap-0.4.9.2b36.tar.gz", hash = "sha256:fd3d8b2b28065c79bdf6b93fa1fefa5f13b80d582fd156b9d5c3d4c3a257a8eb"},
-    {file = "foursight_cgap-0.4.9.2b36-py3-none-any.whl", hash = "sha256:e30298b55e4bae5d4060e6c3d30f2771cbc66085aa57f6fe089fb2578462e272"},
+    {file = "foursight-cgap-0.4.9.2b37.tar.gz", hash = "sha256:352f5c589fec057625c4e9c1b01f9690b86e99fa9ef3d6376b05127285bf6ddf"},
+    {file = "foursight_cgap-0.4.9.2b37-py3-none-any.whl", hash = "sha256:7369156ce5fd7d47f6b29f3b381562ef066bd6b1467a941029f11db7376916cd"},
 ]
 foursight-core = [
     {file = "foursight_core-0.4.0-py3-none-any.whl", hash = "sha256:3132150785983827f5ae5050a7ed53cb8ee1edfa85e01250f4e21a2ac7719a53"},
@@ -2086,14 +2086,12 @@ structlog = [
     {file = "structlog-19.2.0.tar.gz", hash = "sha256:4287058cf4ce1a59bc5dea290d6386d37f29a37529c9a51cdf7387e51710152b"},
 ]
 tibanna = [
-    {file = "tibanna-1.4.0b2-py3-none-any.whl", hash = "sha256:0a1d40bb7bf740bd571d69d4e16e0b8792704a380b5e2dd514a2f7f0a2c837de"},
-    {file = "tibanna-1.4.0b2-py3.6.egg", hash = "sha256:5c5941d66123d57cf1f3e46916d5b701daef234b9aa1bbe1f14fa895fd7641b2"},
-    {file = "tibanna-1.4.0b2.tar.gz", hash = "sha256:f48edfc5726dcfeb226c961c980be26ec9e4279c4d5fa876893cf240c3f03e12"},
+    {file = "tibanna-1.4.1-py3-none-any.whl", hash = "sha256:498b9e2c6ec7e2df8f264ce1d7748fe176f43e685d6ea8b5833d8e68c534fb62"},
+    {file = "tibanna-1.4.1-py3.6.egg", hash = "sha256:60207fd99b48bb2f2b21b710e71f09a9171d95c32e8a3880279ad58673a65ca0"},
+    {file = "tibanna-1.4.1.tar.gz", hash = "sha256:71e62e2d85fdd2324eeb4fa08ecbb424eb982ceb4a630811c0253836c80a1c6b"},
 ]
 tibanna-ff = [
-    {file = "tibanna_ff-0.20.1b1-py3-none-any.whl", hash = "sha256:04a8fa3fbeb40f15072af0bd8d15ab6ae0c65fb49db9adfa2731a5b98a0863ff"},
-    {file = "tibanna_ff-0.20.1b1-py3.6.egg", hash = "sha256:7195c59e327b3a8604b993c830a578e6c6952fd64520d5615a7cb55b1e96eca3"},
-    {file = "tibanna_ff-0.20.1b1.tar.gz", hash = "sha256:b63f532fbf90397caa880932544842177d508c9a86a620f9db65ab8ea14e5b15"},
+    {file = "tibanna_ff-0.21.0.0b0.tar.gz", hash = "sha256:1f31a68e3ce4032cf68ec2a043c8880cc7c622e70df03bea43be6f6b579239b0"},
 ]
 toml = [
     {file = "toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"},
