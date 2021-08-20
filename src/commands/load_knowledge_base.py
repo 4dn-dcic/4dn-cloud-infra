@@ -23,7 +23,7 @@ KB_INSERTS_DIR = os.path.join(KNOWLEDGE_BASE_DIR, KB_INSERTS_FILE)
 KB_ZIP_FILE = 'knowledge_base.zip'
 KB_ZIP_PATH = os.path.join(KNOWLEDGE_BASE_DIR, KB_ZIP_FILE)
 HIGLASS_BASE = ['higlass_view_config.json']
-GENES_BASE = ['gene.json']  # ['variant_consequence.json', 'gene.json', 'disorder.json', 'phenotype.json']
+GENES_BASE = ['variant_consequence.json', 'gene.json', 'disorder.json', 'phenotype.json']
 BASES = {
     'higlass': HIGLASS_BASE,
     'genes': GENES_BASE,
