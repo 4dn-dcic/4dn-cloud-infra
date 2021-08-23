@@ -33,6 +33,7 @@ pytest = "^5.1.2"
 # python-levenshtein = "^0.12.2"
 # submit-cgap = "^0.7.3"
 tibanna = ">=1.4.1"
+tibanna-ff = "0.21.0.0b1"
 tqdm = "^4.60.0"
 troposphere = "^2.7.1"
 
