@@ -14,6 +14,7 @@ from dcicutils.misc_utils import (
     PRINT, check_true, decorator, file_contents, find_association, find_associations, ignorable, override_environ,
     snake_case_to_camel_case,
 )
+from dcicutils.s3_utils import s3Utils
 from .exceptions import CLIException
 from .constants import Secrets, Settings
 
@@ -250,12 +251,14 @@ class ConfigManager:
 
     class GenericAppBucketTemplate:
 
-        BLOBS = '{application_prefix}{env_part}blobs'
-        FILES = '{application_prefix}{env_part}files'
-        WFOUT = '{application_prefix}{env_part}wfout'
-        SYSTEM = '{application_prefix}{env_part}system'
-        METADATA_BUNDLES = '{application_prefix}{env_part}metadata-bundles'
-        TIBANNA_LOGS = '{application_prefix}tibanna-logs'  # NOTE: Shared in ecosystem. No {env_part}
+
+        BLOBS = '{application_prefix}{env_part}' + s3Utils.BLOB_BUCKET_SUFFIX                 # blobs
+        FILES = '{application_prefix}{env_part}' + s3Utils.RAW_BUCKET_SUFFIX                  # files
+        WFOUT = '{application_prefix}{env_part}' + s3Utils.OUTFILE_BUCKET_SUFFIX              # wfoutput
+        SYSTEM = '{application_prefix}{env_part}' + s3Utils.SYS_BUCKET_SUFFIX                 # system
+        METADATA_BUNDLES = '{application_prefix}{env_part}' + s3Utils.METADATA_BUCKET_SUFFIX  # metadata-bundles
+        # NOTE: For TIBANNA_LOGS, we use a shared in ecosystem. No {env_part}
+        TIBANNA_LOGS = '{application_prefix}' + s3Utils.TIBANNA_OUTPUT_BUCKET_SUFFIX          # tibanna-output
 
     class GenericFSBucketTemplate:
 
