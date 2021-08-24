@@ -129,7 +129,7 @@ Step Four: Fill out any remaining application secrets
 
     * The ``ENCODED_ES_SERVER`` will look like::
 
-         vpc-yourenv-a1b2c3d4e5f6etc.us-east-1.es.amazonaws.com:443
+         vpc-es-cgap-supertest-a1b2c3d4e5f6etc.us-east-1.es.amazonaws.com:443
 
       You can obtain it by this procedure:
 
@@ -144,7 +144,7 @@ Step Four: Fill out any remaining application secrets
 
     * The ``ENCODED_IDENTITY`` is the name of the secrets resource itself. It's the non-RDS secret you are
       filling out. It will look something like
-      ``C4DatastoreApplicationConfigurationCgapSupertest``.
+      ``C4DatastoreCgapSupertestApplicationConfiguration``.
 
     * The ``RDS_HOSTNAME`` is obtained from the RDS secret in the Secrets Manager that
       you passed by in getting to this page.

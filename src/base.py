@@ -169,7 +169,7 @@ class ConfigManager:
         secrets = self._load_config(self.SECRETS_FILE)
         if not secrets.get(Secrets.S3_ENCRYPT_KEY):  # if missing or empty, try to default from file
             secrets[Secrets.S3_ENCRYPT_KEY] = ConfigManager.get_s3_encrypt_key_from_file()
-        else:
+        if not secrets.get(Secrets.S3_ENCRYPT_KEY):  # if we got nothing from file, complain to user
             PRINT(f"WARNING: {Secrets.S3_ENCRYPT_KEY} is not in {self.SECRETS_FILE},"
                   f" and the file {self.S3_ENCRYPT_KEY_FILE} does not exist.")
         check_true(set(self.REQUIRED_SECRETS) <= secrets.keys(),
@@ -224,7 +224,8 @@ class ConfigManager:
 
     @classmethod
     def get_s3_encrypt_key_from_file(cls):
-        return file_contents(cls.S3_ENCRYPT_KEY_FILE).strip()
+        if os.path.exists(cls.S3_ENCRYPT_KEY_FILE):
+            return file_contents(cls.S3_ENCRYPT_KEY_FILE).strip()
 
     @classmethod
     def get_config_secret(cls, var, default=_MISSING, use_default_if_empty=True):
