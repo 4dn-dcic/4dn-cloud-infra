@@ -303,11 +303,11 @@ class C4ECSApplication(C4Part):
             Tags=self.tags.cost_tag_array()
         )
 
-    def ecs_portal_task(self, cpus='256', mem='512', identity=None) -> TaskDefinition:   # XXX: refactor
+    def ecs_portal_task(self, cpu='256', mem='512', identity=None) -> TaskDefinition:   # XXX: refactor
         """ Defines the portal Task (serve HTTP requests).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
-            :param cpus: CPU value to assign to this task, default 256 (play with this value)
+            :param cpu: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
             :param identity: name of secret containing the identity information for this environment
                              (defaults to value of environment variable IDENTITY,
@@ -316,8 +316,8 @@ class C4ECSApplication(C4Part):
         return TaskDefinition(
             'CGAPportal',
             RequiresCompatibilities=['FARGATE'],
-            Cpu=ConfigManager.get_config_setting(Settings.ECS_WSGI_CPU, cpus),
-            Memory=ConfigManager.get_config_setting(Settings.ECS_WSGI_MEM, mem),
+            Cpu=ConfigManager.get_config_setting(Settings.ECS_WSGI_CPU, cpu),
+            Memory=ConfigManager.get_config_setting(Settings.ECS_WSGI_MEMORY, mem),
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
@@ -415,12 +415,15 @@ class C4ECSApplication(C4Part):
             # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
         )
 
-    def ecs_indexer_task(self, cpus='256', mem='512', identity=None) -> TaskDefinition:
+    DEFAULT_INDEXER_CPU = '256'
+    DEFAULT_INDEXER_MEMORY = '512'
+
+    def ecs_indexer_task(self, cpu=None, memory=None, identity=None) -> TaskDefinition:
         """ Defines the Indexer task (indexer app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
-            :param cpus: CPU value to assign to this task, default 256 (play with this value)
-            :param mem: Memory amount for this task, default to 512 (play with this value)
+            :param cpu: CPU value to assign to this task, default 256 (play with this value)
+            :param memory: Memory amount for this task, default to 512 (play with this value)
             :param identity: name of secret containing the identity information for this environment
                              (defaults to value of environment variable IDENTITY,
                              or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
@@ -428,8 +431,8 @@ class C4ECSApplication(C4Part):
         return TaskDefinition(
             'CGAPIndexer',
             RequiresCompatibilities=['FARGATE'],
-            Cpu=ConfigManager.get_config_setting(Settings.ECS_INDEXER_CPU, cpus),
-            Memory=ConfigManager.get_config_setting(Settings.ECS_INDEXER_MEM, mem),
+            Cpu=cpu or ConfigManager.get_config_setting(Settings.ECS_INDEXER_CPU, self.DEFAULT_INDEXER_CPU),
+            Memory=memory or ConfigManager.get_config_setting(Settings.ECS_INDEXER_MEMORY, self.DEFAULT_INDEXER_MEMORY),
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
@@ -552,12 +555,15 @@ class C4ECSApplication(C4Part):
             ComparisonOperator='LessThanOrEqualToThreshold',
         )
 
-    def ecs_ingester_task(self, cpus='512', mem='1024', identity=None) -> TaskDefinition:
+    DEFAULT_INGESTER_CPU = '512'
+    DEFAULT_INGESTER_MEMORY = '1024'
+
+    def ecs_ingester_task(self, cpu=None, memory=None, identity=None) -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
-            :param cpus: CPU value to assign to this task, default 256 (play with this value)
-            :param mem: Memory amount for this task, default to 512 (play with this value)
+            :param cpu: CPU value to assign to this task, default 256 (play with this value)
+            :param memory: Memory amount for this task, default to 512 (play with this value)
             :param identity: name of secret containing the identity information for this environment
                              (defaults to value of environment variable IDENTITY,
                              or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
@@ -565,8 +571,9 @@ class C4ECSApplication(C4Part):
         return TaskDefinition(
             'CGAPIngester',
             RequiresCompatibilities=['FARGATE'],
-            Cpu=ConfigManager.get_config_setting(Settings.ECS_INGESTER_CPU, cpus),
-            Memory=ConfigManager.get_config_setting(Settings.ECS_INGESTER_MEM, mem),
+            Cpu=cpu or ConfigManager.get_config_setting(Settings.ECS_INGESTER_CPU, self.DEFAULT_INGESTER_CPU),
+            Memory=memory or ConfigManager.get_config_setting(Settings.ECS_INGESTER_MEMORY,
+                                                              self.DEFAULT_INGESTER_MEMORY),
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
@@ -686,12 +693,18 @@ class C4ECSApplication(C4Part):
             ComparisonOperator='LessThanOrEqualToThreshold',
         )
 
-    def ecs_deployment_task(self, cpus='256', mem='512', identity=None, initial=False) -> TaskDefinition:
+    DEFAULT_INITIAL_DEPLOYMENT_CPU = '512'
+    DEFAULT_INITIAL_DEPLOYMENT_MEMORY = '512'
+
+    DEFAULT_DEPLOYMENT_CPU = '256'
+    DEFAULT_DEPLOYMENT_MEMORY = '512'
+
+    def ecs_deployment_task(self, cpu=None, memory=None, identity=None, initial=False) -> TaskDefinition:
         """ Defines the Ingester task (ingester app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
-            :param cpus: CPU value to assign to this task, default 256 (play with this value)
-            :param mem: Memory amount for this task, default to 512 (play with this value)
+            :param cpu: CPU value to assign to this task, default 256 (play with this value)
+            :param memory: Memory amount for this task, default to 512 (play with this value)
             :param identity: name of secret containing the identity information for this environment
                              (defaults to value of environment variable IDENTITY,
                              or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
@@ -702,8 +715,18 @@ class C4ECSApplication(C4Part):
         return TaskDefinition(
             'CGAPInitialDeployment' if initial else 'CGAPDeployment',
             RequiresCompatibilities=['FARGATE'],
-            Cpu=cpus,
-            Memory=mem,
+            Cpu=cpu or ConfigManager.get_config_setting(Settings.ECS_INITIAL_DEPLOYMENT_CPU
+                                                        if initial else
+                                                        Settings.ECS_DEPLOYMENT_CPU,
+                                                        self.DEFAULT_INITIAL_DEPLOYMENT_CPU
+                                                        if initial else
+                                                        self.DEFAULT_DEPLOYMENT_CPU),
+            Memory=memory or ConfigManager.get_config_setting(Settings.ECS_INITIAL_DEPLOYMENT_MEMORY
+                                                              if initial else
+                                                              Settings.ECS_DEPLOYMENT_MEMORY,
+                                                              self.DEFAULT_INITIAL_DEPLOYMENT_MEMORY
+                                                              if initial else
+                                                              self.DEFAULT_DEPLOYMENT_MEMORY),
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
