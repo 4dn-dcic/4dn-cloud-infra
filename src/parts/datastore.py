@@ -77,6 +77,10 @@ class C4DatastoreExports(C4Exports):
     def get_env_bucket(cls):
         return ConfigManager.find_stack_output(cls._ENV_BUCKET_EXPORT_PATTERN.match, value_only=True)
 
+    @classmethod
+    def get_tibanna_output_bucket(cls):
+        return ConfigManager.find_stack_output(cls.APPLICATION_TIBANNA_LOGS_BUCKET)
+
     def __init__(self):
         # The intention here is that Beanstalk/ECS stacks will use these outputs and reduce amount
         # of manual configuration
@@ -192,7 +196,7 @@ class C4Datastore(C4Part):
             'ENCODED_FOURSIGHT_BUCKET_PREFIX': cls.resolve_bucket_name("{foursight_prefix}"),
             'ENCODED_IDENTITY': None,  # This is the name of the Secrets Manager with all our identity's secrets
             'ENCODED_FILE_UPLOAD_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
+               "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
             'ENCODED_FILE_WFOUT_BUCKET':
                 "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_WFOUT_BUCKET),
             'ENCODED_BLOB_BUCKET':
