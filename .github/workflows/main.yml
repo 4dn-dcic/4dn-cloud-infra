@@ -27,6 +27,11 @@ jobs:
           pip install poetry
           poetry install
 
+      - name: Unit
+        run: |
+          # Run any available unit tests.
+          make test
+
       - name: Validate
         run: |
           # Write a suitable config.json for (primitive) testing

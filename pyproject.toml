@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "4dn-cloud-infra"
-version = "0.3.7"
+version = "1.0.0"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
 authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
@@ -9,36 +9,55 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
+
 python = ">=3.6.10,<3.7"
-troposphere = "^2.6.3"
-boto3 = "^1.15.16"
-botocore = "^1.18.16"
-dcicutils = "^1.19.0"  # this version is the min as it contains first iteration of related utils
+
+awacs = "^1.0.4"
+boto3 = "^1.18.7"
+botocore = "^1.21.7"
+chalice = "^1.21.7"
+cfn-flip = "^1.2.3"  # do we need to specify this explicitly? -kmp 27-Jul-2021
+cfn-lint = "^0.48.3"  # a secondary check that catches more things than standard validate - Will 4/1/2021
+dcicutils = "^2.1.0"
+foursight-cgap = "0.4.9.2b40"
+foursight-core = "^0.4.1"
+future = "^0.18.2"  # do we need to specify this explicitly, and should version really be pinned? -kmp 27-Jul-2021
 google-api-core = "^1.23.0"
 google-api-python-client = "^1.12.5"
 google-auth = "^1.23.0"
 google-auth-httplib2 = "^0.0.4"
 google-auth-oauthlib = "^0.4.2"
 googleapis-common-protos = "^1.52.0"
-awacs = "^1.0.2"
-cfn-lint = "^0.48.1"  # a secondary check that catches more things than standard validate - Will 4/1/2021
-tibanna = "1.4.0b0"
-foursight-cgap = "0.4.9.1b32"
-foursight-core = "0.1.9.1b37"
-submit-cgap = "^0.7.3"
-tqdm = "^4.60.0"
+# pyrsistent = "^0.17.3"
 pytest = "^5.1.2"
+# We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
+# python-levenshtein = "^0.12.2"
+# submit-cgap = "^0.7.3"
+tibanna = ">=1.4.1"
+tibanna-ff = "0.21.0.0b1"
+tqdm = "^4.60.0"
+troposphere = "^2.7.1"
+wheel = "^0.37.0"
 
 [tool.poetry.dev-dependencies]
-chalice = "^1.21.4"
+boto3-stubs = "^1.18.7"
+botocore-stubs = "^1.21.7"
 
 [tool.poetry.scripts]
+assure-global-bucket-env = "src.commands.assure_global_env_bucket:main"
 cli = "src.cli:cli"
-load-knowledge-base = "scripts.load_knowledge_base:main"
-queue-ingestion = "scripts.queue_ingestion:main"
-upload-application-version = "scripts.upload_application_version:main"
-upload-file-processed = "scripts.upload_file_processed:main"
-deploy-ecs = "scripts.deploy_ecs:main"
+deploy-ecs = "src.commands.deploy_ecs:main"
+load-knowledge-base = "src.commands.load_knowledge_base:main"
+open-foursight-url = "src.commands.find_resources:open_foursight_url_main"
+open-portal-url = "src.commands.find_resources:open_portal_url_main"
+setup-tibanna = "src.commands.setup_tibanna:main"
+show-foursight-url = "src.commands.find_resources:show_foursight_url_main"
+show-portal-url = "src.commands.find_resources:show_portal_url_main"
+queue-ingestion = "src.commands.queue_ingestion:main"
+resolve-foursight-checks = "src.commands.resolve_foursight_checks:main"
+upload-application-version = "src.commands.upload_application_version:main"
+upload-file-processed = "src.commands.upload_file_processed:main"
+
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

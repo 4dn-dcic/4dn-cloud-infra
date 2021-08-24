@@ -3,6 +3,7 @@ import os
 import json
 from dcicutils import ff_utils
 
+
 # Precondition: both of these must exist
 PATH_TO_CREDS = os.path.expanduser('~/.cgap-keys.json')
 PATH_TO_VCF_META = 'test_data/na_12879/file_processed.json'

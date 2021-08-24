@@ -1,5 +1,7 @@
-import os
 import json
+import re
+
+from dcicutils.misc_utils import as_seconds
 from troposphere import (
     Join, Ref, Template, Tags, Parameter, Output, GetAtt,
     AccountId
@@ -13,49 +15,71 @@ try:
 except ImportError:
     def DomainEndpointOptions(*args, **kwargs):  # noQA
         raise NotImplementedError('DomainEndpointOptions')
+from troposphere.kms import Key
 from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
+from troposphere.s3 import Bucket, Private
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
-from troposphere.s3 import Bucket, Private
-from troposphere.kms import Key
-from dcicutils.misc_utils import as_seconds
-from src.part import C4Part
-from src.exports import C4Exports
-from src.parts.network import C4NetworkExports
-from src.constants import (
-    DEPLOYING_IAM_USER, ENV_NAME,
-    RDS_AZ, RDS_DB_NAME, RDS_STORAGE_SIZE, RDS_INSTANCE_SIZE,
-    ES_DATA_TYPE, ES_DATA_COUNT, ES_MASTER_COUNT, ES_MASTER_TYPE, ES_VOLUME_SIZE
-)
+from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX, camelize, dehyphenate
+from ..constants import Settings, Secrets
+from ..exports import C4Exports
+from ..part import C4Part
+from ..parts.network import C4NetworkExports
 
 
 class C4DatastoreExports(C4Exports):
     """ Holds datastore export metadata. """
     # Output ES URL for use by foursight/application
-    ES_URL = 'ExportElasticSearchURL'
+    ES_URL = exportify('ElasticSearchURL')
 
     # RDS Exports
-    RDS_URL = 'ExportRDSURL'
-    RDS_PORT = 'ExportRDSPort'
+    RDS_URL = exportify('RdsUrl')
+    RDS_PORT = exportify('RdsPort')
 
-    # Output envs bucket and result bucket
-    FOURSIGHT_ENV_BUCKET = 'ExportFoursightEnvsBucket'
-    FOURSIGHT_RESULT_BUCKET = 'ExportFoursightResultBucket'
-    FOURSIGHT_APPLICATION_VERSION_BUCKET = 'ExportFoursightApplicationVersionBucket'
+    # Output secrets info
+    APPLICATION_CONFIGURATION_SECRET_NAME = exportify("ApplicationConfigurationSecretName")
+
+    # Output env bucket and result bucket
+    FOURSIGHT_ENV_BUCKET = exportify('FoursightEnvBucket')
+    FOURSIGHT_RESULT_BUCKET = exportify('FoursightResultBucket')
+    FOURSIGHT_APPLICATION_VERSION_BUCKET = exportify('FoursightApplicationVersionBucket')
 
     # Output production S3 bucket information
-    APPLICATION_SYSTEM_BUCKET = 'ExportAppSystemBucket'
-    APPLICATION_WFOUT_BUCKET = 'ExportAppWfoutBucket'
-    APPLICATION_FILES_BUCKET = 'ExportAppFilesBucket'
-    APPLICATION_BLOBS_BUCKET = 'ExportAppBlobsBucket'
-    APPLICATION_TIBANNA_LOGS_BUCKET = 'ExportAppTibannaLogsBucket'
+    APPLICATION_SYSTEM_BUCKET = exportify('AppSystemBucket')
+    APPLICATION_WFOUT_BUCKET = exportify('AppWfoutBucket')
+    APPLICATION_FILES_BUCKET = exportify('AppFilesBucket')
+    APPLICATION_BLOBS_BUCKET = exportify('AppBlobsBucket')
+    APPLICATION_METADATA_BUNDLES_BUCKET = exportify('AppMetadataBundlesBucket')
+    APPLICATION_TIBANNA_LOGS_BUCKET = exportify('AppTibannaLogsBucket')
 
     # Output SQS Queues
-    APPLICATION_INDEXER_PRIMARY_QUEUE = 'ExportApplicationIndexerPrimaryQueue'
-    APPLICATION_INDEXER_SECONDAY_QUEUE = 'ExportApplicationIndexerSecondaryQueue'
-    APPLICATION_INDEXER_DLQ = 'ExportApplicationIndexerDLQ'
-    APPLICATION_INGESTION_QUEUE = 'ExportApplicationIngestionQueue'
-    APPLICATION_INDEXER_REALTIME_QUEUE = 'ExportApplicationIndexerRealtimeQueue'  # unused
+    APPLICATION_INDEXER_PRIMARY_QUEUE = exportify('ApplicationIndexerPrimaryQueue')
+    APPLICATION_INDEXER_SECONDAY_QUEUE = exportify('ApplicationIndexerSecondaryQueue')
+    APPLICATION_INDEXER_DLQ = exportify('ApplicationIndexerDLQ')
+    APPLICATION_INGESTION_QUEUE = exportify('ApplicationIngestionQueue')
+    APPLICATION_INDEXER_REALTIME_QUEUE = exportify('ApplicationIndexerRealtimeQueue')  # unused
+
+    # e.g., name will be C4DatastoreTrialAlphaExportElasticSearchURL
+    #       or might not contain '...Alpha...'
+    _ES_URL_EXPORT_PATTERN = re.compile(f'.*Datastore.*{ES_URL}.*')
+    # _ES_URL_EXPORT_PATTERN = re.compile('.*Datastore.*ElasticSearchURL.*')
+
+    @classmethod
+    def get_es_url(cls):
+        return ConfigManager.find_stack_output(cls._ES_URL_EXPORT_PATTERN.match, value_only=True)
+
+    # e.g., name will be C4DatastoreTrialAlphaExportFoursightEnvBucket
+    #       or might not contain '...Alpha...'
+    # Also, name change in progress from EnvsBucket turning to EnvBucket, so match both
+    _ENV_BUCKET_EXPORT_PATTERN = re.compile(".*Datastore.*Env.*Bucket")
+
+    @classmethod
+    def get_env_bucket(cls):
+        return ConfigManager.find_stack_output(cls._ENV_BUCKET_EXPORT_PATTERN.match, value_only=True)
+
+    @classmethod
+    def get_tibanna_output_bucket(cls):
+        return ConfigManager.find_stack_output(cls.APPLICATION_TIBANNA_LOGS_BUCKET)
 
     def __init__(self):
         # The intention here is that Beanstalk/ECS stacks will use these outputs and reduce amount
@@ -66,59 +90,140 @@ class C4DatastoreExports(C4Exports):
 
 class C4Datastore(C4Part):
     """ Defines the datastore stack - see resources created in build_template method. """
-    APPLICATION_SECRET_STRING = 'ApplicationConfiguration'
-    RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names
+    STACK_NAME_TOKEN = "datastore"
+    STACK_TITLE_TOKEN = "Datastore"
+    SHARING = 'env'
+
+    APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = 'ApplicationConfiguration'
+    DEFAULT_RDS_DB_NAME = 'ebdb'
+    DEFAULT_RDS_DB_PORT = '5432'
+    DEFAULT_RDS_DB_USERNAME = 'postgresql'
+    DEFAULT_RDS_AZ = 'us-east-1'
+    DEFAULT_RDS_STORAGE_SIZE = 20
+    DEFAULT_RDS_INSTANCE_SIZE = 'db.t3.medium'
+    DEFAULT_RDS_STORAGE_TYPE = 'standard'
+
+    DEFAULT_RDS_POSTGRES_VERSION = '12.6'
+
+    @classmethod
+    def rds_postgres_version(cls):
+        return ConfigManager.get_config_setting(Settings.RDS_POSTGRES_VERSION, default=cls.DEFAULT_RDS_POSTGRES_VERSION)
+
+    @classmethod
+    def rds_postgres_major_version(cls):
+        return cls.rds_postgres_version().split('.')[0]
+    RDS_SECRET_NAME_SUFFIX = 'RDSSecret'  # Used as logical id suffix in resource names
     EXPORTS = C4DatastoreExports()
     NETWORK_EXPORTS = C4NetworkExports()
 
+    DEFAULT_ES_DATA_NODE_COUNT = '1'
+    DEFAULT_ES_DATA_NODE_TYPE = 'c5.large.elasticsearch'
+
     # Buckets used by the Application layer we need to initialize as part of the datastore
     # Intended to be .formatted with the deploying env_name
-    APPLICATION_LAYER_BUCKETS = [
-        'application-{}-blobs',
-        'application-{}-files',
-        'application-{}-wfout',
-        'application-{}-system',
-        'application-{}-tibanna-logs'
-    ]
+
+    APPLICATION_LAYER_BUCKETS = {
+        C4DatastoreExports.APPLICATION_BLOBS_BUCKET: ConfigManager.get_app_bucket_template('BLOBS'),
+        C4DatastoreExports.APPLICATION_FILES_BUCKET: ConfigManager.get_app_bucket_template('FILES'),
+        C4DatastoreExports.APPLICATION_WFOUT_BUCKET: ConfigManager.get_app_bucket_template('WFOUT'),
+        C4DatastoreExports.APPLICATION_SYSTEM_BUCKET: ConfigManager.get_app_bucket_template('SYSTEM'),
+        C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET:
+            ConfigManager.get_app_bucket_template('METADATA_BUNDLES'),
+        C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET: ConfigManager.get_app_bucket_template('TIBANNA_LOGS'),
+    }
+
+    @classmethod
+    def application_layer_bucket(cls, export_name):
+        bucket_name_template = cls.APPLICATION_LAYER_BUCKETS[export_name]
+        bucket_name = cls.resolve_bucket_name(bucket_name_template)
+        return bucket_name
 
     # Buckets used by the foursight layer
     # Envs describing the global foursight configuration in this account (could be updated)
     # Results bucket is the backing store for checks (they are also indexed into ES)
-    FOURSIGHT_LAYER_BUCKETS = [
-        'foursight-{}-envs',
-        'foursight-{}-results',
-        'foursight-{}-application-versions'
-    ]
+
+    # FOURSIGHT_LAYER_PREFIX = '{foursight_prefix}{env_name}'
+
+    FOURSIGHT_LAYER_BUCKETS = {
+        C4DatastoreExports.FOURSIGHT_ENV_BUCKET: ConfigManager.get_fs_bucket_template('ENVS'),
+        C4DatastoreExports.FOURSIGHT_RESULT_BUCKET: ConfigManager.get_fs_bucket_template('RESULTS'),
+        C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET:
+            ConfigManager.get_fs_bucket_template('APPLICATION_VERSIONS'),
+    }
+
+    @classmethod
+    def foursight_layer_bucket(cls, export_name):
+        bucket_name_template = cls.FOURSIGHT_LAYER_BUCKETS[export_name]
+        bucket_name = cls.resolve_bucket_name(bucket_name_template)
+        return bucket_name
+
+    @classmethod
+    def resolve_bucket_name(cls, bucket_template):
+        """
+        Resolves a bucket_template into a bucket_name.
+        """
+        return ConfigManager.resolve_bucket_name(bucket_template)
 
     # Contains application configuration template, written to secrets manager
     # NOTE: this configuration is NOT valid by default - it must be manually updated
     # with values not available at orchestration time.
+    # TODO only use configuration placeholder for orchestration time values; otherwise, use src.constants values
     CONFIGURATION_PLACEHOLDER = 'XXX: ENTER VALUE'
-    APPLICATION_CONFIGURATION_TEMPLATE = {
-        'deploying_iam_user': CONFIGURATION_PLACEHOLDER,
-        'Auth0Client': CONFIGURATION_PLACEHOLDER,
-        'ENV_NAME': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_BS_ENV': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_DATA_SET': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_ES_SERVER': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_FILE_UPLOAD_BUCKET': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_FILE_WFOUT_BUCKET': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_BLOB_BUCKET': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_SYSTEM_BUCKET': CONFIGURATION_PLACEHOLDER,
-        'ENCODED_METADATA_BUNDLES_BUCKET': CONFIGURATION_PLACEHOLDER,
-        'LANG': 'en_US.UTF-8',
-        'LC_ALL': 'en_US.UTF-8',
-        'RDS_HOSTNAME': CONFIGURATION_PLACEHOLDER,
-        'RDS_DB_NAME': CONFIGURATION_PLACEHOLDER,
-        'RDS_PORT': CONFIGURATION_PLACEHOLDER,
-        'RDS_USERNAME': CONFIGURATION_PLACEHOLDER,
-        'RDS_PASSWORD': CONFIGURATION_PLACEHOLDER,
-        'S3_ENCRYPT_KEY': CONFIGURATION_PLACEHOLDER,
-        'SENTRY_DSN': CONFIGURATION_PLACEHOLDER,
-        'reCaptchaSecret': CONFIGURATION_PLACEHOLDER,
-        'S3_AWS_ACCESS_KEY_ID': CONFIGURATION_PLACEHOLDER,
-        'S3_AWS_SECRET_ACCESS_KEY': CONFIGURATION_PLACEHOLDER,
-    }
+
+    @classmethod
+    def add_placeholders(cls, template):
+        return {
+            k: cls.CONFIGURATION_PLACEHOLDER if v is None else v
+            for k, v in template.items()
+        }
+
+    @classmethod
+    def application_configuration_template(cls):
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        # print("ENV_NAME=", repr(ENV_NAME))
+        # print("env_name=", repr(env_name))
+        result = cls.add_placeholders({
+            'deploying_iam_user': ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER),  # required
+            'S3_AWS_ACCESS_KEY_ID': None,
+            'S3_AWS_SECRET_ACCESS_KEY': None,
+            'Auth0Client': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
+            'Auth0Secret': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET, default=None),
+            'ENV_NAME': env_name,
+            'ENCODED_APPLICATION_BUCKET_PREFIX': cls.resolve_bucket_name("{application_prefix}"),
+            'ENCODED_BS_ENV': env_name,
+            'ENCODED_DATA_SET': 'prod',
+            'ENCODED_ES_SERVER':  C4DatastoreExports.get_es_url(), # None,
+            'ENCODED_FOURSIGHT_BUCKET_PREFIX': cls.resolve_bucket_name("{foursight_prefix}"),
+            'ENCODED_IDENTITY': None,  # This is the name of the Secrets Manager with all our identity's secrets
+            'ENCODED_FILE_UPLOAD_BUCKET':
+               "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
+            'ENCODED_FILE_WFOUT_BUCKET':
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_WFOUT_BUCKET),
+            'ENCODED_BLOB_BUCKET':
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_BLOBS_BUCKET),
+            'ENCODED_SYSTEM_BUCKET':
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_SYSTEM_BUCKET),
+            'ENCODED_METADATA_BUNDLES_BUCKET':
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET),
+            'ENCODED_S3_BUCKET_ORG': ConfigManager.get_config_setting(Settings.S3_BUCKET_ORG, default=None),
+            'ENCODED_TIBANNA_OUTPUT_BUCKET':
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET),
+            'LANG': 'en_US.UTF-8',
+            'LC_ALL': 'en_US.UTF-8',
+            'RDS_HOSTNAME': None,
+            'RDS_DB_NAME': ConfigManager.get_config_setting(Settings.RDS_DB_NAME, default=cls.DEFAULT_RDS_DB_NAME),
+            'RDS_PORT': ConfigManager.get_config_setting(Settings.RDS_DB_PORT, default=cls.DEFAULT_RDS_DB_PORT),
+            'RDS_USERNAME': cls.rds_db_username(),
+            'RDS_PASSWORD': None,
+            'S3_ENCRYPT_KEY': ConfigManager.get_config_setting(Secrets.S3_ENCRYPT_KEY,
+                                                               ConfigManager.get_s3_encrypt_key_from_file()),
+            # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
+            'SENTRY_DSN': "",
+            'reCaptchaKey': ConfigManager.get_config_secret(Secrets.RECAPTCHA_KEY, default=None),
+            'reCaptchaSecret': ConfigManager.get_config_secret(Secrets.RECAPTCHA_SECRET, default=None),
+        })
+        # print("application_configuration_template() => %s" % json.dumps(result, indent=2))
+        return result
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
@@ -145,8 +250,13 @@ class C4Datastore(C4Part):
         template.add_output(self.output_es_url(es))
 
         # Add S3_ENCRYPT_KEY, application configuration template
-        template.add_resource(self.s3_encrypt_key())
-        template.add_resource(self.application_configuration_secret())
+        # template.add_resource(self.s3_encrypt_key())
+        secret = self.application_configuration_secret()
+        template.add_resource(secret)
+        template.add_output(
+            self.output_application_configuration_secret_name(
+                C4DatastoreExports.APPLICATION_CONFIGURATION_SECRET_NAME,
+                secret))
 
         # Adds SQS Queues + Outputs
         for export_name, i in [(C4DatastoreExports.APPLICATION_INDEXER_PRIMARY_QUEUE, self.primary_queue()),
@@ -158,31 +268,37 @@ class C4Datastore(C4Part):
             template.add_output(self.output_sqs_instance(export_name, i))
 
         # Add/Export S3 buckets
-        # TODO re-enable
-        for export_name, bucket_name in zip([C4DatastoreExports.APPLICATION_BLOBS_BUCKET,
-                                             C4DatastoreExports.APPLICATION_FILES_BUCKET,
-                                             C4DatastoreExports.APPLICATION_WFOUT_BUCKET,
-                                             C4DatastoreExports.APPLICATION_SYSTEM_BUCKET,
-                                             C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET,
-                                             C4DatastoreExports.FOURSIGHT_ENV_BUCKET,
-                                             C4DatastoreExports.FOURSIGHT_RESULT_BUCKET,
-                                             C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET],
-                                             self.APPLICATION_LAYER_BUCKETS + self.FOURSIGHT_LAYER_BUCKETS):
 
-            env_name = os.environ.get(ENV_NAME)
-            bucket = self.build_s3_bucket(bucket_name.format(env_name))
+        def add_and_export_s3_bucket(export_name, bucket_template):
+            bucket_name = self.resolve_bucket_name(bucket_template)
+            bucket = self.build_s3_bucket(bucket_name)
             template.add_resource(bucket)
-            template.add_output(self.output_s3_bucket(export_name, bucket_name.format(ENV_NAME)))
+            template.add_output(self.output_s3_bucket(export_name, bucket_name))
+
+        for export_name, bucket_template in self.APPLICATION_LAYER_BUCKETS.items():
+            add_and_export_s3_bucket(export_name, bucket_template)
+        for export_name, bucket_template in self.FOURSIGHT_LAYER_BUCKETS.items():
+            add_and_export_s3_bucket(export_name, bucket_template)
 
         return template
 
-    @staticmethod
-    def build_s3_bucket(bucket_name, access_control=Private) -> Bucket:
+    @classmethod
+    def build_s3_bucket_resource_name(cls, bucket_name):
+        # bucket_name_parts = bucket_name.split('-')
+        # resource_name = ''.join(bucket_name_parts),  # Name != BucketName
+        res = camelize(COMMON_STACK_PREFIX + 'bucket-' + bucket_name)
+        print(f"bucket {bucket_name} => {res}")
+        return res
+
+    @classmethod
+    def build_s3_bucket(cls, bucket_name, access_control=Private) -> Bucket:
         """ Creates an S3 bucket under the given name/access control permissions.
             See troposphere.s3 for access control options.
         """
+        # bucket_name_parts = bucket_name.split('-')
         return Bucket(
-            ''.join(bucket_name.split('-')),  # Name != BucketName
+            # ''.join(bucket_name_parts),  # Name != BucketName
+            cls.build_s3_bucket_resource_name(bucket_name),
             BucketName=bucket_name,
             AccessControl=access_control
         )
@@ -197,15 +313,24 @@ class C4Datastore(C4Part):
             Export=self.EXPORTS.export(export_name)
         )
 
+    def rds_secret_logical_id(self):
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        return self.name.logical_id(camelize(env_name) + self.RDS_SECRET_NAME_SUFFIX, context='rds_secret_logical_id')
+
+    @classmethod
+    def rds_db_username(cls):
+        return ConfigManager.get_config_setting(Settings.RDS_DB_USERNAME, default=cls.DEFAULT_RDS_DB_USERNAME)
+
     def rds_secret(self) -> Secret:
         """ Returns the RDS secret, as generated and stored by AWS Secrets Manager """
-        logical_id = self.name.logical_id(self.RDS_SECRET_STRING)
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        logical_id = self.rds_secret_logical_id()
         return Secret(
             logical_id,
             Name=logical_id,
-            Description='This is the RDS instance master password',
+            Description=f'The RDS instance master password for {env_name}.',
             GenerateSecretString=GenerateSecretString(
-                SecretStringTemplate='{"username":"postgresql"}',
+                SecretStringTemplate='{"username":"%s"}' % self.rds_db_username(),  # TODO: Fix injection risk
                 GenerateStringKey='password',
                 PasswordLength=30,
                 ExcludePunctuation=True,
@@ -221,14 +346,12 @@ class C4Datastore(C4Part):
             TODO: implement APIs to use this key correctly, cannot download/distribute from KMS
             Note that when doing this, the KeyPolicy will need to be updated
         """
-        deploying_iam_user = os.environ.get(DEPLOYING_IAM_USER)
-        env_identifier = os.environ.get(ENV_NAME).replace('-', '')
-        if not deploying_iam_user or not env_identifier:
-            raise Exception('Did not set required key in .env! Should never get here.')
-        logical_id = self.name.logical_id('S3ENCRYPTKEY') + env_identifier
+        deploying_iam_user = ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER)  # Required config setting
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        logical_id = self.name.logical_id(camelize(env_name) + 'S3EncryptKey')
         return Key(
             logical_id,
-            Description='Key for encrypting sensitive S3 files for CGAP Ecosystem',
+            Description=f'Key for encrypting sensitive S3 files for {env_name} environment',
             KeyPolicy={
                 'Version': '2012-10-17',
                 'Statement': [{
@@ -236,7 +359,7 @@ class C4Datastore(C4Part):
                     'Effect': 'Allow',
                     'Principal': {
                         'AWS': [
-                            Join('', ['arn:aws:iam::', AccountId, ':user/', os.environ.get(DEPLOYING_IAM_USER)]),
+                            Join('', ['arn:aws:iam::', AccountId, ':user/', deploying_iam_user]),
                         ]
                     },
                     'Action': 'kms:*',  # XXX: constrain further?
@@ -251,52 +374,64 @@ class C4Datastore(C4Part):
         """ Returns the application configuration secret. Note that this pushes up just a
             template - you must fill it out according to the specification in the README.
         """
-        env_identifier = os.environ.get(ENV_NAME).replace('-', '')
-        if not env_identifier:
-            raise Exception('Did not set required key in .env! Should never get here.')
-        logical_id = self.name.logical_id(self.APPLICATION_SECRET_STRING) + env_identifier
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        logical_id = self.name.logical_id(camelize(env_name) + self.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
         return Secret(
             logical_id,
             Name=logical_id,
             Description='This secret defines the application configuration for the orchestrated environment.',
-            SecretString=json.dumps(self.APPLICATION_CONFIGURATION_TEMPLATE),
+            SecretString=json.dumps(self.application_configuration_template(), indent=2),
             Tags=self.tags.cost_tag_array()
         )
 
     def rds_subnet_group(self) -> DBSubnetGroup:
         """ Returns a subnet group for the single RDS instance in the infrastructure stack """
-        logical_id = self.name.logical_id('DBSubnetGroup')
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        logical_id = self.name.logical_id(camelize(env_name) + 'DBSubnetGroup')
         return DBSubnetGroup(
             logical_id,
-            DBSubnetGroupDescription='RDS subnet group',
+            DBSubnetGroupDescription=f'RDS subnet group for {env_name}.',
             SubnetIds=[
-                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
+                self.NETWORK_EXPORTS.import_value(subnet_key)
+                for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
             ],
+            # SubnetIds=[
+            #     self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+            #     self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
+            # ],
             Tags=self.tags.cost_tag_array(),
         )
 
-    def rds_instance(self, instance_size='db.t3.medium',
-                     az_zone='us-east-1a', storage_size=20, storage_type='standard',
-                     db_name='ebdb', postgres_version='12.6') -> DBInstance:
+    @classmethod
+    def rds_instance_name(cls, env_name):
+        camelized = camelize(env_name)
+        return f"{camelized}RDS"  # was RDSfor+...
+
+    def rds_instance(self, instance_size=None,
+                     az=None, storage_size=None, storage_type=None,
+                     db_name=None, postgres_version=None) -> DBInstance:
         """ Returns the single RDS instance for the infrastructure stack. """
-        logical_id = self.name.logical_id('RDS%s') % os.environ.get(ENV_NAME, '').replace('-', '')
-        secret_string_logical_id = self.name.logical_id(self.RDS_SECRET_STRING)
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        logical_id = self.name.logical_id(self.rds_instance_name(env_name))  # was env_name
+        secret_string_logical_id = self.rds_secret_logical_id()
         return DBInstance(
             logical_id,
-            AllocatedStorage=os.environ.get(RDS_STORAGE_SIZE) or storage_size,
-            DBInstanceClass=os.environ.get(RDS_INSTANCE_SIZE) or instance_size,
+            AllocatedStorage=storage_size or ConfigManager.get_config_setting(Settings.RDS_STORAGE_SIZE,
+                                                                              default=self.DEFAULT_RDS_STORAGE_SIZE),
+            DBInstanceClass=instance_size or ConfigManager.get_config_setting(Settings.RDS_INSTANCE_SIZE,
+                                                                              default=self.DEFAULT_RDS_INSTANCE_SIZE),
             Engine='postgres',
-            EngineVersion=postgres_version,
-            DBInstanceIdentifier=logical_id,
-            DBName=os.environ.get(RDS_DB_NAME) or db_name,
+            EngineVersion=postgres_version or self.DEFAULT_RDS_POSTGRES_VERSION,
+            DBInstanceIdentifier=f"rds-{env_name}",  # was logical_id,
+            DBName=db_name or ConfigManager.get_config_setting(Settings.RDS_DB_NAME, default=self.DEFAULT_RDS_DB_NAME),
             DBParameterGroupName=Ref(self.rds_parameter_group()),
             DBSubnetGroupName=Ref(self.rds_subnet_group()),
             StorageEncrypted=True,  # TODO use KmsKeyId to configure KMS key (requires db replacement)
             CopyTagsToSnapshot=True,
-            AvailabilityZone=az_zone,
+            AvailabilityZone=az or ConfigManager.get_config_setting(Settings.RDS_AZ, default=self.DEFAULT_RDS_AZ),
             PubliclyAccessible=False,
-            StorageType=storage_type,
+            StorageType=storage_type or ConfigManager.get_config_setting(Settings.RDS_STORAGE_TYPE,
+                                                                         default=self.DEFAULT_RDS_STORAGE_TYPE),
             VPCSecurityGroups=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.DB_SECURITY_GROUP)],
             MasterUsername=Join('', [
                 '{{resolve:secretsmanager:',
@@ -310,6 +445,10 @@ class C4Datastore(C4Part):
             ]),
             Tags=self.tags.cost_tag_array(name=logical_id),
         )
+
+#     def rds_password(self, resource: DBInstance) -> str:
+#         import pdb; pdb.set_trace()
+#         return GetAtt(resource, 'Endpoint.Password')
 
     def output_rds_url(self, resource: DBInstance) -> Output:
         """ Outputs RDS URL """
@@ -342,13 +481,14 @@ class C4Datastore(C4Part):
         return DBParameterGroup(
             logical_id,
             Description='parameters for C4 RDS instances',
-            Family='postgres11',
+            Family='postgres{version}'.format(version=self.rds_postgres_major_version()),
             Parameters=parameters,
         )
 
     def rds_secret_attachment(self) -> SecretTargetAttachment:
         """ Attaches the rds_secret to the rds_instance. """
-        logical_id = self.name.logical_id('SecretRDSInstanceAttachment')
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        logical_id = self.name.logical_id(camelize(env_name) + 'SecretRDSInstanceAttachment')
         return SecretTargetAttachment(
             logical_id,
             TargetType='AWS::RDS::DBInstance',
@@ -356,52 +496,37 @@ class C4Datastore(C4Part):
             TargetId=Ref(self.rds_instance()),
         )
 
-    def elasticsearch_instance(self, number_of_data_nodes=1, data_node_instance_type='c5.large.elasticsearch'):
+    def elasticsearch_instance(self, data_node_count=None, data_node_type=None):
         """ Returns an Elasticsearch domain with 1 data node, configurable via data_node_instance_type. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
             TODO allow master node configuration
         """
-        logical_id = self.name.logical_id('ES%s' % os.environ.get(ENV_NAME, '').replace('-', ''))
-        domain_name = self.name.domain_name(logical_id)
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        logical_id = self.name.logical_id(f"{camelize(env_name)}ElasticSearch")  # was env_name
+        domain_name = self.name.domain_name(f"es-{env_name}")
         options = {}
         try:  # feature not yet supported by troposphere
             options['DomainEndpointOptions'] = DomainEndpointOptions(EnforceHTTPS=True)
         except NotImplementedError:
             pass
-        return Domain(
+        # account_num = ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER)
+        domain = Domain(
             logical_id,
-            # DomainName=domain_name,
-            # TODO specify DomainName instead of an auto-generated one; ref:
-            # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-domainname
-            AccessPolicies={
-                # XXX: this policy needs revising - Will 5/18/21
-                'Version': '2012-10-17',
-                'Statement': [
-                    {
-                        'Effect': 'Allow',
-                        'Principal': {
-                            'AWS': [
-                                'arn:aws:iam::645819926742:role/aws-elasticbeanstalk-ec2-role',
-                                'arn:aws:iam::645819926742:user/will.ronchetti',
-                                'arn:aws:iam::645819926742:user/trial.application.user',
-                                'arn:aws:iam::645819926742:user/eric.berg'
-                            ]
-                        },
-                        'Action': 'es:*',
-                        'Resource': 'arn:aws:es:us-east-1:645819926742:domain/cgaptriales/*'
-                    }
-                ]
-            },
+            DomainName=domain_name,
             NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
             EncryptionAtRestOptions=EncryptionAtRestOptions(Enabled=True),  # TODO specify KMS key
             ElasticsearchClusterConfig=ElasticsearchClusterConfig(
-                InstanceCount=os.environ.get(ES_DATA_COUNT) or number_of_data_nodes,
-                InstanceType=os.environ.get(ES_DATA_TYPE) or data_node_instance_type,
+                InstanceCount=(data_node_count
+                               or ConfigManager.get_config_setting(Settings.ES_DATA_COUNT,
+                                                                   default=self.DEFAULT_ES_DATA_NODE_COUNT)),
+                InstanceType=(data_node_type
+                              or ConfigManager.get_config_setting(Settings.ES_DATA_TYPE,
+                                                                  default=self.DEFAULT_ES_DATA_NODE_TYPE)),
             ),
             ElasticsearchVersion='6.8',
             EBSOptions=EBSOptions(
                 EBSEnabled=True,
-                VolumeSize=os.environ.get(ES_VOLUME_SIZE, 10),
+                VolumeSize=ConfigManager.get_config_setting(Settings.ES_VOLUME_SIZE, 10),
                 VolumeType='gp2',  # gp3?
             ),
             VPCOptions=VPCOptions(
@@ -409,12 +534,15 @@ class C4Datastore(C4Part):
                     self.NETWORK_EXPORTS.import_value(C4NetworkExports.HTTPS_SECURITY_GROUP),
                 ],
                 SubnetIds=[
-                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                    # TODO: Is this right? Just one subnet? -kmp 14-Aug-2021
+                    # self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNETS[0]),
                 ],
             ),
             Tags=self.tags.cost_tag_array(name=domain_name),
             **options,
         )
+        return domain
 
     def output_es_url(self, resource: Domain) -> Output:
         """ Outputs ES URL """
@@ -427,13 +555,12 @@ class C4Datastore(C4Part):
             Export=self.EXPORTS.export(export_name)
         )
 
-    def build_sqs_instance(self, logical_id_suffix, name_suffix, timeout_in_minutes=10,
-                           cgap_env='mastertest') -> Queue:
+    def build_sqs_instance(self, logical_id_suffix, name_suffix, timeout_in_minutes=10) -> Queue:
         """ Builds a SQS instance with the logical id suffix for CloudFormation and the given name_suffix for the queue
             name. Uses 'mastertest' as default cgap env. """
         logical_name = self.name.logical_id(logical_id_suffix)
-        cgap_env = os.environ.get(ENV_NAME)
-        queue_name = 'cgap-{env}-{suffix}'.format(env=cgap_env, suffix=name_suffix)
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        queue_name = f'{env_name}-{name_suffix}'
         return Queue(
             logical_name,
             QueueName=queue_name,
@@ -442,6 +569,15 @@ class C4Datastore(C4Part):
             DelaySeconds=1,
             ReceiveMessageWaitTimeSeconds=2,
             Tags=Tags(*self.tags.cost_tag_array(name=queue_name)),  # special case
+        )
+
+    def output_application_configuration_secret_name(self, export_name: str, resource: Secret):
+        logical_id = self.name.logical_id("ApplicationConfigurationSecretName")
+        return Output(
+            logical_id,
+            Value=Ref(resource.title),
+            Description="Name of the application configuration secret",
+            Export=self.EXPORTS.export(export_name)
         )
 
     def output_sqs_instance(self, export_name: str, resource: Queue) -> Output:

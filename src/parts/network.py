@@ -1,24 +1,69 @@
+import logging
+import re
+
 from troposphere import Ref, GetAtt, Output, Template
 from troposphere.ec2 import (
     InternetGateway, Route, RouteTable, SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
     Subnet, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment, NatGateway, EIP, Instance, NetworkInterfaceProperty,
     VPCEndpoint,
 )
-from src.part import C4Part
-from src.exports import C4Exports
-import logging
+from ..base import ConfigManager, exportify
+from typing import List
+from ..exports import C4Exports
+from ..part import C4Part
 
 
 class C4NetworkExports(C4Exports):
     """ Helper class for working with network exported resources and their input values """
-    VPC = 'ExportVPC'
-    PRIVATE_SUBNET_A = 'ExportPrivateSubnetA'
-    PRIVATE_SUBNET_B = 'ExportPrivateSubnetB'
-    PUBLIC_SUBNET_A = 'ExportPublicSubnetA'
-    PUBLIC_SUBNET_B = 'ExportPublicSubnetB'
-    APPLICATION_SECURITY_GROUP = 'ExportApplicationSecurityGroup'  # XXX: Can we name this something more generic? -Will
-    DB_SECURITY_GROUP = 'ExportDBSecurityGroup'
-    HTTPS_SECURITY_GROUP = 'ExportHTTPSSecurityGroup'
+    VPC = 'VPC'  # 'ExportVPC'
+
+    SUBNET_CONFIG_INFO = {
+        'PrivateSubnetA':
+            {'name': 'PrivateSubnetA', 'cidr_block': '10.0.0.0/18', 'az': 'us-east-1a', 'kind': 'private'},
+        'PublicSubnetA':
+            {'name': 'PublicSubnetA', 'cidr_block': '10.0.64.0/18', 'az': 'us-east-1a', 'kind': 'public'},
+        'PrivateSubnetB':
+            {'name': 'PrivateSubnetB', 'cidr_block': '10.0.128.0/18', 'az': 'us-east-1b', 'kind': 'private'},
+        'PublicSubnetB':
+            {'name': 'PublicSubnetB', 'cidr_block': '10.0.192.0/18', 'az': 'us-east-1b', 'kind': 'public'},
+    }
+
+    PRIVATE_SUBNETS = [exportify(name) for name, entry in SUBNET_CONFIG_INFO.items() if entry['kind'] == 'private']
+
+    PUBLIC_SUBNETS = [exportify(name) for name, entry in SUBNET_CONFIG_INFO.items() if entry['kind'] == 'public']
+
+    # XXX: Can we name this something more generic? -Will
+    # I got rid of the word "Export". Is that enough? -kmp 14-Aug-2021
+    APPLICATION_SECURITY_GROUP = exportify('ApplicationSecurityGroup')
+    DB_SECURITY_GROUP = exportify('DBSecurityGroup')
+    HTTPS_SECURITY_GROUP = exportify('HTTPSSecurityGroup')
+
+    # e.g., name will be 'C4NetworkTrialAlphaExportApplicationSecurityGroup'
+    #       or might not contain '...Alpha...'
+    _APPLICATION_SECURITY_GROUP_EXPORT_PATTERN = re.compile('.*Network.*ApplicationSecurityGroup.*')
+
+    @classmethod
+    def get_security_ids(cls):
+        # Typically there will be only one output, but we allow several, so the result is returned as a list.
+        # e.g., for the Alpha environment, the orginal value was hardwired as: ['sg-03f5fdd36be96bbf4']
+        computed_result = ConfigManager.find_stack_outputs(cls._APPLICATION_SECURITY_GROUP_EXPORT_PATTERN.match,
+                                                           value_only=True)
+        return computed_result
+
+    # e.g., name will be 'C4NetworkTrialAlphaExportPrivateSubnetA' (or '...B')
+    #       or might not contain '...Alpha...'
+    _PRIVATE_SUBNET_EXPORT_PATTERN = re.compile('.*Network.*PrivateSubnet.*')
+
+    @classmethod
+    def get_subnet_ids(cls):
+        # TODO: This could perhaps be better computed from cls._SUBNETS -kmp 14-Aug-2021
+        # There will be several outputs (currently 2, but maybe more in the future), returned as a list.
+        # e.g., for the Alpha environment, the original value was hand-coded as:
+        #       ['subnet-09ed0bb672993c7ac', 'subnet-00778b903b357d331']
+        computed_result = ConfigManager.find_stack_outputs(cls._PRIVATE_SUBNET_EXPORT_PATTERN.match, value_only=True)
+        if not computed_result:
+            raise RuntimeError("get_subnet_ids() was expected to return a non-empty list.")
+        return computed_result
 
     def __init__(self):
         parameter = 'NetworkStackNameParameter'
@@ -40,6 +85,9 @@ class C4Network(C4Part):
     DB_PORT_LOW = 5400
     DB_PORT_HIGH = 5499
     EXPORTS = C4NetworkExports()
+    STACK_NAME_TOKEN = "network"
+    STACK_TITLE_TOKEN = "Network"
+    SHARING = 'ecosystem'
 
     def build_template(self, template: Template) -> Template:
         """ Add network resources to template """
@@ -55,34 +103,34 @@ class C4Network(C4Part):
         for i in [self.main_route_table(), self.private_route_table(), self.public_route_table()]:
             template.add_resource(i)
 
-        # Add subnets
-        public_subnet_a, public_subnet_b, \
-        private_subnet_a, private_subnet_b = self.public_subnet_a(), self.public_subnet_b(), \
-                                             self.private_subnet_a(), self.private_subnet_b()
-        template.add_resource(public_subnet_a)
-        template.add_resource(public_subnet_b)
-        template.add_resource(private_subnet_a)
-        template.add_resource(private_subnet_b)
+        for subnet in self.private_subnets():
+            template.add_resource(subnet)
+        for subnet in self.public_subnets():
+            template.add_resource(subnet)
 
         # Add subnet outputs
         for i in self.subnet_outputs():
             template.add_output(i)
 
-        # Create NAT gateways
-        public_a_nat_eip = self.nat_eip('PublicSubnetAEIP')
-        public_a_nat_gateway = self.nat_gateway(public_a_nat_eip, public_subnet_a)
-        template.add_resource(public_a_nat_eip)
-        template.add_resource(public_a_nat_gateway)
-        public_b_nat_eip = self.nat_eip('PublicSubnetBEIP')
-        public_b_nat_gateway = self.nat_gateway(public_b_nat_eip, public_subnet_b)
-        template.add_resource(public_b_nat_eip)
-        template.add_resource(public_b_nat_gateway)
+        first_time = True
 
-        # Add Internet Gateway to public route table, NAT Gateway to private route table
-        # XXX: why is this only possible with public_a_nat_gateway?
-        for i in [self.route_internet_gateway(),
-                  self.route_nat_gateway(public_a_nat_gateway)]:
-            template.add_resource(i)
+        for public_subnet in self.public_subnets():
+            # import pdb; pdb.set_trace()
+            public_nat_eip = self.nat_eip(public_subnet)
+            public_nat_gateway = self.nat_gateway(public_nat_eip, public_subnet)
+            template.add_resource(public_nat_eip)
+            template.add_resource(public_nat_gateway)
+            if first_time:
+                template.add_resource(self.route_nat_gateway(public_nat_gateway))  # Why only the Public A gateway??
+                first_time = False
+
+        template.add_resource(self.route_internet_gateway())
+
+        # # Add Internet Gateway to public route table, NAT Gateway to private route table
+        # # XXX: why is this only possible with public_a_nat_gateway?
+        # for i in [self.route_internet_gateway(),
+        #           self.route_nat_gateway(public_a_nat_gateway)]:
+        #     template.add_resource(i)
 
         # Add subnet-to-route-table associations
         for i in self.subnet_associations():
@@ -188,11 +236,11 @@ class C4Network(C4Part):
             InternetGatewayId=Ref(self.internet_gateway()),
         )
 
-    def nat_eip(self, name) -> EIP:
+    def nat_eip(self, subnet: Subnet) -> EIP:
         """ Define an Elastic IP for a NAT gateway. Ref:
         https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-eip.html
         """
-        logical_id = self.name.logical_id(name)
+        logical_id = self.name.logical_id("EIPfor" + self.trim_name(subnet.title), context='nat_eip')
         return EIP(
             logical_id,
             Domain='vpc',
@@ -202,7 +250,7 @@ class C4Network(C4Part):
         """ Define a NAT Gateway. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-natgateway.html
         """
-        logical_id = self.name.logical_id(subnet.title)  # + 'NATGateway')
+        logical_id = self.name.logical_id("NATGatewayFor" + self.trim_name(subnet.title), context='nat_gateway')
         return NatGateway(
             logical_id,
             DependsOn=eip.title,
@@ -215,7 +263,7 @@ class C4Network(C4Part):
         """ Define main (default) route table resource Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route-table.html
             TODO(berg) add local gateway association """
-        logical_id = self.name.logical_id('MainRouteTable')
+        logical_id = self.name.logical_id('MainRouteTable', context='main_route_table')
         return RouteTable(
             logical_id,
             VpcId=Ref(self.virtual_private_cloud()),
@@ -226,7 +274,7 @@ class C4Network(C4Part):
         """ Define route table resource *without* an internet gateway attachment Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route-table.html
         """
-        logical_id = self.name.logical_id('PrivateRouteTable')
+        logical_id = self.name.logical_id('PrivateRouteTable', context='private_route_table')
         return RouteTable(
             logical_id,
             VpcId=Ref(self.virtual_private_cloud()),
@@ -237,7 +285,7 @@ class C4Network(C4Part):
         """ Define route table resource *with* an internet gateway attachment Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route-table.html
         """
-        logical_id = self.name.logical_id('PublicRouteTable')
+        logical_id = self.name.logical_id('PublicRouteTable', context='public_route_table')
         return RouteTable(
             logical_id,
             VpcId=Ref(self.virtual_private_cloud()),
@@ -248,7 +296,7 @@ class C4Network(C4Part):
         """ Defines Internet Gateway route to Public Route Table Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route.html
         """
-        logical_id = self.name.logical_id('InternetGatewayRoute')
+        logical_id = self.name.logical_id('InternetGatewayRoute', context='route_internet_gateway')
         return Route(
             logical_id,
             RouteTableId=Ref(self.public_route_table()),
@@ -261,7 +309,7 @@ class C4Network(C4Part):
         """ Defines NAT Gateway route to Private Route Table Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route.html
         """
-        logical_id = self.name.logical_id(public_subnet_nat_gateway.title)
+        logical_id = self.name.logical_id(public_subnet_nat_gateway.title + "Route", context="route_nat_gateway")
         return Route(
             logical_id,
             RouteTableId=Ref(self.private_route_table()),
@@ -272,7 +320,7 @@ class C4Network(C4Part):
 
     def build_subnet(self, subnet_name, cidr_block, vpc, az) -> Subnet:
         """ Builds a subnet with given name, cidr_block strings, vpc resource, and availability zone (az). """
-        logical_id = self.name.logical_id(subnet_name)
+        logical_id = self.name.logical_id(subnet_name, context='build_subnet')
         return Subnet(
             logical_id,
             CidrBlock=cidr_block,
@@ -284,7 +332,8 @@ class C4Network(C4Part):
     def build_subnet_association(self, subnet, route_table) -> SubnetRouteTableAssociation:
         """ Builds a subnet association between a subnet and a route table. What makes a 'public' subnet 'public'
             and a 'private' subnet 'private'. """
-        logical_id = self.name.logical_id('{}To{}Association'.format(subnet.title, route_table.title))
+        logical_id = self.name.logical_id('{}To{}Association'.format(self.trim_name(subnet.title),
+                                                                     self.trim_name(route_table.title)))
         return SubnetRouteTableAssociation(
             logical_id,
             SubnetId=Ref(subnet),
@@ -299,57 +348,63 @@ class C4Network(C4Part):
     #         leaving no additional room. A secondary block can be added if other subnets are needed.
     #         See: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html#vpc-resize
 
-    def private_subnet_a(self) -> Subnet:
-        """ Define private subnet A """
-        return self.build_subnet('PrivateSubnetA', '10.0.0.0/18', self.virtual_private_cloud(),
-                                 'us-east-1a')
+    PRIVATE_SUBNETS = None
+    PUBLIC_SUBNETS = None
 
-    def public_subnet_a(self) -> Subnet:
-        """ Define public subnet A """
-        return self.build_subnet('PublicSubnetA', '10.0.64.0/18', self.virtual_private_cloud(), 'us-east-1a')
+    SUBNETS_KEY_MAP = {'private': 'PRIVATE_SUBNETS', 'public': 'PUBLIC_SUBNETS'}
 
-    def private_subnet_b(self) -> Subnet:
-        """ Define private subnet B """
-        return self.build_subnet('PrivateSubnetB', '10.0.128.0/18', self.virtual_private_cloud(),
-                                 'us-east-1b')
+    def public_subnets(self):
+        return self._get_subnets('public')
 
-    def public_subnet_b(self) -> Subnet:
-        """ Define public subnet B """
-        return self.build_subnet('PublicSubnetB', '10.0.192.0/18', self.virtual_private_cloud(), 'us-east-1b')
+    def private_subnets(self):
+        return self._get_subnets('private')
+
+    def _get_subnets(self, kind) -> List[Subnet]:
+        subnets_key = self.SUBNETS_KEY_MAP[kind]
+        subnets = getattr(self, subnets_key)
+        if not subnets:
+            subnets = {}
+            for name, entry in C4NetworkExports.SUBNET_CONFIG_INFO.items():
+                if entry['kind'] == kind:
+                    cidr_block = entry['cidr_block']
+                    az = entry['az']
+                    subnet = self.build_subnet(name, cidr_block, self.virtual_private_cloud(), az)
+                    subnets[name] = subnet
+            setattr(self, subnets_key, subnets)
+        result = list(subnets.values())
+        # print(f"_get_subnets({kind}) => {result}")
+        return result
 
     def subnet_outputs(self) -> [Output]:
         """ Define outputs for all subnets, for cross-stack compatibility. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html
         """
-        subnet_exports = [
-            (self.public_subnet_a(), C4NetworkExports.PUBLIC_SUBNET_A),
-            (self.public_subnet_b(), C4NetworkExports.PUBLIC_SUBNET_B),
-            (self.private_subnet_a(), C4NetworkExports.PRIVATE_SUBNET_A),
-            (self.private_subnet_b(), C4NetworkExports.PRIVATE_SUBNET_B),
-        ]
         outputs = []
-        for subnet, export_name in subnet_exports:
-            logical_id = self.name.logical_id(export_name)
-            output = Output(
-                logical_id,
-                Value=Ref(subnet),
-                Export=self.EXPORTS.export(export_name),
-            )
-            outputs.append(output)
+        for subnet_dict in [self.PUBLIC_SUBNETS, self.PRIVATE_SUBNETS]:
+            for export_name, subnet in subnet_dict.items():
+                logical_id = self.name.logical_id(export_name)
+                output = Output(
+                    logical_id,
+                    Value=Ref(subnet),
+                    Export=self.EXPORTS.export(export_name),
+                )
+                outputs.append(output)
+
         return outputs
 
     def subnet_associations(self) -> [SubnetRouteTableAssociation]:
         """ Define a list of subnet associations, which can be unrolled and added to a template. """
-        return [self.build_subnet_association(self.public_subnet_a(), self.public_route_table()),
-                self.build_subnet_association(self.public_subnet_b(), self.public_route_table()),
-                self.build_subnet_association(self.private_subnet_a(), self.private_route_table()),
-                self.build_subnet_association(self.private_subnet_b(), self.private_route_table())]
+
+        public_route_table = self.public_route_table()
+        private_route_table = self.private_route_table()
+        return ([self.build_subnet_association(subnet, public_route_table) for subnet in self.public_subnets()] +
+                [self.build_subnet_association(subnet, private_route_table) for subnet in self.private_subnets()])
 
     def db_security_group(self) -> SecurityGroup:
         """ Define the database security group. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
         """
-        logical_id = self.name.logical_id(C4NetworkExports.DB_SECURITY_GROUP)
+        logical_id = self.name.logical_id(C4NetworkExports.DB_SECURITY_GROUP, context='db_security_group')
         return SecurityGroup(
             logical_id,
             GroupName=logical_id,
@@ -361,7 +416,7 @@ class C4Network(C4Part):
     def db_security_group_output(self) -> Output:
         resource = self.db_security_group()
         export_name = C4NetworkExports.DB_SECURITY_GROUP
-        logical_id = self.name.logical_id(export_name)
+        logical_id = self.name.logical_id(export_name, context='db_security_group_output')
         output = Output(
             logical_id,
             Value=Ref(resource),
@@ -373,7 +428,7 @@ class C4Network(C4Part):
         """ Returns inbound rules for database (RDS) security group. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group-rule-1.html
         """
-        logical_id = self.name.logical_id('DBPortRangeAccess')
+        logical_id = self.name.logical_id('DBPortRangeAccess', context='db_inbound_rule')
         return SecurityGroupIngress(
             logical_id,
             CidrIp='0.0.0.0/0',  # TODO web sg w/ 'DestinationSecurityGroupId'
@@ -388,7 +443,7 @@ class C4Network(C4Part):
         """ Returns outbound rules for database (RDS) security group. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-security-group-egress.html
         """
-        logical_id = self.name.logical_id('DBOutboundAllAccess')
+        logical_id = self.name.logical_id('DBOutboundAllAccess', context='db_outbound_rule')
         return SecurityGroupEgress(
             logical_id,
             CidrIp='0.0.0.0/0',  # TODO web sg w/ 'DestinationSecurityGroupId'
@@ -403,7 +458,7 @@ class C4Network(C4Part):
         """ Define the https-only web security group. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
         """
-        logical_id = self.name.logical_id('HTTPSSecurityGroup')
+        logical_id = self.name.logical_id('HTTPSSecurityGroup', context='https_security_group')
         return SecurityGroup(
             logical_id,
             GroupName=logical_id,
@@ -415,7 +470,7 @@ class C4Network(C4Part):
     def https_security_group_output(self) -> Output:
         resource = self.https_security_group()
         export_name = C4NetworkExports.HTTPS_SECURITY_GROUP
-        logical_id = self.name.logical_id(export_name)
+        logical_id = self.name.logical_id(export_name, context='https_security_group_output')
         output = Output(
             logical_id,
             Value=Ref(resource),
@@ -427,7 +482,7 @@ class C4Network(C4Part):
         """ Returns inbound rules for https-only web security group. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group-rule-1.html
         """
-        logical_id = self.name.logical_id('HTTPSInboundAccess')
+        logical_id = self.name.logical_id('HTTPSInboundAccess', context='https_inbound_rule')
         return SecurityGroupIngress(
             logical_id,
             CidrIp='0.0.0.0/0',
@@ -442,7 +497,7 @@ class C4Network(C4Part):
         """ Returns outbound rules for https-only web security group. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-security-group-egress.html
         """
-        logical_id = self.name.logical_id('HTTPSOutboundAllAccess')
+        logical_id = self.name.logical_id('HTTPSOutboundAllAccess', context='https_outbound_rule')
         return SecurityGroupEgress(
             logical_id,
             CidrIp='0.0.0.0/0',
@@ -457,7 +512,7 @@ class C4Network(C4Part):
         """ Returns application security group for rules needed by application to access resources. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
         """
-        logical_id = self.name.logical_id('ApplicationSecurityGroup')
+        logical_id = self.name.logical_id('ApplicationSecurityGroup', context='application_security_group')
         return SecurityGroup(
             logical_id,
             GroupName=logical_id,
@@ -469,7 +524,7 @@ class C4Network(C4Part):
     def application_security_group_output(self) -> Output:
         resource = self.application_security_group()
         export_name = C4NetworkExports.APPLICATION_SECURITY_GROUP
-        logical_id = self.name.logical_id(export_name)
+        logical_id = self.name.logical_id(export_name, context='application_security_group_output')
         output = Output(
             logical_id,
             Value=Ref(resource),
@@ -489,7 +544,7 @@ class C4Network(C4Part):
         """
         return [
             SecurityGroupIngress(
-                self.name.logical_id('ApplicationHTTPSInboundAccess'),
+                self.name.logical_id('ApplicationHTTPSInboundAccess', context='application_security_rules1'),
                 CidrIp='0.0.0.0/0',
                 Description='allows inbound traffic on tcp port 443',
                 GroupId=Ref(self.application_security_group()),
@@ -498,7 +553,7 @@ class C4Network(C4Part):
                 ToPort=443,
             ),
             SecurityGroupEgress(
-                self.name.logical_id('ApplicationHTTPSOutboundAllAccess'),
+                self.name.logical_id('ApplicationHTTPSOutboundAllAccess', context='application_security_rules2'),
                 CidrIp='0.0.0.0/0',
                 Description='allows outbound traffic on tcp port 443',
                 GroupId=Ref(self.application_security_group()),
@@ -507,7 +562,7 @@ class C4Network(C4Part):
                 ToPort=443,
             ),
             SecurityGroupIngress(
-                self.name.logical_id('ApplicationWebInboundAccess'),
+                self.name.logical_id('ApplicationWebInboundAccess', context='application_security_rules3'),
                 CidrIp='0.0.0.0/0',
                 Description='allows inbound traffic on tcp port 80',
                 GroupId=Ref(self.application_security_group()),
@@ -516,7 +571,7 @@ class C4Network(C4Part):
                 ToPort=80,
             ),
             SecurityGroupEgress(
-                self.name.logical_id('ApplicationWebOutboundAllAccess'),
+                self.name.logical_id('ApplicationWebOutboundAllAccess', context='application_security_rules4'),
                 CidrIp='0.0.0.0/0',
                 Description='allows outbound traffic on tcp port 80',
                 GroupId=Ref(self.application_security_group()),
@@ -525,7 +580,7 @@ class C4Network(C4Part):
                 ToPort=80,
             ),
             SecurityGroupIngress(
-                self.name.logical_id('ApplicationNTPInboundAllAccess'),
+                self.name.logical_id('ApplicationNTPInboundAllAccess', context='application_security_rules5'),
                 CidrIp='0.0.0.0/0',
                 Description='allows inbound traffic on udp port 123',
                 GroupId=Ref(self.application_security_group()),
@@ -534,7 +589,7 @@ class C4Network(C4Part):
                 ToPort=123,
             ),
             SecurityGroupEgress(
-                self.name.logical_id('ApplicationNTPOutboundAllAccess'),
+                self.name.logical_id('ApplicationNTPOutboundAllAccess', context='application_security_rules6'),
                 CidrIp='0.0.0.0/0',
                 Description='allows outbound traffic on udp port 123',
                 GroupId=Ref(self.application_security_group()),
@@ -543,7 +598,7 @@ class C4Network(C4Part):
                 ToPort=123,
             ),
             SecurityGroupIngress(
-                self.name.logical_id('ApplicationSSHInboundAllAccess'),
+                self.name.logical_id('ApplicationSSHInboundAllAccess', context='application_security_rules7'),
                 CidrIp='0.0.0.0/0',
                 Description='allows inbound traffic on tcp port 22',
                 GroupId=Ref(self.application_security_group()),
@@ -552,7 +607,7 @@ class C4Network(C4Part):
                 ToPort=22,
             ),
             SecurityGroupEgress(
-                self.name.logical_id('ApplicationSSHOutboundAllAccess'),
+                self.name.logical_id('ApplicationSSHOutboundAllAccess', context='application_security_rules8'),
                 CidrIp='0.0.0.0/0',
                 Description='allows outbound traffic on tcp port 22',
                 GroupId=Ref(self.application_security_group()),
@@ -567,7 +622,7 @@ class C4Network(C4Part):
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_EC2.html
         """
         logical_id = self.name.logical_id('BastionHost')
-        network_interface_logical_id = self.name.logical_id('BastionHostNetworkInterface')
+        network_interface_logical_id = self.name.logical_id('BastionHostNetworkInterface', context='bastion_host')
         instance_name = self.name.instance_name('bastion-host')
         return Instance(
             logical_id,
@@ -579,7 +634,8 @@ class C4Network(C4Part):
                 AssociatePublicIpAddress=True,
                 DeviceIndex=0,
                 GroupSet=[Ref(self.application_security_group())],
-                SubnetId=Ref(self.public_subnet_a()),
+                # SubnetId=Ref(self.public_subnet_a()),
+                SubnetId=Ref(self.public_subnets()[0]),
             )],
             KeyName='trial-ssh-key-01',  # TODO parameterize
         )
@@ -594,14 +650,15 @@ class C4Network(C4Part):
             :param dns: boolean on whether or not to provide private DNS (must be disabled for s3)
         """
         # com.amazonaws.us-east-1.sqs -> sqs
-        logical_id = self.name.logical_id('%sVPCIEndpoint' % identifier)
+        logical_id = self.name.logical_id(f'{identifier}VPCIEndpoint', context='create_vpc_interface_endpoint')
         return VPCEndpoint(
             logical_id,
             VpcId=Ref(self.virtual_private_cloud()),
             VpcEndpointType='Interface',
             PrivateDnsEnabled=dns,
             ServiceName=service_name,
-            SubnetIds=[Ref(self.private_subnet_a()), Ref(self.private_subnet_b())],
+            # SubnetIds=[Ref(self.private_subnet_a()), Ref(self.private_subnet_b())],
+            SubnetIds=[Ref(subnet) for subnet in self.private_subnets()],
             SecurityGroupIds=[Ref(self.application_security_group())]
         )
 
@@ -613,11 +670,11 @@ class C4Network(C4Part):
             :param identifier: a name to be used in the logical ID for this VPC Gateway Endpoint
             :param service_name: the aws service name for this endpoint, see aws ec2 describe-vpc-endpoint-services
         """
-        logical_id = self.name.logical_id('%sVPCGEndpoint' % identifier)
+        logical_id = self.name.logical_id(f'{identifier}VPCGEndpoint', context='create_vpc_gateway_endpoint')
         return VPCEndpoint(
             logical_id,
             VpcId=Ref(self.virtual_private_cloud()),
             VpcEndpointType='Gateway',
             ServiceName=service_name,
-            RouteTableIds=Ref(self.private_route_table())
+            RouteTableIds=[Ref(self.private_route_table())]
         )

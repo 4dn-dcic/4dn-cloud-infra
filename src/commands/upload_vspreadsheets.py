@@ -4,6 +4,8 @@ import csv
 import pickle
 import os.path
 
+from dcicutils.command_utils import yes_or_no
+from dcicutils.misc_utils import ignorable, PRINT
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -84,6 +86,16 @@ def main():
     - Uploads each tsv as a separate sheet
     - Uploads summary sheet
     """
+
+    # TODO: Simplify out this 'still_being_debugged' conditional when things are in order.
+    #       This is not my code, it's Eric Berg's from 11/2/20 according to 'git blame',
+    #       and I'm just trying to make its intermediate state more apparent until I have
+    #       time to work through it in detail. -kmp 7-Aug-2021
+    still_being_debugged = True
+    if still_being_debugged and not yes_or_no("This script seems to be in disrepair. Are you sure you want to proceed?"):
+        PRINT("Aborted.")
+        exit(1)
+
     assert_all_files_present()
     creds = get_or_make_creds()
     service = build('sheets', 'v4', credentials=creds)
@@ -105,13 +117,14 @@ def main():
     create_named_ranges_body = {
         'namedRanges': named_ranges
     }
+    ignorable(create_named_ranges_body)  # it would get used if code below is uncommented
     # TODO create named ranges dynamically (this script works because the named ranges are pre-defined)
     # res = sheet.create(body=create_named_ranges_body).execute()
 
     # Uploads each tsv's rows as a separate sheet (N.B. bucket name = range name)
     results = []
     for v in VERSIONED_BUCKETS:
-        print('Uploading {} to GSheet..'.format(v))
+        PRINT('Uploading {} to GSheet..'.format(v))
         rows = []
         with open(out_file_for_vbucket(v), newline='') as csvfile:
             reader = csv.reader(csvfile, delimiter='\t', quotechar='|')
@@ -120,16 +133,20 @@ def main():
         body = {
             'values': rows
         }
-        result = sheet.values().update(
+        action = sheet.values().update(
             spreadsheetId=VERSIONED_BUCKETS_SHEET_ID,
             range=v,
             valueInputOption=VALUE_INPUT_OPTION,
             body=body
-        #).execute()
-        )   # TODO fix to run the script after debugging summary
+        )
+        # TODO: simplify out this 'if' when this is debugged.
+        if still_being_debugged:
+            result = action  # just debugging data.
+        else:
+            result = action.execute()
         results.append(result)
 
-    print('Uploading Summary...')
+    PRINT('Uploading Summary...')
     summary_sheet_rows = [[
         'Bucket (see sheet tabs below)',
         'size of extra versions + deleted files',
@@ -157,8 +174,8 @@ def main():
         body=summary_body
     ).execute()
 
-    print('All results uploaded, check:')
-    print('https://docs.google.com/spreadsheets/d/{}'.format(VERSIONED_BUCKETS_SHEET_ID))
+    versioned_buckets_sheet_url = f"https://docs.google.com/spreadsheets/d/{VERSIONED_BUCKETS_SHEET_ID}"
+    PRINT(f"All results uploaded, check: {versioned_buckets_sheet_url}")
     return summary_result, results
 
 
