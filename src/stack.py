@@ -112,11 +112,13 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
             self.security_ids = C4NetworkExports.get_security_ids()
             self.subnet_ids = C4NetworkExports.get_subnet_ids()
             self.global_env_bucket = C4DatastoreExports.get_env_bucket()
+            if ConfigManager.get_config_secret(Secrets.ENCODED_SECRET):
+                print(f"Ignoring secrets.json setting of {Secrets.ENCODED_SECRET}, which has been deprecated.")
             self.trial_creds = {
                 'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY),
                 'CLIENT_ID': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT),
                 'CLIENT_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET),
-                'DEV_SECRET': ConfigManager.get_config_secret(Secrets.ENCODED_SECRET),
+                'DEV_SECRET': '',  # Better not to set this. ConfigManager.get_config_secret(Secrets.ENCODED_SECRET),
                 'ES_HOST': C4DatastoreExports.get_es_url() + ":443",
                 'ENV_NAME': ConfigManager.get_config_setting(Settings.ENV_NAME)
             }
