@@ -181,10 +181,15 @@ Step Five: More CGAP Orchestration with Cloud Formation
 
 * Once the application has finishing instantiating, you can deploy the portal.
 
-Deploying CGAP
-~~~~~~~~~~~~~~
+Deploying CGAP (Initial)
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 To deploy the CGAP portal you have uploaded:
+
+* Ensure that it is the end of the day, if possible, as the initial provisioning takes a few hours to complete and
+  other core application services (Foursight, Tibanna) will not be available until access keys are loaded (at the
+  end of the deployment action). This is important to note if you are re-issuing the initial deployment, as core
+  services will go down until the deployment finishes.
 
 * Navigate to `the ECS console in AWS <https://console.aws.amazon.com/ecs/home?region=us-east-1#/taskDefinitions>`_.
 
@@ -195,6 +200,9 @@ To deploy the CGAP portal you have uploaded:
   one with ``InitialDeployment`` in its name.)
 
   NOTE WELL: This is _not_ the task just named ``Deployment``. Make sure it says ``InitialDeployment``.
+  Ensure you run this initial task at the end of the day, as it takes a long time to run and other application
+  services such as Foursight and Tibanna will be unavailable until it finishes. You can use this
+  ``InitialDeployment`` task to clear the database and start from base deploy inserts (on cgap-devtest only).
 
 * With the radio button for the ``InitialDeployment`` item checked, an ``Actions`` pull-down menu should appear
   at the top. Pull that down to find a Run Task Action and select that to invoke the task. (It will still need to
@@ -232,6 +240,13 @@ you can see the status of running tasks. Wait for them to not be in state ``PROV
 With this task run, once the deployment container is online,
 logs will immediately stream to the task, and Cloudwatch.
 
+Deploying CGAP (Routine)
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Nearly all of the above information for the ``InitialDeployment`` task is the same for "routine" deployments.
+Use the ``DeploymentTask`` to run "standard" CGAP deployment actions, including ElasticSearch
+re-mapping and access key rotation. Routine deployment should be run every time a change to the data model is made,
+but should in the meantime just be put on an automated schedule like our legacy deployments.
 
 Step Six: Finalizing CGAP Configuration
 ----------------------------------------
