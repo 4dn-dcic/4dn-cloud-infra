@@ -55,13 +55,17 @@ class Settings:
     ECS_IMAGE_TAG = 'ecs.image_tag'
     ECS_WSGI_COUNT = 'ecs.wsgi.count'
     ECS_WSGI_CPU = 'ecs.wsgi.cpu'
-    ECS_WSGI_MEM = 'ecs.wsgi.mem'
+    ECS_WSGI_MEMORY = 'ecs.wsgi.memory'
     ECS_INDEXER_COUNT = 'ecs.indexer.count'
     ECS_INDEXER_CPU = 'ecs.indexer.cpu'
-    ECS_INDEXER_MEM = 'ecs.indexer.mem'
+    ECS_INDEXER_MEMORY = 'ecs.indexer.memory'
     ECS_INGESTER_COUNT = 'ecs.ingester.count'
     ECS_INGESTER_CPU = 'ecs.ingester.cpu'
-    ECS_INGESTER_MEM = 'ecs.ingester.mem'
+    ECS_INGESTER_MEMORY = 'ecs.ingester.memory'
+    ECS_DEPLOYMENT_CPU = 'ecs.deployment.cpu'
+    ECS_DEPLOYMENT_MEMORY = 'ecs.deployment.memory'
+    ECS_INITIAL_DEPLOYMENT_CPU = 'ecs.initial_deployment.cpu'
+    ECS_INITIAL_DEPLOYMENT_MEMORY = 'ecs.initial_deployment.memory'
 
     # Foursight Configuration Options
 

@@ -42,7 +42,7 @@ troposphere = "^2.7.1"
 boto3-stubs = "^1.18.7"
 botocore-stubs = "^1.21.7"
 chalice = "^1.21.4"
-wheel = ">=0.36.2,<1"
+wheel = ">=0.36.2"
 
 [tool.poetry.scripts]
 assure-global-bucket-env = "src.commands.assure_global_env_bucket:main"
