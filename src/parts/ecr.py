@@ -16,8 +16,7 @@ from troposphere import (
     Parameter
 )
 from troposphere.ecr import Repository
-from ..base import ConfigManager, ECOSYSTEM
-from ..constants import Settings
+from ..base import ECOSYSTEM
 from ..parts.iam import C4IAMExports
 from ..part import C4Part
 from ..exports import C4Exports

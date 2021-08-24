@@ -9,7 +9,6 @@ from troposphere.ec2 import (
 )
 from ..base import ConfigManager, exportify
 from typing import List
-# from ..constants import FOURSIGHT_SUBNET_IDS, FOURSIGHT_SECURITY_IDS
 from ..exports import C4Exports
 from ..part import C4Part
 
@@ -18,26 +17,24 @@ class C4NetworkExports(C4Exports):
     """ Helper class for working with network exported resources and their input values """
     VPC = 'VPC'  # 'ExportVPC'
 
-    _SUBNETS = {
-        'PrivateSubnetA': {'name': 'PrivateSubnetA', 'cidr_block': '10.0.0.0/18', 'az': 'us-east-1a', 'kind': 'private'},
-        'PublicSubnetA': {'name': 'PublicSubnetA', 'cidr_block': '10.0.64.0/18', 'az': 'us-east-1a', 'kind': 'public'},
-        'PrivateSubnetB': {'name': 'PrivateSubnetB', 'cidr_block': '10.0.128.0/18', 'az': 'us-east-1b', 'kind': 'private'},
-        'PublicSubnetB': {'name': 'PublicSubnetB', 'cidr_block': '10.0.192.0/18', 'az': 'us-east-1b', 'kind': 'public'},
+    SUBNET_CONFIG_INFO = {
+        'PrivateSubnetA':
+            {'name': 'PrivateSubnetA', 'cidr_block': '10.0.0.0/18', 'az': 'us-east-1a', 'kind': 'private'},
+        'PublicSubnetA':
+            {'name': 'PublicSubnetA', 'cidr_block': '10.0.64.0/18', 'az': 'us-east-1a', 'kind': 'public'},
+        'PrivateSubnetB':
+            {'name': 'PrivateSubnetB', 'cidr_block': '10.0.128.0/18', 'az': 'us-east-1b', 'kind': 'private'},
+        'PublicSubnetB':
+            {'name': 'PublicSubnetB', 'cidr_block': '10.0.192.0/18', 'az': 'us-east-1b', 'kind': 'public'},
     }
 
-    PRIVATE_SUBNETS = [exportify(name) for name, entry in _SUBNETS.items() if entry['kind'] == 'private']
+    PRIVATE_SUBNETS = [exportify(name) for name, entry in SUBNET_CONFIG_INFO.items() if entry['kind'] == 'private']
 
-    # PRIVATE_SUBNET_A = exportify(PRIVATE_SUBNETS[0])  # deprecated
-    # PRIVATE_SUBNET_B = exportify(PRIVATE_SUBNETS[1])  # deprecated
-
-    PUBLIC_SUBNETS = [exportify(name) for name, entry in _SUBNETS.items() if entry['kind'] == 'public']
-
-    # PUBLIC_SUBNET_A = exportify(PUBLIC_SUBNETS[0])  # deprecated
-    # PUBLIC_SUBNET_B = exportify(PUBLIC_SUBNETS[1])  # deprecated
+    PUBLIC_SUBNETS = [exportify(name) for name, entry in SUBNET_CONFIG_INFO.items() if entry['kind'] == 'public']
 
     # XXX: Can we name this something more generic? -Will
     # I got rid of the word "Export". Is that enough? -kmp 14-Aug-2021
-    APPLICATION_SECURITY_GROUP =  exportify('ApplicationSecurityGroup')
+    APPLICATION_SECURITY_GROUP = exportify('ApplicationSecurityGroup')
     DB_SECURITY_GROUP = exportify('DBSecurityGroup')
     HTTPS_SECURITY_GROUP = exportify('HTTPSSecurityGroup')
 
@@ -106,15 +103,6 @@ class C4Network(C4Part):
         for i in [self.main_route_table(), self.private_route_table(), self.public_route_table()]:
             template.add_resource(i)
 
-        # # Add subnets
-        # public_subnet_a, public_subnet_b, \
-        # private_subnet_a, private_subnet_b = self.public_subnet_a(), self.public_subnet_b(), \
-        #                                      self.private_subnet_a(), self.private_subnet_b()
-        # template.add_resource(public_subnet_a)
-        # template.add_resource(public_subnet_b)
-        # template.add_resource(private_subnet_a)
-        # template.add_resource(private_subnet_b)
-
         for subnet in self.private_subnets():
             template.add_resource(subnet)
         for subnet in self.public_subnets():
@@ -123,16 +111,6 @@ class C4Network(C4Part):
         # Add subnet outputs
         for i in self.subnet_outputs():
             template.add_output(i)
-
-        # # Create NAT gateways
-        # public_a_nat_eip = self.nat_eip('PublicSubnetA')
-        # public_a_nat_gateway = self.nat_gateway(public_a_nat_eip, public_subnet_a)
-        # template.add_resource(public_a_nat_eip)
-        # template.add_resource(public_a_nat_gateway)
-        # public_b_nat_eip = self.nat_eip('PublicSubnetB')
-        # public_b_nat_gateway = self.nat_gateway(public_b_nat_eip, public_subnet_b)
-        # template.add_resource(public_b_nat_eip)
-        # template.add_resource(public_b_nat_gateway)
 
         first_time = True
 
@@ -386,7 +364,7 @@ class C4Network(C4Part):
         subnets = getattr(self, subnets_key)
         if not subnets:
             subnets = {}
-            for name, entry in C4NetworkExports._SUBNETS.items():
+            for name, entry in C4NetworkExports.SUBNET_CONFIG_INFO.items():
                 if entry['kind'] == kind:
                     cidr_block = entry['cidr_block']
                     az = entry['az']
@@ -397,48 +375,10 @@ class C4Network(C4Part):
         # print(f"_get_subnets({kind}) => {result}")
         return result
 
-    # def private_subnet_a(self) -> Subnet:
-    #     """ Define private subnet A """
-    #     return self.private_subnets()[0]  # TODO: remove this scaffolding method when debugged
-    #     # return self.build_subnet('PrivateSubnetA', '10.0.0.0/18', self.virtual_private_cloud(),
-    #     #                          'us-east-1a')
-    #
-    # def public_subnet_a(self) -> Subnet:
-    #     """ Define public subnet A """
-    #     return self.public_subnets()[0]  # TODO: remove this scaffolding method when debugged
-    #     # return self.build_subnet('PublicSubnetA', '10.0.64.0/18', self.virtual_private_cloud(), 'us-east-1a')
-    #
-    # def private_subnet_b(self) -> Subnet:
-    #     """ Define private subnet B """
-    #     return self.private_subnets()[1]  # TODO: remove this scaffolding method when debugged
-    #     # return self.build_subnet('PrivateSubnetB', '10.0.128.0/18', self.virtual_private_cloud(),
-    #     #                          'us-east-1b')
-    #
-    # def public_subnet_b(self) -> Subnet:
-    #     """ Define public subnet B """
-    #     return self.public_subnets()[1]  # TODO: remove this scaffolding method when debugged
-    #     # return self.build_subnet('PublicSubnetB', '10.0.192.0/18', self.virtual_private_cloud(), 'us-east-1b')
-
     def subnet_outputs(self) -> [Output]:
         """ Define outputs for all subnets, for cross-stack compatibility. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html
         """
-        # subnet_exports = [
-        #     (self.public_subnet_a(), C4NetworkExports.PUBLIC_SUBNET_A),
-        #     (self.public_subnet_b(), C4NetworkExports.PUBLIC_SUBNET_B),
-        #     (self.private_subnet_a(), C4NetworkExports.PRIVATE_SUBNET_A),
-        #     (self.private_subnet_b(), C4NetworkExports.PRIVATE_SUBNET_B),
-        # ]
-        # outputs = []
-        # for subnet, export_name in subnet_exports:
-        #     logical_id = self.name.logical_id(export_name)
-        #     output = Output(
-        #         logical_id,
-        #         Value=Ref(subnet),
-        #         Export=self.EXPORTS.export(export_name),
-        #     )
-        #     outputs.append(output)
-
         outputs = []
         for subnet_dict in [self.PUBLIC_SUBNETS, self.PRIVATE_SUBNETS]:
             for export_name, subnet in subnet_dict.items():
@@ -459,11 +399,6 @@ class C4Network(C4Part):
         private_route_table = self.private_route_table()
         return ([self.build_subnet_association(subnet, public_route_table) for subnet in self.public_subnets()] +
                 [self.build_subnet_association(subnet, private_route_table) for subnet in self.private_subnets()])
-
-        # return [self.build_subnet_association(self.public_subnet_a(), self.public_route_table()),
-        #         self.build_subnet_association(self.public_subnet_b(), self.public_route_table()),
-        #         self.build_subnet_association(self.private_subnet_a(), self.private_route_table()),
-        #         self.build_subnet_association(self.private_subnet_b(), self.private_route_table())]
 
     def db_security_group(self) -> SecurityGroup:
         """ Define the database security group. Ref:
