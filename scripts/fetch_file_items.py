@@ -79,7 +79,9 @@ class FastqFetcher:
         for k, v in self.json_out.items():
             for item in v:
                 post_body = {k: v for k, v in item.items() if k != 'related_files'}
-                related_files[item['uuid']] = item.get('related_files')
+                related_files[item['uuid']] = {
+                    'related_files': item.get('related_files')
+                }
                 try:
                     resp = ff_utils.post_metadata(post_body, k, key=self.new_env_key)
                 except Exception:
