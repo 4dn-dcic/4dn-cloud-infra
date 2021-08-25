@@ -39,7 +39,6 @@ class FastqFetcher:
         else:
             print('No posts performed.')
 
-
     def get_files_from_samples(self):
         for sample_id in self.sample_ids:
             sample = ff_utils.get_metadata(sample_id + '?frame=object', key=self.old_env_key)
@@ -120,10 +119,10 @@ def main():
     Note: this requires project, institution, file_format items to be loaded with the same uuids as fetch environment.
 
     Example usage 1:
-    python fetch_file_items_from_prod.py GAPCAKQB9FPJ
+    python fetch_file_items.py GAPCAKQB9FPJ
 
     Example usage 2:
-    python fetch_file_items_from_prod.py GAPCAKQB9FPJ --post --keyfile ../.cgap-keys.json --keyname-from fourfront-cgapwolf \
+    python fetch_file_items.py GAPCAKQB9FPJ --post --keyfile ../.cgap-keys.json --keyname-from fourfront-cgapwolf \
         --keyname-to fourfront-cgaptest
     """
     parser = argparse.ArgumentParser(  # noqa - PyCharm wrongly thinks the formatter_class is invalid
@@ -153,7 +152,7 @@ def main():
         else:
             new_env_key = None
 
-    result = FastqFetcher(args.accession, old_env_key, new_env_key, outfile=args.outfile)
+    FastqFetcher(args.accession, old_env_key, new_env_key, outfile=args.outfile)
 
 
 if __name__ == '__main__':

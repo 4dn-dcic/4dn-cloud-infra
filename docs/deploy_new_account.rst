@@ -334,3 +334,34 @@ To open the URL instead, use::
 
     open-foursight-url
 
+Step Seven: Deploying Tibanna Zebra
+-----------------------------------
+
+Now it is time to provision Tibanna in this account for CGAP. Ensure test creds are active, in particular the
+correct ``GLOBAL_BUCKET_ENV`` and ``S3_ENCRYPT_KEY`` and deploy Tibanna.::
+
+    source custom/aws_creds/test_creds.sh
+    tibanna_cgap deploy_zebra --subnets <private_subnet> -r <application_security_group> -e <env_name>
+
+While this is happening, transfer the public reference files from the 4DN main account buckets into the new
+account files bucket.::
+
+    aws s3 sync s3://cgap-reference-file-registry s3://<new_application_files_bucket>
+
+This process will take around 20 minutes to complete, after which it is time to test it out. Navigate to
+Foursight and trigger the md5 check - this will run the md5 step on the reference files. You should be able
+to track the progress from the Step Function console or CloudWatch. It should not take more than a few minutes
+for the small files. Once this is done, the portal is ready to analyze cases.
+
+Step Eight: NA12879 Demo Analysis
+---------------------------------
+
+NOTE: this step requires access keys to current CGAP production (cgap.hms.harvard.edu).
+
+With Tibanna deployed we are now able to run the demo analysis using NA12879. The raw files for this case are
+transferred as part of the reference file registry, so we just need to provision the metadata.::
+
+    poetry run fetch-file-items GAPCAKQB9FPJ --post --keyfile ~/.cgap-keys.json --keyname-from fourfront-cgap --keyname-to cgap-devtest
+    poetry run submit-metadata-bundle test_data/na_12879/na12879_accessioning.xlsx --s <portal_url>
+
+TODO: document pipeline kick
