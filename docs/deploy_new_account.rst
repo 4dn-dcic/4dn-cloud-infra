@@ -353,7 +353,7 @@ the bioinformatics metadata to the portal.::
 
     python post_patch_to_portal.py --ff-env=<env_name> --del-prev-version --ugrp-unrelated
 
-Once the aboe 3 steps have completed after 20 mins or so, it is time to test it out. Navigate to
+Once the above 3 steps have completed after 20 mins or so, it is time to test it out. Navigate to
 Foursight and trigger the md5 check - this will run the md5 step on the reference files. You should be able
 to track the progress from the Step Function console or CloudWatch. It should not take more than a few minutes
 for the small files. Once this is done, the portal is ready to analyze cases.
