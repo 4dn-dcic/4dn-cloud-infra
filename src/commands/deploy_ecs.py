@@ -1,7 +1,8 @@
 import argparse
 import boto3
-from dcicutils.misc_utils import PRINT
+
 from dcicutils.ecs_utils import CGAP_ECS_REGION
+from dcicutils.misc_utils import PRINT
 
 
 def list_clusters(client):

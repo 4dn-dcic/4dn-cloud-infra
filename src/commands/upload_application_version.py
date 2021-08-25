@@ -2,6 +2,8 @@ from dcicutils.docker_utils import DockerUtils
 from dcicutils.ecr_utils import ECRUtils
 
 
+# TODO: This script can maybe go away. -kmp&will 21-Jun-2021
+
 # TODO: populate from config
 # Name of the environment we are creating
 ENV_NAME = 'cgap-mastertest'

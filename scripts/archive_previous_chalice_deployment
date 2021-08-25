@@ -1,0 +1,61 @@
+#!/bin/bash
+
+list_how_many=10
+do_help=
+mode=one
+
+while [ $# -gt 0 ]; do
+
+   if [ "$1" = "--list"  ]; then
+      mode=list
+      shift 1
+   elif [ "$1" = "--all"  ]; then
+
+      echo "The -all option is currently disabled."
+      exit 1
+
+      mode=all
+      shift 1
+   else
+      do_help=TRUE
+      break
+   fi
+
+done
+
+if [ $# -gt 0 -o -n "${do_help}" ]; then
+
+   echo "Syntax: $0 [ --list [ --alpha ] | --all | --help ]"
+   echo " Renames the most recent chalice zip file to make room to retry it."
+   echo " With --all, all such files are renamed."
+   echo " With --list, it just lists the files."
+   echo " Only the most recent ${list_how_many} deployment files are listed, in reverse time order."
+   exit 1
+
+fi
+
+if [ "${mode}" != "list" ]; then
+
+   timestamp=$(date "+%Y%m%d%H%M%S")
+
+   for filename in `ls -t .chalice/deployments/*.zip`; do
+      newfilename=${filename}.old.${timestamp}
+      echo "Moving ${filename} => ${newfilename}"
+      mv ${filename} ${newfilename}
+      if [ "${mode}" = "one" ]; then
+         break
+      fi
+   done
+
+fi
+
+options="-adlt"
+
+ls ${options} .chalice/deployments/* | head -${list_how_many}
+
+nfiles=`ls ${options} .chalice/deployments/* | wc -l | bc`
+if [ "${nfiles}" -gt "${list_how_many}" ]; then
+   echo "${list_how_many} deployment files shown (of ${nfiles} files total)"
+else
+   echo "${nfiles} deployment files shown"
+fi

@@ -26,6 +26,15 @@ legacy:
 	# TODO provision Tibanna
 	@echo 'Validation Succeeded!'
 
+assure-s3-encrypt-key:
+	@./scripts/assure_s3_encrypt_key
+
+create-s3-encrypt-key:
+	@./scripts/create_s3_encrypt_key --verbose
+
+clear-poetry-cache:  # clear poetry/pypi cache. for user to do explicitly, never automatic
+	poetry cache clear pypi --all
+
 deploy-alpha-p1:
 	@echo 'CGAP Orchestration Phase 1: Uploading Base Templates'
 	@echo 'ORDER: iam, logging, network, ecr, datastore'
@@ -33,6 +42,7 @@ deploy-alpha-p1:
 	poetry run cli provision logging --validate --alpha --upload_change_set
 	poetry run cli provision network --validate --alpha --upload_change_set
 	poetry run cli provision ecr --validate --alpha --upload_change_set
+	make assure-s3-encrypt-key
 	poetry run cli provision datastore --validate --alpha --upload_change_set
 	@echo 'Datastore stacks takes ~15 minutes to come online.'
 	@echo 'While this happens, you should be:'
@@ -64,7 +74,7 @@ provision-knowledge-base:
 	@echo 'Knowledge base loaded, ready for end-to-end test.'
 	@echo 'Start with: "make submission".'
 
-submission:
+submission:  # TODO: This make target is highly account-specific and needs work to be generalized.
 	@echo 'Running end-to-end test'
 	@echo 'Phase 1: Metadata Bundle Submission for Demo Case NA 12879'
 	@echo 'NOTE: This test is intended to be run on the Trial Account ECS only (for now)'
@@ -77,6 +87,9 @@ submission:
 	@echo 'Associate this item with the output VCF by adding the VCF file to the "processed_files" field.'
 	@echo 'Once this is done, trigger ingestion with: "make ingestion". '
 
+test:
+	pytest -vv
+
 
 ingestion:
 	@echo 'Triggering ingestion'
@@ -87,9 +100,11 @@ info:
 	@: $(info Here are some 'make' options:)
 	   $(info - Use 'make alpha' to trigger validation of the alpha stack.)
 	   $(info - Use 'make build' to populate the current virtualenv with necessary libraries and commands.)
-	   $(info - Use 'make legacy' to trigger validation of the legacy stack.)
+	   $(info - Use 'make clear-poetry-cache' to clear the poetry pypi cache if in a bad state. (Safe, but later recaching can be slow.))
 	   $(info - Use 'make deploy-alpha-p1' to trigger phase 1 of the alpha deployment: change set upload of the IAM, Logging, Network, ECR and Datastore.)
 	   $(info - Use 'make deploy-alpha-p2' to trigger phase 2 of the alpha deployment: application version upload to ECR, ECS provisioning.)
+	   $(info - use 'make ingestion' to trigger the last phase of testing)
+	   $(info - Use 'make legacy' to trigger validation of the legacy stack.)
 	   $(info - use 'make provision-knowledge-base' to trigger phase 1 of testing)
 	   $(info - use 'make submission' to trigger phase 2 of testing, note manual steps after phase 2!)
-	   $(info - use 'make ingestion' to trigger the last phase of testing)
+	   $(info - use 'make test' to run unit tests. (These only test scattered things. Manual testing is essential.))

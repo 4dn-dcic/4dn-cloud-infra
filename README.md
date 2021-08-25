@@ -52,7 +52,7 @@ current test setup:
 * It may take a few hours for this process to run, especially if it is the first time.
 
 
-Instructions for testing:
+Instructions for testing:  (TODO: May need some updating)
 
     # First load required knowledge base data
     make load-knowledge-base

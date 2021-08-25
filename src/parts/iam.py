@@ -1,17 +1,15 @@
-import os
-
-from troposphere import Region, AccountId, Template, Ref, Output, Join
-from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey
+from awacs.aws import PolicyDocument, Statement, Action, Principal
 from awacs.ecr import (
     GetAuthorizationToken,
     GetDownloadUrlForLayer,
     BatchGetImage,
     BatchCheckLayerAvailability,
 )
-from awacs.aws import PolicyDocument, Statement, Action, Principal
-from src.constants import ENV_NAME
-from src.part import C4Part
-from src.exports import C4Exports
+from troposphere import Region, AccountId, Template, Ref, Output, Join
+from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey
+from ..base import exportify
+from ..part import C4Part
+from ..exports import C4Exports
 
 
 class C4IAMExports(C4Exports):
@@ -19,10 +17,10 @@ class C4IAMExports(C4Exports):
             * assumed IAM role for ECS container
             * corresponding instance profile
     """
-    ECS_ASSUMED_IAM_ROLE = 'ExportECSAssumedIAMRole'
-    ECS_INSTANCE_PROFILE = 'ExportECSInstanceProfile'
-    AUTOSCALING_IAM_ROLE = 'ExportECSAutoscalingIAMRole'
-    S3_IAM_USER = 'ExportECSS3IAMUser'
+    ECS_ASSUMED_IAM_ROLE = exportify('ECSAssumedIAMRole')  # was 'ExportECSAssumedIAMRole'
+    ECS_INSTANCE_PROFILE = exportify('ECSInstanceProfile')  # was 'ExportECSInstanceProfile'
+    AUTOSCALING_IAM_ROLE = exportify('ECSAutoscalingIAMRole')  # was 'ExportECSAutoscalingIAMRole'
+    S3_IAM_USER = exportify('ECSS3IAMUser')  # was 'ExportECSS3IAMUser'
 
     def __init__(self):
         parameter = 'IAMStackNameParameter'
@@ -38,6 +36,9 @@ class C4IAM(C4Part):
     INSTANCE_PROFILE_NAME = 'CGAPECSInstanceProfile'
     AUTOSCALING_ROLE_NAME = 'CGAPECSAutoscalingRole'
     EXPORTS = C4IAMExports()
+    STACK_NAME_TOKEN = "iam"
+    STACK_TITLE_TOKEN = "IAM"
+    SHARING = 'ecosystem'
 
     def build_template(self, template: Template) -> Template:
         """ Builds current IAM template, currently just the ECS assumed IAM role
@@ -103,9 +104,11 @@ class C4IAM(C4Part):
             )
         )
 
-    def ecs_es_policy(self, domain_name='c4datastore*') -> Policy:
+    def ecs_es_policy(self, domain_name=None) -> Policy:
         """ Grants ECS access to ElasticSearch.
         """
+        if domain_name is None:
+            domain_name = '*'  # TODO: Namespace better, such as 'c4datastore*' but with something that actually matches
         return Policy(
             PolicyName='ECSESAccessPolicy',
             PolicyDocument=dict(
@@ -120,7 +123,8 @@ class C4IAM(C4Part):
             )
         )
 
-    def ecs_secret_manager_policy(self) -> Policy:
+    @classmethod
+    def ecs_secret_manager_policy(cls) -> Policy:
         """ Provides ECS access to the specified secret.
             The secret ID determines the environment name we are creating.
             TODO: Should this also be created here? Or manually uploaded?
@@ -336,8 +340,21 @@ class C4IAM(C4Part):
         return Role(
             self.ROLE_NAME,
             # IMPORTANT: Required for EC2s to associate with ECS
+            # XXX: AWSServiceRoleForECS needed for running ECS (?)
             ManagedPolicyArns=[
-                "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
+                # "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
+                # NOTE: Will thinks that THIS is what we need, not the above:
+                #
+                # "arn:aws:iam::aws:policy/aws-service-role/AmazonECSServiceRolePolicy"
+                #
+                #   but using that URL gets me:
+                #
+                #   Cannot attach a Service Role Policy to a Customer Role.
+                #   (Service: AmazonIdentityManagement;
+                #    Status Code: 400;
+                #    Error Code: PolicyNotAttachable;
+                #    Request ID: 14573591-6e7c-4fd3-8d74-47edc41df495;
+                #    Proxy: null)
             ],
             # IMPORTANT: BOTH ECS and EC2 need AssumeRole
             AssumeRolePolicyDocument=PolicyDocument(
@@ -347,20 +364,19 @@ class C4IAM(C4Part):
                     Action=[
                         Action('sts', 'AssumeRole')
                     ],
-                    Principal=Principal('Service', 'ecs.amazonaws.com')
-            ), Statement(
-                    Effect='Allow',
-                    Action=[
-                        Action('sts', 'AssumeRole')
-                    ],
-                    Principal=Principal('Service', 'ec2.amazonaws.com')
-            ), Statement(
-                    Effect='Allow',
-                    Action=[
-                        Action('sts', 'AssumeRole')
-                    ],
-                    Principal=Principal('Service', 'ecs-tasks.amazonaws.com')
-            )]),
+                    Principal=Principal('Service', 'ecs.amazonaws.com')),
+                    Statement(
+                        Effect='Allow',
+                        Action=[
+                            Action('sts', 'AssumeRole')
+                        ],
+                    Principal=Principal('Service', 'ec2.amazonaws.com')),
+                    Statement(
+                        Effect='Allow',
+                        Action=[
+                            Action('sts', 'AssumeRole')
+                        ],
+                        Principal=Principal('Service', 'ecs-tasks.amazonaws.com'))]),
             Policies=policies
         )
 
