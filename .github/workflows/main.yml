@@ -30,7 +30,7 @@ jobs:
       - name: Unit
         run: |
           # Run any available unit tests.
-          pip install pytest
+          pip install pytest==5.1.2
           make test
 
       - name: Validate
