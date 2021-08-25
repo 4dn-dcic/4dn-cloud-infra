@@ -37,6 +37,6 @@ jobs:
         run: |
           # Write a suitable config.json for (primitive) testing
           mkdir custom
-          echo {\"deploying_iam_user\": \"test\", \"ENCODED_BS_ENV\": \"cgap-build\"} > custom/config.json
+          echo {\"deploying_iam_user\": \"test\", \"ENCODED_BS_ENV\": \"cgap-build\", \"account_number\": 123} > custom/config.json
           touch custom/secrets.json
           make alpha
