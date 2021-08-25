@@ -78,7 +78,7 @@ class FastqFetcher:
         related_files = {}
         for k, v in self.json_out.items():
             for item in v:
-                post_body = {k: v for k, v in item.item() if k != 'related_files'}
+                post_body = {k: v for k, v in item.items() if k != 'related_files'}
                 related_files[item['uuid']] = item.get('related_files')
                 try:
                     resp = ff_utils.post_metadata(post_body, k, key=self.new_env_key)
@@ -109,11 +109,12 @@ class FastqFetcher:
         print(f'file relation patching: {results_dict["patch"]["success"]} success, '
               f'{results_dict["patch"]["fail"]} fail')
 
+
 def main():
     """
     Used for fetching fastqs associated with a case on one cgap environment, and writing out to a json file
     or posting to a new env. By default does not post and just writes to a default filename.
-    
+
     Note: this requires project, institution, file_format items to be loaded with the same uuids as fetch environment.
 
     Example usage 1:
