@@ -38,5 +38,5 @@ jobs:
           # Write a suitable config.json for (primitive) testing
           mkdir custom
           echo {\"deploying_iam_user\": \"test\", \"ENCODED_BS_ENV\": \"cgap-build\", \"account_number\": 123} > custom/config.json
-          echo {\"Auth0Client\": \"test\", \"AuthSecret\": \"test\", \"ENCODED_SECRET\": \"test\", \"S3_ENCRYPT_KEY\": \"test\"} > custom/secrets.json
+          echo {\"Auth0Client\": \"test\", \"Auth0Secret\": \"test\", \"ENCODED_SECRET\": \"test\", \"S3_ENCRYPT_KEY\": \"test\"} > custom/secrets.json
           make alpha
