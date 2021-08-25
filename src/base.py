@@ -406,3 +406,4 @@ if not DEPLOYING_IAM_USER:
     raise ValueError(f"A setting for {Settings.DEPLOYING_IAM_USER} is required.")
 
 ECOSYSTEM = ConfigManager.get_config_setting(Settings.S3_BUCKET_ECOSYSTEM, default=DEFAULT_ECOSYSTEM)
+
