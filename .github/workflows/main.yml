@@ -30,6 +30,7 @@ jobs:
       - name: Unit
         run: |
           # Run any available unit tests.
+          pip install pytest
           make test
 
       - name: Validate
