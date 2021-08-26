@@ -40,8 +40,5 @@ jobs:
           mkdir custom/aws_creds
           echo {\"deploying_iam_user\": \"test\", \"ENCODED_BS_ENV\": \"cgap-build\", \"account_number\": 123, \"app.kind\": \"cgap\"} > custom/config.json
           echo {\"Auth0Client\": \"test\", \"Auth0Secret\": \"test\", \"ENCODED_SECRET\": \"test\", \"S3_ENCRYPT_KEY\": \"test\"} > custom/secrets.json
-          echo $"[default]\n" > custom/aws_creds/config
-          echo $"region = us-east-1\n" >> custom/aws_creds/config
-          echo $"output = json\n"  >> custom/aws_creds/config
-          ln -s `pwd`/custom/aws_creds $HOME/.aws_test
+          export AWS_DEFAULT_REGION=us-east-1
           make alpha
