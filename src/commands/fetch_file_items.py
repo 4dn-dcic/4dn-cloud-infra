@@ -126,7 +126,7 @@ def main():
         --keyname-to fourfront-cgaptest
     """
     parser = argparse.ArgumentParser(  # noqa - PyCharm wrongly thinks the formatter_class is invalid
-        description="Load Test Data", epilog=EPILOG,
+        description="Load fastq files from a case on one environment to a new environment", epilog=EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument('accession', help="Case Accession")

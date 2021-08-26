@@ -46,6 +46,7 @@ botocore-stubs = "^1.21.7"
 [tool.poetry.scripts]
 assure-global-bucket-env = "src.commands.assure_global_env_bucket:main"
 cli = "src.cli:cli"
+create-demo-metawfr = "src.commands.create_demo_metawfr:main"
 deploy-ecs = "src.commands.deploy_ecs:main"
 fetch-file-items = "src.commands.fetch_file_items:main"
 load-knowledge-base = "src.commands.load_knowledge_base:main"
