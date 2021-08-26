@@ -311,7 +311,7 @@ class C4Datastore(C4Part):
                 Lifecycle:IA to move the object to infrequent access
                 Lifecycle:glacier to move the object to glacier
                 Lifecycle:glacier_da to move the object to deep archive
-                Lifecycle:expire to delete the current version after 30 days
+                Lifecycle:expire to delete the current version after 24 hours
         """
         return LifecycleConfiguration(
             title='CGAPS3LifecyclePolicy',
@@ -340,7 +340,7 @@ class C4Datastore(C4Part):
                 LifecycleRule(
                     'expire',
                     TagFilters=TagFilter(key='Lifecycle', value='expire'),
-                    ExpirationInDays=30
+                    ExpirationInDays=1
                 )
             ]
         )
