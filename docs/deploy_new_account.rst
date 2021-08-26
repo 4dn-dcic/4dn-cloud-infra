@@ -334,3 +334,58 @@ To open the URL instead, use::
 
     open-foursight-url
 
+Step Seven: Deploying Tibanna Zebra
+-----------------------------------
+
+Now it is time to provision Tibanna in this account for CGAP. Ensure test creds are active, in particular the
+correct ``GLOBAL_BUCKET_ENV`` and ``S3_ENCRYPT_KEY``, then deploy Tibanna. Note that the
+credentials for the account you're deploying into must be active for all subsequent steps.::
+
+    source custom/aws_creds/test_creds.sh
+    tibanna_cgap deploy_zebra --subnets <private_subnet> -r <application_security_group> -e <env_name>
+
+If you have ENV_NAME set correctly as an environment variable, you can accomplish this by doing::
+
+    tibanna_cgap deploy_zebra --subnets `network-attribute PrivateSudbnetA` -e $ENV_NAME -r `network-attribute ApplicationSecurityGroup`
+
+While this is happening, transfer the public reference files from the 4DN main account buckets into the new
+account files bucket.::
+
+    aws s3 sync s3://cgap-reference-file-registry s3://<new_application_files_bucket>
+
+Then, clone the cgap-pipeline repo, checkout the version you want to deploy (v24 as of writing) and upload
+the bioinformatics metadata to the portal.::
+
+    python post_patch_to_portal.py --ff-env=<env_name> --del-prev-version --ugrp-unrelated
+
+Once the above 3 steps have completed after 20 mins or so, it is time to test it out. Navigate to
+Foursight and trigger the md5 check - this will run the md5 step on the reference files. You should be able
+to track the progress from the Step Function console or CloudWatch. It should not take more than a few minutes
+for the small files. Once this is done, the portal is ready to analyze cases.
+
+Step Eight: NA12879 Demo Analysis
+---------------------------------
+
+NOTE: this step requires access keys to current CGAP production (cgap.hms.harvard.edu).
+
+With Tibanna deployed we are now able to run the demo analysis using NA12879. The raw files for this case are
+transferred as part of the reference file registry, so we just need to provision the metadata.::
+
+    poetry run fetch-file-items GAPCAKQB9FPJ --post --keyfile ~/.cgap-keys.json --keyname-from fourfront-cgap --keyname-to <new_env_name>
+    poetry run submit-metadata-bundle test_data/na_12879/na12879_accessioning.xlsx --s <portal_url>
+
+At this point you have a case for the NA12879 WGS Trio analysis and can upload a MetaWorkflowRun
+(meta_wfr) for the pipeline run. Use the provided command to create a meta_wfr for the demo
+analysis.::
+
+    poetry run create-demo-metawfr <case_uuid> --post-metawfr --patch-case
+
+Once this is done, navigate to Foursight and execute the ``Metawfrs to run`` check and associated
+action, which will kick the pipeline. If a step fails due to spot interruption or other failure,
+you can re-kick the failed steps by executing the ``Failed Metawfrs`` check and associated action.
+The steps will restart on the next automated run of the ``Metawfrs to run`` check, which runs
+every 15 minutes. You can manually run this check and associated action to immediately trigger
+the restart.
+
+Once the output VCF has been ingested, the pipeline is considered complete and variants can be
+interpreted through the portal.
