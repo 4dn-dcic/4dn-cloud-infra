@@ -43,4 +43,5 @@ jobs:
           echo $"[default]\n" > custom/aws_creds/config
           echo $"region = us-east-1\n" >> custom/aws_creds/config
           echo $"output = json\n"  >> custom/aws_creds/config
+          ln -s `pwd`/custom/aws_creds $HOME/.aws_test
           make alpha
