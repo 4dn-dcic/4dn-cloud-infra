@@ -22,6 +22,12 @@ jobs:
         with:
           python-version: '3.6'
 
+      - uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: test
+          aws-secret-access-key: test
+          aws-region: us-east-1
+
       - name: Install
         run: |
           pip install poetry
@@ -40,5 +46,4 @@ jobs:
           mkdir custom/aws_creds
           echo {\"deploying_iam_user\": \"test\", \"ENCODED_BS_ENV\": \"cgap-build\", \"account_number\": 123, \"app.kind\": \"cgap\"} > custom/config.json
           echo {\"Auth0Client\": \"test\", \"Auth0Secret\": \"test\", \"ENCODED_SECRET\": \"test\", \"S3_ENCRYPT_KEY\": \"test\"} > custom/secrets.json
-          export AWS_DEFAULT_REGION=us-east-1
           make alpha
