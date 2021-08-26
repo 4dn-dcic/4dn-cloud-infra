@@ -338,7 +338,8 @@ Step Seven: Deploying Tibanna Zebra
 -----------------------------------
 
 Now it is time to provision Tibanna in this account for CGAP. Ensure test creds are active, in particular the
-correct ``GLOBAL_BUCKET_ENV`` and ``S3_ENCRYPT_KEY`` and deploy Tibanna.::
+correct ``GLOBAL_BUCKET_ENV`` and ``S3_ENCRYPT_KEY``, then deploy Tibanna. Note that the
+credentials for the account you're deploying into must be active for all subsequent steps.::
 
     source custom/aws_creds/test_creds.sh
     tibanna_cgap deploy_zebra --subnets <private_subnet> -r <application_security_group> -e <env_name>
@@ -369,4 +370,18 @@ transferred as part of the reference file registry, so we just need to provision
     poetry run fetch-file-items GAPCAKQB9FPJ --post --keyfile ~/.cgap-keys.json --keyname-from fourfront-cgap --keyname-to <new_env_name>
     poetry run submit-metadata-bundle test_data/na_12879/na12879_accessioning.xlsx --s <portal_url>
 
-TODO: document pipeline kick
+At this point you have a case for the NA12879 WGS Trio analysis and can upload a MetaWorkflowRun
+(meta_wfr) for the pipeline run. Use the provided command to create a meta_wfr for the demo
+analysis.::
+
+    poetry run create-demo-metawfr <case_uuid> --post-metawfr --patch-case
+
+Once this is done, navigate to Foursight and execute the ``Metawfrs to run`` check and associated
+action, which will kick the pipeline. If a step fails due to spot interruption or other failure,
+you can re-kick the failed steps by executing the ``Failed Metawfrs`` check and associated action.
+The steps will restart on the next automated run of the ``Metawfrs to run`` check, which runs
+every 15 minutes. You can manually run this check and associated action to immediately trigger
+the restart.
+
+Once the output VCF has been ingested, the pipeline is considered complete and variants can be
+interpreted through the portal.
