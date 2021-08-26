@@ -344,6 +344,10 @@ credentials for the account you're deploying into must be active for all subsequ
     source custom/aws_creds/test_creds.sh
     tibanna_cgap deploy_zebra --subnets <private_subnet> -r <application_security_group> -e <env_name>
 
+If you have ENV_NAME set correctly as an environment variable, you can accomplish this by doing::
+
+    tibanna_cgap deploy_zebra --subnets `network-attribute PrivateSudbnetA` -e $ENV_NAME -r `network-attribute ApplicationSecurityGroup`
+
 While this is happening, transfer the public reference files from the 4DN main account buckets into the new
 account files bucket.::
 
