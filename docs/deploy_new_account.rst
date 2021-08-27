@@ -338,8 +338,9 @@ Step Seven: Deploying Tibanna Zebra
 -----------------------------------
 
 Now it is time to provision Tibanna in this account for CGAP. Ensure test creds are active, in particular the
-correct ``GLOBAL_BUCKET_ENV`` and ``S3_ENCRYPT_KEY``, then deploy Tibanna. Note that the
-credentials for the account you're deploying into must be active for all subsequent steps.::
+correct ``GLOBAL_BUCKET_ENV`` and ``S3_ENCRYPT_KEY``, then deploy Tibanna. Note that all of the following steps
+take some significant time so should be run in parallel if possible. Note additionally that the
+credentials for the account you're deploying into must be active for all subsequent steps::
 
     source custom/aws_creds/test_creds.sh
     tibanna_cgap deploy_zebra --subnets <private_subnet> -r <application_security_group> -e <env_name>
@@ -349,19 +350,24 @@ If you have ENV_NAME set correctly as an environment variable, you can accomplis
     tibanna_cgap deploy_zebra --subnets `network-attribute PrivateSudbnetA` -e $ENV_NAME -r `network-attribute ApplicationSecurityGroup`
 
 While this is happening, transfer the public reference files from the 4DN main account buckets into the new
-account files bucket.::
+account files bucket::
 
     aws s3 sync s3://cgap-reference-file-registry s3://<new_application_files_bucket>
 
 Then, clone the cgap-pipeline repo, checkout the version you want to deploy (v24 as of writing) and upload
-the bioinformatics metadata to the portal.::
+the bioinformatics metadata to the portal::
 
     python post_patch_to_portal.py --ff-env=<env_name> --del-prev-version --ugrp-unrelated
 
-Once the above 3 steps have completed after 20 mins or so, it is time to test it out. Navigate to
+Finally, push the tibanna-awsf image to the newly created ECR Repository in the new account::
+
+    ./scripts/upload_tibanna_awsf
+
+Once the above steps have completed after 20 mins or so, it is time to test it out. Navigate to
 Foursight and trigger the md5 check - this will run the md5 step on the reference files. You should be able
 to track the progress from the Step Function console or CloudWatch. It should not take more than a few minutes
-for the small files. Once this is done, the portal is ready to analyze cases.
+for the small files. Once this is done, the portal is ready to analyze cases. One should consider requesting an
+increase in the spot instance allocation limits as well if the account is intended to run at scale.
 
 Step Eight: NA12879 Demo Analysis
 ---------------------------------

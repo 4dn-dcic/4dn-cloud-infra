@@ -35,7 +35,9 @@ Deleting the Foursight and ECS Stacks
 
 Navigate to the CloudFormation console and delete the Foursight and ECS stacks. This will bring
 down both Foursight and the portal, and has the practical effect of "turning off" most API endpoints
-without destroying the system.
+without destroying the system. Sometimes an error is reported associated with the roles - you might need
+to manually delete the roles from the IAM console before proceeding, or you can attempt the delete
+again and persist the resources that failed to delete.
 
 Note well: Stop at this step if you are looking to put an environment into hibernation mode.
 Size down the RDS and ES resources sizes to minimize server cost when hibernating.
