@@ -137,6 +137,7 @@ class C4ContainerRegistry(C4Part):
             'tibannaawsf',
             RepositoryName='tibanna-awsf',
             RepositoryPolicyText=self.ecr_access_policy(),
+            ImageScanningConfiguration={"ScanOnPush": True},
             Tags=self.tags.cost_tag_obj(),
         )
 
