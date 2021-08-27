@@ -329,9 +329,9 @@
         "title": "Failed Metawfrs",
         "group": "Pipeline checks",
         "schedule": {
-            "manual_checks": {
+            "fifteen_min_checks_2": {
                 "<env-name>": {
-                    "kwargs": {"primary": true},
+                    "kwargs": {"primary": true, "queue_action":  "prod"},
                     "dependencies": []
                 }
             }
