@@ -45,6 +45,17 @@ STACK_KINDS = ['alpha']  # No longer supporting 'legacy' stacks
 #     return name.replace('-', '')
 
 
+_INI_FILE_KEY_REGEXP = re.compile("^([^ =]+)[ ]*=[ ]*(.*)$")
+
+def ini_file_get(file, key):  # TODO: Move to dcicutils
+    with io.open(file, 'r') as fp:
+        for line in fp:
+            matched = _INI_FILE_KEY_REGEXP.match(line)
+            if matched:
+                if key == matched.group(1):
+                    return matched.group(2)
+
+
 @decorator()
 def register_stack_creator(*, name, kind, implementation_class):
     registered_classes = REGISTERED_STACK_CLASSES.get(kind)

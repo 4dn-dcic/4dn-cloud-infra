@@ -3,13 +3,11 @@ import boto3
 import json
 
 from botocore.client import ClientError
-from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import ignorable, PRINT
 from dcicutils.s3_utils import s3Utils
 from ..base import ConfigManager
-from ..constants import Settings
 from ..parts.datastore import C4DatastoreExports
-from ..parts.ecs import C4ECSApplicationExports
+
 
 def bucket_head(*, bucket_name, s3=None):
     try:
@@ -25,9 +23,6 @@ def bucket_exists(*, bucket_name, s3=None):
 
 def setup_tibanna():
 
-    PRINT("This is still under development and not yet ready to use.")
-    return
-
     # Find out what tibanna output bucket is intended.
 
     intended_tibanna_output_bucket = C4DatastoreExports.get_tibanna_output_bucket()
@@ -37,15 +32,17 @@ def setup_tibanna():
     s3u = s3Utils()
     tibanna_output_bucket = s3u.tibanna_output_bucket
     if tibanna_output_bucket:
-        print(f"The S3 tibanna output bucket, {s3u.tibanna_output_bucket}, has been correctly set up.")
+        PRINT(f"The S3 tibanna output bucket, {s3u.tibanna_output_bucket}, has been correctly set up.")
     else:
-        print(f"The S3 tibanna output bucket, {intended_tibanna_output_bucket}, is not available.")
+        PRINT(f"The S3 tibanna output bucket, {intended_tibanna_output_bucket}, is not available.")
         # ... hmm ... if s3u.fetch_health_page_json()
 
-    if bucket_exists(bucket_name=tibanna_output_bucket):
-        print(f"The S3 tibanna output bucket, {tibanna_output_bucket}, exists on S3.")
+    if bucket_exists(bucket_name=tibanna_output_bucket, s3=s3u.s3):
+        PRINT(f"The S3 tibanna output bucket, {tibanna_output_bucket}, exists on S3.")
     else:
-        print(f"The S3 tibanna output bucket, {tibanna_output_bucket}, does NOT exist on S3.")
+        PRINT(f"The S3 tibanna output bucket, {tibanna_output_bucket}, does NOT exist on S3.")
+
+    PRINT("NOTE: This only checked some things. No changes made. This is work in progress. More might still need to be done.")
 
 
 

@@ -7,6 +7,30 @@ Change Log
 ----------
 
 
+1.2.0
+=====
+
+* Add ``repositories/`` to ``.gitignore``.
+
+* Add command ``setup-tibanna``, ``setup-pipeline``, etc.
+  (More detail needed here.)
+
+* Add command ``datastore-attribute`` and ``show-datastore-attribute``.
+
+* Updates to ``docs/deploy_new_account.rst``.
+
+* In ``src/base.py``:
+
+  * New function ``ini_file_get`` to retrieve values from a file
+    in ini file format.
+
+* In ``src/commands``:
+
+  * Adjust ``find_command.py`` to use object hierarchy better.
+
+  * Make programmatic interfaces to some of the data.
+
+
 1.1.0
 =====
 
@@ -31,6 +55,7 @@ Change Log
 
       tibanna_cgap deploy_zebra --subnets subnet-0f17774efedb225b9 -e cgap-supertest -r sg-006cb1b93e2243af2
 
+* Also add this CHANGELOG.rst and some testing for it being up-to-date.
 
 1.0.0
 =====

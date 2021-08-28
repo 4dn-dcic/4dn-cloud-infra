@@ -153,35 +153,57 @@ class ShowAttributeCommand(CommonResourceCommand):
                     name=args.name, show_newline=args.show_newline if cls.ALLOW_NEWLINE else False)
 
     @classmethod
-    def execute(cls, *, name, env_name, ecosystem, show_newline):
-        names = [subnet_name.strip() for subnet_name in name.split(",")]
+    def find_output_values(cls, names, env_name=ENV_NAME, ecosystem=ECOSYSTEM):
         env_prefix = COMMON_STACK_PREFIX_CAMEL_CASE + camelize(cls.STACK_KIND) + camelize(env_name)
         eco_prefix = COMMON_STACK_PREFIX_CAMEL_CASE + camelize(cls.STACK_KIND) + camelize(ecosystem)
-        found_outputs = []
+        found_output_values = []
         for output_name in names:
             output = (ConfigManager.find_stack_output(env_prefix + output_name, value_only=True) or
                       ConfigManager.find_stack_output(eco_prefix + output_name, value_only=True))
             if output is None:
-                raise ValueError(f"The name {output_name} does not refer to a defined output.")
-            found_outputs.append(output)
-        PRINT(",".join(found_outputs), end="\n" if cls.ALLOW_NEWLINE and show_newline else "")
+                raise ValueError(f"The name {output_name} does not refer to a defined {cls.STACK_KIND} output.")
+            found_output_values.append(output)
+        return found_output_values
+
+    @classmethod
+    def find_attributes(cls, name, env_name=ENV_NAME, ecosystem=ECOSYSTEM):
+        names = [segment.strip() for segment in name.split(",")]
+        found_output_values = cls.find_output_values(names=names, env_name=env_name, ecosystem=ecosystem)
+        return ",".join(found_output_values)
+
+    @classmethod
+    def execute(cls, *, name, env_name, ecosystem, show_newline):
+        found_attributes = cls.find_attributes(name=name, env_name=env_name, ecosystem=ecosystem)
+        PRINT(found_attributes, end="\n" if cls.ALLOW_NEWLINE and show_newline else "")
 
 
 class ShowNetworkAttributeCommand(ShowAttributeCommand):
-
     STACK_KIND = 'network'
 
 
 show_network_attribute_main = ShowNetworkAttributeCommand.main
 
 
-class NetworkAttributeCommand(ShowAttributeCommand):
-
-    STACK_KIND = 'network'
+class NetworkAttributeCommand(ShowNetworkAttributeCommand):
     ALLOW_NEWLINE = False
 
 
 network_attribute_main = NetworkAttributeCommand.main
+
+
+class ShowDatastoreAttributeCommand(ShowAttributeCommand):
+    STACK_KIND = 'datastore'
+
+
+show_datastore_attribute_main = ShowDatastoreAttributeCommand.main
+
+
+class DatastoreAttributeCommand(ShowDatastoreAttributeCommand):
+    ALLOW_NEWLINE = False
+
+
+datastore_attribute_main = DatastoreAttributeCommand.main
+
 
 
 class ShowFoursightURLCommand(CommonResourceCommand):
