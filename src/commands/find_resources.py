@@ -1,5 +1,6 @@
 import argparse
 import boto3
+import os
 import subprocess
 
 from dcicutils.misc_utils import find_association, PRINT
@@ -22,6 +23,8 @@ def hyphenify(x):
 # https://stackoverflow.com/questions/36560504/how-do-i-find-the-api-endpoint-of-a-lambda-function
 
 def get_foursight_url(*, env_name=ENV_NAME, region=REGION):
+    if not os.environ.get("GLOBAL_ENV_BUCKET") and not os.environ.get("GLOBAL_BUCKET_ENV"):
+        raise RuntimeError("Cannot compute the appropriate URL because GLOBAL_ENV_BUCKET is not bound.")
     api_gateway = boto3.client('apigateway')
     if region is None:
         region = api_gateway.meta.region_name
@@ -42,6 +45,8 @@ def open_foursight_url(*, env_name=ENV_NAME, region=REGION):
 
 
 def get_portal_url(*, env_name=ENV_NAME):
+    if not os.environ.get("GLOBAL_ENV_BUCKET") and not os.environ.get("GLOBAL_BUCKET_ENV"):
+        raise RuntimeError("Cannot compute the appropriate URL because GLOBAL_ENV_BUCKET is not bound.")
     result = C4ECSApplicationExports.get_application_url(env_name)
     if not result:
         raise ValueError(f"Cannot find portal for {env_name}.")
@@ -49,17 +54,74 @@ def get_portal_url(*, env_name=ENV_NAME):
 
 
 def open_portal_url(*, env_name=ENV_NAME):
+    """
+    Attempts to open the portal home page, returning True if it probably did, or False if it knows it did not.
+    In the failing situation (return value False), an explanatory error message will have been printed already.
+
+    :param env_name: the environment name whose page use (default taken from custom/config.json)
+    """
     portal_url = get_portal_url(env_name=env_name)
+    return open_cgap_or_fourfront_url(portal_url)
+
+
+def is_portal_uninitialized(*, sample_url):
+    """
+    This is a kind of blurry function that mostly creates an opportunity for a better error message
+    before opening a URL for real.
+
+    It returns True if the portal is probably not correctly spun up.
+    It returns False if there was no obvious error in talking to the portal.
+    Otherwise, if there was some other kind of error, that's reported by raising the error that was found.
+    """
     try:
-        subprocess.check_output(['curl', portal_url, '--silent', '--fail'])
+        subprocess.check_output(['curl', sample_url, '--silent', '--fail'])
     except subprocess.CalledProcessError as e:
         if e.returncode == 22:
-            page_text = subprocess.check_output(['curl', portal_url, '--silent']).decode('utf-8')
+            page_text = subprocess.check_output(['curl', sample_url, '--silent']).decode('utf-8')
             if 'waitress' in page_text:
-                PRINT(f"The remote page, {portal_url}, exists but is getting a waitress error.")
+                PRINT(f"The remote page, {sample_url}, exists but is getting a waitress error.")
                 PRINT("Did you run the initial deployment action?")
-                exit(1)
-    subprocess.check_output(['open', portal_url])
+                return True
+        raise
+    return False
+
+
+def open_cgap_or_fourfront_url(url):
+    """
+    Attempts to open URL, returning True if it probably did, or False if it knows it did not.
+    In the failing situation (return value False), an explanatory error message will have been printed already.
+
+    NOTE: Although this function could open any URL, the error messages are optimized for opening a page
+          on an orchestrated CGAP (or, one day, Fourfront) portal.
+
+    :param url: The URL to open.
+    """
+
+    try:
+        if is_portal_uninitialized(sample_url=url):
+            return False
+        subprocess.check_output(['open', url])
+    except Exception as e:
+        PRINT(f"An attempt was made to open {url}, but that failed with this message:\n{e}")
+        return False
+    return True
+
+
+def get_health_page_url(*, env_name=ENV_NAME):
+    portal_url = get_portal_url(env_name=env_name)
+    health_page_url = portal_url + "/health?format=json"
+    return health_page_url
+
+
+def open_health_page_url(*, env_name=ENV_NAME):
+    """
+    Attempts to open the portal health page, returning True if it probably did, or False if it knows it did not.
+    In the failing situation (return value False), an explanatory error message will have been printed already.
+
+    :param env_name: the environment name whose page to use (default taken from custom/config.json)
+    """
+    health_page_url = get_health_page_url(env_name=env_name)
+    return open_cgap_or_fourfront_url(health_page_url)
 
 
 class ResourceCommand:
@@ -205,7 +267,6 @@ class DatastoreAttributeCommand(ShowDatastoreAttributeCommand):
 datastore_attribute_main = DatastoreAttributeCommand.main
 
 
-
 class ShowFoursightURLCommand(CommonResourceCommand):
 
     COMMON_ARGUMENT_NAMES = ['env_name', 'region']
@@ -252,3 +313,27 @@ class OpenPortalURLCommand(CommonResourceCommand):
 
 
 open_portal_url_main = OpenPortalURLCommand.main
+
+
+class ShowHealthPageURLCommand(CommonResourceCommand):
+
+    COMMON_ARGUMENT_NAMES = ['env_name']
+
+    @classmethod
+    def execute(cls, *, env_name):
+        PRINT(get_health_page_url(env_name=env_name))
+
+
+show_health_page_url_main = ShowHealthPageURLCommand.main
+
+
+class OpenHealthPageURLCommand(CommonResourceCommand):
+
+    COMMON_ARGUMENT_NAMES = ['env_name']
+
+    @classmethod
+    def execute(cls, *, env_name):
+        open_health_page_url(env_name=env_name)
+
+
+open_health_page_url_main = OpenHealthPageURLCommand.main

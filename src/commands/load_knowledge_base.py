@@ -141,7 +141,8 @@ class KnowledgeBase:
         for include_type in included_types:
             if include_type in seen_types:
                 duplicate_types.add(include_type)
-            entries = find_associations(cls.TEST_DATA_TYPE_TO_INSERTS_MAPPINGS, type=lambda x: x.startswith(include_type))
+            entries = find_associations(cls.TEST_DATA_TYPE_TO_INSERTS_MAPPINGS,
+                                        type=lambda x: x.startswith(include_type))
             if len(entries) == 1:
                 entry = entries[0]
                 included_files.append(entry['inserts_file'])

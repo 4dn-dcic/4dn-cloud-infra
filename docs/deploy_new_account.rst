@@ -51,10 +51,10 @@ You can request this from the `Service Quotas console
 
 * Upload base templates required for starting the application::
 
-    poetry run cli provision iam --validate --upload_change_set
-    poetry run cli provision logging --validate --upload_change_set
-    poetry run cli provision network --validate --upload_change_set
-    poetry run cli provision ecr --validate --upload_change_set
+    poetry run cli provision iam --validate --upload-change-set
+    poetry run cli provision logging --validate --upload-change-set
+    poetry run cli provision network --validate --upload-change-set
+    poetry run cli provision ecr --validate --upload-change-set
 
     #############################################################################
     # This next command is a temporary workaround to manually create            #
@@ -221,7 +221,6 @@ To deploy the CGAP portal you have uploaded:
     * Choose ``Existing Security Group``
     * Select the group named ``C4NetworkDBSecurityGroup``.
     * Select the group named ``C4NetworkApplicationSecurityGroup``.
-    * Select the group named ``C4NetworkHTTPSSecurityGroup``.
     * Once all security groups are selected, click ``Save`` at the bottom to return to where
       you were in specifying task options.
 
@@ -344,7 +343,8 @@ credentials for the account you're deploying into must be active for all subsequ
     source custom/aws_creds/test_creds.sh
     tibanna_cgap deploy_zebra --subnets <private_subnet> -r <application_security_group> -e <env_name>
 
-In the following steps, you don't have to redo the `source` of your credentials, but it's very critical
+In the following steps, you don't have to re-run the ``source`` command to get new of your credentials,
+*but* it's very critical
 that this be done so  you're not posting to the wrong account. As such, we show that step redundantly at
 each point.
 

@@ -1,4 +1,5 @@
 import boto3
+import functools
 import io
 import json
 import os
@@ -269,8 +270,8 @@ class ConfigManager:
         WFOUT = '{application_prefix}{env_part}' + s3Utils.OUTFILE_BUCKET_SUFFIX              # wfoutput
         SYSTEM = '{application_prefix}{env_part}' + s3Utils.SYS_BUCKET_SUFFIX                 # system
         METADATA_BUNDLES = '{application_prefix}{env_part}' + s3Utils.METADATA_BUCKET_SUFFIX  # metadata-bundles
-        # NOTE: For TIBANNA_LOGS, we use a shared in ecosystem. No {env_part}
-        TIBANNA_LOGS = '{application_prefix}' + s3Utils.TIBANNA_OUTPUT_BUCKET_SUFFIX          # tibanna-output
+        # NOTE: For TIBANNA_OUTPUT, we use a shared in ecosystem. No {env_part}
+        TIBANNA_OUTPUT = '{application_prefix}' + s3Utils.TIBANNA_OUTPUT_BUCKET_SUFFIX          # tibanna-output
 
     class GenericFSBucketTemplate:
 
@@ -285,7 +286,7 @@ class ConfigManager:
         WFOUT = '{application_prefix}{env_part}wfout'
         SYSTEM = '{application_prefix}{env_part}system'
         METADATA_BUNDLES = '{application_prefix}{env_part}metadata-bundles'
-        TIBANNA_LOGS = '{application_prefix}tibanna-logs'  # NOTE: Shared in ecosystem. No {env_part}
+        TIBANNA_OUTPUT = '{application_prefix}tibanna-logs'  # NOTE: ORIGINAL ACCOUNT ONLY. No env part. Legacy 'logs'.
 
     class OriginalFSBucketTemplate:
 
@@ -389,6 +390,45 @@ class ConfigManager:
                 else:
                     return getattr(summary, attr, default)
         return default
+
+
+def check_environment_variable_consistency(checker=None, verbose_success=False):
+
+    if checker is None:
+
+        def checker(*, env_var, value, failure_message, success_message):
+            if os.environ.get(env_var) != value:
+                raise RuntimeError(failure_message)
+            elif verbose_success:
+                PRINT(success_message)
+
+    def wrapped_checker(*, env_var, value):
+        failure_message = f"The value of environment variable {env_var}, '${env_var}', is not '...{value[-4:]}'."
+        success_message = f"Verified that {env_var} = '...{value[-4:]}'"
+        checker(env_var=env_var, value=value, failure_message=failure_message, success_message=success_message)
+
+    wrapped_checker(env_var='ACCOUNT_NUMBER',
+                    value=ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER, default=None))
+    wrapped_checker(env_var='AWS_ACCESS_KEY_ID',
+                    value=ini_file_get("custom/aws_creds/credentials", "aws_access_key_id"))
+
+
+@decorator()
+def configured_main_command(debug=False):
+    def _command_wrapper(fn):
+        @functools.wraps(fn)
+        def wrapped_command(*args, **kwargs):
+            try:
+                check_environment_variable_consistency()
+                with ConfigManager.validate_and_source_configuration():
+                     return fn(*args, **kwargs)
+            except Exception as e:
+                PRINT(f"{e.__class__.__name__}: {e}")
+                if debug:
+                    raise
+                exit(1)
+        return wrapped_command
+    return _command_wrapper
 
 
 USE_SHORT_EXPORT_NAMES = True  # TODO: Remove when debugged

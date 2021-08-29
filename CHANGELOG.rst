@@ -7,29 +7,72 @@ Change Log
 ----------
 
 
-1.2.0
+1.3.0
 =====
 
-* Add ``repositories/`` to ``.gitignore``.
+* Improvements to commands, involving changes in ``src/commands``, ``src/base.py`` and ``pyproject.toml``:
 
-* Add command ``setup-tibanna``, ``setup-pipeline``, etc.
-  (More detail needed here.)
+  * New overall command ``setup-tibanna`` that does the Tibanna setup, and commands that do its individual parts:
 
-* Add command ``datastore-attribute`` and ``show-datastore-attribute``.
+    * ``setup-tibanna-pipeline-repo``
 
-* Updates to ``docs/deploy_new_account.rst``.
+    * ``setup-tibanna-reference-files``
+
+    * ``setup-tibanna-patches``
+
+  * New decorator for wrapping commands in standard wrapper that binds config context and catches errors.
+
+  * Add command ``datastore-attribute`` and ``show-datastore-attribute``.
+
+  * Add ``show-health-page-url`` and ``open-health-page-url``
+
+  * Adjust ``find_command.py`` to use object hierarchy better.
+
+  * Make programmatic interfaces to some of the data.
+
+* In ``pyproject.toml``:
+
+  * Add dependency on ``awscli`` so that ``aws`` command can be depended upon in scripts.
+
+  * Added dev dependency on ``flake8`` for code linting.
+
+  * Add dev dependency on ``pygments`` for PyCharm.
+
+* Since the new ``setup-tibanna-pipeline-repo`` creates ``repositories/cgap-pipeline``,
+  ``repositories/`` is added to ``.gitignore`` so that repo won't get checked in.
+
+* Improvements to ``docs/deploy_new_account.rst`` and ``docs/making_stack_changes.rst``.
 
 * In ``src/base.py``:
 
   * New function ``ini_file_get`` to retrieve values from a file
     in ini file format.
 
-* In ``src/commands``:
+  * New function ``check_environment_variable_consistency`` to make sure the info in ``custom/config.json``
+    is consistent with environment variable settings.
 
-  * Adjust ``find_command.py`` to use object hierarchy better.
+  * New decorator ``@configured_main_command()`` to wrap a function definition in an error handler appropriate
+    for a ``main`` function, as well as to make sure that a proper configuration context is established.
 
-  * Make programmatic interfaces to some of the data.
+* In ``src/base.py`` and ``src/parts/datastore.py``:
 
+  * Renaming some lingering situations that refer to 'tibanna logs' instead of 'tibanna output',
+    but *not* included in this change is anything that would affect bucket names (already fixed in a prior patch)
+    or stack output names (which for now we can live with being ``xxxTibannaLogs``).
+
+* In ``src/commands/find_resources.py``, add some error checking for missing ``GLOBAL_ENV_BUCKET``.
+
+
+1.2.0
+=====
+
+* Add script ``src/commands/fetch_file_items.py``
+
+* Add script ``src/commands/create_demo_metawfr.py``
+
+* Improvements to ``docs/deploy_new_account.rst``
+
+  *
 
 1.1.0
 =====

@@ -45,12 +45,14 @@ class C4DatastoreExports(C4Exports):
     FOURSIGHT_APPLICATION_VERSION_BUCKET = exportify('FoursightApplicationVersionBucket')
 
     # Output production S3 bucket information
+    # NOTE: Some of these have output names for historical reasons that do not well match what the bucket names are.
+    #       The names are just formal names, so we'll live with that for now. -kmp 29-Aug-2021
     APPLICATION_SYSTEM_BUCKET = exportify('AppSystemBucket')
     APPLICATION_WFOUT_BUCKET = exportify('AppWfoutBucket')
     APPLICATION_FILES_BUCKET = exportify('AppFilesBucket')
     APPLICATION_BLOBS_BUCKET = exportify('AppBlobsBucket')
     APPLICATION_METADATA_BUNDLES_BUCKET = exportify('AppMetadataBundlesBucket')
-    APPLICATION_TIBANNA_LOGS_BUCKET = exportify('AppTibannaLogsBucket')
+    APPLICATION_TIBANNA_OUTPUT_BUCKET = exportify('AppTibannaLogsBucket')
 
     # Output SQS Queues
     APPLICATION_INDEXER_PRIMARY_QUEUE = exportify('ApplicationIndexerPrimaryQueue')
@@ -77,9 +79,11 @@ class C4DatastoreExports(C4Exports):
     def get_env_bucket(cls):
         return ConfigManager.find_stack_output(cls._ENV_BUCKET_EXPORT_PATTERN.match, value_only=True)
 
+    _TIBANNA_OUTPUT_BUCKET_PATTERN = re.compile(f".*Datastore.*{APPLICATION_TIBANNA_OUTPUT_BUCKET}")
+
     @classmethod
     def get_tibanna_output_bucket(cls):
-        return ConfigManager.find_stack_output(cls.APPLICATION_TIBANNA_LOGS_BUCKET)
+        return ConfigManager.find_stack_output(cls._TIBANNA_OUTPUT_BUCKET_PATTERN.match, value_only=True)
 
     def __init__(self):
         # The intention here is that Beanstalk/ECS stacks will use these outputs and reduce amount
@@ -129,7 +133,7 @@ class C4Datastore(C4Part):
         C4DatastoreExports.APPLICATION_SYSTEM_BUCKET: ConfigManager.get_app_bucket_template('SYSTEM'),
         C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET:
             ConfigManager.get_app_bucket_template('METADATA_BUNDLES'),
-        C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET: ConfigManager.get_app_bucket_template('TIBANNA_LOGS'),
+        C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET: ConfigManager.get_app_bucket_template('TIBANNA_OUTPUT'),
     }
 
     @classmethod
