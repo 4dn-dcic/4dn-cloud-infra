@@ -35,95 +35,6 @@ def bucket_exists(*, bucket_name, s3=None):  # TODO: Move to dcicutils.cloudform
 
 # ================================================================================
 
-# @contextlib.contextmanager
-# def module_warnings_expected(module):  # TODO: Move to dcicutils.command_utils
-#     logger = logging.getLogger(module)
-#     old_level = logger.level
-#     try:
-#         logger.setLevel(logging.ERROR)
-#         yield
-#     finally:
-#         logger.setLevel(old_level)
-
-# @contextlib.contextmanager
-# def module_warnings_as_ordinary_output(module):  # TODO: Move to dcicutils.misc_utils
-#     logger = logging.getLogger(module)
-#     assert isinstance(logger, logging.Logger)
-#     def just_print_text(record):
-#         PRINT(record.getMessage())
-#         return False
-#     try:
-#         logger.addFilter(just_print_text)
-#         yield
-#     finally:
-#         logger.removeFilter(just_print_text)
-
-
-# class ShellScript:  # TODO: Move to dcicutils.command_utils
-#     """
-#     This is really an internal class. You're intended to work via the shell_script context manager.
-#     But there might be uses for this class, too, so we'll give it a pretty name.
-#     """
-#
-#     # This is the shell the script will use to execute
-#     EXECUTABLE = "/bin/bash"
-#
-#     def __init__(self, executable: Optional[str] = None, simulate=False):
-#         """
-#         Creates an object that will let you compose a script and eventually execute it as a subprocess.
-#
-#         :param executable: the executable file to use when executing the script (default /bin/bash)
-#         :param simulate: a boolean that says whether to simulate the script without executing it (default False)
-#         """
-#
-#         self.executable = executable or self.EXECUTABLE
-#         self.simulate = simulate
-#         self.script = ""
-#
-#     def do_first(self, command: str):
-#         """
-#         This isn't really executing the command, just building it into the script, but at the front, not the back.
-#         """
-#         if self.script:
-#             self.script = f'{command}; {self.script}'
-#         else:
-#             self.script = command
-#
-#     def do(self, command: str):
-#         """
-#         Adds the command to the list of commands to be executed.
-#         This isn't really executing the command, just making a note to do it when the script is finally executed.
-#         """
-#         if self.script:
-#             self.script = f'{self.script}; {command}'
-#         else:
-#             self.script = command
-#
-#     def pushd(self, working_dir):
-#         self.do(f'pushd {working_dir} > /dev/null')
-#         self.do(f'echo "Selected working directory $(pwd)."')
-#
-#     def popd(self):
-#         self.do(f'popd > /dev/null')
-#         self.do(f'echo "Restored working directory $(pwd)."')
-#
-#     @contextlib.contextmanager
-#     def using_working_dir(self, working_dir):
-#         if working_dir:
-#             self.pushd(working_dir)
-#         yield self
-#         if working_dir:
-#             self.popd()
-#
-#     def execute(self):
-#         """This is where it's really executed."""
-#         if self.simulate:
-#             PRINT("SIMULATED:")
-#             PRINT("=" * 80)
-#             PRINT(self.script.replace('; ', ';\\\n '))
-#             PRINT("=" * 80)
-#         elif self.script:
-#             subprocess.run(self.script, shell=True, executable=self.executable)
 
 def assure_venv(script, default_venv_name='cgpipe_env'):
     venv_names = glob.glob(os.path.join(PIPELINE_PATH, "*env"))
@@ -144,14 +55,6 @@ def assure_venv(script, default_venv_name='cgpipe_env'):
         script.do(f'source {venv_name}/bin/activate')
     else:
         raise RuntimeError(there_are(venv_names, kind="virtual environment"))
-
-
-# @contextlib.contextmanager
-# def shell_script(working_dir=None, executable=None, simulate=False):    # TODO: Move to dcicutils.command_utils
-#     script = ShellScript(executable=executable, simulate=simulate)
-#     with script.using_working_dir(working_dir):
-#         yield script
-#     script.execute()
 
 
 @contextlib.contextmanager

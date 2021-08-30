@@ -6,14 +6,11 @@ import os
 import re
 
 from contextlib import contextmanager
-from dcicutils.cloudformation_utils import (
-    dehyphenate, camelize, make_required_key_for_ecs_application_url, DEFAULT_ECOSYSTEM,
-)
+from dcicutils.cloudformation_utils import DEFAULT_ECOSYSTEM
 from dcicutils.exceptions import InvalidParameterError
 from dcicutils.lang_utils import conjoined_list
 from dcicutils.misc_utils import (
     PRINT, check_true, decorator, file_contents, find_association, find_associations, ignorable, override_environ,
-    snake_case_to_camel_case,
 )
 from dcicutils.s3_utils import s3Utils
 from .exceptions import CLIException
@@ -32,21 +29,8 @@ COMMON_STACK_PREFIX_CAMEL_CASE = "C4"
 
 STACK_KINDS = ['alpha']  # No longer supporting 'legacy' stacks
 
-# All of this is now imported from dcicutils.cloudformation_utils -kmp 17-Aug-2021
-#
-# DEFAULT_ECOSYSTEM = 'main'
-#
-#
-# def camelize(name):  # when this is debugged, this name can go away and tests can be simplified
-#     return snake_case_to_camel_case(name, separator='-')
-#     # return ''.join([i.capitalize() for i in name.split('-')])
-#
-#
-# def dehyphenate(name):
-#     return name.replace('-', '')
-
-
 _INI_FILE_KEY_REGEXP = re.compile("^([^ =]+)[ ]*=[ ]*(.*)$")
+
 
 def ini_file_get(file, key):  # TODO: Move to dcicutils
     with io.open(file, 'r') as fp:
@@ -66,6 +50,7 @@ def register_stack_creator(*, name, kind, implementation_class):
     print(f"Registered {kind} class {name} as {implementation_class}.")
     if kind not in STACK_KINDS:
         raise InvalidParameterError(parameter="kind", value=kind, options=STACK_KINDS)
+
     def register_stack_creation_function(fn):
         subregistry = REGISTERED_STACKS.get(kind)
         if not subregistry:
@@ -264,7 +249,6 @@ class ConfigManager:
 
     class GenericAppBucketTemplate:
 
-
         BLOBS = '{application_prefix}{env_part}' + s3Utils.BLOB_BUCKET_SUFFIX                 # blobs
         FILES = '{application_prefix}{env_part}' + s3Utils.RAW_BUCKET_SUFFIX                  # files
         WFOUT = '{application_prefix}{env_part}' + s3Utils.OUTFILE_BUCKET_SUFFIX              # wfoutput
@@ -421,7 +405,7 @@ def configured_main_command(debug=False):
             try:
                 check_environment_variable_consistency()
                 with ConfigManager.validate_and_source_configuration():
-                     return fn(*args, **kwargs)
+                    return fn(*args, **kwargs)
             except Exception as e:
                 PRINT(f"{e.__class__.__name__}: {e}")
                 if debug:
@@ -457,4 +441,3 @@ if not DEPLOYING_IAM_USER:
     raise ValueError(f"A setting for {Settings.DEPLOYING_IAM_USER} is required.")
 
 ECOSYSTEM = ConfigManager.get_config_setting(Settings.S3_BUCKET_ECOSYSTEM, default=DEFAULT_ECOSYSTEM)
-
