@@ -387,7 +387,7 @@ def cli():
                                   action='store_true', help='TBD: view changes made to template')
     parser_provision.add_argument('--stage', type=str, choices=['dev', 'prod'],
                                   help="package stage. Must be one of 'prod' or 'dev' (foursight only)",
-                                  default='dev')
+                                  default='prod')
     parser_provision.add_argument('--merge-template',
                                   '--merge_template',  # for compatibility
                                   dest="merge_template",
