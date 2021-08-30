@@ -593,7 +593,7 @@ description = "Utility package for interacting with the 4DN Data Portal and othe
 name = "dcicutils"
 optional = false
 python-versions = ">=3.5,<3.8"
-version = "2.1.0"
+version = "2.1.0.1b3"
 
 [package.dependencies]
 aws-requests-auth = ">=0.4.2,<1"
@@ -1675,7 +1675,7 @@ docs = ["sphinx", "jaraco.packaging (>=8.2)", "rst.linker (>=1.9)"]
 testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-cov", "pytest-enabler (>=1.0.1)", "jaraco.itertools", "func-timeout", "pytest-black (>=0.3.7)", "pytest-mypy"]
 
 [metadata]
-content-hash = "fbc49c39564a8470064c08daa0cf82749a8d87280140b45590752b790330896f"
+content-hash = "bf8a3fc3010eb221384670f8fa734e9afe6cae9d8fb639ed34829c92d87dbbcf"
 python-versions = ">=3.6.10,<3.7"
 
 [metadata.files]
@@ -1774,8 +1774,8 @@ colorama = [
     {file = "colorama-0.4.3.tar.gz", hash = "sha256:e96da0d330793e2cb9485e9ddfd918d456036c7149416295932478192f4436a1"},
 ]
 dcicutils = [
-    {file = "dcicutils-2.1.0-py3-none-any.whl", hash = "sha256:77265968a672a4b741aa5c0d1a1364604d5a84760278a515325b59bfe56ead99"},
-    {file = "dcicutils-2.1.0.tar.gz", hash = "sha256:0d6d28b80c243dfefc64b495e1acefbfeabcc0e63945f4dd5fdb96076956e3cc"},
+    {file = "dcicutils-2.1.0.1b3-py3-none-any.whl", hash = "sha256:48ec461b81fd2f0c47a5ced8ebf0fb02a7a425f144f971dcd4cdfb0886354f33"},
+    {file = "dcicutils-2.1.0.1b3.tar.gz", hash = "sha256:c9e5cef220dc4c2eea98d97de3a71f3451cfdf66985096a1a5a87790cf1eed9a"},
 ]
 decorator = [
     {file = "decorator-4.4.2-py2.py3-none-any.whl", hash = "sha256:41fa54c2a0cc4ba648be4fd43cff00aedf5b9465c9bf18d64325bc225f08f760"},

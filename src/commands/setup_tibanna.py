@@ -1,17 +1,16 @@
 import argparse
 import contextlib
 import glob
-import logging
 import os
-import subprocess
 
 from botocore.client import ClientError
-from dcicutils.command_utils import yes_or_no
+from dcicutils.command_utils import yes_or_no, shell_script, module_warnings_as_ordinary_output
 from dcicutils.lang_utils import there_are
 from dcicutils.misc_utils import ignored, PRINT
 from dcicutils.s3_utils import s3Utils
 from ..base import (
-    ConfigManager, Settings, ini_file_get, ENV_NAME, configured_main_command, check_environment_variable_consistency,
+    ConfigManager,  # Settings, ini_file_get,
+    ENV_NAME, configured_main_command, check_environment_variable_consistency,
 )
 from ..parts.datastore import C4DatastoreExports
 from .find_resources import DatastoreAttributeCommand, get_health_page_url, is_portal_uninitialized
@@ -37,7 +36,7 @@ def bucket_exists(*, bucket_name, s3=None):  # TODO: Move to dcicutils.cloudform
 # ================================================================================
 
 # @contextlib.contextmanager
-# def module_warnings_expected(module):  # TODO: Move to dcicutils.misc_utils
+# def module_warnings_expected(module):  # TODO: Move to dcicutils.command_utils
 #     logger = logging.getLogger(module)
 #     old_level = logger.level
 #     try:
@@ -46,69 +45,85 @@ def bucket_exists(*, bucket_name, s3=None):  # TODO: Move to dcicutils.cloudform
 #     finally:
 #         logger.setLevel(old_level)
 
-@contextlib.contextmanager
-def module_warnings_as_ordinary_output(module):  # TODO: Move to dcicutils.misc_utils
-    logger = logging.getLogger(module)
-    assert isinstance(logger, logging.Logger)
-    def just_print_text(record):
-        PRINT(record.getMessage())
-        return False
-    try:
-        logger.addFilter(just_print_text)
-        yield
-    finally:
-        logger.removeFilter(just_print_text)
+# @contextlib.contextmanager
+# def module_warnings_as_ordinary_output(module):  # TODO: Move to dcicutils.misc_utils
+#     logger = logging.getLogger(module)
+#     assert isinstance(logger, logging.Logger)
+#     def just_print_text(record):
+#         PRINT(record.getMessage())
+#         return False
+#     try:
+#         logger.addFilter(just_print_text)
+#         yield
+#     finally:
+#         logger.removeFilter(just_print_text)
 
 
-class ShellScript:  # TODO: Move to dcicutils.command_utils
-
-    EXECUTABLE = "/bin/bash"
-
-    def __init__(self, executable=None, simulate=False):
-        self.executable = executable or self.EXECUTABLE
-        self.simulate = simulate
-        self.script = ''
-
-    def do_first(self, command):
-        """This isn't really executing the command, just building it into the script, but at the front, not the back."""
-        if self.script:
-            self.script = f'{command}; {self.script}'
-        else:
-            self.script = command
-
-    def do(self, command):
-        """This isn't really executing the command, just building it into the script."""
-        if self.script:
-            self.script = f'{self.script}; {command}'
-        else:
-            self.script = command
-
-    def pushd(self, working_dir):
-        self.do(f'pushd {working_dir} > /dev/null')
-        self.do(f'echo "Selected working directory $(pwd)."')
-
-    def popd(self):
-        self.do(f'popd > /dev/null')
-        self.do(f'echo "Restored working directory $(pwd)."')
-
-    @contextlib.contextmanager
-    def using_working_dir(self, working_dir):
-        if working_dir:
-            self.pushd(working_dir)
-        yield self
-        if working_dir:
-            self.popd()
-
-    def execute(self):
-        """This is where it's really executed."""
-        if self.simulate:
-            PRINT("SIMULATED:")
-            PRINT("=" * 80)
-            PRINT(self.script.replace('; ', ';\\\n '))
-            PRINT("=" * 80)
-        elif self.script:
-            subprocess.run(self.script, shell=True, executable=self.executable)
-
+# class ShellScript:  # TODO: Move to dcicutils.command_utils
+#     """
+#     This is really an internal class. You're intended to work via the shell_script context manager.
+#     But there might be uses for this class, too, so we'll give it a pretty name.
+#     """
+#
+#     # This is the shell the script will use to execute
+#     EXECUTABLE = "/bin/bash"
+#
+#     def __init__(self, executable: Optional[str] = None, simulate=False):
+#         """
+#         Creates an object that will let you compose a script and eventually execute it as a subprocess.
+#
+#         :param executable: the executable file to use when executing the script (default /bin/bash)
+#         :param simulate: a boolean that says whether to simulate the script without executing it (default False)
+#         """
+#
+#         self.executable = executable or self.EXECUTABLE
+#         self.simulate = simulate
+#         self.script = ""
+#
+#     def do_first(self, command: str):
+#         """
+#         This isn't really executing the command, just building it into the script, but at the front, not the back.
+#         """
+#         if self.script:
+#             self.script = f'{command}; {self.script}'
+#         else:
+#             self.script = command
+#
+#     def do(self, command: str):
+#         """
+#         Adds the command to the list of commands to be executed.
+#         This isn't really executing the command, just making a note to do it when the script is finally executed.
+#         """
+#         if self.script:
+#             self.script = f'{self.script}; {command}'
+#         else:
+#             self.script = command
+#
+#     def pushd(self, working_dir):
+#         self.do(f'pushd {working_dir} > /dev/null')
+#         self.do(f'echo "Selected working directory $(pwd)."')
+#
+#     def popd(self):
+#         self.do(f'popd > /dev/null')
+#         self.do(f'echo "Restored working directory $(pwd)."')
+#
+#     @contextlib.contextmanager
+#     def using_working_dir(self, working_dir):
+#         if working_dir:
+#             self.pushd(working_dir)
+#         yield self
+#         if working_dir:
+#             self.popd()
+#
+#     def execute(self):
+#         """This is where it's really executed."""
+#         if self.simulate:
+#             PRINT("SIMULATED:")
+#             PRINT("=" * 80)
+#             PRINT(self.script.replace('; ', ';\\\n '))
+#             PRINT("=" * 80)
+#         elif self.script:
+#             subprocess.run(self.script, shell=True, executable=self.executable)
 
 def assure_venv(script, default_venv_name='cgpipe_env'):
     venv_names = glob.glob(os.path.join(PIPELINE_PATH, "*env"))
@@ -131,16 +146,16 @@ def assure_venv(script, default_venv_name='cgpipe_env'):
         raise RuntimeError(there_are(venv_names, kind="virtual environment"))
 
 
-@contextlib.contextmanager
-def shell_script(working_dir=None, executable=None, simulate=False):    # TODO: Move to dcicutils.command_utils
-    script = ShellScript(executable=executable, simulate=simulate)
-    with script.using_working_dir(working_dir):
-        yield script
-    script.execute()
+# @contextlib.contextmanager
+# def shell_script(working_dir=None, executable=None, simulate=False):    # TODO: Move to dcicutils.command_utils
+#     script = ShellScript(executable=executable, simulate=simulate)
+#     with script.using_working_dir(working_dir):
+#         yield script
+#     script.execute()
 
 
 @contextlib.contextmanager
-def cloud_infra_shell_script(working_dir=None, executable=None, simulate=False):  # DO NOT MOVE to command_utils
+def cloud_infra_shell_script(working_dir=None, executable=None, simulate=False):
     with shell_script(working_dir=working_dir, executable=executable, simulate=simulate) as script:
         check_script_environment_consistency(script)
         yield script
@@ -158,7 +173,7 @@ def check_script_environment_consistency(script, verbose_success=False):
 # ================================================================================
 
 
-def precheck_tibanna_setup(*, env_name):
+def setup_tibanna_precheck(*, env_name):
 
     # Find out what tibanna output bucket is intended.
     intended_tibanna_output_bucket = C4DatastoreExports.get_tibanna_output_bucket()
@@ -226,6 +241,7 @@ PIPELINE_PATH = os.path.join(ALL_SUB_REPOS_PATH, PIPELINE_DIR_FILENAME)
 
 PIPELINE_VERSION = 'v24'
 
+
 def setup_pipeline_repo(env_name=ENV_NAME, simulate=False, no_query=False, pipeline_version=PIPELINE_VERSION):
 
     ignored(env_name, no_query)
@@ -235,7 +251,7 @@ def setup_pipeline_repo(env_name=ENV_NAME, simulate=False, no_query=False, pipel
         os.mkdir(ALL_SUB_REPOS_PATH)
 
     if not os.path.exists(PIPELINE_PATH):
-        with shell_script(working_dir=ALL_SUB_REPOS_PATH, simulate=simulate) as script:
+        with cloud_infra_shell_script(working_dir=ALL_SUB_REPOS_PATH, simulate=simulate) as script:
             script.do(f'echo "Cloning {PIPELINE_REPO}..."')
             script.do(f'git clone {PIPELINE_REPO} {PIPELINE_DIR_FILENAME}')
             script.pushd(PIPELINE_DIR_FILENAME)
@@ -245,13 +261,13 @@ def setup_pipeline_repo(env_name=ENV_NAME, simulate=False, no_query=False, pipel
             script.do(f'echo "Done cloning {PIPELINE_REPO}."')
     else:
 
-        with shell_script(working_dir=PIPELINE_PATH, simulate=simulate) as script:
+        with cloud_infra_shell_script(working_dir=PIPELINE_PATH, simulate=simulate) as script:
             script.do(f'echo "Pulling latest changes for {PIPELINE_REPO}..."')
             script.do(f'git checkout {pipeline_version}')
             script.do(f'git pull')
             script.do(f'echo "Done pulling latest changes for {PIPELINE_REPO}."')
 
-    with shell_script(working_dir=PIPELINE_PATH, simulate=simulate) as script:
+    with cloud_infra_shell_script(working_dir=PIPELINE_PATH, simulate=simulate) as script:
         assure_venv(script)
 
 
@@ -285,11 +301,11 @@ def setup_reference_files(env_name=ENV_NAME, simulate=False, no_query=False):
 
 def setup_patches(env_name=ENV_NAME, simulate=False, no_query=False):
     ignored(no_query)
-    if no_query or yes_or_no("Ready to post patches to the portal?"):
+    if no_query or yes_or_no("Properly prepared to post patches to portal?"):
         with cloud_infra_shell_script(working_dir=PIPELINE_PATH, simulate=simulate) as script:
             assure_venv(script)
             script.do(f'echo "Starting posting patches at $(date)."')
-            script.do(f'echo python post_patch_to_portal.py --ff-env={env_name} --del-prev-version --ugrp-unrelated')
+            script.do(f'python post_patch_to_portal.py --ff-env={env_name} --del-prev-version --ugrp-unrelated')
             script.do(f'echo "Finished posting patches at $(date)."')
 
 
@@ -343,7 +359,21 @@ def setup_tibanna_patches_main(override_args=None):
         no_query=args.no_query,
     )
 
-@configured_main_command(debug=True)
+
+@configured_main_command()
+def setup_tibanna_precheck_main(override_args=None):
+
+    parser = argparse.ArgumentParser(description='Assures presence and initialization of the global env bucket.')
+    parser.add_argument('--env_name', help='The environment name to assure', default=ENV_NAME, type=str)
+    args = parser.parse_args(args=override_args)
+
+    if setup_tibanna_precheck(env_name=args.env_name):
+        PRINT("Precheck succeeded.")
+    else:
+        PRINT("Precheck failed.")
+
+
+@configured_main_command()
 def setup_tibanna_main(override_args=None):
     parser = argparse.ArgumentParser(description='Assures presence and initialization of the global env bucket.')
     parser.add_argument('--env_name', help='The environment name to assure', default=ENV_NAME, type=str)
@@ -353,7 +383,7 @@ def setup_tibanna_main(override_args=None):
                         help="Whether to suppress querying.")
     args = parser.parse_args(args=override_args)
 
-    if not precheck_tibanna_setup(env_name=args.env_name):
+    if not setup_tibanna_precheck(env_name=args.env_name):
         exit(1)
     setup_pipeline_repo(
         env_name=args.env_name,

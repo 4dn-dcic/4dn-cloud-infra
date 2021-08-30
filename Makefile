@@ -5,6 +5,13 @@ default: info
 build:
 	poetry install
 
+clean:
+	@echo Deleting 4dn_cloud_infra.egg-info ...
+	rm -rf 4dn_cloud_infra.egg-info
+	@echo Deleting repositories/cgap-pipeline ...
+	rm -rf repositories/cgap-pipeline
+	@echo Done cleaning.
+
 alpha:
 	@echo 'Validating CGAP-Portal Alpha'
 	poetry run cli provision network --validate --alpha
