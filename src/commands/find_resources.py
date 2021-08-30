@@ -3,8 +3,9 @@ import boto3
 import os
 import subprocess
 
+from dcicutils.cloudformation_utils import camelize
 from dcicutils.misc_utils import find_association, PRINT
-from ..base import ConfigManager, ENV_NAME, ECOSYSTEM, camelize, COMMON_STACK_PREFIX_CAMEL_CASE
+from ..base import ConfigManager, ENV_NAME, ECOSYSTEM, COMMON_STACK_PREFIX_CAMEL_CASE
 from ..constants import Settings
 from ..parts.ecs import C4ECSApplicationExports
 

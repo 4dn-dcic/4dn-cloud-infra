@@ -1,6 +1,7 @@
 import json
 import re
 
+from dcicutils.cloudformation_utils import camelize
 from dcicutils.misc_utils import as_seconds
 from troposphere import (
     Join, Ref, Template, Tags, Parameter, Output, GetAtt,
@@ -20,7 +21,7 @@ from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.s3 import Bucket, Private
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
-from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX, camelize, dehyphenate
+from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX
 from ..constants import Settings, Secrets
 from ..exports import C4Exports
 from ..part import C4Part
@@ -196,11 +197,11 @@ class C4Datastore(C4Part):
             'ENCODED_APPLICATION_BUCKET_PREFIX': cls.resolve_bucket_name("{application_prefix}"),
             'ENCODED_BS_ENV': env_name,
             'ENCODED_DATA_SET': 'prod',
-            'ENCODED_ES_SERVER':  C4DatastoreExports.get_es_url(), # None,
+            'ENCODED_ES_SERVER': C4DatastoreExports.get_es_url(),  # None,
             'ENCODED_FOURSIGHT_BUCKET_PREFIX': cls.resolve_bucket_name("{foursight_prefix}"),
             'ENCODED_IDENTITY': None,  # This is the name of the Secrets Manager with all our identity's secrets
             'ENCODED_FILE_UPLOAD_BUCKET':
-               "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
             'ENCODED_FILE_WFOUT_BUCKET':
                 "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_WFOUT_BUCKET),
             'ENCODED_BLOB_BUCKET':

@@ -4,11 +4,11 @@ import os
 import re
 
 from datetime import datetime
+from dcicutils.cloudformation_utils import camelize
 from dcicutils.exceptions import InvalidParameterError
 from dcicutils.misc_utils import remove_prefix
 from troposphere import Tag, Tags, Template
-from .base import camelize, ENV_NAME, ECOSYSTEM, COMMON_STACK_PREFIX, COMMON_STACK_PREFIX_CAMEL_CASE
-from typing import Optional
+from .base import ENV_NAME, ECOSYSTEM, COMMON_STACK_PREFIX, COMMON_STACK_PREFIX_CAMEL_CASE
 
 
 logger = logging.getLogger(__name__)
