@@ -102,9 +102,7 @@ class C4Client:
 
         # TODO: this bucketname should come from config.json or some os.environ ...
         if bucket is None:
-            bucket = ConfigManager.resolve_bucket_name(
-                ConfigManager.get_fs_bucket_template('APPLICATION_VERSIONS')  # cls.APPLICATION_BUCKET_TEMPLATE
-            )
+            bucket = ConfigManager.resolve_bucket_name(ConfigManager.FSBucketTemplate.APPLICATION_VERSIONS)
 
         creds_dir = ConfigManager.get_aws_creds_dir()
 

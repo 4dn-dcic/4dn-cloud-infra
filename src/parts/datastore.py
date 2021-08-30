@@ -128,13 +128,12 @@ class C4Datastore(C4Part):
     # Intended to be .formatted with the deploying env_name
 
     APPLICATION_LAYER_BUCKETS = {
-        C4DatastoreExports.APPLICATION_BLOBS_BUCKET: ConfigManager.get_app_bucket_template('BLOBS'),
-        C4DatastoreExports.APPLICATION_FILES_BUCKET: ConfigManager.get_app_bucket_template('FILES'),
-        C4DatastoreExports.APPLICATION_WFOUT_BUCKET: ConfigManager.get_app_bucket_template('WFOUT'),
-        C4DatastoreExports.APPLICATION_SYSTEM_BUCKET: ConfigManager.get_app_bucket_template('SYSTEM'),
-        C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET:
-            ConfigManager.get_app_bucket_template('METADATA_BUNDLES'),
-        C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET: ConfigManager.get_app_bucket_template('TIBANNA_OUTPUT'),
+        C4DatastoreExports.APPLICATION_BLOBS_BUCKET: ConfigManager.AppBucketTemplate.BLOBS,
+        C4DatastoreExports.APPLICATION_FILES_BUCKET: ConfigManager.AppBucketTemplate.FILES,
+        C4DatastoreExports.APPLICATION_WFOUT_BUCKET: ConfigManager.AppBucketTemplate.WFOUT,
+        C4DatastoreExports.APPLICATION_SYSTEM_BUCKET: ConfigManager.AppBucketTemplate.SYSTEM,
+        C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET: ConfigManager.AppBucketTemplate.METADATA_BUNDLES,
+        C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET: ConfigManager.AppBucketTemplate.TIBANNA_OUTPUT,
     }
 
     @classmethod
@@ -150,10 +149,9 @@ class C4Datastore(C4Part):
     # FOURSIGHT_LAYER_PREFIX = '{foursight_prefix}{env_name}'
 
     FOURSIGHT_LAYER_BUCKETS = {
-        C4DatastoreExports.FOURSIGHT_ENV_BUCKET: ConfigManager.get_fs_bucket_template('ENVS'),
-        C4DatastoreExports.FOURSIGHT_RESULT_BUCKET: ConfigManager.get_fs_bucket_template('RESULTS'),
-        C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET:
-            ConfigManager.get_fs_bucket_template('APPLICATION_VERSIONS'),
+        C4DatastoreExports.FOURSIGHT_ENV_BUCKET: ConfigManager.FSBucketTemplate.ENVS,
+        C4DatastoreExports.FOURSIGHT_RESULT_BUCKET: ConfigManager.FSBucketTemplate.RESULTS,
+        C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET: ConfigManager.FSBucketTemplate.APPLICATION_VERSIONS,
     }
 
     @classmethod

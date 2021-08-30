@@ -247,7 +247,7 @@ class ConfigManager:
                 else:  # some other false value than None or "", for example zero (0).
                     return found
 
-    class GenericAppBucketTemplate:
+    class AppBucketTemplate:
 
         BLOBS = '{application_prefix}{env_part}' + s3Utils.BLOB_BUCKET_SUFFIX                 # blobs
         FILES = '{application_prefix}{env_part}' + s3Utils.RAW_BUCKET_SUFFIX                  # files
@@ -257,42 +257,11 @@ class ConfigManager:
         # NOTE: For TIBANNA_OUTPUT, we use a shared in ecosystem. No {env_part}
         TIBANNA_OUTPUT = '{application_prefix}' + s3Utils.TIBANNA_OUTPUT_BUCKET_SUFFIX          # tibanna-output
 
-    class GenericFSBucketTemplate:
+    class FSBucketTemplate:
 
         ENVS = '{foursight_prefix}envs'  # NOTE: Shared in ecosystem. No {env_part}
         RESULTS = '{foursight_prefix}{env_part}results'
         APPLICATION_VERSIONS = '{foursight_prefix}{env_part}application-versions'
-
-    class OriginalAppBucketTemplate:
-
-        BLOBS = '{application_prefix}{env_part}blobs'
-        FILES = '{application_prefix}{env_part}files'
-        WFOUT = '{application_prefix}{env_part}wfout'
-        SYSTEM = '{application_prefix}{env_part}system'
-        METADATA_BUNDLES = '{application_prefix}{env_part}metadata-bundles'
-        TIBANNA_OUTPUT = '{application_prefix}tibanna-logs'  # NOTE: ORIGINAL ACCOUNT ONLY. No env part. Legacy 'logs'.
-
-    class OriginalFSBucketTemplate:
-
-        ENVS = '{foursight_prefix}envs'  # NOTE: Shared in ecosystem. No {env_part}
-        RESULTS = '{foursight_prefix}{env_part}results'
-        APPLICATION_VERSIONS = '{foursight_prefix}{env_part}application-versions'
-
-    ORIGINAL_ACCOUNT_NUMBER = '645819926742'
-
-    @classmethod
-    def get_app_bucket_template(cls, kind):
-        if ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER) == cls.ORIGINAL_ACCOUNT_NUMBER:
-            return getattr(cls.OriginalAppBucketTemplate, kind)
-        else:
-            return getattr(cls.GenericAppBucketTemplate, kind)
-
-    @classmethod
-    def get_fs_bucket_template(cls, kind):
-        if ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER) == cls.ORIGINAL_ACCOUNT_NUMBER:
-            return getattr(cls.OriginalFSBucketTemplate, kind)
-        else:
-            return getattr(cls.GenericFSBucketTemplate, kind)
 
     CLOUDFORMATION = None
 
