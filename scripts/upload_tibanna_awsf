@@ -3,4 +3,5 @@
 docker pull 4dndcic/tibanna-awsf:"$TIBANNA_VERSION"
 docker tag 4dndcic/tibanna-awsf:"$TIBANNA_VERSION" "$ACCOUNT_NUMBER".dkr.ecr.us-east-1.amazonaws.com/tibanna-awsf:"$TIBANNA_VERSION"
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ACCOUNT_NUMBER}.dkr.ecr.us-east-1.amazonaws.com
-docker push "$ACCOUNT_NUMBER".dkr.ecr.us-east-1.amazonaws.com/tibanna-awsf:1.5.0
+docker push "$ACCOUNT_NUMBER".dkr.ecr.us-east-1.amazonaws.com/tibanna-awsf:"$TIBANNA_VERSION"
+
