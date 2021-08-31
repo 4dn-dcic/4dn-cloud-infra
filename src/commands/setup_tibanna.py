@@ -126,8 +126,10 @@ def setup_tibanna_precheck(*, env_name):
     intended_tibanna_output_bucket = C4DatastoreExports.get_tibanna_output_bucket()
 
     if not os.environ.get('GLOBAL_ENV_BUCKET') and not os.environ.get('GLOBAL_BUCKET_ENV'):
-        PRINT("One of GLOBAL_ENV_BUCKET or GLOBAL_BUCKET_ENV (preferably the former) must be set for this to work.")
-        return False
+        # This is a particularly bad error becuse we could end up writing to the wrong buckets if not careful.
+        # Here we don't take any chances with True/False return values.
+        raise RuntimeError("One of GLOBAL_ENV_BUCKET or GLOBAL_BUCKET_ENV (preferably the former)"
+                           " must be set for this to work.")
 
     # Verify that a tibanna output bucket (possibly named ...-tibanna-logs or ...-tibanna-output) is set up at all.
     # This process will assure that the CGAP health page is reporting its name. That's where s3Utils gets the info.
