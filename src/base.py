@@ -8,7 +8,7 @@ import re
 
 from contextlib import contextmanager
 from dcicutils.cloudformation_utils import DEFAULT_ECOSYSTEM
-from dcicutils.exceptions import InvalidParameterError
+from dcicutils.exceptions import InvalidParameterError, SynonymousEnvironmentVariablesMismatched
 from dcicutils.lang_utils import conjoined_list
 from dcicutils.misc_utils import (
     PRINT, check_true, decorator, file_contents, find_association, find_associations, ignorable, override_environ,
@@ -387,13 +387,32 @@ def check_environment_variable_consistency(checker=None, verbose_success=False):
 
     # Check this first, because if it fails we can report the actual value.
     wrapped_checker(env_var='ACCOUNT_NUMBER',
-                    expected_value=ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER, default=None))
+                    expected_value=ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER))
     wrapped_checker(env_var='AWS_ACCESS_KEY_ID',
                     expected_value=ini_file_get("custom/aws_creds/credentials", "aws_access_key_id"),
                     secure=True)  # check a hash
     wrapped_checker(env_var='S3_ENCRYPT_KEY',
                     expected_value=ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY),
                     secure=True)  # check a hash
+    # These values are not supposed to be set in the config, which is why there is no constant naming them,
+    # since they can be computed, but if they are set there, we need to verify that these are the same in
+    # the global environment.
+    config_global_env_bucket = ConfigManager.get_config_setting('GLOBAL_ENV_BUCKET', default="")
+    config_global_bucket_env = ConfigManager.get_config_setting('GLOBAL_BUCKET_ENV', default="")
+    if config_global_env_bucket and config_global_bucket_env and config_global_env_bucket != config_global_bucket_env:
+        raise SynonymousEnvironmentVariablesMismatched(
+            var1='GLOBAL_ENV_BUCKET', val1=config_global_env_bucket,
+            var2='GLOBAL_BUCKET_ENV', val2=config_global_bucket_env,
+        )
+    # We only care about consistency, not correctness, so if one of these is set in the config, we expect it's the
+    # same value in the environment.
+    if config_global_env_bucket:
+        wrapped_checker(env_var='GLOBAL_ENV_BUCKET',
+                        expected_value=config_global_env_bucket)
+    if config_global_bucket_env:
+        # If the value is configured, it'd better be the same in the environment variables.
+        wrapped_checker(env_var='GLOBAL_BUCKET_ENV',
+                        expected_value=config_global_bucket_env)
 
 
 @decorator()
