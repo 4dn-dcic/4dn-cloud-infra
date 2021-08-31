@@ -4,10 +4,11 @@ import glob
 import os
 
 from botocore.client import ClientError
-from dcicutils.command_utils import yes_or_no, shell_script, module_warnings_as_ordinary_output
+from dcicutils.command_utils import yes_or_no, shell_script, module_warnings_as_ordinary_output, ShellScript
 from dcicutils.lang_utils import there_are
 from dcicutils.misc_utils import ignored, PRINT
 from dcicutils.s3_utils import s3Utils
+from typing import Optional
 from ..base import (
     ConfigManager,  # Settings, ini_file_get,
     ENV_NAME, configured_main_command, check_environment_variable_consistency,
@@ -57,20 +58,63 @@ def assure_venv(script, default_venv_name='cgpipe_env'):
         raise RuntimeError(there_are(venv_names, kind="virtual environment"))
 
 
+# TODO: The ExtendedShellScript class should be merged into dcicutils.command_utils.ShellScript sometime,
+#   but anticipating I might need to do some more experimentation, I made the shell_script context manager
+#   take a shell script class as an argument so I could make these changes locally for now. This solves
+#   the problem that a series of .do_first() commands will execute backward, as each goes before the previous.
+#   So instead if you do:
+#      with script.done_first() as front_part:
+#         front_part.do()
+#         front_part.do()
+#   you can get a series of commands done in normal order appended to one another and then prepended
+#   to the main script.
+#   -kmp 30-Aug-2021
+
+class ExtendedShellScript(ShellScript):
+
+    def __init__(self, executable: Optional[str] = None, simulate=False, no_execute=False, **script_options):
+        self.no_execute = no_execute
+        super().__init__(executable=executable, simulate=simulate, **script_options)  # noQA
+
+    def execute(self, **pipe_args):
+        if not self.no_execute:
+            super().execute(**pipe_args)  # noQA
+
+    @contextlib.contextmanager
+    def done_first(self):
+        with shell_script(script_class=self.__class__, no_execute=True) as script_segment:
+            yield script_segment
+            self.do_first(script_segment.script)
+
+
 @contextlib.contextmanager
 def cloud_infra_shell_script(working_dir=None, executable=None, simulate=False):
-    with shell_script(working_dir=working_dir, executable=executable, simulate=simulate) as script:
+    with shell_script(working_dir=working_dir, executable=executable, simulate=simulate,
+                      script_class=ExtendedShellScript) as script:
         check_script_environment_consistency(script)
         yield script
 
 
 def check_script_environment_consistency(script, verbose_success=False):
 
-    def checker(*, env_var, value, failure_message, success_message):
-        script.do_first(f'if [ "${env_var}" != "{value}" ]; then echo "{failure_message}"; exit 1;'
-                        f' else echo "{success_message}"; fi')
+    assert isinstance(script, ExtendedShellScript)
+    with script.done_first() as first_part_of_script:
 
-    check_environment_variable_consistency(checker=checker, verbose_success=verbose_success)
+        def script_checker(*, env_var, failure_message, success_message, expected_value=None, expected_hash=None):
+            if expected_hash:
+                if expected_value:
+                    raise ValueError("Exactly one of expected_value or expected_hash is required.")
+                first_part_of_script.do(f'if [ $(md5 -q -s "${env_var}") != "{expected_hash}" ];'
+                                        f' then echo "{failure_message} (in script)"; exit 1;'
+                                        f' else echo "{success_message} (in script)"; fi')
+            elif expected_value:
+                first_part_of_script.do(f'if [ "${env_var}" != "{expected_value}" ];'
+                                        f' then echo "{failure_message} (in script)"; exit 1;'
+                                        f' else echo "{success_message} (in script)"; fi')
+            else:
+                raise ValueError("Exactly one of expected_value or expected_hash is required.")
+
+        check_environment_variable_consistency(checker=script_checker, verbose_success=verbose_success)
 
 
 # ================================================================================
@@ -276,7 +320,7 @@ def setup_tibanna_precheck_main(override_args=None):
         PRINT("Precheck failed.")
 
 
-@configured_main_command()
+@configured_main_command(debug=True)
 def setup_tibanna_main(override_args=None):
     parser = argparse.ArgumentParser(description='Assures presence and initialization of the global env bucket.')
     parser.add_argument('--env_name', help='The environment name to assure', default=ENV_NAME, type=str)

@@ -92,7 +92,8 @@ def main():
     #       and I'm just trying to make its intermediate state more apparent until I have
     #       time to work through it in detail. -kmp 7-Aug-2021
     still_being_debugged = True
-    if still_being_debugged and not yes_or_no("This script seems to be in disrepair. Are you sure you want to proceed?"):
+    if (still_being_debugged
+            and not yes_or_no("This script seems to be in disrepair. Are you sure you want to proceed?")):
         PRINT("Aborted.")
         exit(1)
 

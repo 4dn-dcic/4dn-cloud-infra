@@ -61,7 +61,7 @@ class C4Name:
         self.name = name
         self.stack_name = f'{name}-stack'  # was '{}-stack'.format(name)
         self.logical_id_prefix = title_token or camelize(name)
-        self.string_to_trim=string_to_trim or self.logical_id_prefix
+        self.string_to_trim = string_to_trim or self.logical_id_prefix
 
     def __str__(self):
         return self.name

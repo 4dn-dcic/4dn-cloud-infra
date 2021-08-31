@@ -6,6 +6,7 @@ import sys
 
 from botocore.exceptions import ClientError
 from datetime import datetime, timedelta
+from dcicutils.misc_utils import ignored
 from .pricing_calculator import PricingCalculator
 
 
@@ -430,6 +431,7 @@ class AWSUtil:
         cgap_buckets, not_cgap_buckets = self.categorize_buckets()
         resource = self.s3_resource
         bucket_tagging_example = resource.BucketTagging(cgap_buckets[0])
+        ignored(bucket_tagging_example)  # more to write here??
 
     def delete_previous_versions(self, bucket, filename, dry_run=True):
         """ Opens the specified filename and reads in a tsv of keys. All old versions or delete-marked versions will be
@@ -481,6 +483,7 @@ class AWSUtil:
                     continue  # skip the dataset in SKIP_LIST for now, to be handled later
                 deleted = row[5]
                 total_versions = int(row[3])
+                ignored(total_versions)
                 client = self.s3_client
                 response = client.list_object_versions(Bucket=bucket, Prefix=object)  # assuming less than 100 versions
                 assert response['IsTruncated'] is False, response
@@ -511,6 +514,7 @@ class AWSUtil:
                     for version in ids_to_delete:
                         if version != 'null':  # 494 versions are 'null'...ignore these for now and handle below
                             del_res = client.delete_object(Bucket=bucket, Key=object, VersionId=version)
+                            ignored(del_res)
                         deleted_ids.append(version)
                     if 'null' in ids_to_delete:
                         null_res = client.delete_object(Bucket=bucket, Key=object)  # delete-mark 'null' version

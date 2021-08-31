@@ -1,5 +1,6 @@
 import boto3
 import functools
+import hashlib
 import io
 import json
 import os
@@ -242,7 +243,7 @@ class ConfigManager:
                 found = os.environ.get(var)
                 if found:
                     return found
-                elif found is None or (use_default_if_empty and found is ""):
+                elif found is None or (use_default_if_empty and found == ""):
                     return default
                 else:  # some other false value than None or "", for example zero (0).
                     return found
@@ -345,25 +346,54 @@ class ConfigManager:
         return default
 
 
+def string_md5(unicode_string):
+    return hashlib.md5(unicode_string.encode('utf-8')).hexdigest()
+
+
 def check_environment_variable_consistency(checker=None, verbose_success=False):
 
     if checker is None:
 
-        def checker(*, env_var, value, failure_message, success_message):
-            if os.environ.get(env_var) != value:
-                raise RuntimeError(failure_message)
+        def checker(*, env_var, failure_message, success_message, expected_value=None, expected_hash=None):
+            actual = os.environ.get(env_var, "")
+            context = " (in Python)"
+            if expected_hash:
+                if expected_value:
+                    raise ValueError("Exactly one of expected_value or expected_hash is required.")
+                fail = string_md5(actual) != expected_hash
+            elif expected_value:
+                fail = actual != expected_value
+            else:
+                raise ValueError("Exactly one of expected_value or expected_hash is required.")
+            if fail:
+                raise RuntimeError(failure_message + context)
             elif verbose_success:
-                PRINT(success_message)
+                PRINT(success_message + context)
 
-    def wrapped_checker(*, env_var, value):
-        failure_message = f"The value of environment variable {env_var}, '${env_var}', is not '...{value[-4:]}'."
-        success_message = f"Verified that {env_var} = '...{value[-4:]}'"
-        checker(env_var=env_var, value=value, failure_message=failure_message, success_message=success_message)
+    def wrapped_checker(*, env_var, expected_value, secure=False):
+        hashed_expectation = string_md5(expected_value)
+        failure_message = (f"The value of environment variable {env_var} does not hash to '{hashed_expectation}'."
+                           if secure else
+                           f"The value of environment variable {env_var} is not '{expected_value}'.")
+        success_message = (f"Verified that {env_var} hashes to '{hashed_expectation}'."
+                           if secure else
+                           f"Verified that {env_var} is set to '{expected_value}'.")
+        if secure:
+            checker(env_var=env_var, expected_hash=hashed_expectation,
+                    failure_message=failure_message, success_message=success_message)
+        else:
+            checker(env_var=env_var, expected_value=expected_value,
+                    failure_message=failure_message, success_message=success_message)
 
+    # Check this first, because if it fails we can report the actual value.
     wrapped_checker(env_var='ACCOUNT_NUMBER',
-                    value=ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER, default=None))
+                    expected_value=ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER, default=None))
     wrapped_checker(env_var='AWS_ACCESS_KEY_ID',
-                    value=ini_file_get("custom/aws_creds/credentials", "aws_access_key_id"))
+                    expected_value=ini_file_get("custom/aws_creds/credentials", "aws_access_key_id"),
+                    secure=True)  # check a hash
+    wrapped_checker(env_var='S3_ENCRYPT_KEY',
+                    expected_value=ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY),
+                    secure=True)  # check a hash
 
 
 @decorator()

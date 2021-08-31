@@ -3,7 +3,7 @@ import io
 import json
 import os
 
-from dcicutils.misc_utils import full_class_name, file_contents, json_leaf_subst
+from dcicutils.misc_utils import full_class_name, json_leaf_subst
 from ..base import ConfigManager
 from ..constants import Settings
 
@@ -53,7 +53,7 @@ def main(simulated_args=None):
 
     parser = argparse.ArgumentParser(  # noqa - PyCharm wrongly thinks the formatter_class is specified wrong here.
         description="Resolve the foursight check_setup.json file based on template in check_json.template.json",
-        epilog=EPILOG,  formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--env_name", default=None,
                         help=f"name of environment to configure (default {DEFAULT_ENVIRONMENT})")

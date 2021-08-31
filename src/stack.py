@@ -1,10 +1,9 @@
-import json
 import logging
 import os
 import sys
 
 from chalicelib.package import PackageDeploy as PackageDeploy_from_cgap
-from dcicutils.misc_utils import PRINT, override_environ, full_class_name
+from dcicutils.misc_utils import PRINT, full_class_name
 from os.path import dirname
 from troposphere import Template
 from .base import ConfigManager

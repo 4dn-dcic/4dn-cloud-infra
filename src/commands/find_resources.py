@@ -152,7 +152,7 @@ class ResourceCommand:
         try:
             parser = argparse.ArgumentParser(  # noqa - PyCharm wrongly thinks the formatter_class is specified wrong here.
                 description=cls.description(),
-                epilog=EPILOG,  formatter_class=argparse.RawDescriptionHelpFormatter,
+                epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter,
             )
             cls.add_arguments(parser)
             args = parser.parse_args(args=simulated_args)

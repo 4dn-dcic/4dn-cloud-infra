@@ -209,7 +209,7 @@ class KnowledgeBase:
         KnowledgeBase.initialize()
         parser = argparse.ArgumentParser(  # noqa - PyCharm wrongly thinks the formatter_class is specified wrong here.
             description="Load the knowledge base.",
-            epilog=EPILOG,  formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         parser.add_argument("--env-name", dest="env_name", default=None,
                             help=f"name of environment to load args into (default {DEFAULT_ENV_NAME}"
