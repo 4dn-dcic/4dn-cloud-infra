@@ -1,6 +1,7 @@
 import json
 import re
 
+from dcicutils.cloudformation_utils import camelize
 from dcicutils.misc_utils import as_seconds
 from troposphere import (
     Join, Ref, Template, Tags, Parameter, Output, GetAtt,
@@ -20,7 +21,7 @@ from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.s3 import Bucket, Private
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
-from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX, camelize, dehyphenate
+from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX
 from ..constants import Settings, Secrets
 from ..exports import C4Exports
 from ..part import C4Part
@@ -45,12 +46,14 @@ class C4DatastoreExports(C4Exports):
     FOURSIGHT_APPLICATION_VERSION_BUCKET = exportify('FoursightApplicationVersionBucket')
 
     # Output production S3 bucket information
+    # NOTE: Some of these have output names for historical reasons that do not well match what the bucket names are.
+    #       The names are just formal names, so we'll live with that for now. -kmp 29-Aug-2021
     APPLICATION_SYSTEM_BUCKET = exportify('AppSystemBucket')
     APPLICATION_WFOUT_BUCKET = exportify('AppWfoutBucket')
     APPLICATION_FILES_BUCKET = exportify('AppFilesBucket')
     APPLICATION_BLOBS_BUCKET = exportify('AppBlobsBucket')
     APPLICATION_METADATA_BUNDLES_BUCKET = exportify('AppMetadataBundlesBucket')
-    APPLICATION_TIBANNA_LOGS_BUCKET = exportify('AppTibannaLogsBucket')
+    APPLICATION_TIBANNA_OUTPUT_BUCKET = exportify('AppTibannaLogsBucket')
 
     # Output SQS Queues
     APPLICATION_INDEXER_PRIMARY_QUEUE = exportify('ApplicationIndexerPrimaryQueue')
@@ -77,9 +80,11 @@ class C4DatastoreExports(C4Exports):
     def get_env_bucket(cls):
         return ConfigManager.find_stack_output(cls._ENV_BUCKET_EXPORT_PATTERN.match, value_only=True)
 
+    _TIBANNA_OUTPUT_BUCKET_PATTERN = re.compile(f".*Datastore.*{APPLICATION_TIBANNA_OUTPUT_BUCKET}")
+
     @classmethod
     def get_tibanna_output_bucket(cls):
-        return ConfigManager.find_stack_output(cls.APPLICATION_TIBANNA_LOGS_BUCKET)
+        return ConfigManager.find_stack_output(cls._TIBANNA_OUTPUT_BUCKET_PATTERN.match, value_only=True)
 
     def __init__(self):
         # The intention here is that Beanstalk/ECS stacks will use these outputs and reduce amount
@@ -123,13 +128,12 @@ class C4Datastore(C4Part):
     # Intended to be .formatted with the deploying env_name
 
     APPLICATION_LAYER_BUCKETS = {
-        C4DatastoreExports.APPLICATION_BLOBS_BUCKET: ConfigManager.get_app_bucket_template('BLOBS'),
-        C4DatastoreExports.APPLICATION_FILES_BUCKET: ConfigManager.get_app_bucket_template('FILES'),
-        C4DatastoreExports.APPLICATION_WFOUT_BUCKET: ConfigManager.get_app_bucket_template('WFOUT'),
-        C4DatastoreExports.APPLICATION_SYSTEM_BUCKET: ConfigManager.get_app_bucket_template('SYSTEM'),
-        C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET:
-            ConfigManager.get_app_bucket_template('METADATA_BUNDLES'),
-        C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET: ConfigManager.get_app_bucket_template('TIBANNA_LOGS'),
+        C4DatastoreExports.APPLICATION_BLOBS_BUCKET: ConfigManager.AppBucketTemplate.BLOBS,
+        C4DatastoreExports.APPLICATION_FILES_BUCKET: ConfigManager.AppBucketTemplate.FILES,
+        C4DatastoreExports.APPLICATION_WFOUT_BUCKET: ConfigManager.AppBucketTemplate.WFOUT,
+        C4DatastoreExports.APPLICATION_SYSTEM_BUCKET: ConfigManager.AppBucketTemplate.SYSTEM,
+        C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET: ConfigManager.AppBucketTemplate.METADATA_BUNDLES,
+        C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET: ConfigManager.AppBucketTemplate.TIBANNA_OUTPUT,
     }
 
     @classmethod
@@ -145,10 +149,9 @@ class C4Datastore(C4Part):
     # FOURSIGHT_LAYER_PREFIX = '{foursight_prefix}{env_name}'
 
     FOURSIGHT_LAYER_BUCKETS = {
-        C4DatastoreExports.FOURSIGHT_ENV_BUCKET: ConfigManager.get_fs_bucket_template('ENVS'),
-        C4DatastoreExports.FOURSIGHT_RESULT_BUCKET: ConfigManager.get_fs_bucket_template('RESULTS'),
-        C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET:
-            ConfigManager.get_fs_bucket_template('APPLICATION_VERSIONS'),
+        C4DatastoreExports.FOURSIGHT_ENV_BUCKET: ConfigManager.FSBucketTemplate.ENVS,
+        C4DatastoreExports.FOURSIGHT_RESULT_BUCKET: ConfigManager.FSBucketTemplate.RESULTS,
+        C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET: ConfigManager.FSBucketTemplate.APPLICATION_VERSIONS,
     }
 
     @classmethod
@@ -192,11 +195,11 @@ class C4Datastore(C4Part):
             'ENCODED_APPLICATION_BUCKET_PREFIX': cls.resolve_bucket_name("{application_prefix}"),
             'ENCODED_BS_ENV': env_name,
             'ENCODED_DATA_SET': 'prod',
-            'ENCODED_ES_SERVER':  C4DatastoreExports.get_es_url(), # None,
+            'ENCODED_ES_SERVER': C4DatastoreExports.get_es_url(),  # None,
             'ENCODED_FOURSIGHT_BUCKET_PREFIX': cls.resolve_bucket_name("{foursight_prefix}"),
             'ENCODED_IDENTITY': None,  # This is the name of the Secrets Manager with all our identity's secrets
             'ENCODED_FILE_UPLOAD_BUCKET':
-               "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
             'ENCODED_FILE_WFOUT_BUCKET':
                 "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_WFOUT_BUCKET),
             'ENCODED_BLOB_BUCKET':

@@ -51,10 +51,10 @@ You can request this from the `Service Quotas console
 
 * Upload base templates required for starting the application::
 
-    poetry run cli provision iam --validate --upload_change_set
-    poetry run cli provision logging --validate --upload_change_set
-    poetry run cli provision network --validate --upload_change_set
-    poetry run cli provision ecr --validate --upload_change_set
+    poetry run cli provision iam --validate --upload-change-set
+    poetry run cli provision logging --validate --upload-change-set
+    poetry run cli provision network --validate --upload-change-set
+    poetry run cli provision ecr --validate --upload-change-set
 
     #############################################################################
     # This next command is a temporary workaround to manually create            #
@@ -221,7 +221,6 @@ To deploy the CGAP portal you have uploaded:
     * Choose ``Existing Security Group``
     * Select the group named ``C4NetworkDBSecurityGroup``.
     * Select the group named ``C4NetworkApplicationSecurityGroup``.
-    * Select the group named ``C4NetworkHTTPSSecurityGroup``.
     * Once all security groups are selected, click ``Save`` at the bottom to return to where
       you were in specifying task options.
 
@@ -344,21 +343,44 @@ credentials for the account you're deploying into must be active for all subsequ
     source custom/aws_creds/test_creds.sh
     tibanna_cgap deploy_zebra --subnets <private_subnet> -r <application_security_group> -e <env_name>
 
+In the following steps, you don't have to re-run the ``source`` command to get new of your credentials,
+*but* it's very critical
+that this be done so  you're not posting to the wrong account. As such, we show that step redundantly at
+each point.
+
 If you have ENV_NAME set correctly as an environment variable, you can accomplish this by doing::
 
+    source custom/aws_creds/test_creds.sh
     tibanna_cgap deploy_zebra --subnets `network-attribute PrivateSudbnetA` -e $ENV_NAME -r `network-attribute ApplicationSecurityGroup`
 
-While this is happening, transfer the public reference files from the 4DN main account buckets into the new
-account files bucket.::
+While the tibanna deploy is happening, you may want to do this next step in another shell window.
 
+**IMPORTANT NOTE:**  If you use a different shell, **it is critical** that you re-select the same directory
+as you were in ``(your 4dn-cloud-infra`` repository) **and also** re-run the ``source`` command
+to get new credentials in that window. Even if you think it's redundant, it's advisable to do it anyway to
+avoid error. It's very low-cost and avoids a lot of headache.
+
+For this next step, you need the ``aws`` command line operation to be functioning. If you have any problems with
+that, you may need to run this script::
+
+    scripts/assure-awscli
+
+Next you'll need to transfer the public reference files from the 4DN main account buckets into the new
+account files bucket. This step can take as much as 45-60 minutes if you have not previously copied some or
+all of the indicated files::
+
+    source custom/aws_creds/test_creds.sh
     aws s3 sync s3://cgap-reference-file-registry s3://<new_application_files_bucket>
 
 Then, clone the cgap-pipeline repo, checkout the version you want to deploy (v24 as of writing) and upload
-the bioinformatics metadata to the portal.::
+the bioinformatics metadata to the portal. (This example again assumes the environment variable ENV_NAME
+is set correctly. If you have already sourced your credentials, that part doesn't have to be repeated, but
+it's critical to have done it, so we include that here redundantly to avoid problems.)::
 
-    python post_patch_to_portal.py --ff-env=<env_name> --del-prev-version --ugrp-unrelated
+    source custom/aws_creds/test_creds.sh
+    python post_patch_to_portal.py --ff-env=$ENV_NAME --del-prev-version --ugrp-unrelated
 
-Once the above 3 steps have completed after 20 mins or so, it is time to test it out. Navigate to
+Once the above steps have completed after 20 mins or so, it is time to test it out. Navigate to
 Foursight and trigger the md5 check - this will run the md5 step on the reference files. You should be able
 to track the progress from the Step Function console or CloudWatch. It should not take more than a few minutes
 for the small files. Once this is done, the portal is ready to analyze cases.

@@ -75,5 +75,3 @@ def test_set_stage():
         app_module.set_stage('dev')
 
         assert os.environ.get('chalice_stage') == 'dev'
-
-

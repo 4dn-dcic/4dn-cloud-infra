@@ -1,18 +1,17 @@
 import boto3
+import functools
+import hashlib
 import io
 import json
 import os
 import re
 
 from contextlib import contextmanager
-from dcicutils.cloudformation_utils import (
-    dehyphenate, camelize, make_required_key_for_ecs_application_url, DEFAULT_ECOSYSTEM,
-)
-from dcicutils.exceptions import InvalidParameterError
+from dcicutils.cloudformation_utils import DEFAULT_ECOSYSTEM
+from dcicutils.exceptions import InvalidParameterError, SynonymousEnvironmentVariablesMismatched
 from dcicutils.lang_utils import conjoined_list
 from dcicutils.misc_utils import (
     PRINT, check_true, decorator, file_contents, find_association, find_associations, ignorable, override_environ,
-    snake_case_to_camel_case,
 )
 from dcicutils.s3_utils import s3Utils
 from .exceptions import CLIException
@@ -31,18 +30,16 @@ COMMON_STACK_PREFIX_CAMEL_CASE = "C4"
 
 STACK_KINDS = ['alpha']  # No longer supporting 'legacy' stacks
 
-# All of this is now imported from dcicutils.cloudformation_utils -kmp 17-Aug-2021
-#
-# DEFAULT_ECOSYSTEM = 'main'
-#
-#
-# def camelize(name):  # when this is debugged, this name can go away and tests can be simplified
-#     return snake_case_to_camel_case(name, separator='-')
-#     # return ''.join([i.capitalize() for i in name.split('-')])
-#
-#
-# def dehyphenate(name):
-#     return name.replace('-', '')
+_INI_FILE_KEY_REGEXP = re.compile("^([^ =]+)[ ]*=[ ]*(.*)$")
+
+
+def ini_file_get(file, key):  # TODO: Move to dcicutils
+    with io.open(file, 'r') as fp:
+        for line in fp:
+            matched = _INI_FILE_KEY_REGEXP.match(line)
+            if matched:
+                if key == matched.group(1):
+                    return matched.group(2)
 
 
 @decorator()
@@ -54,6 +51,7 @@ def register_stack_creator(*, name, kind, implementation_class):
     print(f"Registered {kind} class {name} as {implementation_class}.")
     if kind not in STACK_KINDS:
         raise InvalidParameterError(parameter="kind", value=kind, options=STACK_KINDS)
+
     def register_stack_creation_function(fn):
         subregistry = REGISTERED_STACKS.get(kind)
         if not subregistry:
@@ -245,58 +243,26 @@ class ConfigManager:
                 found = os.environ.get(var)
                 if found:
                     return found
-                elif found is None or (use_default_if_empty and found is ""):
+                elif found is None or (use_default_if_empty and found == ""):
                     return default
                 else:  # some other false value than None or "", for example zero (0).
                     return found
 
-    class GenericAppBucketTemplate:
-
+    class AppBucketTemplate:
 
         BLOBS = '{application_prefix}{env_part}' + s3Utils.BLOB_BUCKET_SUFFIX                 # blobs
         FILES = '{application_prefix}{env_part}' + s3Utils.RAW_BUCKET_SUFFIX                  # files
         WFOUT = '{application_prefix}{env_part}' + s3Utils.OUTFILE_BUCKET_SUFFIX              # wfoutput
         SYSTEM = '{application_prefix}{env_part}' + s3Utils.SYS_BUCKET_SUFFIX                 # system
         METADATA_BUNDLES = '{application_prefix}{env_part}' + s3Utils.METADATA_BUCKET_SUFFIX  # metadata-bundles
-        # NOTE: For TIBANNA_LOGS, we use a shared in ecosystem. No {env_part}
-        TIBANNA_LOGS = '{application_prefix}' + s3Utils.TIBANNA_OUTPUT_BUCKET_SUFFIX          # tibanna-output
+        # NOTE: For TIBANNA_OUTPUT, we use a shared in ecosystem. No {env_part}
+        TIBANNA_OUTPUT = '{application_prefix}' + s3Utils.TIBANNA_OUTPUT_BUCKET_SUFFIX          # tibanna-output
 
-    class GenericFSBucketTemplate:
-
-        ENVS = '{foursight_prefix}envs'  # NOTE: Shared in ecosystem. No {env_part}
-        RESULTS = '{foursight_prefix}{env_part}results'
-        APPLICATION_VERSIONS = '{foursight_prefix}{env_part}application-versions'
-
-    class OriginalAppBucketTemplate:
-
-        BLOBS = '{application_prefix}{env_part}blobs'
-        FILES = '{application_prefix}{env_part}files'
-        WFOUT = '{application_prefix}{env_part}wfout'
-        SYSTEM = '{application_prefix}{env_part}system'
-        METADATA_BUNDLES = '{application_prefix}{env_part}metadata-bundles'
-        TIBANNA_LOGS = '{application_prefix}tibanna-logs'  # NOTE: Shared in ecosystem. No {env_part}
-
-    class OriginalFSBucketTemplate:
+    class FSBucketTemplate:
 
         ENVS = '{foursight_prefix}envs'  # NOTE: Shared in ecosystem. No {env_part}
         RESULTS = '{foursight_prefix}{env_part}results'
         APPLICATION_VERSIONS = '{foursight_prefix}{env_part}application-versions'
-
-    ORIGINAL_ACCOUNT_NUMBER = '645819926742'
-
-    @classmethod
-    def get_app_bucket_template(cls, kind):
-        if ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER) == cls.ORIGINAL_ACCOUNT_NUMBER:
-            return getattr(cls.OriginalAppBucketTemplate, kind)
-        else:
-            return getattr(cls.GenericAppBucketTemplate, kind)
-
-    @classmethod
-    def get_fs_bucket_template(cls, kind):
-        if ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER) == cls.ORIGINAL_ACCOUNT_NUMBER:
-            return getattr(cls.OriginalFSBucketTemplate, kind)
-        else:
-            return getattr(cls.GenericFSBucketTemplate, kind)
 
     CLOUDFORMATION = None
 
@@ -380,6 +346,93 @@ class ConfigManager:
         return default
 
 
+def string_md5(unicode_string):
+    return hashlib.md5(unicode_string.encode('utf-8')).hexdigest()
+
+
+def check_environment_variable_consistency(checker=None, verbose_success=False):
+
+    if checker is None:
+
+        def checker(*, env_var, failure_message, success_message, expected_value=None, expected_hash=None):
+            actual = os.environ.get(env_var, "")
+            context = " (in Python)"
+            if expected_hash:
+                if expected_value:
+                    raise ValueError("Exactly one of expected_value or expected_hash is required.")
+                fail = string_md5(actual) != expected_hash
+            elif expected_value:
+                fail = actual != expected_value
+            else:
+                raise ValueError("Exactly one of expected_value or expected_hash is required.")
+            if fail:
+                raise RuntimeError(failure_message + context)
+            elif verbose_success:
+                PRINT(success_message + context)
+
+    def wrapped_checker(*, env_var, expected_value, secure=False):
+        hashed_expectation = string_md5(expected_value)
+        failure_message = (f"The value of environment variable {env_var} does not hash to '{hashed_expectation}'."
+                           if secure else
+                           f"The value of environment variable {env_var} is not '{expected_value}'.")
+        success_message = (f"Verified that {env_var} hashes to '{hashed_expectation}'."
+                           if secure else
+                           f"Verified that {env_var} is set to '{expected_value}'.")
+        if secure:
+            checker(env_var=env_var, expected_hash=hashed_expectation,
+                    failure_message=failure_message, success_message=success_message)
+        else:
+            checker(env_var=env_var, expected_value=expected_value,
+                    failure_message=failure_message, success_message=success_message)
+
+    # Check this first, because if it fails we can report the actual value.
+    wrapped_checker(env_var='ACCOUNT_NUMBER',
+                    expected_value=ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER))
+    wrapped_checker(env_var='AWS_ACCESS_KEY_ID',
+                    expected_value=ini_file_get("custom/aws_creds/credentials", "aws_access_key_id"),
+                    secure=True)  # check a hash
+    wrapped_checker(env_var='S3_ENCRYPT_KEY',
+                    expected_value=ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY),
+                    secure=True)  # check a hash
+    # These values are not supposed to be set in the config, which is why there is no constant naming them,
+    # since they can be computed, but if they are set there, we need to verify that these are the same in
+    # the global environment.
+    config_global_env_bucket = ConfigManager.get_config_setting('GLOBAL_ENV_BUCKET', default="")
+    config_global_bucket_env = ConfigManager.get_config_setting('GLOBAL_BUCKET_ENV', default="")
+    if config_global_env_bucket and config_global_bucket_env and config_global_env_bucket != config_global_bucket_env:
+        raise SynonymousEnvironmentVariablesMismatched(
+            var1='GLOBAL_ENV_BUCKET', val1=config_global_env_bucket,
+            var2='GLOBAL_BUCKET_ENV', val2=config_global_bucket_env,
+        )
+    # We only care about consistency, not correctness, so if one of these is set in the config, we expect it's the
+    # same value in the environment.
+    if config_global_env_bucket:
+        wrapped_checker(env_var='GLOBAL_ENV_BUCKET',
+                        expected_value=config_global_env_bucket)
+    if config_global_bucket_env:
+        # If the value is configured, it'd better be the same in the environment variables.
+        wrapped_checker(env_var='GLOBAL_BUCKET_ENV',
+                        expected_value=config_global_bucket_env)
+
+
+@decorator()
+def configured_main_command(debug=False):
+    def _command_wrapper(fn):
+        @functools.wraps(fn)
+        def wrapped_command(*args, **kwargs):
+            try:
+                check_environment_variable_consistency()
+                with ConfigManager.validate_and_source_configuration():
+                    return fn(*args, **kwargs)
+            except Exception as e:
+                PRINT(f"{e.__class__.__name__}: {e}")
+                if debug:
+                    raise
+                exit(1)
+        return wrapped_command
+    return _command_wrapper
+
+
 USE_SHORT_EXPORT_NAMES = True  # TODO: Remove when debugged
 
 
@@ -406,4 +459,3 @@ if not DEPLOYING_IAM_USER:
     raise ValueError(f"A setting for {Settings.DEPLOYING_IAM_USER} is required.")
 
 ECOSYSTEM = ConfigManager.get_config_setting(Settings.S3_BUCKET_ECOSYSTEM, default=DEFAULT_ECOSYSTEM)
-
