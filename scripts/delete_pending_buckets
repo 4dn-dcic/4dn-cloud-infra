@@ -2,7 +2,7 @@
 
 # To use this script, fill out the buckets you want to ls/delete in
 # delete_pending_buckets.data.txt. Output is streamed into files in
-# the out/ directory. Uncomment line 14 and comment out line 15 to run
+# the out/ directory. Uncomment the rb line and comment out the ls to run
 # a force deletion of the bucket. BE EXTREMELY CAREFUL. You will need
 # to confirm the deletion of every bucket.
 
