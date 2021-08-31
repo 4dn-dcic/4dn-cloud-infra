@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 
-set -v -x
+# To use this script, fill out the buckets you want to ls/delete in
+# delete_pending_buckets.data.txt. Output is streamed into files in
+# the out/ directory. Uncomment line 14 and comment out line 15 to run
+# a force deletion of the bucket. BE EXTREMELY CAREFUL. You will need
+# to confirm the deletion of every bucket.
 
-# To test, uncomment the ls line, comment the rb --force line, and run
-# Outputs saved to the out/ gitignored dir
-
-for i in `cat delete-pending-buckets.data.txt`
+# shellcheck disable=SC2013
+for i in $(cat delete_pending_buckets.data.txt)
 do
   echo "force deleting ${i}...press key to proceed or ctrl+c to cancel"
-  read line
+  read _
   echo "follow progress with:"
   echo "tail -f ../out/delete_log_${i}.log"
   #docker run --rm -ti -v ~/.aws:/root/.aws amazon/aws-cli s3 rb s3://${i} --force >> ../out/delete_log_${i}.log

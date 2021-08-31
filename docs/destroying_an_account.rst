@@ -45,4 +45,35 @@ Size down the RDS and ES resources sizes to minimize server cost when hibernatin
 Clearing out S3 Buckets
 -----------------------
 
-Clear em out!
+Write the buckets to be deleted onto each line of ``delete_pending_buckets.data.txt`` and then
+run the ``delete_pending_buckets`` script, which will run an ``ls`` at first to give info
+on what is in the bucket. Once you are satisfied, comment out the ``ls`` and enable the
+``rb`` command in order to trigger the force deletion of the buckets. Be careful as once
+this is triggered there is no going back - you will need to confirm each bucket by entering
+input::
+
+    cd scripts/
+    ./delete_pending_buckets
+
+Deleting the Datastore Stack
+----------------------------
+
+Once the S3 buckets have been cleared out it should be safe to delete the datastore stack. Note that this
+operation will permanently delete the metadata associated with this environment, so ensure that if you want
+it to persist, take and store an RDS snapshot that can be used later on to restore the DB.
+
+Deleting the Remaining Stacks
+-----------------------------
+
+At this point, there should be no other stack dependencies and you can delete them in the reverse order
+of how they were created::
+
+    ecr
+    network
+    logging
+    iam
+
+Once this is done, all application components should be removed from the account aside
+from logs and RDS backups. Clear out any remaining resources manually created and the
+destruction process should be complete. Use the cost analyzer to track down any remaining
+hidden costs.
