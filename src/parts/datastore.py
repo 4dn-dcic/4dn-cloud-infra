@@ -132,13 +132,10 @@ class C4Datastore(C4Part):
         C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET: ConfigManager.get_app_bucket_template('TIBANNA_LOGS'),
     }
 
-    # Buckets to apply the lifecycle policy to
-    # XXX: should probably be discussed
+    # Buckets to apply the lifecycle policy to (files and wfoutput, as these are large)
     LIFECYCLE_BUCKET_EXPORT_NAMES = [
         C4DatastoreExports.APPLICATION_FILES_BUCKET,
         C4DatastoreExports.APPLICATION_WFOUT_BUCKET,
-        C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET,
-        C4DatastoreExports.APPLICATION_TIBANNA_LOGS_BUCKET
     ]
 
     @classmethod
@@ -152,7 +149,7 @@ class C4Datastore(C4Part):
     # Results bucket is the backing store for checks (they are also indexed into ES)
 
     # FOURSIGHT_LAYER_PREFIX = '{foursight_prefix}{env_name}'
-
+    # TODO: Configure dev/prod stage result bucket correctly
     FOURSIGHT_LAYER_BUCKETS = {
         C4DatastoreExports.FOURSIGHT_ENV_BUCKET: ConfigManager.get_fs_bucket_template('ENVS'),
         C4DatastoreExports.FOURSIGHT_RESULT_BUCKET: ConfigManager.get_fs_bucket_template('RESULTS'),
@@ -282,7 +279,7 @@ class C4Datastore(C4Part):
             if export_name in self.LIFECYCLE_BUCKET_EXPORT_NAMES:
                 use_lifecycle_policy = True
             bucket_name = self.resolve_bucket_name(bucket_template)
-            bucket = self.build_s3_bucket(bucket_name)
+            bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy)
             template.add_resource(bucket)
             template.add_output(self.output_s3_bucket(export_name, bucket_name))
 
