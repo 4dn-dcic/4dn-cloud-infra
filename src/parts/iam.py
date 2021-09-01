@@ -339,23 +339,6 @@ class C4IAM(C4Part):
         ]
         return Role(
             self.ROLE_NAME,
-            # IMPORTANT: Required for EC2s to associate with ECS
-            # XXX: AWSServiceRoleForECS needed for running ECS (?)
-            ManagedPolicyArns=[
-                # "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
-                # NOTE: Will thinks that THIS is what we need, not the above:
-                #
-                # "arn:aws:iam::aws:policy/aws-service-role/AmazonECSServiceRolePolicy"
-                #
-                #   but using that URL gets me:
-                #
-                #   Cannot attach a Service Role Policy to a Customer Role.
-                #   (Service: AmazonIdentityManagement;
-                #    Status Code: 400;
-                #    Error Code: PolicyNotAttachable;
-                #    Request ID: 14573591-6e7c-4fd3-8d74-47edc41df495;
-                #    Proxy: null)
-            ],
             # IMPORTANT: BOTH ECS and EC2 need AssumeRole
             AssumeRolePolicyDocument=PolicyDocument(
                 Version='2012-10-17',
@@ -370,6 +353,7 @@ class C4IAM(C4Part):
                         Action=[
                             Action('sts', 'AssumeRole')
                         ],
+                    # XXX: not clear this is needed - Will Aug 31 2021
                     Principal=Principal('Service', 'ec2.amazonaws.com')),
                     Statement(
                         Effect='Allow',
@@ -413,7 +397,7 @@ class C4IAM(C4Part):
                 self.ecs_s3_policy(),
                 self.ecs_s3_user_sts_policy(),
             ],
-            # Tags=self.tags.cost_tag_array(logical_id) does not accept tags - Will June 30th, 2021
+            Tags=self.tags.cost_tag_obj(logical_id)
         )
 
     @staticmethod

@@ -95,7 +95,7 @@ submission:  # TODO: This make target is highly account-specific and needs work 
 	@echo 'Once this is done, trigger ingestion with: "make ingestion". '
 
 test:
-	pytest -vv
+	poetry run pytest -vv
 
 
 ingestion:

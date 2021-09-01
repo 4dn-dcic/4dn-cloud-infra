@@ -269,10 +269,6 @@ class C4ECSApplication(C4Part):
                 Ref(self.ecs_lb_security_group())
             ],
             Subnets=[self.NETWORK_EXPORTS.import_value(subnet_key) for subnet_key in C4NetworkExports.PUBLIC_SUBNETS],
-            # Subnets=[
-            #     self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_A),
-            #     self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNET_B),
-            # ],
             Tags=self.tags.cost_tag_array(name=logical_id),
             Type='application',
         )
@@ -326,7 +322,7 @@ class C4ECSApplication(C4Part):
                     Name='portal',
                     Essential=True,
                     Image=Join("", [
-                        self.ECR_EXPORTS.import_value(C4ECRExports.REPO_URL),
+                        self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
                         self.IMAGE_TAG,
                     ]),
@@ -363,7 +359,7 @@ class C4ECSApplication(C4Part):
                     ]
                 )
             ],
-            # Tags=self.tags.cost_tag_array(),  # XXX: bug in troposphere - does not take tags array
+            Tags=self.tags.cost_tag_obj(),
         )
 
     def ecs_portal_service(self, concurrency=8) -> Service:
@@ -407,12 +403,10 @@ class C4ECSApplication(C4Part):
                         self.NETWORK_EXPORTS.import_value(subnet_key)
                         for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
                     ],
-                    # Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                    #          self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
-            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
+            Tags=self.tags.cost_tag_obj()
         )
 
     DEFAULT_INDEXER_CPU = '256'
@@ -441,7 +435,7 @@ class C4ECSApplication(C4Part):
                     Name='Indexer',
                     Essential=True,
                     Image=Join('', [
-                        self.ECR_EXPORTS.import_value(C4ECRExports.REPO_URL),
+                        self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
                         self.IMAGE_TAG,
                     ]),
@@ -469,7 +463,7 @@ class C4ECSApplication(C4Part):
                     ]
                 )
             ],
-            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
+            Tags=self.tags.cost_tag_obj()
         )
 
     def ecs_indexer_service(self, concurrency=4) -> Service:
@@ -505,12 +499,10 @@ class C4ECSApplication(C4Part):
                         self.NETWORK_EXPORTS.import_value(subnet_key)
                         for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
                     ],
-                    # Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                    #          self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
-            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
+            Tags=self.tags.cost_tag_obj()
         )
 
     @staticmethod
@@ -582,7 +574,7 @@ class C4ECSApplication(C4Part):
                     Name='Ingester',
                     Essential=True,
                     Image=Join("", [
-                        self.ECR_EXPORTS.import_value(C4ECRExports.REPO_URL),
+                        self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
                         self.IMAGE_TAG
                     ]),
@@ -609,7 +601,7 @@ class C4ECSApplication(C4Part):
                     ]
                 )
             ],
-            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
+            Tags=self.tags.cost_tag_obj()
         )
 
     def ecs_ingester_service(self) -> Service:
@@ -630,8 +622,6 @@ class C4ECSApplication(C4Part):
                         self.NETWORK_EXPORTS.import_value(subnet_key)
                         for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
                     ],
-                    # Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                    #          self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
@@ -648,7 +638,7 @@ class C4ECSApplication(C4Part):
                     Weight=0
                 )
             ],
-            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
+            Tags=self.tags.cost_tag_obj()
         )
 
     @staticmethod
@@ -735,7 +725,7 @@ class C4ECSApplication(C4Part):
                     Name='DeploymentAction',
                     Essential=True,
                     Image=Join("", [
-                        self.ECR_EXPORTS.import_value(C4ECRExports.REPO_URL),
+                        self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
                         self.IMAGE_TAG,
                     ]),
@@ -765,7 +755,7 @@ class C4ECSApplication(C4Part):
                     ]
                 )
             ],
-            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
+            Tags=self.tags.cost_tag_obj()
         )
 
     def ecs_deployment_service(self) -> Service:
@@ -803,10 +793,8 @@ class C4ECSApplication(C4Part):
                         self.NETWORK_EXPORTS.import_value(subnet_key)
                         for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
                     ],
-                    # Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                    #          self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B)],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
-            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
+            Tags=self.tags.cost_tag_obj()
         )

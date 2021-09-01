@@ -6,6 +6,15 @@
 Change Log
 ----------
 
+1.4.0
+=====
+
+* Documents how to tear down an account, makes some small modifications as needed in support
+* Enables the failed_metawfrs check on a schedule, which will automate restarting failed pipeline steps
+* Implements S3 Lifecycle policies, applied to the Files and Wfoutput buckets (note that this does not activate the policies as that requires tagging from Foursight)
+* Adds a small script and an ECR repository for the Tibanna AWSF image, pulls in an ECR compatible version
+* Adjusts default Foursight deploy stage to prod
+
 
 1.3.0
 =====

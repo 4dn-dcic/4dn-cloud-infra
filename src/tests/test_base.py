@@ -1,15 +1,7 @@
 import pytest
 
 from dcicutils.exceptions import InvalidParameterError
-from ..base import REGISTERED_STACKS, register_stack_creator, lookup_stack_creator, camelize
-
-
-def test_camelize():
-    assert camelize("foo") == "Foo"
-    assert camelize("foo-bar") == "FooBar"
-    assert camelize("foo_bar") == "Foo_Bar"
-    assert camelize("foo123bar") == "Foo123Bar"
-    assert camelize("ABC-d-eF") == "AbcDEf"
+from ..base import REGISTERED_STACKS, register_stack_creator, lookup_stack_creator
 
 
 def test_register_stack_creator_and_lookup_stack_creator():

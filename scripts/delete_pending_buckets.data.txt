@@ -1,3 +1,0 @@
-elasticbeanstalk-fourfront-staging-blobsX
-elasticbeanstalk-fourfront-staging-filesX
-elasticbeanstalk-fourfront-staging-wfoutputX

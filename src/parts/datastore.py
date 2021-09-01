@@ -18,7 +18,7 @@ except ImportError:
         raise NotImplementedError('DomainEndpointOptions')
 from troposphere.kms import Key
 from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
-from troposphere.s3 import Bucket, Private
+from troposphere.s3 import Bucket, Private, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, TagFilter
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
 from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX
@@ -136,6 +136,12 @@ class C4Datastore(C4Part):
         C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET: ConfigManager.AppBucketTemplate.TIBANNA_OUTPUT,
     }
 
+    # Buckets to apply the lifecycle policy to (files and wfoutput, as these are large)
+    LIFECYCLE_BUCKET_EXPORT_NAMES = [
+        C4DatastoreExports.APPLICATION_FILES_BUCKET,
+        C4DatastoreExports.APPLICATION_WFOUT_BUCKET,
+    ]
+
     @classmethod
     def application_layer_bucket(cls, export_name):
         bucket_name_template = cls.APPLICATION_LAYER_BUCKETS[export_name]
@@ -147,7 +153,7 @@ class C4Datastore(C4Part):
     # Results bucket is the backing store for checks (they are also indexed into ES)
 
     # FOURSIGHT_LAYER_PREFIX = '{foursight_prefix}{env_name}'
-
+    # TODO: Configure dev/prod stage result bucket correctly
     FOURSIGHT_LAYER_BUCKETS = {
         C4DatastoreExports.FOURSIGHT_ENV_BUCKET: ConfigManager.FSBucketTemplate.ENVS,
         C4DatastoreExports.FOURSIGHT_RESULT_BUCKET: ConfigManager.FSBucketTemplate.RESULTS,
@@ -271,10 +277,12 @@ class C4Datastore(C4Part):
             template.add_output(self.output_sqs_instance(export_name, i))
 
         # Add/Export S3 buckets
-
         def add_and_export_s3_bucket(export_name, bucket_template):
+            use_lifecycle_policy = False
+            if export_name in self.LIFECYCLE_BUCKET_EXPORT_NAMES:
+                use_lifecycle_policy = True
             bucket_name = self.resolve_bucket_name(bucket_template)
-            bucket = self.build_s3_bucket(bucket_name)
+            bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy)
             template.add_resource(bucket)
             template.add_output(self.output_s3_bucket(export_name, bucket_name))
 
@@ -293,18 +301,75 @@ class C4Datastore(C4Part):
         print(f"bucket {bucket_name} => {res}")
         return res
 
+    @staticmethod
+    def build_s3_lifecycle_policy() -> LifecycleConfiguration:
+        """ Builds a standard life cycle policy for an S3 bucket based on the wfoutput bucket
+            on CGAP production (using tags through foursight, to be implemented).
+            Note that we could also do time based migration.
+
+            Tag an S3 object with:
+                Lifecycle:IA to move the object to infrequent access
+                Lifecycle:glacier to move the object to glacier
+                Lifecycle:glacier_da to move the object to deep archive
+                Lifecycle:expire to delete the current version after 24 hours
+        """
+        return LifecycleConfiguration(
+            title='CGAPS3LifecyclePolicy',
+            Rules=[
+                LifecycleRule(
+                    'IA',
+                    Status='Enabled',
+                    TagFilters=[TagFilter(Key='Lifecycle', Value='IA')],
+                    Transition=LifecycleRuleTransition(
+                        StorageClass='STANDARD_IA'
+                    )
+                ),
+                LifecycleRule(
+                    'glacier',
+                    Status='Enabled',
+                    TagFilters=[TagFilter(Key='Lifecycle', Value='Glacier')],
+                    Transition=LifecycleRuleTransition(
+                        StorageClass='GLACIER'
+                    )
+                ),
+                LifecycleRule(
+                    'glacierda',
+                    Status='Enabled',
+                    TagFilters=[TagFilter(Key='Lifecycle', Value='GlacierDA')],
+                    Transition=LifecycleRuleTransition(
+                        StorageClass='DEEP_ARCHIVE'
+                    )
+                ),
+                LifecycleRule(
+                    'expire',
+                    Status='Enabled',
+                    TagFilters=[TagFilter(Key='Lifecycle', Value='expire')],
+                    ExpirationInDays=1
+                )
+            ]
+        )
+
     @classmethod
-    def build_s3_bucket(cls, bucket_name, access_control=Private) -> Bucket:
+    def build_s3_bucket(cls, bucket_name, access_control=Private, include_lifecycle=True) -> Bucket:
         """ Creates an S3 bucket under the given name/access control permissions.
             See troposphere.s3 for access control options.
         """
         # bucket_name_parts = bucket_name.split('-')
-        return Bucket(
-            # ''.join(bucket_name_parts),  # Name != BucketName
-            cls.build_s3_bucket_resource_name(bucket_name),
-            BucketName=bucket_name,
-            AccessControl=access_control
-        )
+        if include_lifecycle:
+            return Bucket(
+                # ''.join(bucket_name_parts),  # Name != BucketName
+                cls.build_s3_bucket_resource_name(bucket_name),
+                BucketName=bucket_name,
+                AccessControl=access_control,
+                LifecycleConfiguration=cls.build_s3_lifecycle_policy()  # passing None here doesn't work
+            )
+        else:
+            return Bucket(
+                # ''.join(bucket_name_parts),  # Name != BucketName
+                cls.build_s3_bucket_resource_name(bucket_name),
+                BucketName=bucket_name,
+                AccessControl=access_control,
+            )
 
     def output_s3_bucket(self, export_name, bucket_name: str) -> Output:
         """ Builds an output for the given export_name/Bucket resource """

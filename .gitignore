@@ -57,6 +57,7 @@ in/
 test_data/knowledge_base/temp-local-inserts/*
 DEBUGLOG-*
 *.log
+scripts/delete_pending_buckets.data.txt
 
 # Backup files (Emacs, etc.)
 *~

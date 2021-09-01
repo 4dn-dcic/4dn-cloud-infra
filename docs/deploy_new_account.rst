@@ -62,9 +62,11 @@ You can request this from the `Service Quotas console
     # datastore can be provisioned. In effect, you want to execute this         #
     # command, but with the right credentials in an isolated environment:       #
     #   aws iam create-service-linked-role --aws-service-name es.amazonaws.com  #
-    # So this is the way to do that using docker.                               #
+    # So this is the way to do that using docker. Note we also must do this for #
+    # the ECS Service.                                                          #
     #############################################################################
     docker run --rm -it -v `pwd`/custom/aws_creds:/root/.aws amazon/aws-cli iam create-service-linked-role --aws-service-name es.amazonaws.com
+    docker run --rm -it -v `pwd`/custom/aws_creds:/root/.aws amazon/aws-cli iam create-service-linked-role --aws-service-name ecs.amazonaws.com
 
     ################################################################################
     # You will need to make sure you have an s3 encrypt key for your test account. #
@@ -337,8 +339,9 @@ Step Seven: Deploying Tibanna Zebra
 -----------------------------------
 
 Now it is time to provision Tibanna in this account for CGAP. Ensure test creds are active, in particular the
-correct ``GLOBAL_BUCKET_ENV`` and ``S3_ENCRYPT_KEY``, then deploy Tibanna. Note that the
-credentials for the account you're deploying into must be active for all subsequent steps.::
+correct ``GLOBAL_BUCKET_ENV`` and ``S3_ENCRYPT_KEY``, then deploy Tibanna. Note that all of the following steps
+take some significant time so should be run in parallel if possible. Note additionally that the
+credentials for the account you're deploying into must be active for all subsequent steps::
 
     source custom/aws_creds/test_creds.sh
     tibanna_cgap deploy_zebra --subnets <private_subnet> -r <application_security_group> -e <env_name>
@@ -352,6 +355,7 @@ If you have ENV_NAME set correctly as an environment variable, you can accomplis
 
     source custom/aws_creds/test_creds.sh
     tibanna_cgap deploy_zebra --subnets `network-attribute PrivateSudbnetA` -e $ENV_NAME -r `network-attribute ApplicationSecurityGroup`
+
 
 While the tibanna deploy is happening, you may want to do this next step in another shell window.
 
@@ -380,10 +384,15 @@ it's critical to have done it, so we include that here redundantly to avoid prob
     source custom/aws_creds/test_creds.sh
     python post_patch_to_portal.py --ff-env=$ENV_NAME --del-prev-version --ugrp-unrelated
 
+Finally, push the tibanna-awsf image to the newly created ECR Repository in the new account::
+
+    ./scripts/upload_tibanna_awsf
+
 Once the above steps have completed after 20 mins or so, it is time to test it out. Navigate to
 Foursight and trigger the md5 check - this will run the md5 step on the reference files. You should be able
 to track the progress from the Step Function console or CloudWatch. It should not take more than a few minutes
-for the small files. Once this is done, the portal is ready to analyze cases.
+for the small files. Once this is done, the portal is ready to analyze cases. One should consider requesting an
+increase in the spot instance allocation limits as well if the account is intended to run at scale.
 
 Step Eight: NA12879 Demo Analysis
 ---------------------------------

@@ -24,7 +24,8 @@ from ..exports import C4Exports
 
 class C4ECRExports(C4Exports):
     """ Holds exports for ECR. """
-    REPO_URL = 'RepoURL'
+    PORTAL_REPO_URL = 'RepoURL'
+    TIBANNA_REPO_URL = 'TibannaRepositoryURL'
 
     def __init__(self):
         parameter = 'ECRStackNameParameter'
@@ -52,7 +53,10 @@ class C4ContainerRegistry(C4Part):
 
         repo = self.repository()
         template.add_resource(repo)
-        template.add_output(self.output_repo_url(repo))
+        template.add_output(self.output_repo_url(repo, self.EXPORTS.PORTAL_REPO_URL))
+        tibanna_repo = self.tibanna_awsf_repository()
+        template.add_resource(tibanna_repo)
+        template.add_output(self.output_repo_url(tibanna_repo, self.EXPORTS.TIBANNA_REPO_URL))
         return template
 
     def build_assumed_role_arn(self):
@@ -61,7 +65,7 @@ class C4ContainerRegistry(C4Part):
                          ]
                     )
 
-    def ecr_push_acl(self):
+    def ecr_push_acl(self) -> Statement:
         """ This statement gives the root user push/pull access to ECR.
         """
         return Statement(
@@ -80,7 +84,7 @@ class C4ContainerRegistry(C4Part):
                 ecr.CompleteLayerUpload,
             ])
 
-    def ecr_pull_acl(self):
+    def ecr_pull_acl(self) -> Statement:
         """ This statement gives the given principle pull access to ECR.
             This perm should be attached to the assumed IAM role of ECS.
 
@@ -101,7 +105,7 @@ class C4ContainerRegistry(C4Part):
                     ecr.CompleteLayerUpload,
                 ])
 
-    def ecr_access_policy(self):
+    def ecr_access_policy(self) -> Policy:
         """ Contains ECR access policy """
         return Policy(
             Statement=[
@@ -114,8 +118,8 @@ class C4ContainerRegistry(C4Part):
             Version='2012-10-17',
         )
 
-    def repository(self, repo_name=None):
-        """ Builds the ECR Repository. """
+    def repository(self, repo_name=None) -> Repository:
+        """ Builds the ECR Repository for the portal. """
         # We used to do this by environment, but now we make it per ecosystem.
         # repo_name = repo_name or ConfigManager.get_config_setting(Settings.ENV_NAME)
         repo_name = repo_name or ECOSYSTEM
@@ -124,12 +128,21 @@ class C4ContainerRegistry(C4Part):
             RepositoryName=repo_name,  # might be we need many of these?
             RepositoryPolicyText=self.ecr_access_policy(),
             ImageScanningConfiguration={"ScanOnPush": True},
-            # Tags=self.tags.cost_tag_array(), XXX: bug in troposphere - does not take tags array
+            Tags=self.tags.cost_tag_obj(),
         )
 
-    def output_repo_url(self, resource: Repository):
+    def tibanna_awsf_repository(self) -> Repository:
+        """ Builds Tibanna-awsf ECR Repository """
+        return Repository(
+            'tibannaawsf',
+            RepositoryName='tibanna-awsf',
+            RepositoryPolicyText=self.ecr_access_policy(),
+            ImageScanningConfiguration={"ScanOnPush": True},
+            Tags=self.tags.cost_tag_obj(),
+        )
+
+    def output_repo_url(self, resource: Repository, export_name) -> Output:
         """ Generates repo URL output """
-        export_name = C4ECRExports.REPO_URL
         logical_id = self.name.logical_id(export_name)
         return Output(
             logical_id,
