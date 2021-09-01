@@ -318,28 +318,32 @@ class C4Datastore(C4Part):
             Rules=[
                 LifecycleRule(
                     'IA',
-                    TagFilters=TagFilter(key='Lifecycle', value='IA'),
+                    Status='Enabled',
+                    TagFilters=[TagFilter(Key='Lifecycle', Value='IA')],
                     Transition=LifecycleRuleTransition(
                         StorageClass='STANDARD_IA'
                     )
                 ),
                 LifecycleRule(
                     'glacier',
-                    TagFilters=TagFilter(key='Lifecycle', value='Glacier'),
+                    Status='Enabled',
+                    TagFilters=[TagFilter(Key='Lifecycle', Value='Glacier')],
                     Transition=LifecycleRuleTransition(
                         StorageClass='GLACIER'
                     )
                 ),
                 LifecycleRule(
-                    'glacier_da',
-                    TagFilters=TagFilter(key='Lifecycle', value='GlacierDA'),
+                    'glacierda',
+                    Status='Enabled',
+                    TagFilters=[TagFilter(Key='Lifecycle', Value='GlacierDA')],
                     Transition=LifecycleRuleTransition(
                         StorageClass='DEEP_ARCHIVE'
                     )
                 ),
                 LifecycleRule(
                     'expire',
-                    TagFilters=TagFilter(key='Lifecycle', value='expire'),
+                    Status='Enabled',
+                    TagFilters=[TagFilter(Key='Lifecycle', Value='expire')],
                     ExpirationInDays=1
                 )
             ]
@@ -351,13 +355,21 @@ class C4Datastore(C4Part):
             See troposphere.s3 for access control options.
         """
         # bucket_name_parts = bucket_name.split('-')
-        return Bucket(
-            # ''.join(bucket_name_parts),  # Name != BucketName
-            cls.build_s3_bucket_resource_name(bucket_name),
-            BucketName=bucket_name,
-            AccessControl=access_control,
-            LifecycleConfiguration=cls.build_s3_lifecycle_policy() if include_lifecycle else None
-        )
+        if include_lifecycle:
+            return Bucket(
+                # ''.join(bucket_name_parts),  # Name != BucketName
+                cls.build_s3_bucket_resource_name(bucket_name),
+                BucketName=bucket_name,
+                AccessControl=access_control,
+                LifecycleConfiguration=cls.build_s3_lifecycle_policy()  # passing None here doesn't work
+            )
+        else:
+            return Bucket(
+                # ''.join(bucket_name_parts),  # Name != BucketName
+                cls.build_s3_bucket_resource_name(bucket_name),
+                BucketName=bucket_name,
+                AccessControl=access_control,
+            )
 
     def output_s3_bucket(self, export_name, bucket_name: str) -> Output:
         """ Builds an output for the given export_name/Bucket resource """
