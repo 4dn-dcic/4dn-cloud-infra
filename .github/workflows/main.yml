@@ -27,18 +27,18 @@ jobs:
           pip install poetry
           poetry install
 
-      - name: Unit
-        run: |
-          # Run any available unit tests.
-          # These won't run on GA currently
-          make test
-          echo "skipping unit tests, run locally"
-
-      - name: Validate
+      - name: Mock
         run: |
           # Write a suitable config.json for (primitive) testing
           mkdir custom
           mkdir custom/aws_creds
           echo {\"deploying_iam_user\": \"test\", \"ENCODED_BS_ENV\": \"cgap-build\", \"account_number\": 123, \"app.kind\": \"cgap\"} > custom/config.json
           echo {\"Auth0Client\": \"test\", \"Auth0Secret\": \"test\", \"ENCODED_SECRET\": \"test\", \"S3_ENCRYPT_KEY\": \"test\"} > custom/secrets.json
+
+      - name: Unit
+        run: |
+          make test
+
+      - name: Validate
+        run: |
           make alpha
