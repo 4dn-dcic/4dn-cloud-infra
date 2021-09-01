@@ -322,7 +322,7 @@ class C4ECSApplication(C4Part):
                     Name='portal',
                     Essential=True,
                     Image=Join("", [
-                        self.ECR_EXPORTS.import_value(C4ECRExports.CGAP_REPO_URL),
+                        self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
                         self.IMAGE_TAG,
                     ]),
@@ -435,7 +435,7 @@ class C4ECSApplication(C4Part):
                     Name='Indexer',
                     Essential=True,
                     Image=Join('', [
-                        self.ECR_EXPORTS.import_value(C4ECRExports.CGAP_REPO_URL),
+                        self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
                         self.IMAGE_TAG,
                     ]),
@@ -574,7 +574,7 @@ class C4ECSApplication(C4Part):
                     Name='Ingester',
                     Essential=True,
                     Image=Join("", [
-                        self.ECR_EXPORTS.import_value(C4ECRExports.CGAP_REPO_URL),
+                        self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
                         self.IMAGE_TAG
                     ]),
@@ -725,7 +725,7 @@ class C4ECSApplication(C4Part):
                     Name='DeploymentAction',
                     Essential=True,
                     Image=Join("", [
-                        self.ECR_EXPORTS.import_value(C4ECRExports.CGAP_REPO_URL),
+                        self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
                         self.IMAGE_TAG,
                     ]),

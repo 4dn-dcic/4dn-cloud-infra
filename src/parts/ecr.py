@@ -24,8 +24,8 @@ from ..exports import C4Exports
 
 class C4ECRExports(C4Exports):
     """ Holds exports for ECR. """
-    CGAP_REPO_URL = 'RepoURL'
-    TIBANNA_REPO_URL = 'TibannaRepoURL'
+    PORTAL_REPO_URL = 'RepoURL'
+    TIBANNA_REPO_URL = 'TibannaRepositoryURL'
 
     def __init__(self):
         parameter = 'ECRStackNameParameter'
@@ -53,7 +53,7 @@ class C4ContainerRegistry(C4Part):
 
         repo = self.repository()
         template.add_resource(repo)
-        template.add_output(self.output_repo_url(repo, self.EXPORTS.CGAP_REPO_URL))
+        template.add_output(self.output_repo_url(repo, self.EXPORTS.PORTAL_REPO_URL))
         tibanna_repo = self.tibanna_awsf_repository()
         template.add_resource(tibanna_repo)
         template.add_output(self.output_repo_url(tibanna_repo, self.EXPORTS.TIBANNA_REPO_URL))
