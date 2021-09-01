@@ -1,5 +1,4 @@
-from dcicutils.misc_utils import ignorable
-from ..part import C4Part, C4Account, C4Tags, C4Name
+from ..part import C4Account, C4Tags, C4Name
 
 
 def test_c4_name():
@@ -44,8 +43,6 @@ def test_c4_tags():
     assert tags.env == sample_env
     assert tags.project == sample_project
     assert tags.owner == sample_owner
-
-
 
 
 def test_c4_account():

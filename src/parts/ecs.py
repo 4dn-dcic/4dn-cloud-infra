@@ -1,4 +1,4 @@
-from dcicutils.cloudformation_utils import make_required_key_for_ecs_application_url
+from dcicutils.cloudformation_utils import make_required_key_for_ecs_application_url, camelize, dehyphenate
 from troposphere import (
     Parameter,
     Join,
@@ -25,7 +25,7 @@ from troposphere.ecs import (
     CapacityProviderStrategyItem,
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
-from ..base import ConfigManager, camelize, dehyphenate
+from ..base import ConfigManager
 from ..constants import Settings
 from ..exports import C4Exports
 from ..part import C4Part

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "4dn-cloud-infra"
-version = "1.3.0"
+version = "1.4.0"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
 authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
@@ -13,12 +13,13 @@ packages = [
 python = ">=3.6.10,<3.7"
 
 awacs = "^1.0.4"
-boto3 = "^1.18.7"
-botocore = "^1.21.7"
+awscli = ">=1.20.31"
+boto3 = "^1.18.31"
+botocore = "^1.21.31"
 chalice = "^1.21.7"
 cfn-flip = "^1.2.3"  # do we need to specify this explicitly? -kmp 27-Jul-2021
 cfn-lint = "^0.48.3"  # a secondary check that catches more things than standard validate - Will 4/1/2021
-dcicutils = "^2.1.0"
+dcicutils = "^2.2.0"
 foursight-cgap = "0.4.9.2b40"
 foursight-core = "^0.4.1"
 future = "^0.18.2"  # do we need to specify this explicitly, and should version really be pinned? -kmp 27-Jul-2021
@@ -29,7 +30,6 @@ google-auth-httplib2 = "^0.0.4"
 google-auth-oauthlib = "^0.4.2"
 googleapis-common-protos = "^1.52.0"
 # pyrsistent = "^0.17.3"
-pytest = "^5.1.2"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
 # python-levenshtein = "^0.12.2"
 # submit-cgap = "^0.7.3"
@@ -40,23 +40,35 @@ troposphere = "^2.7.1"
 wheel = "^0.37.0"
 
 [tool.poetry.dev-dependencies]
-boto3-stubs = "^1.18.7"
-botocore-stubs = "^1.21.7"
+boto3-stubs = "^1.18.31"
+botocore-stubs = "^1.21.31"
+# Linting generally
+flake8 = ">=3.9.2"
+# pygments is used by PyCharm
+pygments = ">=2.10.0"
+pytest = ">=5.1.2"  # 5.1.2 is needed by foursight-cgap, but otherwise we'd be happier for a higher version
 
 [tool.poetry.scripts]
 assure-global-bucket-env = "src.commands.assure_global_env_bucket:main"
 cli = "src.cli:cli"
 create-demo-metawfr = "src.commands.create_demo_metawfr:main"
+datastore-attribute = "src.commands.find_resources:datastore_attribute_main"
 deploy-ecs = "src.commands.deploy_ecs:main"
 fetch-file-items = "src.commands.fetch_file_items:main"
 load-knowledge-base = "src.commands.load_knowledge_base:main"
 network-attribute = "src.commands.find_resources:network_attribute_main"
 open-foursight-url = "src.commands.find_resources:open_foursight_url_main"
+open-health-page-url = "src.commands.find_resources:open_health_page_url_main"
 open-portal-url = "src.commands.find_resources:open_portal_url_main"
-setup-tibanna = "src.commands.setup_tibanna:main"
+setup-tibanna-patches = "src.commands.setup_tibanna:setup_tibanna_patches_main"
+setup-tibanna-pipeline-repo = "src.commands.setup_tibanna:setup_tibanna_pipeline_repo_main"
+setup-tibanna-precheck = "src.commands.setup_tibanna:setup_tibanna_precheck_main"
+setup-tibanna = "src.commands.setup_tibanna:setup_tibanna_main"
+show-datastore-attribute = "src.commands.find_resources:show_datastore_attribute_main"
 show-foursight-url = "src.commands.find_resources:show_foursight_url_main"
-show-portal-url = "src.commands.find_resources:show_portal_url_main"
+show-health-page-url = "src.commands.find_resources:show_health_page_url_main"
 show-network-attribute = "src.commands.find_resources:show_network_attribute_main"
+show-portal-url = "src.commands.find_resources:show_portal_url_main"
 queue-ingestion = "src.commands.queue_ingestion:main"
 resolve-foursight-checks = "src.commands.resolve_foursight_checks:main"
 upload-application-version = "src.commands.upload_application_version:main"

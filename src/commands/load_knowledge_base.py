@@ -141,7 +141,8 @@ class KnowledgeBase:
         for include_type in included_types:
             if include_type in seen_types:
                 duplicate_types.add(include_type)
-            entries = find_associations(cls.TEST_DATA_TYPE_TO_INSERTS_MAPPINGS, type=lambda x: x.startswith(include_type))
+            entries = find_associations(cls.TEST_DATA_TYPE_TO_INSERTS_MAPPINGS,
+                                        type=lambda x: x.startswith(include_type))
             if len(entries) == 1:
                 entry = entries[0]
                 included_files.append(entry['inserts_file'])
@@ -208,7 +209,7 @@ class KnowledgeBase:
         KnowledgeBase.initialize()
         parser = argparse.ArgumentParser(  # noqa - PyCharm wrongly thinks the formatter_class is specified wrong here.
             description="Load the knowledge base.",
-            epilog=EPILOG,  formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         parser.add_argument("--env-name", dest="env_name", default=None,
                             help=f"name of environment to load args into (default {DEFAULT_ENV_NAME}"

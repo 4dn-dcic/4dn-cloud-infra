@@ -17,6 +17,9 @@ vendor/check_setup.json
 # that want to be invisible to git but still saved.
 vendor_disabled/
 
+# This place is managed by the 4dn-cloud-infra commands/setup_pipeline.py script
+# for cloning the cgap-pipeline repo, but could be used by other similar tools.
+repositories/
 
 # Configuration
 requirements.txt
@@ -60,3 +63,4 @@ scripts/delete_pending_buckets.data.txt
 *~
 ~$*
 .~*#
+

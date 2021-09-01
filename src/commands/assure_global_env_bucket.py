@@ -14,7 +14,7 @@ def configure_env_bucket(env=None):
     This will upload an appropriate entry into the global env bucket for the given env,
     which defaults to the config-declared environment if not specified.
     """
-    global_env_bucket = C4DatastoreExports.get_env_bucket()  # ConfigManager.get_config_setting(Settings.GLOBAL_ENV_BUCKET)
+    global_env_bucket = C4DatastoreExports.get_env_bucket()
     s3 = boto3.client('s3')
     env = env or ConfigManager.get_config_setting(Settings.ENV_NAME)
     content = {
