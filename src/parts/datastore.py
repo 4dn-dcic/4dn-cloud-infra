@@ -18,7 +18,10 @@ except ImportError:
         raise NotImplementedError('DomainEndpointOptions')
 from troposphere.kms import Key
 from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
-from troposphere.s3 import Bucket, Private, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, TagFilter
+from troposphere.s3 import (
+    Bucket, BucketEncryption, ServerSideEncryptionRule, ServerSideEncryptionByDefault,
+    Private, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, TagFilter
+)
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
 from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX
@@ -349,27 +352,42 @@ class C4Datastore(C4Part):
             ]
         )
 
+    @staticmethod
+    def build_s3_bucket_encryption(s3_key_id) -> BucketEncryption:
+        """ Builds a bucket encryption option for our s3 buckets using the created KMS key """
+        return BucketEncryption(
+            ServerSideEncryptionConfiguration=[
+                ServerSideEncryptionRule(
+                    ServerSideEncryptionByDefault=ServerSideEncryptionByDefault(
+                        KMSMasterKeyID=s3_key_id,
+                        SSEAlgorithm="aws:kms",
+                    )
+                )
+            ]
+        )
+
     @classmethod
-    def build_s3_bucket(cls, bucket_name, access_control=Private, include_lifecycle=True) -> Bucket:
+    def build_s3_bucket(cls, bucket_name, access_control=Private, include_lifecycle=True,
+                        s3_encrypt_key_ref=None) -> Bucket:
         """ Creates an S3 bucket under the given name/access control permissions.
             See troposphere.s3 for access control options.
+
+            Pass a ref to the created KMS key in order to enable KMS encryption on this bucket.
+            Note that this change may require changes to our upload/download URLs.
         """
         # bucket_name_parts = bucket_name.split('-')
-        if include_lifecycle:
-            return Bucket(
-                # ''.join(bucket_name_parts),  # Name != BucketName
-                cls.build_s3_bucket_resource_name(bucket_name),
-                BucketName=bucket_name,
-                AccessControl=access_control,
-                LifecycleConfiguration=cls.build_s3_lifecycle_policy()  # passing None here doesn't work
-            )
-        else:
-            return Bucket(
-                # ''.join(bucket_name_parts),  # Name != BucketName
-                cls.build_s3_bucket_resource_name(bucket_name),
-                BucketName=bucket_name,
-                AccessControl=access_control,
-            )
+        bucket_kwargs = {
+            "BucketName": bucket_name,
+            "AccessControl": access_control,
+            "LifecycleConfiguration": cls.build_s3_lifecycle_policy() if include_lifecycle else None,
+            "BucketEncryption":
+                cls.build_s3_bucket_encryption(s3_encrypt_key_ref) if s3_encrypt_key_ref is not None else None,
+            
+        }
+        return Bucket(
+            cls.build_s3_bucket_resource_name(bucket_name),
+            **{k: v for k, v in bucket_kwargs.items() if v is not None}  # do not pass kwargs that are None
+        )
 
     def output_s3_bucket(self, export_name, bucket_name: str) -> Output:
         """ Builds an output for the given export_name/Bucket resource """
