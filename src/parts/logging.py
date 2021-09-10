@@ -5,7 +5,7 @@ from ..exports import C4Exports
 
 class C4LoggingExports(C4Exports):
     """ Contains export for logging layer, just the name of the log group """
-    CGAP_APPLICATION_LOG_GROUP = 'ExportApplicationLogGroup'
+    APPLICATION_LOG_GROUP = 'ExportApplicationLogGroup'
 
     def __init__(self):
         parameter = 'LoggingStackNameParameter'
@@ -29,7 +29,7 @@ class C4Logging(C4Part):
         return template
 
     def output_log_group(self, resource: logs.LogGroup) -> Output:
-        export_name = C4LoggingExports.CGAP_APPLICATION_LOG_GROUP
+        export_name = C4LoggingExports.APPLICATION_LOG_GROUP
         logical_id = self.name.logical_id(export_name)
         return Output(
             logical_id,

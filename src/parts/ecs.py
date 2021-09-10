@@ -29,15 +29,17 @@ from ..base import ConfigManager
 from ..constants import Settings
 from ..exports import C4Exports
 from ..part import C4Part
-from ..parts.network import C4NetworkExports, C4Network
-from ..parts.ecr import C4ECRExports
-from ..parts.iam import C4IAMExports
-from ..parts.logging import C4LoggingExports
+from .network import C4NetworkExports, C4Network
+from .ecr import C4ECRExports
+from .iam import C4IAMExports
+from .logging import C4LoggingExports
 
 
 class C4ECSApplicationTypes:
     """ Defines the set of possible application types - these identifiers are resolved
         in the production entrypoint.sh to direct to the correct entrypoint.
+
+        Note that this config is for CGAP orchestrations.
     """
     PORTAL = 'portal'
     INDEXER = 'indexer'
@@ -160,8 +162,7 @@ class C4ECSApplication(C4Part):
         template.add_output(self.output_application_url())
         return template
 
-    @classmethod
-    def ecs_cluster(cls) -> Cluster:
+    def ecs_cluster(self) -> Cluster:
         """ Creates an ECS cluster for use with this portal deployment. """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         return Cluster(
@@ -169,7 +170,7 @@ class C4ECSApplication(C4Part):
             f'CGAPDockerClusterFor{camelize(env_name)}',
             # dehyphenate(ConfigManager.get_config_setting(Settings.ENV_NAME, 'CGAPDockerCluster'))
             CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
-            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
+            Tags=self.tags.cost_tag_obj()  # XXX: bug in troposphere - does not take tags array
         )
 
     @staticmethod
@@ -206,14 +207,7 @@ class C4ECSApplication(C4Part):
                     FromPort=Ref(self.ecs_web_worker_port()),
                     ToPort=Ref(self.ecs_web_worker_port()),
                     CidrIp=C4Network.CIDR_BLOCK,
-                ),
-                # SSH access - not usable on Fargate (?) - Will 5/5/21
-                SecurityGroupRule(
-                    IpProtocol='tcp',
-                    FromPort=22,
-                    ToPort=22,
-                    CidrIp=C4Network.CIDR_BLOCK,
-                ),
+                )
             ],
             Tags=self.tags.cost_tag_array()
         )
@@ -333,7 +327,7 @@ class C4ECSApplication(C4Part):
                         LogDriver='awslogs',
                         Options={
                             'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'cgap-portal'
                         }
@@ -443,7 +437,7 @@ class C4ECSApplication(C4Part):
                         LogDriver='awslogs',
                         Options={
                             'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'cgap-indexer'
                         }
@@ -582,7 +576,7 @@ class C4ECSApplication(C4Part):
                         LogDriver='awslogs',
                         Options={
                             'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'cgap-ingester'
                         }
@@ -733,7 +727,7 @@ class C4ECSApplication(C4Part):
                         LogDriver='awslogs',
                         Options={
                             'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'cgap-initial-deployment' if initial else 'cgap-deployment',
                         }
