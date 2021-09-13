@@ -382,7 +382,6 @@ class C4Datastore(C4Part):
             "LifecycleConfiguration": cls.build_s3_lifecycle_policy() if include_lifecycle else None,
             "BucketEncryption":
                 cls.build_s3_bucket_encryption(s3_encrypt_key_ref) if s3_encrypt_key_ref is not None else None,
-            
         }
         return Bucket(
             cls.build_s3_bucket_resource_name(bucket_name),
