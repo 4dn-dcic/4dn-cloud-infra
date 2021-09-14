@@ -444,12 +444,14 @@
     "get_metadata_for_cases_to_clone": {
         "title": "Get Clone Case Metadata",
         "group": "Metadata Checks",
-        "manual_checks": {
-            "<env-name>": {
-                "kwargs": {
-                    "primary": true
-                },
-                "dependencies": []
+        "schedule": {
+            "manual_checks": {
+                "<env-name>": {
+                    "kwargs": {
+                        "primary": true
+                    },
+                    "dependencies": []
+                }
             }
         },
         "display": [
