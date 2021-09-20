@@ -7,6 +7,8 @@ from magma_ff import create_metawfr
 EPILOG = __doc__
 WGS_TRIO_METAWF = '6a6f293c-21a9-428b-8ddd-ee29e2c8a1df'  # this value shouldn't change
 
+SUPPORTED_TYPES = ['WGS trio', 'SV trio']
+
 
 def main():
     """ Creates a metawfr for the NA12879 case.
