@@ -399,6 +399,30 @@
             }
         }
     },
+    "SNV_metawfrs_to_patch_sample_processing": {
+        "title": "SNV metawfrs to patch sample processing with processed files",
+        "group": "Pipeline checks",
+        "schedule": {
+            "hourly_checks_2": {
+                "<env-name>": {
+                    "kwargs": {"primary": true},
+                    "dependencies": []
+                }
+            }
+        }
+    },
+    "SV_metawfrs_to_patch_sample_processing": {
+        "title": "SV metawfrs to patch sample processing with processed files",
+        "group": "Pipeline checks",
+        "schedule": {
+            "hourly_checks_2": {
+                "<env-name>": {
+                    "kwargs": {"primary": true},
+                    "dependencies": []
+                }
+            }
+        }
+    },
     "metawfrs_to_check_linecount": {
         "title": "Metawfrs to run line count qc",
         "group": "Pipeline checks",
