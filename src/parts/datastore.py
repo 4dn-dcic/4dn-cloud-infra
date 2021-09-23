@@ -198,8 +198,8 @@ class C4Datastore(C4Part):
             'deploying_iam_user': ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER),  # required
             'S3_AWS_ACCESS_KEY_ID': None,
             'S3_AWS_SECRET_ACCESS_KEY': None,
-            'Auth0Client': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
-            'Auth0Secret': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET, default=None),
+            'ENCODED_AUTH0_CLIENT': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
+            'ENCODED_AUTH0_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET, default=None),
             'ENV_NAME': env_name,
             'ENCODED_APPLICATION_BUCKET_PREFIX': cls.resolve_bucket_name("{application_prefix}"),
             'ENCODED_BS_ENV': env_name,
