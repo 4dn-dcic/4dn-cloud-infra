@@ -666,7 +666,7 @@ pyflakes = ">=2.3.0,<2.4.0"
 
 [[package]]
 name = "foursight-cgap"
-version = "0.4.9.2b44"
+version = "0.4.9.2b45"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -1612,7 +1612,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.6.10,<3.7"
-content-hash = "d8a62ef4784175cd59fa60e80a0842a4e86e31378cb551f1e6502d442e3f16d4"
+content-hash = "b156ba866a48a952ed83042d366006e40581f9b68c0b181e62cf76cc807d47ab"
 
 [metadata.files]
 ansicon = [
@@ -1738,8 +1738,8 @@ flake8 = [
     {file = "flake8-3.9.2.tar.gz", hash = "sha256:07528381786f2a6237b061f6e96610a4167b226cb926e2aa2b6b1d78057c576b"},
 ]
 foursight-cgap = [
-    {file = "foursight-cgap-0.4.9.2b44.tar.gz", hash = "sha256:4219d30c056e96bf00dc2d4c4e07ab998f7ca0e7a7f5788472ab4e3873770761"},
-    {file = "foursight_cgap-0.4.9.2b44-py3-none-any.whl", hash = "sha256:b4e99ac1c5eb6c139fe334c8fc4e248da310da2c98a72351f1f04759dec929d5"},
+    {file = "foursight-cgap-0.4.9.2b45.tar.gz", hash = "sha256:e7ae574c7c3b777992619cf3ac45f3d043ccdf5ae0ef046400f030cf173beba5"},
+    {file = "foursight_cgap-0.4.9.2b45-py3-none-any.whl", hash = "sha256:91ec34c7abb40fcbc8f51559a74d7131ce10c39c1a3de4e69e8eff1a704057d8"},
 ]
 foursight-core = [
     {file = "foursight_core-0.4.1-py3-none-any.whl", hash = "sha256:b62d46104a9698bf00c238a167a23294025b24439c0f389511d7603bfd17cca8"},
