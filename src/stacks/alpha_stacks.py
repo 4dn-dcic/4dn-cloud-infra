@@ -108,11 +108,11 @@ def c4_alpha_stack_ecs(account: C4Account):
     return create_c4_alpha_stack(name='ecs', account=account)
 
 
-@register_stack_creator(name='fourfront-ecs-standalone', kind='alpha',
+@register_stack_creator(name='fourfront_ecs', kind='alpha',
                         implementation_class=fourfront_ecs.FourfrontECSApplication)
 def c4_alpha_stack_fourfront_ecs_standalone(account: C4Account):
     """ ECS Stack for a standalone fourfront environment. """
-    return create_c4_alpha_stack(name='fourfront-ecs-standalone', account=account)
+    return create_c4_alpha_stack(name='fourfront_ecs', account=account)
 
 
 @register_stack_creator(name='foursight', kind='alpha', implementation_class=C4FoursightCGAPStack)

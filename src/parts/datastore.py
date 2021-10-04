@@ -459,7 +459,7 @@ class C4Datastore(C4Part):
         """ Returns the application configuration secret. Note that this pushes up just a
             template - you must fill it out according to the specification in the README.
         """
-        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        env_name = ConfigManager.get_config_setting(Settings.IDENTITY)
         logical_id = self.name.logical_id(camelize(env_name) + self.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
         return Secret(
             logical_id,

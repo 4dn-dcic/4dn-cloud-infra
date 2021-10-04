@@ -1,3 +1,4 @@
+import json
 from troposphere import (
     Parameter,
     Join,
@@ -23,10 +24,13 @@ from troposphere.ecs import (
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
+from troposphere.secretsmanager import Secret
 from dcicutils.cloudformation_utils import camelize, dehyphenate
+from ..constants import Secrets
 from ..base import ConfigManager
 from ..constants import Settings
 from .ecs import C4ECSApplicationExports, C4ECSApplication
+from .datastore import C4Datastore
 from .ecr import C4ECRExports
 from .iam import C4IAMExports
 from .logging import C4LoggingExports
@@ -91,6 +95,9 @@ class FourfrontECSApplication(C4ECSApplication):
         template.add_parameter(self.ecs_vpc_cidr())
         template.add_parameter(self.ecs_subnet())
 
+        # GAC
+        template.add_resource(self.application_configuration_secret())
+
         # cluster
         template.add_resource(self.ecs_cluster())
 
@@ -98,6 +105,9 @@ class FourfrontECSApplication(C4ECSApplication):
         template.add_resource(self.ecs_portal_task())
         portal = self.ecs_portal_service()
         template.add_resource(portal)
+        template.add_resource(self.ecs_indexer_task())
+        indexer = self.ecs_indexer_service()
+        template.add_resource(indexer)
 
         # Add load balancer for portal
         template.add_resource(self.ecs_lb_security_group())
@@ -111,11 +121,79 @@ class FourfrontECSApplication(C4ECSApplication):
         template.add_output(self.output_application_url())
         return template
 
+    @classmethod
+    def add_placeholders(cls, template):
+        """ TODO: move to dcicutils? """
+        return {
+            k: C4Datastore.CONFIGURATION_PLACEHOLDER if v is None else v
+            for k, v in template.items()
+        }
+
+    @classmethod
+    def application_configuration_template(cls):
+        """ Template for GAC for fourfront - very similar but not
+            exactly the same as for CGAP.
+        """
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        result = cls.add_placeholders({
+            'deploying_iam_user': ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER),  # required
+            'S3_AWS_ACCESS_KEY_ID': None,
+            'S3_AWS_SECRET_ACCESS_KEY': None,
+            'ENCODED_AUTH0_CLIENT': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
+            'ENCODED_AUTH0_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET, default=None),
+            'ENV_NAME': env_name,
+            'ENCODED_APPLICATION_BUCKET_PREFIX': '',
+            'ENCODED_BS_ENV': env_name,
+            'ENCODED_DATA_SET': 'prod',
+            'ENCODED_ES_SERVER': '',  # XXX: Pass as argument or fill in existing
+            'ENCODED_FOURSIGHT_BUCKET_PREFIX': '',
+            'ENCODED_IDENTITY': None,  # This is the name of the Secrets Manager with all our identity's secrets
+            'ENCODED_FILE_UPLOAD_BUCKET':
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
+            'ENCODED_FILE_WFOUT_BUCKET':
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_WFOUT_BUCKET),
+            'ENCODED_BLOB_BUCKET':
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_BLOBS_BUCKET),
+            'ENCODED_SYSTEM_BUCKET':
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_SYSTEM_BUCKET),
+            'ENCODED_METADATA_BUNDLES_BUCKET':
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET),
+            'ENCODED_S3_BUCKET_ORG': ConfigManager.get_config_setting(Settings.S3_BUCKET_ORG, default=None),
+            'ENCODED_TIBANNA_OUTPUT_BUCKET':
+                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET),
+            'LANG': 'en_US.UTF-8',
+            'LC_ALL': 'en_US.UTF-8',
+            'RDS_HOSTNAME': None,
+            'RDS_DB_NAME': 'ebdb',
+            'RDS_PORT': '5432',
+            'RDS_USERNAME': 'postgres',
+            'RDS_PASSWORD': None,
+            'S3_ENCRYPT_KEY': ConfigManager.get_config_setting(Secrets.S3_ENCRYPT_KEY,
+                                                               ConfigManager.get_s3_encrypt_key_from_file()),
+            # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
+            'SENTRY_DSN': "",
+            'reCaptchaKey': ConfigManager.get_config_secret(Secrets.RECAPTCHA_KEY, default=None),
+            'reCaptchaSecret': ConfigManager.get_config_secret(Secrets.RECAPTCHA_SECRET, default=None),
+        })
+        # print("application_configuration_template() => %s" % json.dumps(result, indent=2))
+        return result
+
+    def application_configuration_secret(self) -> Secret:
+        """ Builds a GAC for fourfront - see datastore.py application_configuration_secret """
+        identity = ConfigManager.get_config_setting(Settings.IDENTITY)
+        return Secret(
+            dehyphenate(identity),
+            Name=identity,
+            Description='This secret defines the application configuration for the orchestrated environment.',
+            SecretString=json.dumps(C4Datastore.application_configuration_template(), indent=2),
+            Tags=self.tags.cost_tag_array()
+        )
+
     def ecs_cluster(self) -> Cluster:
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         return Cluster(
-            # Fallback, but should always be set
-            f'FourfrontDockerClusterFor{camelize(env_name)}',
+            # Always use env name for cluster
+            camelize(env_name),
             CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
             Tags=self.tags.cost_tag_obj()
         )
@@ -136,12 +214,12 @@ class FourfrontECSApplication(C4ECSApplication):
     def ecs_vpc_cidr() -> Parameter:
         """
         Parameter for the vpc CIDR block we would like to deploy to
-        TODO: get this value
         """
         return Parameter(
             'ECSTargetCIDR',
             Description='CIDR block for VPC',
             Type='String',
+            Default='172.31.0.0/16'  # XXX: make config value? default VPC CIDR
         )
 
     @staticmethod
@@ -245,7 +323,7 @@ class FourfrontECSApplication(C4ECSApplication):
             Tags=self.tags.cost_tag_array()
         )
 
-    def ecs_portal_task(self, cpu='256', mem='512', identity=None) -> TaskDefinition:
+    def ecs_portal_task(self, cpu='1024', mem='2048', identity=None) -> TaskDefinition:
         """ Defines the portal Task (serve HTTP requests).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
             Note that not much has changed for the FF version.
@@ -339,6 +417,98 @@ class FourfrontECSApplication(C4ECSApplication):
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
                         Ref(self.ecs_subnet())  # deploy to subnet passed as argument
+                    ],
+                    SecurityGroups=[Ref(self.ecs_container_security_group())],
+                )
+            ),
+            Tags=self.tags.cost_tag_obj()
+        )
+
+    def ecs_indexer_task(self, cpu=None, memory=None, identity=None) -> TaskDefinition:
+        """ Defines the Indexer task (indexer app).
+            See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
+
+            :param cpu: CPU value to assign to this task, default 256 (play with this value)
+            :param memory: Memory amount for this task, default to 512 (play with this value)
+            :param identity: name of secret containing the identity information for this environment
+                             (defaults to value of environment variable IDENTITY,
+                             or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
+        """
+        return TaskDefinition(
+            'FourfrontIndexer',
+            RequiresCompatibilities=['FARGATE'],
+            Cpu=cpu or ConfigManager.get_config_setting(Settings.ECS_INDEXER_CPU, self.DEFAULT_INDEXER_CPU),
+            Memory=memory or ConfigManager.get_config_setting(Settings.ECS_INDEXER_MEMORY, self.DEFAULT_INDEXER_MEMORY),
+            TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
+            ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
+            NetworkMode='awsvpc',  # required for Fargate
+            ContainerDefinitions=[
+                ContainerDefinition(
+                    Name='Indexer',
+                    Essential=True,
+                    Image=Join('', [
+                        self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
+                        ':',
+                        self.IMAGE_TAG,
+                    ]),
+                    LogConfiguration=LogConfiguration(
+                        LogDriver='awslogs',
+                        Options={
+                            'awslogs-group':
+                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
+                            'awslogs-region': Ref(AWS_REGION),
+                            'awslogs-stream-prefix': 'fourfront-indexer'
+                        }
+                    ),
+                    Environment=[
+                        Environment(
+                            Name='IDENTITY',
+                            Value=(identity or
+                                   # TODO: We should be able to discover this value without
+                                   #       it being in the config.json -kmp 13-Aug-2021
+                                   ConfigManager.get_config_setting(Settings.IDENTITY, self.LEGACY_DEFAULT_IDENTITY)),
+                        ),
+                        Environment(
+                            Name='application_type',
+                            Value=FourfrontApplicationTypes.INDEXER
+                        ),
+                    ]
+                )
+            ],
+            Tags=self.tags.cost_tag_obj()
+        )
+
+    def ecs_indexer_service(self, concurrency=4) -> Service:
+        """ Defines the Indexer service (manages Indexer Tasks)
+            TODO SQS autoscaling trigger?
+
+            Defined by the ECR Image tag 'latest-indexer'.
+
+            :param concurrency: # of concurrent tasks to run - since this setup is intended for use with
+                                production, this value is 4, approximately matching our current resources.
+        """
+        return Service(
+            "FourfrontIndexerService",
+            Cluster=Ref(self.ecs_cluster()),
+            DesiredCount=ConfigManager.get_config_setting(Settings.ECS_INDEXER_COUNT, concurrency),
+            CapacityProviderStrategy=[
+                CapacityProviderStrategyItem(
+                    CapacityProvider='FARGATE',
+                    Base=0,
+                    Weight=0
+                ),
+                CapacityProviderStrategyItem(
+                    CapacityProvider='FARGATE_SPOT',
+                    Base=concurrency,
+                    Weight=1
+                )
+            ],
+            TaskDefinition=Ref(self.ecs_indexer_task()),
+            SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
+            NetworkConfiguration=NetworkConfiguration(
+                AwsvpcConfiguration=AwsvpcConfiguration(
+                    Subnets=[
+                        self.ecs_subnet()
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )

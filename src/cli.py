@@ -220,7 +220,7 @@ class C4Client:
     def resolve_alpha_stack(stack_name):
         """ Figures out which stack to run in the ECS case. """
         account = C4Client.resolve_account()
-        stack_creator = lookup_stack_creator(name=stack_name, kind='alpha', exact=False)
+        stack_creator = lookup_stack_creator(name=stack_name, kind='alpha', exact=True)  # fourfront_ecs != ecs
         stack = stack_creator(account=account)
         return stack
 
