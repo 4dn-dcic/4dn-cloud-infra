@@ -16,8 +16,9 @@ from troposphere import (
     Parameter
 )
 from dcicutils.cloudformation_utils import dehyphenate
+from dcicutils.env_utils import is_fourfront_env
 from troposphere.ecr import Repository
-from ..base import ECOSYSTEM
+from ..base import ECOSYSTEM, ConfigManager, Settings
 from ..parts.iam import C4IAMExports
 from ..part import C4Part
 from ..exports import C4Exports
@@ -57,6 +58,12 @@ class C4ContainerRegistry(C4Part):
             Type='String',
         ))
 
+        # NOTE: Behavior here assumes is_fourfront_env will return true
+        # for this if we are building a fourfront environment. As such
+        # when building a fourfront env, like with cgap we always use the
+        # "fourfront-" prefix.
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+
         # build repos
         for rname, export in [
             (ECOSYSTEM, self.EXPORTS.PORTAL_REPO_URL),
@@ -67,6 +74,8 @@ class C4ContainerRegistry(C4Part):
             ('md5', self.EXPORTS.MD5_REPO_URL),
             ('fastqc', self.EXPORTS.FASTQC_REPO_URL)
         ]:
+            if is_fourfront_env(env_name) and rname != ECOSYSTEM:
+                break  # do not add tibanna repos if building a fourfront env
             repo = self.repository(repo_name=rname)
             template.add_resource(repo)
             template.add_output(self.output_repo_url(repo, export))

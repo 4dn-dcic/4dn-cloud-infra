@@ -153,7 +153,7 @@ Step Four: Fill out any remaining application secrets
 
       You can obtain it by this procedure:
 
-      * Go to ``the Secrets Manager in the AWS console
+      * Go to `the Secrets Manager in the AWS console
         <https://console.aws.amazon.com/secretsmanager/home?region=us-east-1#!/listSecrets>`_.
       * Click into the resource with a name like ``C4DatastoreRDSSecret``.
       * In the page section called ``Secret value``, click on ``Retrieve secret value``.

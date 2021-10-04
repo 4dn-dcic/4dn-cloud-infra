@@ -1,5 +1,5 @@
 from ..base import register_stack_creator, registered_stack_class
-from ..parts import network, datastore, ecr, iam, logging, ecs  # , appconfig
+from ..parts import network, datastore, ecr, iam, logging, ecs, fourfront_ecs  # , appconfig
 from ..stack import C4Stack, C4Tags, C4Account, C4FoursightCGAPStack, C4Part, BaseC4FoursightStack
 
 
@@ -106,6 +106,13 @@ def c4_alpha_stack_logging(account: C4Account):
 def c4_alpha_stack_ecs(account: C4Account):
     """ ECS Stack """
     return create_c4_alpha_stack(name='ecs', account=account)
+
+
+@register_stack_creator(name='fourfront-ecs-standalone', kind='alpha',
+                        implementation_class=fourfront_ecs.FourfrontECSApplication)
+def c4_alpha_stack_fourfront_ecs_standalone(account: C4Account):
+    """ ECS Stack for a standalone fourfront environment. """
+    return create_c4_alpha_stack(name='fourfront-ecs-standalone', account=account)
 
 
 @register_stack_creator(name='foursight', kind='alpha', implementation_class=C4FoursightCGAPStack)

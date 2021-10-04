@@ -14,7 +14,6 @@ from .stack import BaseC4FoursightStack  # , C4FoursightCGAPStack
 # from .stacks.trial import c4_stack_trial_network_metadata, c4_stack_trial_tibanna
 from .stacks.alpha_stacks import c4_alpha_stack_metadata
 
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -262,10 +261,6 @@ class C4Client:
         #       3. Generate current template as json.
         #       4. view and print diffs using dcic_utils.diff_utils.
         logger.info('I do nothing right now!')
-
-    @classmethod
-    def is_foursight_stack_name(cls, stack_name):  # Method probably not needed. -kmp 6-Aug-2021
-        return 'foursight' in stack_name
 
     @classmethod
     def is_foursight_stack(cls, stack):
