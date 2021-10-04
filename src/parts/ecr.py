@@ -158,7 +158,7 @@ class C4ContainerRegistry(C4Part):
         logical_id = self.name.logical_id(export_name)
         return Output(
             logical_id,
-            Description='%s Image Repository URL' % logical_id,
+            Description=f'{logical_id} Image Repository URL',
             Value=Join('', [
                 AccountId,
                 '.dkr.ecr.',

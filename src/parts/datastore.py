@@ -20,7 +20,7 @@ from troposphere.kms import Key
 from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.s3 import (
     Bucket, BucketEncryption, ServerSideEncryptionRule, ServerSideEncryptionByDefault,
-    Private, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, TagFilter
+    Private, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, TagFilter,
 )
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue

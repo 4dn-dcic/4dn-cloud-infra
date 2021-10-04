@@ -424,6 +424,10 @@ class C4IAM(C4Part):
         ]
         return Role(
             self.DEV_ROLE,
+            AssumeRolePolicyDocument=PolicyDocument(  # no one can assume this role
+                Version='2012-10-17',
+                Statement=[]
+            ),
             ManagedPolicyArns=[
                 'arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess'
             ],

@@ -50,12 +50,6 @@ class FourfrontApplicationExports(C4ECSApplicationExports):
 
 class FourfrontECSApplication(C4ECSApplication):
     """ Configures an ECS Cluster application for Fourfront """
-    ECR_EXPORTS = C4ECRExports()
-    IAM_EXPORTS = C4IAMExports()
-    LOGGING_EXPORTS = C4LoggingExports()
-    AMI = 'ami-0be13a99cd970f6a9'  # latest amazon linux 2 ECS optimized
-    LB_NAME = 'AppLB'
-    IMAGE_TAG = ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, 'latest')
     LEGACY_DEFAULT_IDENTITY = 'fourfront-mastertest'
 
     def build_template(self, template: Template) -> Template:
