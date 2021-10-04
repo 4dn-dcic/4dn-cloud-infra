@@ -102,6 +102,8 @@ class FourfrontECSApplication(C4ECSApplication):
         template.add_resource(self.ecs_indexer_task())
         indexer = self.ecs_indexer_service()
         template.add_resource(indexer)
+        template.add_resource(self.ecs_deployment_task(initial=True))
+        template.add_resource(self.ecs_deployment_task())
 
         # Add load balancer for portal
         template.add_resource(self.ecs_lb_security_group())
@@ -507,5 +509,76 @@ class FourfrontECSApplication(C4ECSApplication):
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
+            Tags=self.tags.cost_tag_obj()
+        )
+
+    def ecs_deployment_task(self, cpu=None, memory=None, identity=None, initial=False) -> TaskDefinition:
+        """ Defines the Deployment task (run deployment action).
+            Meant to be run manually from ECS Console (or from foursight), so no associated service.
+
+            See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
+
+            :param cpu: CPU value to assign to this task, default 256 (play with this value)
+            :param memory: Memory amount for this task, default to 512 (play with this value)
+            :param identity: name of secret containing the identity information for this environment
+                             (defaults to value of environment variable IDENTITY,
+                             or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
+            :param initial: boolean saying whether this task is intended to do the first deploy.
+                            If it is, the environment variable INITIAL_DEPLOYMENT gets set to True,
+                            causing a different initialization sequence.
+        """
+        return TaskDefinition(
+            'FourfrontInitialDeployment' if initial else 'FourfrontDeployment',
+            RequiresCompatibilities=['FARGATE'],
+            Cpu=cpu or ConfigManager.get_config_setting(Settings.ECS_INITIAL_DEPLOYMENT_CPU
+                                                        if initial else
+                                                        Settings.ECS_DEPLOYMENT_CPU,
+                                                        self.DEFAULT_INITIAL_DEPLOYMENT_CPU
+                                                        if initial else
+                                                        self.DEFAULT_DEPLOYMENT_CPU),
+            Memory=memory or ConfigManager.get_config_setting(Settings.ECS_INITIAL_DEPLOYMENT_MEMORY
+                                                              if initial else
+                                                              Settings.ECS_DEPLOYMENT_MEMORY,
+                                                              self.DEFAULT_INITIAL_DEPLOYMENT_MEMORY
+                                                              if initial else
+                                                              self.DEFAULT_DEPLOYMENT_MEMORY),
+            TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
+            ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
+            NetworkMode='awsvpc',  # required for Fargate
+            ContainerDefinitions=[
+                ContainerDefinition(
+                    Name='DeploymentAction',
+                    Essential=True,
+                    Image=Join("", [
+                        self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
+                        ':',
+                        self.IMAGE_TAG,
+                    ]),
+                    LogConfiguration=LogConfiguration(
+                        LogDriver='awslogs',
+                        Options={
+                            'awslogs-group':
+                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
+                            'awslogs-region': Ref(AWS_REGION),
+                            'awslogs-stream-prefix': 'cgap-initial-deployment' if initial else 'cgap-deployment',
+                        }
+                    ),
+                    Environment=[
+                        Environment(
+                            Name='IDENTITY',
+                            Value=(identity or
+                                   ConfigManager.get_config_setting(Settings.IDENTITY, self.LEGACY_DEFAULT_IDENTITY)),
+                        ),
+                        Environment(
+                            Name='INITIAL_DEPLOYMENT',
+                            Value="TRUE" if initial else "",
+                        ),
+                        Environment(
+                            Name='application_type',
+                            Value=FourfrontApplicationTypes.DEPLOYMENT
+                        ),
+                    ]
+                )
+            ],
             Tags=self.tags.cost_tag_obj()
         )

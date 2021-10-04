@@ -684,7 +684,7 @@ class C4ECSApplication(C4Part):
     DEFAULT_DEPLOYMENT_MEMORY = '512'
 
     def ecs_deployment_task(self, cpu=None, memory=None, identity=None, initial=False) -> TaskDefinition:
-        """ Defines the Ingester task (ingester app).
+        """ Defines the Deployment task (run deployment action).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
             :param cpu: CPU value to assign to this task, default 256 (play with this value)
