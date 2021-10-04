@@ -379,10 +379,13 @@ all of the indicated files::
 Then, clone the cgap-pipeline repo, checkout the version you want to deploy (v24 as of writing) and upload
 the bioinformatics metadata to the portal. (This example again assumes the environment variable ENV_NAME
 is set correctly. If you have already sourced your credentials, that part doesn't have to be repeated, but
-it's critical to have done it, so we include that here redundantly to avoid problems.)::
+it's critical to have done it, so we include that here redundantly to avoid problems.) ECR images will also
+be posted, so ensure ``$AWS_REGION`` is set.::
 
     source custom/aws_creds/test_creds.sh
     python post_patch_to_portal.py --ff-env=$ENV_NAME --del-prev-version --ugrp-unrelated
+
+Note that the above post/patch process must be repeated from the cgap-sv-pipeline repo as well.
 
 Finally, push the tibanna-awsf image to the newly created ECR Repository in the new account::
 
@@ -420,3 +423,32 @@ the restart.
 
 Once the output VCF has been ingested, the pipeline is considered complete and variants can be
 interpreted through the portal.
+
+Step Nine: Enable Higlass
+-------------------------
+
+In order for Higlass views to work, some CORS configuration is required. In the current main (4dn-dcic) account,
+add the new portal URL to the ``AllowedOrigins`` block in the existing CORS policy. In the orchestrated account,
+add the following CORS policy to the ``wfoutput`` bucket (for bam visualization), replacing the sample
+MSA URL with the new URL.::
+
+    [
+        {
+            "AllowedHeaders": [
+                "*"
+            ],
+            "AllowedMethods": [
+                "GET"
+            ],
+            "AllowedOrigins": [,
+                "https://cgap-msa.hms.harvard.edu"
+            ],
+            "ExposeHeaders": []
+        }
+    ]
+
+Step Ten: Request Spot Quota Increase
+-------------------------------------
+
+In order to run at scale, request a spot limit increase from the EC2 console to the desired maximum. A value
+of 8000 should allow at least 85 samples to run in parallel.
