@@ -24,13 +24,10 @@ from troposphere.ecs import (
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
-from troposphere.secretsmanager import Secret
 from dcicutils.cloudformation_utils import camelize, dehyphenate
-from ..constants import Secrets
 from ..base import ConfigManager
 from ..constants import Settings
 from .ecs import C4ECSApplicationExports, C4ECSApplication
-from .datastore import C4Datastore
 from .ecr import C4ECRExports
 from .iam import C4IAMExports
 from .logging import C4LoggingExports
@@ -89,9 +86,6 @@ class FourfrontECSApplication(C4ECSApplication):
         template.add_parameter(self.ecs_vpc_cidr())
         template.add_parameter(self.ecs_subnet())
 
-        # GAC
-        template.add_resource(self.application_configuration_secret())
-
         # cluster
         template.add_resource(self.ecs_cluster())
 
@@ -116,74 +110,6 @@ class FourfrontECSApplication(C4ECSApplication):
         # Add outputs
         template.add_output(self.output_application_url())
         return template
-
-    @classmethod
-    def add_placeholders(cls, template):
-        """ TODO: move to dcicutils? """
-        return {
-            k: C4Datastore.CONFIGURATION_PLACEHOLDER if v is None else v
-            for k, v in template.items()
-        }
-
-    @classmethod
-    def application_configuration_template(cls):
-        """ Template for GAC for fourfront - very similar but not
-            exactly the same as for CGAP.
-        """
-        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        result = cls.add_placeholders({
-            'deploying_iam_user': ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER),  # required
-            'S3_AWS_ACCESS_KEY_ID': None,
-            'S3_AWS_SECRET_ACCESS_KEY': None,
-            'ENCODED_AUTH0_CLIENT': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
-            'ENCODED_AUTH0_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET, default=None),
-            'ENV_NAME': env_name,
-            'ENCODED_APPLICATION_BUCKET_PREFIX': '',
-            'ENCODED_BS_ENV': env_name,
-            'ENCODED_DATA_SET': 'prod',
-            'ENCODED_ES_SERVER': '',  # XXX: Pass as argument or fill in existing
-            'ENCODED_FOURSIGHT_BUCKET_PREFIX': '',
-            'ENCODED_IDENTITY': None,  # This is the name of the Secrets Manager with all our identity's secrets
-            'ENCODED_FILE_UPLOAD_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
-            'ENCODED_FILE_WFOUT_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_WFOUT_BUCKET),
-            'ENCODED_BLOB_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_BLOBS_BUCKET),
-            'ENCODED_SYSTEM_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_SYSTEM_BUCKET),
-            'ENCODED_METADATA_BUNDLES_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET),
-            'ENCODED_S3_BUCKET_ORG': ConfigManager.get_config_setting(Settings.S3_BUCKET_ORG, default=None),
-            'ENCODED_TIBANNA_OUTPUT_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET),
-            'LANG': 'en_US.UTF-8',
-            'LC_ALL': 'en_US.UTF-8',
-            'RDS_HOSTNAME': None,
-            'RDS_DB_NAME': 'ebdb',
-            'RDS_PORT': '5432',
-            'RDS_USERNAME': 'postgres',
-            'RDS_PASSWORD': None,
-            'S3_ENCRYPT_KEY': ConfigManager.get_config_setting(Secrets.S3_ENCRYPT_KEY,
-                                                               ConfigManager.get_s3_encrypt_key_from_file()),
-            # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
-            'SENTRY_DSN': "",
-            'reCaptchaKey': ConfigManager.get_config_secret(Secrets.RECAPTCHA_KEY, default=None),
-            'reCaptchaSecret': ConfigManager.get_config_secret(Secrets.RECAPTCHA_SECRET, default=None),
-        })
-        # print("application_configuration_template() => %s" % json.dumps(result, indent=2))
-        return result
-
-    def application_configuration_secret(self) -> Secret:
-        """ Builds a GAC for fourfront - see datastore.py application_configuration_secret """
-        identity = ConfigManager.get_config_setting(Settings.IDENTITY)
-        return Secret(
-            dehyphenate(identity),
-            Name=identity,
-            Description='This secret defines the application configuration for the orchestrated environment.',
-            SecretString=json.dumps(C4Datastore.application_configuration_template(), indent=2),
-            Tags=self.tags.cost_tag_array()
-        )
 
     def ecs_cluster(self) -> Cluster:
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
