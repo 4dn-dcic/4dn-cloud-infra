@@ -1,4 +1,5 @@
 from troposphere import logs, Template, Output, Ref
+from ..base import ConfigManager, Settings
 from ..part import C4Part
 from ..exports import C4Exports
 
@@ -20,7 +21,7 @@ class C4Logging(C4Part):
 
     def build_template(self, template: Template) -> Template:
         log_group = logs.LogGroup(
-            'CGAPDockerLogs',
+            'CGAPDockerLogs' if ConfigManager.get_config_setting(Settings.APP_KIND) != 'ff' else 'FFEDockerLogs',
             RetentionInDays=365,
             DeletionPolicy='Retain'  # XXX: configure further?
         )

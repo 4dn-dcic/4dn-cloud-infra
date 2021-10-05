@@ -7,7 +7,7 @@ from awacs.ecr import (
 )
 from troposphere import Region, AccountId, Template, Ref, Output, Join
 from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey, ManagedPolicy
-from ..base import exportify
+from ..base import exportify, ConfigManager, Settings
 from ..part import C4Part
 from ..exports import C4Exports
 
@@ -33,10 +33,12 @@ class C4IAM(C4Part):
         Right now, there is only one important IAM Role to configure.
         That is the assumed IAM role assigned to ECS.
     """
-    ROLE_NAME = 'CGAPECSRole'
-    DEV_ROLE = 'CGAPDevRole'
-    INSTANCE_PROFILE_NAME = 'CGAPECSInstanceProfile'
-    AUTOSCALING_ROLE_NAME = 'CGAPECSAutoscalingRole'
+    ROLE_NAME = 'CGAPECSRole' if ConfigManager.get_config_setting(Settings.APP_KIND) != 'ff' else 'FFECSRole'
+    DEV_ROLE = 'CGAPDevRole' if ConfigManager.get_config_setting(Settings.APP_KIND) != 'ff' else 'FFDevRole'
+    INSTANCE_PROFILE_NAME = ('CGAPECSInstanceProfile' if ConfigManager.get_config_setting(Settings.APP_KIND) != 'ff'
+                             else 'FFECSInstanceProfile')
+    AUTOSCALING_ROLE_NAME = ('CGAPECSAutoscalingRole' if ConfigManager.get_config_setting(Settings.APP_KIND) != 'ff'
+                             else 'FFECSAutoscalingRole')
     EXPORTS = C4IAMExports()
     STACK_NAME_TOKEN = "iam"
     STACK_TITLE_TOKEN = "IAM"
@@ -49,7 +51,7 @@ class C4IAM(C4Part):
         iam_role = self.ecs_assumed_iam_role()
         template.add_resource(iam_role)
         dev_iam_role = self.dev_user_role()
-        template.add_resource(dev_iam_role)
+        # template.add_resource(dev_iam_role) add back later
         instance_profile = self.ecs_instance_profile()
         template.add_resource(instance_profile)
         autoscaling_iam_role = self.ecs_autoscaling_role()
@@ -66,8 +68,8 @@ class C4IAM(C4Part):
                                                                  export_name=C4IAMExports.AUTOSCALING_IAM_ROLE))
         template.add_output(self.output_assumed_iam_role_or_user(s3_iam_user,
                                                                  export_name=C4IAMExports.S3_IAM_USER))
-        template.add_output(self.output_assumed_iam_role_or_user(dev_iam_role,
-                                                                 export_name=C4IAMExports.DEV_IAM_ROLE))
+        # template.add_output(self.output_assumed_iam_role_or_user(dev_iam_role,
+        #                                                          export_name=C4IAMExports.DEV_IAM_ROLE))
         template.add_output(self.output_instance_profile(instance_profile))
         return template
 
