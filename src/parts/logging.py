@@ -1,4 +1,5 @@
 from troposphere import logs, Template, Output, Ref
+from dcicutils.cloudformation_utils import dehyphenate
 from ..base import ConfigManager, Settings
 from ..part import C4Part
 from ..exports import C4Exports
@@ -22,7 +23,7 @@ class C4Logging(C4Part):
     def build_template(self, template: Template) -> Template:
         log_group = logs.LogGroup(
             ('CGAPDockerLogs' if ConfigManager.get_config_setting(Settings.APP_KIND) != 'ff'
-             else f'{ConfigManager.get_config_setting(Settings.ENV_NAME)}DockerLogs'),
+             else f'{dehyphenate(ConfigManager.get_config_setting(Settings.ENV_NAME))}DockerLogs'),
             RetentionInDays=365,
             DeletionPolicy='Retain'  # XXX: configure further?
         )

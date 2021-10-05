@@ -16,7 +16,7 @@ except ImportError:
         raise NotImplementedError('DomainEndpointOptions')
 from troposphere.secretsmanager import Secret
 from ..base import ConfigManager
-from ..constants import Settings
+from ..constants import Settings, Secrets
 from ..exports import C4Exports
 from ..part import C4Part
 from ..parts.network import C4NetworkExports
@@ -80,8 +80,10 @@ class C4AppConfig(C4Part):
 
     APPLICATION_CONFIGURATION_TEMPLATE = {
         'deploying_iam_user': CONFIGURATION_PLACEHOLDER,
-        'Auth0Client': CONFIGURATION_PLACEHOLDER,
-        'Auth0Secret': CONFIGURATION_PLACEHOLDER,
+        'S3_AWS_ACCESS_KEY_ID': None,
+        'S3_AWS_SECRET_ACCESS_KEY': None,
+        'ENCODED_AUTH0_CLIENT': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
+        'ENCODED_AUTH0_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET, default=None),
         'ENV_NAME': CONFIGURATION_PLACEHOLDER,
         'ENCODED_BS_ENV': CONFIGURATION_PLACEHOLDER,
         'ENCODED_DATA_SET': CONFIGURATION_PLACEHOLDER,
@@ -91,14 +93,16 @@ class C4AppConfig(C4Part):
         'ENCODED_BLOBS_BUCKET': CONFIGURATION_PLACEHOLDER,
         'ENCODED_SYSTEM_BUCKET': CONFIGURATION_PLACEHOLDER,
         'ENCODED_METADATA_BUNDLE_BUCKET': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_TIBANNA_OUTPUT_BUCKET': CONFIGURATION_PLACEHOLDER,
         'LANG': CONFIGURATION_DEFAULT_LANG,
         'LC_ALL': CONFIGURATION_DEFAULT_LC_ALL,
-        # 'RDS_HOSTNAME': CONFIGURATION_PLACEHOLDER,
+        'RDS_HOSTNAME': CONFIGURATION_PLACEHOLDER,
         'RDS_DB_NAME': CONFIGURATION_PLACEHOLDER,
         'RDS_PORT': CONFIGURATION_DEFAULT_RDS_PORT,
         'RDS_USERNAME': CONFIGURATION_PLACEHOLDER,
         'RDS_PASSWORD': CONFIGURATION_PLACEHOLDER,
-        'S3_ENCRYPT_KEY': CONFIGURATION_PLACEHOLDER,
+        'S3_ENCRYPT_KEY': ConfigManager.get_config_setting(Secrets.S3_ENCRYPT_KEY,
+                                                           ConfigManager.get_s3_encrypt_key_from_file()),
         'SENTRY_DSN': CONFIGURATION_PLACEHOLDER,
         'reCaptchaKey': CONFIGURATION_PLACEHOLDER,
         'reCaptchaSecret': CONFIGURATION_PLACEHOLDER,
