@@ -447,8 +447,16 @@ MSA URL with the new URL.::
         }
     ]
 
-Step Ten: Request Spot Quota Increase
--------------------------------------
+Step Ten: Open Support Tickets
+------------------------------
 
-In order to run at scale, request a spot limit increase from the EC2 console to the desired maximum. A value
-of 8000 should allow at least 85 samples to run in parallel.
+Some support tickets must be opened at orchestration time in order for CGAP to run properly.
+Namely, two cases should be open:
+
+* Spot instance limit increase to a significantly higher value (such as 9000)
+* Disable ES hourly snapshots
+
+The first will enable CGAP to run pipeline at a higher degree of parallelization using
+more spot instances. The second will make it so that internal AWS snapshots of the ES
+cluster are only done daily, not hourly. Hourly snapshots are known to impede performance
+and cause APIs to fail.
