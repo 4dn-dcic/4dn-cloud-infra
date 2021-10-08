@@ -84,7 +84,8 @@ class FourfrontECSApplication(C4ECSApplication):
         template.add_parameter(self.ecs_web_worker_port())
         template.add_parameter(self.ecs_vpc())
         template.add_parameter(self.ecs_vpc_cidr())
-        template.add_parameter(self.ecs_subnet())
+        template.add_parameter(self.ecs_subnet_a())
+        template.add_parameter(self.ecs_subnet_b())
 
         # cluster
         template.add_resource(self.ecs_cluster())
@@ -111,15 +112,6 @@ class FourfrontECSApplication(C4ECSApplication):
         template.add_output(self.output_application_url())
         return template
 
-    def ecs_cluster(self) -> Cluster:
-        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        return Cluster(
-            # Always use env name for cluster
-            camelize(env_name),
-            CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
-            Tags=self.tags.cost_tag_obj()
-        )
-
     @staticmethod
     def ecs_vpc() -> Parameter:
         """
@@ -145,15 +137,27 @@ class FourfrontECSApplication(C4ECSApplication):
         )
 
     @staticmethod
-    def ecs_subnet() -> Parameter:
+    def ecs_subnet_a() -> Parameter:
         """
         Parameter for the subnet we would like to deploy to
         """
         return Parameter(
-            'ECSTargetSubnet',
-            Description='Subnet to run containers in',
+            'ECSTargetSubnetA',
+            Description='Primary Subnet to run containers in',
             Type='String',
             Default='subnet-0cc7a269'  # XXX: make config value? this value is us-east-1a in our default VPC
+        )
+
+    @staticmethod
+    def ecs_subnet_b() -> Parameter:
+        """
+        Parameter for the subnet we would like to deploy to
+        """
+        return Parameter(
+            'ECSTargetSubnetB',
+            Description='Second Subnet to run containers in',
+            Type='String',
+            Default='subnet-efb1b3c4'  # XXX: make config value? this value is us-east-1b in our default VPC
         )
 
     def output_application_url(self, env=None) -> Output:
@@ -165,10 +169,20 @@ class FourfrontECSApplication(C4ECSApplication):
             Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer(), 'DNSName')])
         )
 
+    def ecs_cluster(self) -> Cluster:
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        return Cluster(
+            # Always use env name for cluster
+            camelize(env_name),
+            CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
+            Tags=self.tags.cost_tag_obj()
+        )
+
     def ecs_container_security_group(self) -> SecurityGroup:
         """ Security group for the container runtime. """
+        logical_id = self.name.logical_id('ContainerSecurityGroup')
         return SecurityGroup(
-            'ContainerSecurityGroup',
+            logical_id,
             GroupDescription='Container Security Group.',
             VpcId=Ref(self.ecs_vpc()),
             SecurityGroupIngress=[
@@ -187,8 +201,9 @@ class FourfrontECSApplication(C4ECSApplication):
         """ Security group for the load balancer, allowing traffic on ports 80/443.
             TODO: configure for HTTPS.
         """
+        logical_id = self.name.logical_id('LBSecurityGroup')
         return SecurityGroup(
-            "ECSLBSSLSecurityGroup",
+            logical_id,
             GroupDescription="Web load balancer security group.",
             VpcId=Ref(self.ecs_vpc()),
             SecurityGroupIngress=[
@@ -211,8 +226,7 @@ class FourfrontECSApplication(C4ECSApplication):
     def ecs_application_load_balancer(self) -> elbv2.LoadBalancer:
         """ Application load balancer for the portal ECS Task. """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        env_identifier = dehyphenate(env_name)
-        logical_id = self.name.logical_id(env_identifier, context='ecs_application_load_balancer')
+        logical_id = self.name.logical_id('LoadBalancer')
         return elbv2.LoadBalancer(
             logical_id,
             IpAddressType='ipv4',
@@ -221,7 +235,7 @@ class FourfrontECSApplication(C4ECSApplication):
             SecurityGroups=[
                 Ref(self.ecs_lb_security_group())
             ],
-            Subnets=[Ref(self.ecs_subnet())],
+            Subnets=[Ref(self.ecs_subnet_a()), Ref(self.ecs_subnet_b())],
             Tags=self.tags.cost_tag_array(name=logical_id),
             Type='application',
         )
@@ -230,8 +244,9 @@ class FourfrontECSApplication(C4ECSApplication):
         """ Creates LBv2 target group (intended for use with portal Service).
             Uses the VPC passed as parameter.
         """
+        logical_id = self.name.logical_id('TargetGroup')
         return elbv2.TargetGroup(
-            'TargetGroupApplication',
+            logical_id,
             HealthCheckIntervalSeconds=60,
             HealthCheckPath='/health?format=json',
             HealthCheckProtocol='HTTP',
@@ -312,7 +327,7 @@ class FourfrontECSApplication(C4ECSApplication):
         return Service(
             "FourfrontPortalService",
             Cluster=Ref(self.ecs_cluster()),
-            DependsOn=['ECSLBListener'],  # XXX: Hardcoded, important!
+            DependsOn=[self.name.logical_id('LBListener')],
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(
@@ -338,7 +353,7 @@ class FourfrontECSApplication(C4ECSApplication):
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
-                        Ref(self.ecs_subnet())  # deploy to subnet passed as argument
+                        Ref(self.ecs_subnet_a()), Ref(self.ecs_subnet_b())  # deploy to subnet passed as argument
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
@@ -430,7 +445,7 @@ class FourfrontECSApplication(C4ECSApplication):
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
-                        self.ecs_subnet()
+                        Ref(self.ecs_subnet_a()), Ref(self.ecs_subnet_b())
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )

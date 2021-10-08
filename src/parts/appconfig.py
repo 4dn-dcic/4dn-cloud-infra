@@ -103,7 +103,7 @@ class C4AppConfig(C4Part):
         'RDS_PASSWORD': CONFIGURATION_PLACEHOLDER,
         'S3_ENCRYPT_KEY': ConfigManager.get_config_setting(Secrets.S3_ENCRYPT_KEY,
                                                            ConfigManager.get_s3_encrypt_key_from_file()),
-        'SENTRY_DSN': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_SENTRY_DSN': CONFIGURATION_PLACEHOLDER,
         'reCaptchaKey': CONFIGURATION_PLACEHOLDER,
         'reCaptchaSecret': CONFIGURATION_PLACEHOLDER,
     }

@@ -196,8 +196,9 @@ class C4ECSApplication(C4Part):
 
     def ecs_container_security_group(self) -> SecurityGroup:
         """ Security group for the container runtime. """
+        logical_id = self.name.logical_id('ContainerSecurityGroup')
         return SecurityGroup(
-            'ContainerSecurityGroup',
+            logical_id,
             GroupDescription='Container Security Group.',
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
             SecurityGroupIngress=[
@@ -216,8 +217,9 @@ class C4ECSApplication(C4Part):
         """ Security group for the load balancer, allowing traffic on ports 80/443.
             TODO: configure for HTTPS.
         """
+        logical_id = self.name.logical_id('LBSecurityGroup')
         return SecurityGroup(
-            "ECSLBSSLSecurityGroup",
+            logical_id,
             GroupDescription="Web load balancer security group.",
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
             SecurityGroupIngress=[
@@ -239,8 +241,9 @@ class C4ECSApplication(C4Part):
 
     def ecs_application_load_balancer_listener(self, target_group: elbv2.TargetGroup) -> elbv2.Listener:
         """ Listener for the application load balancer, forwards traffic to the target group (containing portal). """
+        logical_id = self.name.logical_id('LBListener')
         return elbv2.Listener(
-            'ECSLBListener',
+            logical_id,
             Port=80,
             Protocol='HTTP',
             LoadBalancerArn=Ref(self.ecs_application_load_balancer()),
@@ -252,8 +255,7 @@ class C4ECSApplication(C4Part):
     def ecs_application_load_balancer(self) -> elbv2.LoadBalancer:
         """ Application load balancer for the portal ECS Task. """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        env_identifier = dehyphenate(env_name)
-        logical_id = self.name.logical_id(env_identifier, context='ecs_application_load_balancer')
+        logical_id = self.name.logical_id('LoadBalancer')
         return elbv2.LoadBalancer(
             logical_id,
             IpAddressType='ipv4',
@@ -278,8 +280,9 @@ class C4ECSApplication(C4Part):
 
     def ecs_lbv2_target_group(self) -> elbv2.TargetGroup:
         """ Creates LBv2 target group (intended for use with portal Service). """
+        logical_id = self.name.logical_id('TargetGroup')
         return elbv2.TargetGroup(
-            'TargetGroupApplication',
+            logical_id,
             HealthCheckIntervalSeconds=60,
             HealthCheckPath='/health?format=json',
             HealthCheckProtocol='HTTP',
@@ -293,7 +296,7 @@ class C4ECSApplication(C4Part):
             Tags=self.tags.cost_tag_array()
         )
 
-    def ecs_portal_task(self, cpu='256', mem='512', identity=None) -> TaskDefinition:   # XXX: refactor
+    def ecs_portal_task(self, cpu='4096', mem='8192', identity=None) -> TaskDefinition:   # XXX: refactor
         """ Defines the portal Task (serve HTTP requests).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
@@ -356,7 +359,7 @@ class C4ECSApplication(C4Part):
             Tags=self.tags.cost_tag_obj(),
         )
 
-    def ecs_portal_service(self, concurrency=8) -> Service:
+    def ecs_portal_service(self, concurrency=2) -> Service:
         """ Defines the portal service (manages portal Tasks)
             Note dependencies: https://stackoverflow.com/questions/53971873/the-target-group-does-not-have-an-associated-load-balancer
 
@@ -368,7 +371,7 @@ class C4ECSApplication(C4Part):
         return Service(
             "CGAPportalService",
             Cluster=Ref(self.ecs_cluster()),
-            DependsOn=['ECSLBListener'],  # XXX: Hardcoded, important!
+            DependsOn=[self.name.logical_id('LBListener')],
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(
