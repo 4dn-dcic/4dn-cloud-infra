@@ -235,6 +235,46 @@ def view_run_route(environ, check, method):
         return app_utils_manager.singleton.forbidden_response(context)
 
 
+def check_auth_wrap(req_dict, env=None):
+    from jwt import decode
+    from dcicutils.ff_utils import get_metadata
+    # first check the Authorization header
+    dev_auth = req_dict.get('headers', {}).get('authorization')
+    # grant admin if dev_auth equals secret value
+    if dev_auth and dev_auth == os.environ.get('DEV_SECRET'):
+        return True
+    # if we're on localhost, automatically grant authorization
+    # this looks bad but isn't because request authentication will
+    # still fail if local keys are not configured
+    src_ip = req_dict.get('context', {}).get('identity', {}).get('sourceIp', '')
+    if src_ip == '127.0.0.1':
+        return True
+    token = app_utils_manager.singleton.get_jwt(req_dict)
+    auth0_client = os.environ.get('CLIENT_ID', None)
+    auth0_secret = os.environ.get('CLIENT_SECRET', None)
+    if auth0_client and auth0_secret and token:
+        try:
+            if env is None:
+                logger.error('no env to check!')
+                return False  # we have no env to check auth
+            # leeway accounts for clock drift between us and auth0
+            payload = decode(token, auth0_secret, audience=auth0_client, leeway=30)
+            for env_info in app_utils_manager.singleton.init_environments(env).values():
+                logger.error(f'Checking env {env_info}')
+                user_res = get_metadata('users/' + payload.get('email').lower(),
+                                                 ff_env=env_info['ff_env'], add_on='frame=object')
+                logger.error(env_info)
+                logger.error(user_res)
+                if not ('admin' in user_res['groups'] and payload.get('email_verified')):
+                    # if unauthorized for one, unauthorized for all
+                    return False
+            return True
+        except:
+            pass
+    return False
+    pass
+
+
 @app.route('/view/{environ}', methods=['GET'])
 def view_route(environ):
     """
@@ -242,7 +282,8 @@ def view_route(environ):
     """
     req_dict = app.current_request.to_dict()
     domain, context = app_utils_manager.singleton.get_domain_and_context(req_dict)
-    check_authorization = app_utils_manager.singleton.check_authorization(req_dict, environ)
+    logger.warning(f'domain: {domain}, context: {context}')
+    check_authorization = check_auth_wrap(req_dict, environ)
     logger.warning('result of check authorization: {}'.format(check_authorization))
     return app_utils_manager.singleton.view_foursight(environ, check_authorization, domain, context)
 

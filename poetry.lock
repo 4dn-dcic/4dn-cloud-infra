@@ -569,25 +569,25 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
 name = "dcicutils"
-version = "2.4.1"
+version = "3.1.0"
 description = "Utility package for interacting with the 4DN Data Portal and other 4DN resources"
 category = "main"
 optional = false
-python-versions = ">=3.5,<3.8"
+python-versions = ">=3.6.1,<3.8"
 
 [package.dependencies]
 aws-requests-auth = ">=0.4.2,<1"
-boto3 = ">=1.10.46,<2.0.0"
-botocore = ">=1.13.46,<2.0.0"
+boto3 = ">=1.17.39,<2.0.0"
+botocore = ">=1.20.39,<2.0.0"
 docker = ">=4.4.4,<5.0.0"
 elasticsearch = "6.8.1"
 gitpython = ">=3.1.2,<4.0.0"
-pytz = ">=2016.4"
+pytz = ">=2020.4"
 requests = ">=2.21.0,<3.0.0"
 rfc3986 = ">=1.4.0,<2.0.0"
 structlog = ">=19.2.0,<20.0.0"
-toml = ">=0.10.0,<1"
-urllib3 = ">=1.24.3,<2.0.0"
+toml = ">=0.10.1,<1"
+urllib3 = ">=1.26.6,<2.0.0"
 webtest = ">=2.0.34,<3.0.0"
 
 [[package]]
@@ -671,24 +671,25 @@ pyflakes = ">=2.4.0,<2.5.0"
 
 [[package]]
 name = "foursight-cgap"
-version = "0.4.9.2b46"
+version = "1.0.0.0b0"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
-python-versions = ">=3.6,<3.7"
+python-versions = ">=3.6.1,<3.7"
 
 [package.dependencies]
 cgap-pipeline-utils = "23.0"
 click = ">=7.1.2,<8.0.0"
-dcicutils = ">=2.3.0,<3.0.0"
+dcicutils = ">=3.1.0,<4.0.0"
 elasticsearch = ">=6.8.1,<7.0.0"
 elasticsearch-dsl = ">=6.4.0,<7.0.0"
-foursight-core = ">=0.4.1,<0.5.0"
+foursight-core = ">=0.4.2,<0.5.0"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.12.5,<2.0.0"
 Jinja2 = "2.10.1"
 magma-suite = ">=0.2.8,<0.3.0"
+MarkupSafe = "1.1.1"
 PyJWT = "1.5.3"
 pytest = "5.1.2"
 pytz = ">=2020.1,<2021.0"
@@ -696,15 +697,15 @@ tibanna-ff = ">=0.21.5,<0.22.0"
 
 [[package]]
 name = "foursight-core"
-version = "0.4.1"
+version = "0.4.2"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
-python-versions = ">=3.6,<3.7"
+python-versions = ">=3.6.1,<3.7"
 
 [package.dependencies]
 click = ">=7.1.2,<8.0.0"
-dcicutils = ">=2.0.0,<3.0.0"
+dcicutils = ">=3.1.0,<4.0.0"
 elasticsearch = ">=6.8.1,<7.0.0"
 elasticsearch-dsl = ">=6.4.0,<7.0.0"
 geocoder = "1.38.1"
@@ -1422,20 +1423,6 @@ docs = ["sphinx", "twisted"]
 tests = ["coverage", "freezegun (>=0.2.8)", "pretend", "pytest (>=3.3.0)", "simplejson", "python-rapidjson"]
 
 [[package]]
-name = "submit-cgap"
-version = "0.10.0"
-description = "Support for uploading file submissions to the Clinical Genomics Analysis Platform (CGAP)."
-category = "main"
-optional = false
-python-versions = ">=3.6,<3.8"
-
-[package.dependencies]
-awscli = ">=1.18.174"
-boto3 = ">=1.16.14,<2"
-dcicutils = ">=2.4.0,<3.0.0"
-requests = ">=2.24.0,<3"
-
-[[package]]
 name = "tibanna"
 version = "1.6.0"
 description = "Tibanna runs portable pipelines (in CWL/WDL) on the AWS Cloud."
@@ -1615,7 +1602,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.6.10,<3.7"
-content-hash = "e7b400b5e3fae6b9de083facc212a549ee3af439e8a85f2160ddd7d9ea21679b"
+content-hash = "c234036d17bd53e85370344ec2ea86c4f119a1fec8f0d91de6c2b7cc2d3e1cba"
 
 [metadata.files]
 ansicon = [
@@ -1713,8 +1700,8 @@ colorama = [
     {file = "colorama-0.4.3.tar.gz", hash = "sha256:e96da0d330793e2cb9485e9ddfd918d456036c7149416295932478192f4436a1"},
 ]
 dcicutils = [
-    {file = "dcicutils-2.4.1-py3-none-any.whl", hash = "sha256:7d1c93962bb461909d1d1fd6e48656234de146004abab3cedb9973b5dbe896c8"},
-    {file = "dcicutils-2.4.1.tar.gz", hash = "sha256:bcc13cc8330cf3d6ed42c567b31c05776077676b74bebcf92ae7e5d5b5f27da0"},
+    {file = "dcicutils-3.1.0-py3-none-any.whl", hash = "sha256:db07a56815057926dad01cebd25ead872324334cad5e639c24e6b2c091526423"},
+    {file = "dcicutils-3.1.0.tar.gz", hash = "sha256:a0466d3a68d1ac80c612d90bd74392bd0b769029f9012b211102eac032a814e2"},
 ]
 decorator = [
     {file = "decorator-4.4.2-py2.py3-none-any.whl", hash = "sha256:41fa54c2a0cc4ba648be4fd43cff00aedf5b9465c9bf18d64325bc225f08f760"},
@@ -1742,12 +1729,12 @@ flake8 = [
     {file = "flake8-4.0.1.tar.gz", hash = "sha256:806e034dda44114815e23c16ef92f95c91e4c71100ff52813adf7132a6ad870d"},
 ]
 foursight-cgap = [
-    {file = "foursight-cgap-0.4.9.2b46.tar.gz", hash = "sha256:ab6a97caa4de10ff88cc5c5830096fe23a715ffb5865e009789898632f7ca37d"},
-    {file = "foursight_cgap-0.4.9.2b46-py3-none-any.whl", hash = "sha256:a26183c198e570c238d7278f47fd6db87b337417da9ddce3bf4aec40659a33e2"},
+    {file = "foursight-cgap-1.0.0.0b0.tar.gz", hash = "sha256:eb5a6f194f239f9cba68d8e885f4dd95d92f000830d5e9bad791a4ce3b0ba90a"},
+    {file = "foursight_cgap-1.0.0.0b0-py3-none-any.whl", hash = "sha256:33ceecef48e4f042e1b8045edf579eb18fe8430cc52fbbf49a6e8fc6b2c46c4b"},
 ]
 foursight-core = [
-    {file = "foursight_core-0.4.1-py3-none-any.whl", hash = "sha256:b62d46104a9698bf00c238a167a23294025b24439c0f389511d7603bfd17cca8"},
-    {file = "foursight_core-0.4.1.tar.gz", hash = "sha256:68e175d91bccd98c713ac529e08c0c34cdb89779138a3805cea913b9130277ab"},
+    {file = "foursight_core-0.4.2-py3-none-any.whl", hash = "sha256:9bdf66cae95e1bb6606b1b80ef4eba75f6f7562994b7955d051a28c6f3aed5db"},
+    {file = "foursight_core-0.4.2.tar.gz", hash = "sha256:8384a4e72469ed7d9f232072ec08d5aa49c261537e76764128788feb18e67d2b"},
 ]
 future = [
     {file = "future-0.18.2.tar.gz", hash = "sha256:b1bead90b70cf6ec3f0710ae53a525360fa360d306a86583adc6bf83a4db537d"},
@@ -2145,10 +2132,6 @@ soupsieve = [
 structlog = [
     {file = "structlog-19.2.0-py2.py3-none-any.whl", hash = "sha256:6640e6690fc31d5949bc614c1a630464d3aaa625284aeb7c6e486c3010d73e12"},
     {file = "structlog-19.2.0.tar.gz", hash = "sha256:4287058cf4ce1a59bc5dea290d6386d37f29a37529c9a51cdf7387e51710152b"},
-]
-submit-cgap = [
-    {file = "submit_cgap-0.10.0-py3-none-any.whl", hash = "sha256:8d5bca1af59902df16b9bea3731d433e8bfa8bdeec5cd74eae5232f87d315f55"},
-    {file = "submit_cgap-0.10.0.tar.gz", hash = "sha256:656d570d9c33c1c1533dfb580aa6d82dbfd0039a6f243ee870097fbda60f85d6"},
 ]
 tibanna = [
     {file = "tibanna-1.6.0-py3-none-any.whl", hash = "sha256:7879c15f7b48bba7e9516806dc3a56a643eee44f701334dbc56d98c45d6de717"},
