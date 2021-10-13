@@ -262,15 +262,15 @@ def check_auth_wrap(req_dict, env=None):
             for env_info in app_utils_manager.singleton.init_environments(env).values():
                 logger.error(f'Checking env {env_info}')
                 user_res = get_metadata('users/' + payload.get('email').lower(),
-                                                 ff_env=env_info['ff_env'], add_on='frame=object')
+                                        ff_env=env_info['ff_env'], add_on='frame=object')
                 logger.error(env_info)
                 logger.error(user_res)
                 if not ('admin' in user_res['groups'] and payload.get('email_verified')):
                     # if unauthorized for one, unauthorized for all
                     return False
             return True
-        except:
-            pass
+        except Exception as e:
+            logger.error(f'Encountered error: {e}')
     return False
     pass
 
