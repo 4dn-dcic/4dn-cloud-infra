@@ -460,3 +460,30 @@ The first will enable CGAP to run pipeline at a higher degree of parallelization
 more spot instances. The second will make it so that internal AWS snapshots of the ES
 cluster are only done daily, not hourly. Hourly snapshots are known to impede performance
 and cause APIs to fail.
+
+Step Eleven: Configure HTTPS
+----------------------------
+
+Production environments require HTTPS. There are several steps required to
+enabling HTTPS connections to CGAP, and some important caveats. The most
+important detail to note is that at this time we terminate HTTPS at the
+Application Load Balancer in our public subnets. This means that HTTP traffic
+is traveling unencrypted within our network to portal API workers. Full
+end-to-end encryption on that path is not supported at this time, but is a
+high priority feature.
+
+First, note the DNS A Record of the Load Balancer created. This record will
+be needed for registering a CNAME. DBMI IT has a small form you can fill out
+to request a CNAME record for the desired domain. You want this new
+domain to point to the A record of the load balancer. Once acquired, you
+should then be able to send HTTP traffic to the new CNAME. At this point,
+generate a CSR for the new domain and send it to DBMI IT, who will respond
+with the certificate. Import the certificate into ACM and associate it with
+the load balancer. Modify the listener rule on the load balancer for port 80
+to automatically redirect all HTTP traffic to HTTPS.
+
+Note that there is additional internal documentation on this process in
+Confluence.
+
+Note additionally that Nginx configuration updates may be necessary,
+especially if using non-standard domains (see cgap-portal nginx.conf).
