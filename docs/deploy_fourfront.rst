@@ -22,7 +22,7 @@ already present and can either be inferred or passed as arguments to ECS.
 
 * All associated S3 Buckets - these names must be wired directly into the GAC
 * RDS Cluster - associated values can be taken directly from the Beanstalk configuration and input to the GAC
-* ES Cluster - same deal as RDS
+* ES Cluster - this resource must be re-created
 * S3_ENCRYPT_KEY - a new one will be phased in when the beanstalk is spun down
 
 Resources to be Created
@@ -33,8 +33,9 @@ will still be used to provide some inherent security to each fourfront env, name
 application log groups, separate ECR repositories (for deployment) and separate IAM
 resources (in case one needs to be turned off for whatever reason).
 
+A new stack called the appconfig stack must be created. This stack creates the global application
+configuration to be used by fourfront.
+
 An ECS stack is the main component to be created. This stack includes standard ECS resources
 also present in the normal (CGAP) ECS code, but omits some CGAP-specific things, such as
-the ingester service (which does not exist on fourfront). It also creates the global
-application configuration component usually created in the datastore. The GAC will contain most
-of the same information as what is currently passed as environment variables to Beanstalks.
+the ingester service (which does not exist on fourfront).
