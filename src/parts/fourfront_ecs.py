@@ -1,30 +1,17 @@
-import json
 from troposphere import (
-    Parameter,
-    Join,
-    Ref,
-    elasticloadbalancingv2 as elbv2,
-    AWS_REGION,
-    Template,
-    Output,
-    GetAtt,
+    Parameter, Join, Ref, elasticloadbalancingv2 as elbv2,
+    AWS_REGION, Template, Output, GetAtt,
 )
 from troposphere.ecs import (
-    Cluster,
-    TaskDefinition,
-    ContainerDefinition,
-    LogConfiguration,
-    PortMapping,
-    Service,
-    LoadBalancer,
-    AwsvpcConfiguration,
-    NetworkConfiguration,
-    Environment,
-    CapacityProviderStrategyItem,
-    SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
+    Cluster, TaskDefinition, ContainerDefinition, LogConfiguration,
+    PortMapping, Service, LoadBalancer, AwsvpcConfiguration, NetworkConfiguration,
+    Environment, CapacityProviderStrategyItem, SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
-from troposphere.ec2 import SecurityGroup, SecurityGroupRule
-from dcicutils.cloudformation_utils import camelize, dehyphenate
+from troposphere.ec2 import (
+    SecurityGroup, SecurityGroupRule,
+    SecurityGroupIngress, SecurityGroupEgress
+)
+from dcicutils.cloudformation_utils import camelize
 from ..base import ConfigManager
 from ..constants import Settings
 from .ecs import C4ECSApplicationExports, C4ECSApplication
@@ -100,11 +87,17 @@ class FourfrontECSApplication(C4ECSApplication):
         template.add_resource(self.ecs_deployment_task(initial=True))
         template.add_resource(self.ecs_deployment_task())
 
-        # Add load balancer for portal
+        # Add Security Groups
         template.add_resource(self.ecs_lb_security_group())
-        template.add_resource(self.ecs_container_security_group())
+        template.add_resource(self.ecs_application_security_group())
+        for rule in self.ecs_application_security_rules():
+            template.add_resource(rule)
+
+        # Add Target Group
         target_group = self.ecs_lbv2_target_group()
         template.add_resource(target_group)
+
+        # Add load balancer for portal
         template.add_resource(self.ecs_application_load_balancer_listener(target_group))
         template.add_resource(self.ecs_application_load_balancer())
 
@@ -178,28 +171,116 @@ class FourfrontECSApplication(C4ECSApplication):
             Tags=self.tags.cost_tag_obj()
         )
 
-    def ecs_container_security_group(self) -> SecurityGroup:
-        """ Security group for the container runtime. """
-        logical_id = self.name.logical_id('ContainerSecurityGroup')
+    def ecs_application_security_group(self) -> SecurityGroup:
+        """ Security group for the application. """
+        logical_id = self.name.logical_id('ApplicationSecurityGroup')
         return SecurityGroup(
             logical_id,
-            GroupDescription='Container Security Group.',
+            GroupDescription='Application Security Group.',
             VpcId=Ref(self.ecs_vpc()),
-            SecurityGroupIngress=[
-                # HTTP from web public subnets
-                SecurityGroupRule(
-                    IpProtocol='tcp',
-                    FromPort=Ref(self.ecs_web_worker_port()),
-                    ToPort=Ref(self.ecs_web_worker_port()),
-                    CidrIp=Ref(self.ecs_vpc_cidr()),
-                )
-            ],
             Tags=self.tags.cost_tag_array()
         )
 
+    def ecs_application_security_rules(self) -> [SecurityGroupRule]:
+        """ Returns a list of inbound/outbound rules needed for
+            the application to communicate.
+            TODO: refactor to combine with version from network.py
+        """
+        return [
+            SecurityGroupIngress(
+                self.name.logical_id('ApplicationHTTPSInboundAccess', context='application_security_rules1'),
+                CidrIp='0.0.0.0/0',
+                Description='allows inbound traffic on tcp port 443',
+                GroupId=Ref(self.ecs_application_security_group()),
+                IpProtocol='tcp',
+                FromPort=443,
+                ToPort=443,
+            ),
+            SecurityGroupEgress(
+                self.name.logical_id('ApplicationHTTPSOutboundAllAccess', context='application_security_rules2'),
+                CidrIp='0.0.0.0/0',
+                Description='allows outbound traffic on tcp port 443',
+                GroupId=Ref(self.ecs_application_security_group()),
+                IpProtocol='tcp',
+                FromPort=443,
+                ToPort=443,
+            ),
+            SecurityGroupIngress(
+                self.name.logical_id('ApplicationWebInboundAccess', context='application_security_rules3'),
+                CidrIp='0.0.0.0/0',
+                Description='allows inbound traffic on tcp port 80',
+                GroupId=Ref(self.ecs_application_security_group()),
+                IpProtocol='tcp',
+                FromPort=80,
+                ToPort=80,
+            ),
+            SecurityGroupEgress(
+                self.name.logical_id('ApplicationWebOutboundAllAccess', context='application_security_rules4'),
+                CidrIp='0.0.0.0/0',
+                Description='allows outbound traffic on tcp port 80',
+                GroupId=Ref(self.ecs_application_security_group()),
+                IpProtocol='tcp',
+                FromPort=80,
+                ToPort=80,
+            ),
+            SecurityGroupIngress(
+                self.name.logical_id('ApplicationNTPInboundAllAccess', context='application_security_rules5'),
+                CidrIp='0.0.0.0/0',
+                Description='allows inbound traffic on udp port 123',
+                GroupId=Ref(self.ecs_application_security_group()),
+                IpProtocol='udp',
+                FromPort=123,
+                ToPort=123,
+            ),
+            SecurityGroupEgress(
+                self.name.logical_id('ApplicationNTPOutboundAllAccess', context='application_security_rules6'),
+                CidrIp='0.0.0.0/0',
+                Description='allows outbound traffic on udp port 123',
+                GroupId=Ref(self.ecs_application_security_group()),
+                IpProtocol='udp',
+                FromPort=123,
+                ToPort=123,
+            ),
+            SecurityGroupIngress(
+                self.name.logical_id('ApplicationSSHInboundAllAccess', context='application_security_rules7'),
+                CidrIp='0.0.0.0/0',
+                Description='allows inbound traffic on tcp port 22',
+                GroupId=Ref(self.ecs_application_security_group()),
+                IpProtocol='tcp',
+                FromPort=22,
+                ToPort=22,
+            ),
+            SecurityGroupEgress(
+                self.name.logical_id('ApplicationSSHOutboundAllAccess', context='application_security_rules8'),
+                CidrIp='0.0.0.0/0',
+                Description='allows outbound traffic on tcp port 22',
+                GroupId=Ref(self.ecs_application_security_group()),
+                IpProtocol='tcp',
+                FromPort=22,
+                ToPort=22,
+            ),
+            SecurityGroupIngress(
+                self.name.logical_id('ApplicationDBInboundAccess'),
+                CidrIp='0.0.0.0/0',  # TODO web sg w/ 'DestinationSecurityGroupId'
+                Description='allows database access on tcp ports 54xx',
+                GroupId=Ref(self.ecs_application_security_group()),
+                IpProtocol='tcp',
+                FromPort=5400,
+                ToPort=5499,
+            ),
+            SecurityGroupEgress(
+                self.name.logical_id('ApplicationDBOutboundAccess'),
+                CidrIp='0.0.0.0/0',  # TODO web sg w/ 'DestinationSecurityGroupId'
+                Description='allows outbound traffic to tcp 54xx',
+                GroupId=Ref(self.ecs_application_security_group()),
+                IpProtocol='tcp',
+                FromPort=5400,
+                ToPort=5499,
+            )
+        ]
+
     def ecs_lb_security_group(self) -> SecurityGroup:
         """ Security group for the load balancer, allowing traffic on ports 80/443.
-            TODO: configure for HTTPS.
         """
         logical_id = self.name.logical_id('LBSecurityGroup')
         return SecurityGroup(
@@ -355,7 +436,7 @@ class FourfrontECSApplication(C4ECSApplication):
                     Subnets=[
                         Ref(self.ecs_subnet_a()), Ref(self.ecs_subnet_b())  # deploy to subnet passed as argument
                     ],
-                    SecurityGroups=[Ref(self.ecs_container_security_group())],
+                    SecurityGroups=[Ref(self.ecs_application_security_group())],
                 )
             ),
             Tags=self.tags.cost_tag_obj()
@@ -447,7 +528,7 @@ class FourfrontECSApplication(C4ECSApplication):
                     Subnets=[
                         Ref(self.ecs_subnet_a()), Ref(self.ecs_subnet_b())
                     ],
-                    SecurityGroups=[Ref(self.ecs_container_security_group())],
+                    SecurityGroups=[Ref(self.ecs_application_security_group())],
                 )
             ),
             Tags=self.tags.cost_tag_obj()
