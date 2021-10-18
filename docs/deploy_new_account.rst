@@ -487,3 +487,8 @@ Confluence.
 
 Note additionally that Nginx configuration updates may be necessary,
 especially if using non-standard domains (see cgap-portal nginx.conf).
+
+Once the certificate has been enabled, modify the port 80 load balancer
+listener to redirect HTTP traffic to HTTPS. Note that this will effectively
+disable the load balancer URL - update the foursight environment file to use
+the HTTPS URL to account for this.
