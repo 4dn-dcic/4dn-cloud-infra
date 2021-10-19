@@ -44,13 +44,12 @@ and a test_creds.sh file::
     export AWS_ACCESS_KEY_ID=XXX
     export AWS_SECRET_ACCESS_KEY=XXX
     export AWS_DEFAULT_REGION=us-east-1
-    # only if you're using a forked tibanna repo
-    export TIBANNA_REPO_NAME=4dn-dcic/tibanna  # (default: 4dn-dcic/tibanna)
-    export TIBANNA_REPO_BRANCH=master  # (default: master)
-    # contains default usergroup being used
-    export TIBANNA_DEFAULT_STEP_FUNCTION_NAME=tibanna_unicorn_tibanna_unicorn_trial_02
+    export TIBANNA_VERSION=x.x.x
+    export ACCOUNT_NUMBER=<number>
 
-
+    # fill these in later
+    export S3_ENCRYPT_KEY=<key>
+    export GLOBAL_BUCKET_ENV=<bucket>
 
 -------------
 Configuration
@@ -81,18 +80,18 @@ a trailing comma inside a list or dictionary::
         "ecs.ingester.count": 1,
         "ecs.ingester.cpu": "512",
         "ecs.ingester.mem": "1024",
-        "ecs.wsgi.count": 8,  # use a smaller value for testing. perhaps 2 or 4
-        "ecs.wsgi.cpu": "256",
-        "ecs.wsgi.mem": "512",
-        "elasticsearch.data_node_count": 2,  # current prod data node configuration
-        "elasticsearch.data_node_type": "c5.2xlarge.elasticsearch",
+        "ecs.wsgi.count": 2,
+        "ecs.wsgi.cpu": "4096",
+        "ecs.wsgi.mem": "8192",
+        "elasticsearch.data_node_count": 1,
+        "elasticsearch.data_node_type": "c5.xlarge.elasticsearch",
         "elasticsearch.master_node_count": 3,  # XXX: Not enabled currently
         "elasticsearch.master_node_type": "c5.large.elasticsearch",
         "elasticsearch.volume_size": 20,
         "rds.az": "us-east-1a",
         "rds.db_name": "ebdb",
         "rds.db_port": "5432",
-        "rds.instance_size": "db.t3.xlarge",
+        "rds.instance_size": "db.t3.large",
         "rds.storage_size": 20
     }
 
@@ -131,24 +130,13 @@ application and that the orchestrating user has access. Comments seek to guide t
 Tibanna Setup
 -------------
 
-Each tibanna command is wrapped on execution, so the environment vars required for the tibanna cli configuration are
-sourced with the command's execution. This requires a `test_creds.sh` file in the creds directory (which is
-``custom/aws_creds`` in your repository, though you can link that to ``~/.aws_test/test_creds.sh`` if you want
-compatibility with the way we used to do it).
+To deploy tibanna, do so from ``tibanna_ff``. Note that ``GLOBAL_BUCKET_ENV`` must be set along
+with all other vars from ``test_creds.sh``. Deploy like so::
 
-This file can look like this, with IAM creds to the correct account filled in::
+    tibanna_cgap deploy_zebra --subnets <subnet> -e <env> -r <security_group>
 
-    export AWS_ACCESS_KEY_ID=<ACCESS_KEY_HERE>
-    export AWS_SECRET_ACCESS_KEY=<SECRET_HERE>
-    export AWS_DEFAULT_REGION=us-east-1
-    # only if you're using a forked tibanna repo
-    export TIBANNA_REPO_NAME=4dn-dcic/tibanna  # (default: 4dn-dcic/tibanna)
-    export TIBANNA_REPO_BRANCH=master  # (default: master)
-    # contains default usergroup being used
-    export TIBANNA_DEFAULT_STEP_FUNCTION_NAME=tibanna_unicorn_tibanna_unicorn_trial_02
+To clean up (uninstall) tibanna from the account, run::
 
-To view the tibanna commands, use: `poetry run cli tibanna --help`
-
-To view the tibanna cli help message itself, use: `poetry run cli tibanna help`
+    tibanna_cgap cleanup -g <env>
 
 For more information on tibanna itself, see: https://tibanna.readthedocs.io/en/latest/

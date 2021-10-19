@@ -248,6 +248,13 @@ class ConfigManager:
                 else:  # some other false value than None or "", for example zero (0).
                     return found
 
+    @classmethod
+    def app_case(cls, *, if_cgap, if_ff):
+        """ Helper function for 'if app kind is FF give this value else its CGAP
+            and give that value.
+        """
+        return if_ff if cls.get_config_setting(Settings.APP_KIND) == 'ff' else if_cgap
+
     class AppBucketTemplate:
 
         BLOBS = '{application_prefix}{env_part}' + s3Utils.BLOB_BUCKET_SUFFIX                 # blobs

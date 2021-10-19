@@ -65,7 +65,7 @@ class C4ContainerRegistry(C4Part):
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
 
         # build repos
-        for rname, export in [
+        repo_export_pairs = [
             (ECOSYSTEM, self.EXPORTS.PORTAL_REPO_URL),
             ('tibanna-awsf', self.EXPORTS.TIBANNA_REPO_URL),
             ('cnv', self.EXPORTS.CNV_REPO_URL),
@@ -73,7 +73,8 @@ class C4ContainerRegistry(C4Part):
             ('manta', self.EXPORTS.MANTA_REPO_URL),
             ('md5', self.EXPORTS.MD5_REPO_URL),
             ('fastqc', self.EXPORTS.FASTQC_REPO_URL)
-        ]:
+        ]
+        for rname, export in repo_export_pairs:
             if is_fourfront_env(env_name) and rname != ECOSYSTEM:
                 break  # do not add tibanna repos if building a fourfront env
             repo = self.repository(repo_name=rname)

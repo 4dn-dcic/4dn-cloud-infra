@@ -33,12 +33,12 @@ class C4IAM(C4Part):
         Right now, there is only one important IAM Role to configure.
         That is the assumed IAM role assigned to ECS.
     """
-    ROLE_NAME = 'CGAPECSRole' if ConfigManager.get_config_setting(Settings.APP_KIND) != 'ff' else 'FFECSRole'
-    DEV_ROLE = 'CGAPDevRole' if ConfigManager.get_config_setting(Settings.APP_KIND) != 'ff' else 'FFDevRole'
-    INSTANCE_PROFILE_NAME = ('CGAPECSInstanceProfile' if ConfigManager.get_config_setting(Settings.APP_KIND) != 'ff'
-                             else 'FFECSInstanceProfile')
-    AUTOSCALING_ROLE_NAME = ('CGAPECSAutoscalingRole' if ConfigManager.get_config_setting(Settings.APP_KIND) != 'ff'
-                             else 'FFECSAutoscalingRole')
+    ROLE_NAME = ConfigManager.app_case(if_cgap='CGAPECSRole', if_ff='FFECSRole')
+    DEV_ROLE = ConfigManager.app_case(if_cgap='CGAPDevRole', if_ff='FFDevRole')
+    INSTANCE_PROFILE_NAME = ConfigManager.app_case(if_cgap='CGAPECSInstanceProfile',
+                                                   if_ff='FFECSInstanceProfile')
+    AUTOSCALING_ROLE_NAME = ConfigManager.app_case(if_cgap='CGAPECSAutoscalingRole',
+                                                   if_ff='FFECSAutoscalingRole')
     EXPORTS = C4IAMExports()
     STACK_NAME_TOKEN = "iam"
     STACK_TITLE_TOKEN = "IAM"
@@ -378,7 +378,7 @@ class C4IAM(C4Part):
                         Action=[
                             Action('sts', 'AssumeRole')
                         ],
-                        # XXX: not clear this is needed - Will Aug 31 2021
+                        # XXX: not clear this is needed since we aren't using ec2 - Will Aug 31 2021
                         Principal=Principal('Service', 'ec2.amazonaws.com')),
                     Statement(
                         Effect='Allow',
