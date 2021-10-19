@@ -114,7 +114,7 @@ class FourfrontECSApplication(C4ECSApplication):
             'ECSTargetVPC',
             Description='VPC to run containers in',
             Type='String',
-            Default=ConfigManager.get_config_setting(Settings.FOURFRONT_VPC) or 'vpc-5038bb34'
+            Default=ConfigManager.get_config_setting(Settings.FOURFRONT_VPC, default='vpc-5038bb34')
         )
 
     @staticmethod
@@ -126,7 +126,7 @@ class FourfrontECSApplication(C4ECSApplication):
             'ECSTargetCIDR',
             Description='CIDR block for VPC',
             Type='String',
-            Default=ConfigManager.get_config_setting(Settings.FOURFRONT_VPC_CIDR) or '172.31.0.0/16'
+            Default=ConfigManager.get_config_setting(Settings.FOURFRONT_VPC_CIDR, default='172.31.0.0/16')
         )
 
     @staticmethod
@@ -138,7 +138,7 @@ class FourfrontECSApplication(C4ECSApplication):
             'ECSTargetSubnetA',
             Description='Primary Subnet to run containers in',
             Type='String',
-            Default=ConfigManager.get_config_setting(Settings.FOURFRONT_PRIMARY_SUBNET) or 'subnet-0cc7a269'
+            Default=ConfigManager.get_config_setting(Settings.FOURFRONT_PRIMARY_SUBNET, default='subnet-0cc7a269')
         )
 
     @staticmethod
@@ -150,7 +150,7 @@ class FourfrontECSApplication(C4ECSApplication):
             'ECSTargetSubnetB',
             Description='Second Subnet to run containers in',
             Type='String',
-            Default=ConfigManager.get_config_setting(Settings.FOURFRONT_SECONDARY_SUBNET) or 'subnet-efb1b3c4'
+            Default=ConfigManager.get_config_setting(Settings.FOURFRONT_SECONDARY_SUBNET, default='subnet-efb1b3c4')
         )
 
     def output_application_url(self, env=None) -> Output:
