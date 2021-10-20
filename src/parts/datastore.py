@@ -480,10 +480,6 @@ class C4Datastore(C4Part):
                 self.NETWORK_EXPORTS.import_value(subnet_key)
                 for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
             ],
-            # SubnetIds=[
-            #     self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-            #     self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
-            # ],
             Tags=self.tags.cost_tag_array(),
         )
 
