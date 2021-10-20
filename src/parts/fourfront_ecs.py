@@ -35,6 +35,7 @@ class FourfrontApplicationExports(C4ECSApplicationExports):
 class FourfrontECSApplication(C4ECSApplication):
     """ Configures an ECS Cluster application for Fourfront """
     LEGACY_DEFAULT_IDENTITY = 'fourfront-mastertest'
+    VPC_SQS_URL = 'https://sqs.us-east-1.amazonaws.com/'
 
     def build_template(self, template: Template) -> Template:
         """ We override the build template method here so we can do things drastically
@@ -89,9 +90,9 @@ class FourfrontECSApplication(C4ECSApplication):
 
         # Add Security Groups
         template.add_resource(self.ecs_lb_security_group())
-        template.add_resource(self.ecs_application_security_group())
-        for rule in self.ecs_application_security_rules():
-            template.add_resource(rule)
+        template.add_resource(self.ecs_container_security_group())
+        # for rule in self.ecs_application_security_rules():
+        #     template.add_resource(rule)
 
         # Add Target Group
         target_group = self.ecs_lbv2_target_group()
@@ -304,6 +305,25 @@ class FourfrontECSApplication(C4ECSApplication):
             Tags=self.tags.cost_tag_array()
         )
 
+    def ecs_container_security_group(self) -> SecurityGroup:
+        """ Security group for the container runtime. """
+        logical_id = self.name.logical_id('ContainerSecurityGroup')
+        return SecurityGroup(
+            logical_id,
+            GroupDescription='Container Security Group',
+            VpcId=Ref(self.ecs_vpc()),
+            SecurityGroupIngress=[
+                # HTTP from VPC CIDR
+                SecurityGroupRule(
+                    IpProtocol='tcp',
+                    FromPort=Ref(self.ecs_web_worker_port()),
+                    ToPort=Ref(self.ecs_web_worker_port()),
+                    CidrIp=Ref(self.ecs_vpc_cidr()),
+                )
+            ],
+            Tags=self.tags.cost_tag_array()
+        )
+
     def ecs_application_load_balancer(self) -> elbv2.LoadBalancer:
         """ Application load balancer for the portal ECS Task. """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
@@ -390,6 +410,10 @@ class FourfrontECSApplication(C4ECSApplication):
                             Name='application_type',
                             Value=FourfrontApplicationTypes.PORTAL
                         ),
+                        Environment(
+                            Name='SQS_URL',
+                            Value=self.VPC_SQS_URL
+                        ),
                     ]
                 )
             ],
@@ -436,7 +460,7 @@ class FourfrontECSApplication(C4ECSApplication):
                     Subnets=[
                         Ref(self.ecs_subnet_a()), Ref(self.ecs_subnet_b())  # deploy to subnet passed as argument
                     ],
-                    SecurityGroups=[Ref(self.ecs_application_security_group())],
+                    SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
             Tags=self.tags.cost_tag_obj()
@@ -490,6 +514,10 @@ class FourfrontECSApplication(C4ECSApplication):
                             Name='application_type',
                             Value=FourfrontApplicationTypes.INDEXER
                         ),
+                        Environment(
+                            Name='SQS_URL',
+                            Value=self.VPC_SQS_URL
+                        ),
                     ]
                 )
             ],
@@ -528,7 +556,7 @@ class FourfrontECSApplication(C4ECSApplication):
                     Subnets=[
                         Ref(self.ecs_subnet_a()), Ref(self.ecs_subnet_b())
                     ],
-                    SecurityGroups=[Ref(self.ecs_application_security_group())],
+                    SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
             ),
             Tags=self.tags.cost_tag_obj()
@@ -582,7 +610,7 @@ class FourfrontECSApplication(C4ECSApplication):
                             'awslogs-group':
                                 self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': 'cgap-initial-deployment' if initial else 'cgap-deployment',
+                            'awslogs-stream-prefix': 'fourfront-initial-deployment' if initial else 'cgap-deployment',
                         }
                     ),
                     Environment=[
@@ -598,6 +626,10 @@ class FourfrontECSApplication(C4ECSApplication):
                         Environment(
                             Name='application_type',
                             Value=FourfrontApplicationTypes.DEPLOYMENT
+                        ),
+                        Environment(
+                            Name='SQS_URL',
+                            Value=self.VPC_SQS_URL
                         ),
                     ]
                 )
