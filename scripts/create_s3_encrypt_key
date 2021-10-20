@@ -67,7 +67,7 @@ content=`cat ${keyfile}`
 
 echo "Created: ${keyfile}"
 if [ "${verbose}" = "TRUE" ]; then
-  echo "NOTE: Please copy this value into config.json as S3_ENCRYPT_KEY and then safeguard this secret."
+  echo "NOTE: Please copy this value into custom/secrets.json as S3_ENCRYPT_KEY and then safeguard this secret."
   echo "    \"S3_ENCRYPT_KEY\": \"${content}\""
   echo "If you delete the secret your data will be lost without it."
 fi
