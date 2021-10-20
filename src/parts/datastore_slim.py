@@ -25,6 +25,13 @@ class C4DatastoreSlim(C4Datastore):
         """ Builds the "slim" datastore by omitting S3 resources and only
             creating RDS and ES in the network locations passed.
         """
+        # Add params
+        template.add_parameter(self.ecs_vpc())
+        template.add_parameter(self.ecs_subnet_a())
+        template.add_parameter(self.ecs_subnet_b())
+        template.add_parameter(self.rds_security_group())
+        template.add_parameter(self.https_security_group())
+
         # Adds RDS primitives
         for i in [self.rds_secret(), self.rds_parameter_group(),
                   self.rds_subnet_group(), self.rds_secret_attachment()]:
@@ -89,7 +96,7 @@ class C4DatastoreSlim(C4Datastore):
             'ECSTargetSubnetB',
             Description='Second Subnet to run containers in',
             Type='String',
-            Default=ConfigManager.get_config_setting(Settings.FOURFRONT_SECONDARY_SUBNET, default='subnet-efb1b3c4')
+            Default=ConfigManager.get_config_setting(Settings.FOURFRONT_SECONDARY_SUBNET)
         )
 
     @staticmethod
@@ -102,6 +109,7 @@ class C4DatastoreSlim(C4Datastore):
             'DBSecurityGroup',
             Description='RDS Security Group',
             Type='String',
+            Default=ConfigManager.get_config_setting(Settings.FOURFRONT_RDS_SECURITY_GROUP)
         )
 
     @staticmethod
@@ -114,6 +122,7 @@ class C4DatastoreSlim(C4Datastore):
             'HTTPSSecurityGroup',
             Description='HTTPS Security Group',
             Type='String',
+            Default=ConfigManager.get_config_setting(Settings.FOURFRONT_HTTPS_SECURITY_GROUP)
         )
 
     def rds_subnet_group(self) -> DBSubnetGroup:

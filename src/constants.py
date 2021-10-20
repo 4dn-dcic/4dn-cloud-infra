@@ -72,3 +72,5 @@ class Settings:
     FOURFRONT_VPC_CIDR = 'fourfront.vpc.cidr'
     FOURFRONT_PRIMARY_SUBNET = 'fourfront.vpc.subnet_a'
     FOURFRONT_SECONDARY_SUBNET = 'fourfront.vpc.subnet_b'
+    FOURFRONT_RDS_SECURITY_GROUP = 'fourfront.rds.sg'
+    FOURFRONT_HTTPS_SECURITY_GROUP = 'fourfront.https.sg'
