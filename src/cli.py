@@ -27,8 +27,7 @@ class C4Client:
     """ Client class for interacting with and provisioning CGAP Infrastructure as Code. """
     ALPHA_LEAF_STACKS = ['iam', 'logging', 'network']  # stacks that only export values
     CAPABILITY_IAM = 'CAPABILITY_IAM'
-    SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-tibanna-trial', 'c4-foursight-trial',
-                        'c4-beanstalk-trial']
+    FOURFRONT_NETWORK_STACK = 'c4-network-main-stack'  # this stack name is shared by all fourfront envs
     REQUIRES_CAPABILITY_IAM = ['iam', 'foursight']  # these stacks require CAPABILITY_IAM, just IAM for now
     # CONFIGURATION = 'config.json'  # path to config file, top level by default
 
@@ -178,6 +177,9 @@ class C4Client:
                 '--parameter-overrides',  # the flag itself
                 cls.build_parameter_override(param_name='NetworkStackNameParameter',
                                              value=network_stack_name.stack_name),
+                cls.build_parameter_override(param_name='NetworkStackNameParameter',
+                                             value=ConfigManager.app_case(if_cgap=network_stack_name.stack_name,
+                                                                          if_ff=cls.FOURFRONT_NETWORK_STACK)),
                 cls.build_parameter_override(param_name='ECRStackNameParameter',
                                              value=ecr_stack_name.stack_name),
                 cls.build_parameter_override(param_name='IAMStackNameParameter',
@@ -363,7 +365,7 @@ def cli():
     # Configure 'provision' command
     # TODO flag for log level
     parser_provision = subparsers.add_parser('provision', help='Provisions cloud resources for CGAP/4DN')
-    parser_provision.add_argument('stack', help='Select stack to operate on: {}'.format(C4Client.SUPPORTED_STACKS))
+    parser_provision.add_argument('stack', help='Select stack to build')
     parser_provision.add_argument('--alpha', dest='warn_alpha_arg_deprecated', action='store_true',
                                   help="This argument is deprecated because 'alpha' is the default."
                                        " You can suppress it with --no-alpha.")
