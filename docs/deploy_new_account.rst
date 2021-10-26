@@ -153,7 +153,7 @@ Step Four: Fill out any remaining application secrets
 
       You can obtain it by this procedure:
 
-      * Go to ``the Secrets Manager in the AWS console
+      * Go to `the Secrets Manager in the AWS console
         <https://console.aws.amazon.com/secretsmanager/home?region=us-east-1#!/listSecrets>`_.
       * Click into the resource with a name like ``C4DatastoreRDSSecret``.
       * In the page section called ``Secret value``, click on ``Retrieve secret value``.
@@ -379,10 +379,13 @@ all of the indicated files::
 Then, clone the cgap-pipeline repo, checkout the version you want to deploy (v24 as of writing) and upload
 the bioinformatics metadata to the portal. (This example again assumes the environment variable ENV_NAME
 is set correctly. If you have already sourced your credentials, that part doesn't have to be repeated, but
-it's critical to have done it, so we include that here redundantly to avoid problems.)::
+it's critical to have done it, so we include that here redundantly to avoid problems.) ECR images will also
+be posted, so ensure ``$AWS_REGION`` is set.::
 
     source custom/aws_creds/test_creds.sh
     python post_patch_to_portal.py --ff-env=$ENV_NAME --del-prev-version --ugrp-unrelated
+
+Note that the above post/patch process must be repeated from the cgap-sv-pipeline repo as well.
 
 Finally, push the tibanna-awsf image to the newly created ECR Repository in the new account::
 
@@ -420,3 +423,72 @@ the restart.
 
 Once the output VCF has been ingested, the pipeline is considered complete and variants can be
 interpreted through the portal.
+
+Step Nine: Enable Higlass
+-------------------------
+
+In order for Higlass views to work, some CORS configuration is required. In the current main (4dn-dcic) account,
+add the new portal URL to the ``AllowedOrigins`` block in the existing CORS policy. In the orchestrated account,
+add the following CORS policy to the ``wfoutput`` bucket (for bam visualization), replacing the sample
+MSA URL with the new URL.::
+
+    [
+        {
+            "AllowedHeaders": [
+                "*"
+            ],
+            "AllowedMethods": [
+                "GET"
+            ],
+            "AllowedOrigins": [,
+                "https://cgap-msa.hms.harvard.edu"
+            ],
+            "ExposeHeaders": []
+        }
+    ]
+
+Step Ten: Open Support Tickets
+------------------------------
+
+Some support tickets must be opened at orchestration time in order for CGAP to run properly.
+Namely, two cases should be open:
+
+* Spot instance limit increase to a significantly higher value (such as 9000)
+* Disable ES hourly snapshots
+
+The first will enable CGAP to run pipeline at a higher degree of parallelization using
+more spot instances. The second will make it so that internal AWS snapshots of the ES
+cluster are only done daily, not hourly. Hourly snapshots are known to impede performance
+and cause APIs to fail.
+
+Step Eleven: Configure HTTPS
+----------------------------
+
+Production environments require HTTPS. There are several steps required to
+enabling HTTPS connections to CGAP, and some important caveats. The most
+important detail to note is that at this time we terminate HTTPS at the
+Application Load Balancer in our public subnets. This means that HTTP traffic
+is traveling unencrypted within our network to portal API workers. Full
+end-to-end encryption on that path is not supported at this time, but is a
+high priority feature.
+
+First, note the DNS A Record of the Load Balancer created. This record will
+be needed for registering a CNAME. DBMI IT has a small form you can fill out
+to request a CNAME record for the desired domain. You want this new
+domain to point to the A record of the load balancer. Once acquired, you
+should then be able to send HTTP traffic to the new CNAME. At this point,
+generate a CSR for the new domain and send it to DBMI IT, who will respond
+with the certificate. Import the certificate into ACM and associate it with
+the load balancer. Modify the listener rule on the load balancer for port 80
+to automatically redirect all HTTP traffic to HTTPS.
+
+Note that there is additional internal documentation on this process in
+Confluence.
+
+Note additionally that Nginx configuration updates may be necessary,
+especially if using non-standard domains (see cgap-portal nginx.conf).
+
+Once the certificate has been enabled, modify the port 80 load balancer
+listener to redirect HTTP traffic to HTTPS. Note that this will effectively
+disable the load balancer URL - update the foursight environment file to use
+the HTTPS URL to account for this.

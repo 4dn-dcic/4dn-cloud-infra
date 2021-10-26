@@ -1,5 +1,5 @@
 from ..base import register_stack_creator, registered_stack_class
-from ..parts import network, datastore, ecr, iam, logging, ecs  # , appconfig
+from ..parts import network, datastore, ecr, iam, logging, ecs, fourfront_ecs, appconfig, datastore_slim
 from ..stack import C4Stack, C4Tags, C4Account, C4FoursightCGAPStack, C4Part, BaseC4FoursightStack
 
 
@@ -64,10 +64,10 @@ def create_c4_alpha_foursight_stack(*, name, account: C4Account):
 
 # Trial-Alpha (ECS) Stacks
 
-# @register_stack_creator(name='appconfig', kind='alpha', implementation_class=appconfig.C4AppConfig)
-# def c4_alpha_stack_trial_appconfig(account: C4Account):
-#     """ Network stack for the ECS version of CGAP """
-#     return create_c4_alpha_stack(name='appconfig', account=account)
+@register_stack_creator(name='appconfig', kind='alpha', implementation_class=appconfig.C4AppConfig)
+def c4_alpha_stack_trial_appconfig(account: C4Account):
+    """ Appconfig stack for the ECS version of Fourfront (just GAC) """
+    return create_c4_alpha_stack(name='appconfig', account=account)
 
 
 @register_stack_creator(name='network', kind='alpha', implementation_class=network.C4Network)
@@ -106,6 +106,20 @@ def c4_alpha_stack_logging(account: C4Account):
 def c4_alpha_stack_ecs(account: C4Account):
     """ ECS Stack """
     return create_c4_alpha_stack(name='ecs', account=account)
+
+
+@register_stack_creator(name='fourfront_ecs', kind='alpha',
+                        implementation_class=fourfront_ecs.FourfrontECSApplication)
+def c4_alpha_stack_fourfront_ecs_standalone(account: C4Account):
+    """ ECS Stack for a standalone fourfront environment. """
+    return create_c4_alpha_stack(name='fourfront_ecs', account=account)
+
+
+@register_stack_creator(name='datastore_slim', kind='alpha',
+                        implementation_class=datastore_slim.C4DatastoreSlim)
+def c4_alpha_stack_datastore_slim(account: C4Account):
+    """ Slim datastore stack, intended for use with a fourfront environment. """
+    return create_c4_alpha_stack(name='datastore_slim', account=account)
 
 
 @register_stack_creator(name='foursight', kind='alpha', implementation_class=C4FoursightCGAPStack)

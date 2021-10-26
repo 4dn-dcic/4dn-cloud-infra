@@ -18,7 +18,10 @@ except ImportError:
         raise NotImplementedError('DomainEndpointOptions')
 from troposphere.kms import Key
 from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
-from troposphere.s3 import Bucket, Private, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, TagFilter
+from troposphere.s3 import (
+    Bucket, BucketEncryption, ServerSideEncryptionRule, ServerSideEncryptionByDefault,
+    Private, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, TagFilter,
+)
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
 from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX
@@ -195,8 +198,8 @@ class C4Datastore(C4Part):
             'deploying_iam_user': ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER),  # required
             'S3_AWS_ACCESS_KEY_ID': None,
             'S3_AWS_SECRET_ACCESS_KEY': None,
-            'Auth0Client': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
-            'Auth0Secret': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET, default=None),
+            'ENCODED_AUTH0_CLIENT': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
+            'ENCODED_AUTH0_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET, default=None),
             'ENV_NAME': env_name,
             'ENCODED_APPLICATION_BUCKET_PREFIX': cls.resolve_bucket_name("{application_prefix}"),
             'ENCODED_BS_ENV': env_name,
@@ -227,7 +230,7 @@ class C4Datastore(C4Part):
             'S3_ENCRYPT_KEY': ConfigManager.get_config_setting(Secrets.S3_ENCRYPT_KEY,
                                                                ConfigManager.get_s3_encrypt_key_from_file()),
             # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
-            'SENTRY_DSN': "",
+            'ENCODED_SENTRY_DSN': "",
             'reCaptchaKey': ConfigManager.get_config_secret(Secrets.RECAPTCHA_KEY, default=None),
             'reCaptchaSecret': ConfigManager.get_config_secret(Secrets.RECAPTCHA_SECRET, default=None),
         })
@@ -349,27 +352,41 @@ class C4Datastore(C4Part):
             ]
         )
 
+    @staticmethod
+    def build_s3_bucket_encryption(s3_key_id) -> BucketEncryption:
+        """ Builds a bucket encryption option for our s3 buckets using the created KMS key """
+        return BucketEncryption(
+            ServerSideEncryptionConfiguration=[
+                ServerSideEncryptionRule(
+                    ServerSideEncryptionByDefault=ServerSideEncryptionByDefault(
+                        KMSMasterKeyID=s3_key_id,
+                        SSEAlgorithm="aws:kms",
+                    )
+                )
+            ]
+        )
+
     @classmethod
-    def build_s3_bucket(cls, bucket_name, access_control=Private, include_lifecycle=True) -> Bucket:
+    def build_s3_bucket(cls, bucket_name, access_control=Private, include_lifecycle=True,
+                        s3_encrypt_key_ref=None) -> Bucket:
         """ Creates an S3 bucket under the given name/access control permissions.
             See troposphere.s3 for access control options.
+
+            Pass a ref to the created KMS key in order to enable KMS encryption on this bucket.
+            Note that this change may require changes to our upload/download URLs.
         """
         # bucket_name_parts = bucket_name.split('-')
-        if include_lifecycle:
-            return Bucket(
-                # ''.join(bucket_name_parts),  # Name != BucketName
-                cls.build_s3_bucket_resource_name(bucket_name),
-                BucketName=bucket_name,
-                AccessControl=access_control,
-                LifecycleConfiguration=cls.build_s3_lifecycle_policy()  # passing None here doesn't work
-            )
-        else:
-            return Bucket(
-                # ''.join(bucket_name_parts),  # Name != BucketName
-                cls.build_s3_bucket_resource_name(bucket_name),
-                BucketName=bucket_name,
-                AccessControl=access_control,
-            )
+        bucket_kwargs = {
+            "BucketName": bucket_name,
+            "AccessControl": access_control,
+            "LifecycleConfiguration": cls.build_s3_lifecycle_policy() if include_lifecycle else None,
+            "BucketEncryption":
+                cls.build_s3_bucket_encryption(s3_encrypt_key_ref) if s3_encrypt_key_ref is not None else None,
+        }
+        return Bucket(
+            cls.build_s3_bucket_resource_name(bucket_name),
+            **{k: v for k, v in bucket_kwargs.items() if v is not None}  # do not pass kwargs that are None
+        )
 
     def output_s3_bucket(self, export_name, bucket_name: str) -> Output:
         """ Builds an output for the given export_name/Bucket resource """
@@ -442,7 +459,7 @@ class C4Datastore(C4Part):
         """ Returns the application configuration secret. Note that this pushes up just a
             template - you must fill it out according to the specification in the README.
         """
-        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        env_name = ConfigManager.get_config_setting(Settings.IDENTITY)
         logical_id = self.name.logical_id(camelize(env_name) + self.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
         return Secret(
             logical_id,
@@ -463,10 +480,6 @@ class C4Datastore(C4Part):
                 self.NETWORK_EXPORTS.import_value(subnet_key)
                 for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
             ],
-            # SubnetIds=[
-            #     self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-            #     self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_B),
-            # ],
             Tags=self.tags.cost_tag_array(),
         )
 

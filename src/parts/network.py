@@ -115,7 +115,6 @@ class C4Network(C4Part):
         first_time = True
 
         for public_subnet in self.public_subnets():
-            # import pdb; pdb.set_trace()
             public_nat_eip = self.nat_eip(public_subnet)
             public_nat_gateway = self.nat_gateway(public_nat_eip, public_subnet)
             template.add_resource(public_nat_eip)

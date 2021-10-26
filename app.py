@@ -243,7 +243,7 @@ def view_route(environ):
     req_dict = app.current_request.to_dict()
     domain, context = app_utils_manager.singleton.get_domain_and_context(req_dict)
     check_authorization = app_utils_manager.singleton.check_authorization(req_dict, environ)
-    logger.warning('result of check authorization: {}'.format(check_authorization))
+    logger.warning(f'result of check authorization: {check_authorization}')
     return app_utils_manager.singleton.view_foursight(environ, check_authorization, domain, context)
 
 

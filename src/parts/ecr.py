@@ -15,8 +15,10 @@ from troposphere import (
     Output,
     Parameter
 )
+from dcicutils.cloudformation_utils import dehyphenate
+from dcicutils.env_utils import is_fourfront_env
 from troposphere.ecr import Repository
-from ..base import ECOSYSTEM
+from ..base import ECOSYSTEM, ConfigManager, Settings
 from ..parts.iam import C4IAMExports
 from ..part import C4Part
 from ..exports import C4Exports
@@ -26,6 +28,11 @@ class C4ECRExports(C4Exports):
     """ Holds exports for ECR. """
     PORTAL_REPO_URL = 'RepoURL'
     TIBANNA_REPO_URL = 'TibannaRepositoryURL'
+    CNV_REPO_URL = 'CNVRepositoryURL'
+    FASTQC_REPO_URL = 'FastqcRepositoryURL'
+    MANTA_REPO_URL = 'MantaRepositoryURL'
+    MD5_REPO_URL = 'MD5RepositoryURL'
+    SNV_REPO_URL = 'SNVRepositoryURL'
 
     def __init__(self):
         parameter = 'ECRStackNameParameter'
@@ -51,12 +58,28 @@ class C4ContainerRegistry(C4Part):
             Type='String',
         ))
 
-        repo = self.repository()
-        template.add_resource(repo)
-        template.add_output(self.output_repo_url(repo, self.EXPORTS.PORTAL_REPO_URL))
-        tibanna_repo = self.tibanna_awsf_repository()
-        template.add_resource(tibanna_repo)
-        template.add_output(self.output_repo_url(tibanna_repo, self.EXPORTS.TIBANNA_REPO_URL))
+        # NOTE: Behavior here assumes is_fourfront_env will return true
+        # for this if we are building a fourfront environment. As such
+        # when building a fourfront env, like with cgap we always use the
+        # "fourfront-" prefix.
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+
+        # build repos
+        repo_export_pairs = [
+            (ECOSYSTEM, self.EXPORTS.PORTAL_REPO_URL),
+            ('tibanna-awsf', self.EXPORTS.TIBANNA_REPO_URL),
+            ('cnv', self.EXPORTS.CNV_REPO_URL),
+            ('snv', self.EXPORTS.SNV_REPO_URL),
+            ('manta', self.EXPORTS.MANTA_REPO_URL),
+            ('md5', self.EXPORTS.MD5_REPO_URL),
+            ('fastqc', self.EXPORTS.FASTQC_REPO_URL)
+        ]
+        for rname, export in repo_export_pairs:
+            if is_fourfront_env(env_name) and rname != ECOSYSTEM:
+                break  # do not add tibanna repos if building a fourfront env
+            repo = self.repository(repo_name=rname)
+            template.add_resource(repo)
+            template.add_output(self.output_repo_url(repo, export))
         return template
 
     def build_assumed_role_arn(self):
@@ -119,23 +142,13 @@ class C4ContainerRegistry(C4Part):
         )
 
     def repository(self, repo_name=None) -> Repository:
-        """ Builds the ECR Repository for the portal. """
+        """ Builds an ECR Repository. """
         # We used to do this by environment, but now we make it per ecosystem.
         # repo_name = repo_name or ConfigManager.get_config_setting(Settings.ENV_NAME)
         repo_name = repo_name or ECOSYSTEM
         return Repository(
-            'cgapdocker',  # must be lowercase, appears unused?
+            dehyphenate(repo_name),  # must be lowercase, appears unused?
             RepositoryName=repo_name,  # might be we need many of these?
-            RepositoryPolicyText=self.ecr_access_policy(),
-            ImageScanningConfiguration={"ScanOnPush": True},
-            Tags=self.tags.cost_tag_obj(),
-        )
-
-    def tibanna_awsf_repository(self) -> Repository:
-        """ Builds Tibanna-awsf ECR Repository """
-        return Repository(
-            'tibannaawsf',
-            RepositoryName='tibanna-awsf',
             RepositoryPolicyText=self.ecr_access_policy(),
             ImageScanningConfiguration={"ScanOnPush": True},
             Tags=self.tags.cost_tag_obj(),
@@ -146,7 +159,7 @@ class C4ContainerRegistry(C4Part):
         logical_id = self.name.logical_id(export_name)
         return Output(
             logical_id,
-            Description='CGAPDocker Image Repository URL',
+            Description=f'{logical_id} Image Repository URL',
             Value=Join('', [
                 AccountId,
                 '.dkr.ecr.',

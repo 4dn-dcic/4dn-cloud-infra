@@ -6,8 +6,8 @@ from awacs.ecr import (
     BatchCheckLayerAvailability,
 )
 from troposphere import Region, AccountId, Template, Ref, Output, Join
-from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey
-from ..base import exportify
+from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey, ManagedPolicy
+from ..base import exportify, ConfigManager, Settings
 from ..part import C4Part
 from ..exports import C4Exports
 
@@ -20,6 +20,7 @@ class C4IAMExports(C4Exports):
     ECS_ASSUMED_IAM_ROLE = exportify('ECSAssumedIAMRole')  # was 'ExportECSAssumedIAMRole'
     ECS_INSTANCE_PROFILE = exportify('ECSInstanceProfile')  # was 'ExportECSInstanceProfile'
     AUTOSCALING_IAM_ROLE = exportify('ECSAutoscalingIAMRole')  # was 'ExportECSAutoscalingIAMRole'
+    DEV_IAM_ROLE = exportify('CGAPDevUserRole')
     S3_IAM_USER = exportify('ECSS3IAMUser')  # was 'ExportECSS3IAMUser'
 
     def __init__(self):
@@ -32,9 +33,12 @@ class C4IAM(C4Part):
         Right now, there is only one important IAM Role to configure.
         That is the assumed IAM role assigned to ECS.
     """
-    ROLE_NAME = 'CGAPECSRole'
-    INSTANCE_PROFILE_NAME = 'CGAPECSInstanceProfile'
-    AUTOSCALING_ROLE_NAME = 'CGAPECSAutoscalingRole'
+    ROLE_NAME = ConfigManager.app_case(if_cgap='CGAPECSRole', if_ff='FFECSRole')
+    DEV_ROLE = ConfigManager.app_case(if_cgap='CGAPDevRole', if_ff='FFDevRole')
+    INSTANCE_PROFILE_NAME = ConfigManager.app_case(if_cgap='CGAPECSInstanceProfile',
+                                                   if_ff='FFECSInstanceProfile')
+    AUTOSCALING_ROLE_NAME = ConfigManager.app_case(if_cgap='CGAPECSAutoscalingRole',
+                                                   if_ff='FFECSAutoscalingRole')
     EXPORTS = C4IAMExports()
     STACK_NAME_TOKEN = "iam"
     STACK_TITLE_TOKEN = "IAM"
@@ -46,6 +50,8 @@ class C4IAM(C4Part):
         """
         iam_role = self.ecs_assumed_iam_role()
         template.add_resource(iam_role)
+        dev_iam_role = self.dev_user_role()
+        # template.add_resource(dev_iam_role) add back later
         instance_profile = self.ecs_instance_profile()
         template.add_resource(instance_profile)
         autoscaling_iam_role = self.ecs_autoscaling_role()
@@ -62,6 +68,8 @@ class C4IAM(C4Part):
                                                                  export_name=C4IAMExports.AUTOSCALING_IAM_ROLE))
         template.add_output(self.output_assumed_iam_role_or_user(s3_iam_user,
                                                                  export_name=C4IAMExports.S3_IAM_USER))
+        # template.add_output(self.output_assumed_iam_role_or_user(dev_iam_role,
+        #                                                          export_name=C4IAMExports.DEV_IAM_ROLE))
         template.add_output(self.output_instance_profile(instance_profile))
         return template
 
@@ -321,6 +329,23 @@ class C4IAM(C4Part):
             }
         )
 
+    @staticmethod
+    def dev_rds_policy() -> Policy:
+        """ A policy granting full RDS perms to a dev user. """
+        return Policy(
+            PolicyName='CGAPDevUserRDSAccess',
+            PolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": "rds:*",
+                        "Resource": "*"
+                    }
+                ]
+            }
+        )
+
     def ecs_assumed_iam_role(self) -> Role:
         """ Builds a general purpose IAM role for use with ECS.
             TODO: split into several roles?
@@ -353,8 +378,8 @@ class C4IAM(C4Part):
                         Action=[
                             Action('sts', 'AssumeRole')
                         ],
-                    # XXX: not clear this is needed - Will Aug 31 2021
-                    Principal=Principal('Service', 'ec2.amazonaws.com')),
+                        # XXX: not clear this is needed since we aren't using ec2 - Will Aug 31 2021
+                        Principal=Principal('Service', 'ec2.amazonaws.com')),
                     Statement(
                         Effect='Allow',
                         Action=[
@@ -379,6 +404,36 @@ class C4IAM(C4Part):
                 )]
             ),
             Policies=[self.ecs_autoscaling_access_policy()]
+        )
+
+    def dev_user_role(self) -> Role:
+        """ Builds a user with "development" permissions, or limited AWS access
+            to various aspects of the infrastructure.
+        """
+        policies = [
+            # full control of ECS and associated load balancing
+            self.ecs_access_policy(),
+            # full control of the ES
+            self.ecs_es_policy(),
+            # full control of SQS
+            self.ecs_sqs_policy(),
+            self.ecs_ecr_policy(),  # to pull down container images
+
+            # standard s3 perms
+            self.ecs_s3_policy(),
+            # full rds perms
+            self.dev_rds_policy()
+        ]
+        return Role(
+            self.DEV_ROLE,
+            AssumeRolePolicyDocument=PolicyDocument(  # no one can assume this role
+                Version='2012-10-17',
+                Statement=[]
+            ),
+            ManagedPolicyArns=[
+                'arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess'
+            ],
+            Policies=policies
         )
 
     def ecs_instance_profile(self) -> InstanceProfile:

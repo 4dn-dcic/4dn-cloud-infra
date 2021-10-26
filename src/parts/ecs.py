@@ -29,15 +29,17 @@ from ..base import ConfigManager
 from ..constants import Settings
 from ..exports import C4Exports
 from ..part import C4Part
-from ..parts.network import C4NetworkExports, C4Network
-from ..parts.ecr import C4ECRExports
-from ..parts.iam import C4IAMExports
-from ..parts.logging import C4LoggingExports
+from .network import C4NetworkExports, C4Network
+from .ecr import C4ECRExports
+from .iam import C4IAMExports
+from .logging import C4LoggingExports
 
 
 class C4ECSApplicationTypes:
     """ Defines the set of possible application types - these identifiers are resolved
         in the production entrypoint.sh to direct to the correct entrypoint.
+
+        Note that this config is for CGAP orchestrations.
     """
     PORTAL = 'portal'
     INDEXER = 'indexer'
@@ -160,8 +162,7 @@ class C4ECSApplication(C4Part):
         template.add_output(self.output_application_url())
         return template
 
-    @classmethod
-    def ecs_cluster(cls) -> Cluster:
+    def ecs_cluster(self) -> Cluster:
         """ Creates an ECS cluster for use with this portal deployment. """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         return Cluster(
@@ -169,7 +170,7 @@ class C4ECSApplication(C4Part):
             f'CGAPDockerClusterFor{camelize(env_name)}',
             # dehyphenate(ConfigManager.get_config_setting(Settings.ENV_NAME, 'CGAPDockerCluster'))
             CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
-            # Tags=self.tags.cost_tag_array()  # XXX: bug in troposphere - does not take tags array
+            Tags=self.tags.cost_tag_obj()  # XXX: bug in troposphere - does not take tags array
         )
 
     @staticmethod
@@ -195,8 +196,9 @@ class C4ECSApplication(C4Part):
 
     def ecs_container_security_group(self) -> SecurityGroup:
         """ Security group for the container runtime. """
+        logical_id = self.name.logical_id('ContainerSecurityGroup')
         return SecurityGroup(
-            'ContainerSecurityGroup',
+            logical_id,
             GroupDescription='Container Security Group.',
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
             SecurityGroupIngress=[
@@ -206,14 +208,7 @@ class C4ECSApplication(C4Part):
                     FromPort=Ref(self.ecs_web_worker_port()),
                     ToPort=Ref(self.ecs_web_worker_port()),
                     CidrIp=C4Network.CIDR_BLOCK,
-                ),
-                # SSH access - not usable on Fargate (?) - Will 5/5/21
-                SecurityGroupRule(
-                    IpProtocol='tcp',
-                    FromPort=22,
-                    ToPort=22,
-                    CidrIp=C4Network.CIDR_BLOCK,
-                ),
+                )
             ],
             Tags=self.tags.cost_tag_array()
         )
@@ -222,8 +217,9 @@ class C4ECSApplication(C4Part):
         """ Security group for the load balancer, allowing traffic on ports 80/443.
             TODO: configure for HTTPS.
         """
+        logical_id = self.name.logical_id('LBSecurityGroup')
         return SecurityGroup(
-            "ECSLBSSLSecurityGroup",
+            logical_id,
             GroupDescription="Web load balancer security group.",
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
             SecurityGroupIngress=[
@@ -245,8 +241,9 @@ class C4ECSApplication(C4Part):
 
     def ecs_application_load_balancer_listener(self, target_group: elbv2.TargetGroup) -> elbv2.Listener:
         """ Listener for the application load balancer, forwards traffic to the target group (containing portal). """
+        logical_id = self.name.logical_id('LBListener')
         return elbv2.Listener(
-            'ECSLBListener',
+            logical_id,
             Port=80,
             Protocol='HTTP',
             LoadBalancerArn=Ref(self.ecs_application_load_balancer()),
@@ -258,8 +255,7 @@ class C4ECSApplication(C4Part):
     def ecs_application_load_balancer(self) -> elbv2.LoadBalancer:
         """ Application load balancer for the portal ECS Task. """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        env_identifier = dehyphenate(env_name)
-        logical_id = self.name.logical_id(env_identifier, context='ecs_application_load_balancer')
+        logical_id = self.name.logical_id('LoadBalancer')
         return elbv2.LoadBalancer(
             logical_id,
             IpAddressType='ipv4',
@@ -284,8 +280,9 @@ class C4ECSApplication(C4Part):
 
     def ecs_lbv2_target_group(self) -> elbv2.TargetGroup:
         """ Creates LBv2 target group (intended for use with portal Service). """
+        logical_id = self.name.logical_id('TargetGroup')
         return elbv2.TargetGroup(
-            'TargetGroupApplication',
+            logical_id,
             HealthCheckIntervalSeconds=60,
             HealthCheckPath='/health?format=json',
             HealthCheckProtocol='HTTP',
@@ -299,7 +296,7 @@ class C4ECSApplication(C4Part):
             Tags=self.tags.cost_tag_array()
         )
 
-    def ecs_portal_task(self, cpu='256', mem='512', identity=None) -> TaskDefinition:   # XXX: refactor
+    def ecs_portal_task(self, cpu='4096', mem='8192', identity=None) -> TaskDefinition:   # XXX: refactor
         """ Defines the portal Task (serve HTTP requests).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
@@ -333,7 +330,7 @@ class C4ECSApplication(C4Part):
                         LogDriver='awslogs',
                         Options={
                             'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'cgap-portal'
                         }
@@ -362,7 +359,7 @@ class C4ECSApplication(C4Part):
             Tags=self.tags.cost_tag_obj(),
         )
 
-    def ecs_portal_service(self, concurrency=8) -> Service:
+    def ecs_portal_service(self, concurrency=2) -> Service:
         """ Defines the portal service (manages portal Tasks)
             Note dependencies: https://stackoverflow.com/questions/53971873/the-target-group-does-not-have-an-associated-load-balancer
 
@@ -374,7 +371,7 @@ class C4ECSApplication(C4Part):
         return Service(
             "CGAPportalService",
             Cluster=Ref(self.ecs_cluster()),
-            DependsOn=['ECSLBListener'],  # XXX: Hardcoded, important!
+            DependsOn=[self.name.logical_id('LBListener')],
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(
@@ -443,7 +440,7 @@ class C4ECSApplication(C4Part):
                         LogDriver='awslogs',
                         Options={
                             'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'cgap-indexer'
                         }
@@ -582,7 +579,7 @@ class C4ECSApplication(C4Part):
                         LogDriver='awslogs',
                         Options={
                             'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'cgap-ingester'
                         }
@@ -690,7 +687,7 @@ class C4ECSApplication(C4Part):
     DEFAULT_DEPLOYMENT_MEMORY = '512'
 
     def ecs_deployment_task(self, cpu=None, memory=None, identity=None, initial=False) -> TaskDefinition:
-        """ Defines the Ingester task (ingester app).
+        """ Defines the Deployment task (run deployment action).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
             :param cpu: CPU value to assign to this task, default 256 (play with this value)
@@ -733,7 +730,7 @@ class C4ECSApplication(C4Part):
                         LogDriver='awslogs',
                         Options={
                             'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.CGAP_APPLICATION_LOG_GROUP),
+                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'cgap-initial-deployment' if initial else 'cgap-deployment',
                         }

@@ -2,7 +2,11 @@ default: info
 
 .PHONY: alpha legacy deploy-alpha-p1 deploy-alpha-p2 info
 
+configure:
+	pip install poetry==1.1.9  # this version is known to work. -kmp 19-Oct-2021
+
 build:
+	make configure
 	poetry install
 
 clean:

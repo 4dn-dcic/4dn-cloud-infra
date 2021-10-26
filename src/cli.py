@@ -14,7 +14,6 @@ from .stack import BaseC4FoursightStack  # , C4FoursightCGAPStack
 # from .stacks.trial import c4_stack_trial_network_metadata, c4_stack_trial_tibanna
 from .stacks.alpha_stacks import c4_alpha_stack_metadata
 
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -28,8 +27,7 @@ class C4Client:
     """ Client class for interacting with and provisioning CGAP Infrastructure as Code. """
     ALPHA_LEAF_STACKS = ['iam', 'logging', 'network']  # stacks that only export values
     CAPABILITY_IAM = 'CAPABILITY_IAM'
-    SUPPORTED_STACKS = ['c4-network-trial', 'c4-datastore-trial', 'c4-tibanna-trial', 'c4-foursight-trial',
-                        'c4-beanstalk-trial']
+    FOURFRONT_NETWORK_STACK = 'c4-network-main-stack'  # this stack name is shared by all fourfront envs
     REQUIRES_CAPABILITY_IAM = ['iam', 'foursight']  # these stacks require CAPABILITY_IAM, just IAM for now
     # CONFIGURATION = 'config.json'  # path to config file, top level by default
 
@@ -179,6 +177,9 @@ class C4Client:
                 '--parameter-overrides',  # the flag itself
                 cls.build_parameter_override(param_name='NetworkStackNameParameter',
                                              value=network_stack_name.stack_name),
+                cls.build_parameter_override(param_name='NetworkStackNameParameter',
+                                             value=ConfigManager.app_case(if_cgap=network_stack_name.stack_name,
+                                                                          if_ff=cls.FOURFRONT_NETWORK_STACK)),
                 cls.build_parameter_override(param_name='ECRStackNameParameter',
                                              value=ecr_stack_name.stack_name),
                 cls.build_parameter_override(param_name='IAMStackNameParameter',
@@ -221,7 +222,7 @@ class C4Client:
     def resolve_alpha_stack(stack_name):
         """ Figures out which stack to run in the ECS case. """
         account = C4Client.resolve_account()
-        stack_creator = lookup_stack_creator(name=stack_name, kind='alpha', exact=False)
+        stack_creator = lookup_stack_creator(name=stack_name, kind='alpha', exact=True)  # fourfront_ecs != ecs
         stack = stack_creator(account=account)
         return stack
 
@@ -262,10 +263,6 @@ class C4Client:
         #       3. Generate current template as json.
         #       4. view and print diffs using dcic_utils.diff_utils.
         logger.info('I do nothing right now!')
-
-    @classmethod
-    def is_foursight_stack_name(cls, stack_name):  # Method probably not needed. -kmp 6-Aug-2021
-        return 'foursight' in stack_name
 
     @classmethod
     def is_foursight_stack(cls, stack):
@@ -368,7 +365,7 @@ def cli():
     # Configure 'provision' command
     # TODO flag for log level
     parser_provision = subparsers.add_parser('provision', help='Provisions cloud resources for CGAP/4DN')
-    parser_provision.add_argument('stack', help='Select stack to operate on: {}'.format(C4Client.SUPPORTED_STACKS))
+    parser_provision.add_argument('stack', help='Select stack to build')
     parser_provision.add_argument('--alpha', dest='warn_alpha_arg_deprecated', action='store_true',
                                   help="This argument is deprecated because 'alpha' is the default."
                                        " You can suppress it with --no-alpha.")

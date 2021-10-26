@@ -1,11 +1,13 @@
 from troposphere import logs, Template, Output, Ref
+from dcicutils.cloudformation_utils import dehyphenate
+from ..base import ConfigManager, Settings
 from ..part import C4Part
 from ..exports import C4Exports
 
 
 class C4LoggingExports(C4Exports):
     """ Contains export for logging layer, just the name of the log group """
-    CGAP_APPLICATION_LOG_GROUP = 'ExportApplicationLogGroup'
+    APPLICATION_LOG_GROUP = 'ExportApplicationLogGroup'
 
     def __init__(self):
         parameter = 'LoggingStackNameParameter'
@@ -20,7 +22,8 @@ class C4Logging(C4Part):
 
     def build_template(self, template: Template) -> Template:
         log_group = logs.LogGroup(
-            'CGAPDockerLogs',
+            ('CGAPDockerLogs' if ConfigManager.get_config_setting(Settings.APP_KIND) != 'ff'
+             else f'{dehyphenate(ConfigManager.get_config_setting(Settings.ENV_NAME))}DockerLogs'),
             RetentionInDays=365,
             DeletionPolicy='Retain'  # XXX: configure further?
         )
@@ -29,7 +32,7 @@ class C4Logging(C4Part):
         return template
 
     def output_log_group(self, resource: logs.LogGroup) -> Output:
-        export_name = C4LoggingExports.CGAP_APPLICATION_LOG_GROUP
+        export_name = C4LoggingExports.APPLICATION_LOG_GROUP
         logical_id = self.name.logical_id(export_name)
         return Output(
             logical_id,
