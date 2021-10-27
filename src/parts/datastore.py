@@ -106,7 +106,7 @@ class C4Datastore(C4Part):
     DEFAULT_RDS_DB_NAME = 'ebdb'
     DEFAULT_RDS_DB_PORT = '5432'
     DEFAULT_RDS_DB_USERNAME = 'postgresql'
-    DEFAULT_RDS_AZ = 'us-east-1'
+    DEFAULT_RDS_AZ = 'us-east-1a'
     DEFAULT_RDS_STORAGE_SIZE = 20
     DEFAULT_RDS_INSTANCE_SIZE = 'db.t3.medium'
     DEFAULT_RDS_STORAGE_TYPE = 'standard'
