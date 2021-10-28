@@ -252,9 +252,13 @@ class C4ECSApplication(C4Part):
             ]
         )
 
-    def ecs_application_load_balancer(self) -> elbv2.LoadBalancer:
-        """ Application load balancer for the portal ECS Task. """
+    def ecs_application_load_balancer(self, terminal=None) -> elbv2.LoadBalancer:
+        """ Application load balancer for the portal ECS Task.
+            Allows one to pass a "terminal", allowing blue/green configuration
+        """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        if terminal:
+            env_name = env_name + terminal
         logical_id = self.name.logical_id('LoadBalancer')
         return elbv2.LoadBalancer(
             logical_id,
@@ -278,9 +282,9 @@ class C4ECSApplication(C4Part):
             Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer(), 'DNSName')])
         )
 
-    def ecs_lbv2_target_group(self) -> elbv2.TargetGroup:
+    def ecs_lbv2_target_group(self, name='TargetGroupApplication') -> elbv2.TargetGroup:
         """ Creates LBv2 target group (intended for use with portal Service). """
-        logical_id = self.name.logical_id('TargetGroup')
+        logical_id = self.name.logical_id(name)
         return elbv2.TargetGroup(
             logical_id,
             HealthCheckIntervalSeconds=60,
@@ -288,7 +292,7 @@ class C4ECSApplication(C4Part):
             HealthCheckProtocol='HTTP',
             HealthCheckTimeoutSeconds=10,
             Matcher=elbv2.Matcher(HttpCode='200'),
-            Name='TargetGroupApplication',
+            Name=name,
             Port=Ref(self.ecs_web_worker_port()),
             TargetType='ip',
             Protocol='HTTP',
