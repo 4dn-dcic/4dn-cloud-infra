@@ -6,7 +6,7 @@ from troposphere.ec2 import (
 )
 from ..part import C4Part
 from ..base import ConfigManager, Settings
-from .network import C4NetworkExports
+from .network import C4NetworkExports, C4Network
 
 
 class C4SentieonSupport(C4Part):
@@ -89,7 +89,7 @@ class C4SentieonSupport(C4Part):
             # License Server
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationSentieonServer'),
-                CidrIp=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
+                CidrIp=C4Network.CIDR_BLOCK,
                 Description='allows inbound traffic on tcp port 8990 (license server port)',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',

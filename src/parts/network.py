@@ -80,6 +80,7 @@ class C4Network(C4Part):
     #  After you've created your VPC, you can associate secondary CIDR blocks with the VPC.)"
     # Source: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html
     # The public/private subnets will need to be allocated from within this space.
+    # TODO: Make this, and the above subnet setup configurable from config.json,
     CIDR_BLOCK = '10.0.0.0/16'  # Allocate maximum allowed range of IP addresses (10.0.0.0 to 10.0.255.255)
 
     DB_PORT_LOW = 5400

@@ -41,6 +41,7 @@ class Settings:
     RDS_DB_USERNAME = 'rds.db_username'
     RDS_AZ = 'rds.az'                        # TODO: Ignored for now. Always defaults to "us-east-1"
     RDS_POSTGRES_VERSION = 'rds.postgres_version'
+    RDS_NAME = 'rds.name'  # can be used to configure name of RDS instance, foursight must know it - Will Nov 2 2021
 
     # ES Configuration Options
 
