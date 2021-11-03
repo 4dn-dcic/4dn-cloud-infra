@@ -1,7 +1,7 @@
 {
     "item_counts_by_type": {
         "title": "Item counts by type",
-        "group": "Metadata checks",
+        "group": "Metadata Checks",
         "schedule": {
             "manual_checks": {
                 "<env-name>": {
@@ -17,7 +17,7 @@
     },
     "indexing_progress": {
         "title": "Indexing progress",
-        "group": "Elasticsearch checks",
+        "group": "Elasticsearch Checks",
         "schedule": {
             "manual_checks": {
                 "<env-name>": {
@@ -33,7 +33,7 @@
     },
     "status_of_elasticsearch_indices": {
         "title": "Status of elasticsearch indices",
-        "group": "Elasticsearch checks",
+        "group": "Elasticsearch Checks",
         "conditions": [
             "put_env"
         ],
@@ -52,7 +52,7 @@
     },
     "indexing_records": {
         "title": "Indexing records",
-        "group": "Elasticsearch checks",
+        "group": "Elasticsearch Checks",
         "conditions": [
             "put_env"
         ],
@@ -71,7 +71,7 @@
     },
     "change_in_item_counts": {
         "title": "Change in item counts",
-        "group": "Metadata checks",
+        "group": "Metadata Checks",
         "schedule": {
             "manual_checks": {
                 "<env-name>": {
@@ -87,7 +87,7 @@
     },
     "page_children_routes": {
         "title": "Pages with bad routes",
-        "group": "Audit checks",
+        "group": "Audit Checks",
         "schedule": {
             "manual_checks": {
                 "<env-name>": {
@@ -103,7 +103,7 @@
     },
     "workflow_properties": {
         "title": "Workflows with missing or duplicate steps properties",
-        "group": "Audit checks",
+        "group": "Audit Checks",
         "schedule": {
             "manual_checks": {
                 "<env-name>": {
@@ -119,7 +119,7 @@
     },
     "check_validation_errors": {
         "title": "Search for Validation Errors",
-        "group": "Audit checks",
+        "group": "Audit Checks",
         "schedule": {
             "manual_checks": {
                 "<env-name>": {
@@ -135,7 +135,7 @@
     },
     "check_suggested_enum_values": {
         "title": "Check fields with suggested enum",
-        "group": "Metadata checks",
+        "group": "Metadata Checks",
         "schedule": {
             "manual_checks": {
                 "<env-name>": {
@@ -151,7 +151,7 @@
     },
     "ingest_vcf_status": {
         "title": "d) CGAP trigger VCF ingestion",
-        "group": "Pipeline checks",
+        "group": "Pipeline Checks",
         "schedule": {
             "hourly_checks": {
                 "<env-name>": {
@@ -167,7 +167,7 @@
     },
     "elastic_search_space": {
         "title": "ES Disk Space Check",
-        "group": "Elasticsearch checks",
+        "group": "Elasticsearch Checks",
         "schedule": {
             "manual_checks": {
                 "<env-name>": {
@@ -183,7 +183,7 @@
     },
     "elasticsearch_s3_count_diff": {
         "title": "S3/ES Check Count Differential",
-        "group": "Elasticsearch checks",
+        "group": "Elasticsearch Checks",
         "schedule": {
             "morning_checks": {
                 "<env-name>": {
@@ -212,7 +212,7 @@
     },
     "core_project_status": {
         "title": "Ensure CGAP Core project items are shared",
-        "group": "Metadata checks",
+        "group": "Metadata Checks",
         "schedule": {
             "morning_checks": {
                 "<env-name>": {
@@ -242,7 +242,7 @@
     },
     "workflow_run_has_deleted_input_file": {
         "title": "WorkflowRun linked to deleted Files",
-        "group": "Metadata checks",
+        "group": "Metadata Checks",
         "schedule": {
             "manual_checks": {
                 "<env-name>": {
@@ -259,7 +259,7 @@
     },
     "update_variant_genelist": {
         "title": "Add gene lists to variants/variant samples",
-        "group": "Metadata checks",
+        "group": "Metadata Checks",
         "schedule": {
             "manual_checks": {
                 "<env-name>": {
@@ -276,7 +276,7 @@
     },
     "long_running_wfrs_status": {
         "title": "x) Long Running Runs",
-        "group": "Pipeline checks",
+        "group": "Pipeline Checks",
         "schedule": {
             "manual_checks": {
                 "<env-name>": {
@@ -327,7 +327,7 @@
     },
     "metawfrs_to_run": {
         "title": "Metawfrs_to_run",
-        "group": "Pipeline checks",
+        "group": "Pipeline Checks",
         "schedule": {
             "fifteen_min_checks_3": {
                 "<env-name>": {
@@ -342,7 +342,7 @@
     },
     "metawfrs_to_checkstatus": {
         "title": "Metawfrs to check status",
-        "group": "Pipeline checks",
+        "group": "Pipeline Checks",
         "schedule": {
             "fifteen_min_checks": {
                 "<env-name>": {
@@ -357,7 +357,7 @@
     },
     "failed_metawfrs": {
         "title": "Failed Metawfrs",
-        "group": "Pipeline checks",
+        "group": "Pipeline Checks",
         "schedule": {
             "fifteen_min_checks_2": {
                 "<env-name>": {
@@ -372,7 +372,7 @@
     },
     "spot_failed_metawfrs": {
         "title": "Spot-failed Metawfrs",
-        "group": "Pipeline checks",
+        "group": "Pipeline Checks",
         "schedule": {
             "fifteen_min_checks_2": {
                 "<env-name>": {
@@ -387,7 +387,7 @@
     },
     "metawfrs_to_patch_samples": {
         "title": "Metawfrs to patch samples with processed files",
-        "group": "Pipeline checks",
+        "group": "Pipeline Checks",
         "schedule": {
             "hourly_checks_2": {
                 "<env-name>": {
@@ -402,7 +402,7 @@
     },
     "SNV_metawfrs_to_patch_sample_processing": {
         "title": "SNV metawfrs to patch sample processing with processed files",
-        "group": "Pipeline checks",
+        "group": "Pipeline Checks",
         "schedule": {
             "hourly_checks_2": {
                 "<env-name>": {
@@ -417,7 +417,7 @@
     },
     "SV_metawfrs_to_patch_sample_processing": {
         "title": "SV metawfrs to patch sample processing with processed files",
-        "group": "Pipeline checks",
+        "group": "Pipeline Checks",
         "schedule": {
             "hourly_checks_2": {
                 "<env-name>": {
@@ -432,7 +432,7 @@
     },
     "metawfrs_to_check_linecount": {
         "title": "Metawfrs to run line count qc",
-        "group": "Pipeline checks",
+        "group": "Pipeline Checks",
         "schedule": {
             "hourly_checks": {
                 "<env-name>": {
@@ -447,7 +447,7 @@
     },
     "md5runCGAP_status": {
         "title": "a) md5 runs",
-        "group": "Pipeline checks",
+        "group": "Pipeline Checks",
         "schedule": {
             "hourly_checks": {
                 "<env-name>": {
@@ -461,7 +461,7 @@
     },
     "get_metadata_for_cases_to_clone": {
         "title": "Get Clone Case Metadata",
-        "group": "Metadata checks",
+        "group": "Metadata Checks",
         "schedule": {
             "manual_checks": {
                 "<env-name>": {
@@ -493,5 +493,4 @@
             "<env-name>"
         ]
     }
-}
 
