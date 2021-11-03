@@ -196,7 +196,7 @@
     },
     "clean_s3_es_checks": {
         "title": "Wipe Checks Older Than One Month",
-        "group": "System checks",
+        "group": "System Checks",
         "schedule": {
             "manual_checks": {
                 "<env-name>": {
@@ -464,6 +464,23 @@
         "group": "Metadata checks",
         "schedule": {
             "manual_checks": {
+                "<env-name>": {
+                    "kwargs": {
+                        "primary": true
+                    },
+                    "dependencies": []
+                }
+            }
+        },
+        "display": [
+            "<env-name>"
+        ]
+    },
+    "snapshot_rds": {
+        "title": "Snapshot RDS",
+        "group": "System Checks",
+        "schedule": {
+            "monthly_checks": {
                 "<env-name>": {
                     "kwargs": {
                         "primary": true
