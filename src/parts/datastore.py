@@ -19,7 +19,7 @@ except ImportError:
 from troposphere.kms import Key
 from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.s3 import (
-    Bucket, BucketEncryption, ServerSideEncryptionRule, ServerSideEncryptionByDefault,
+    Bucket, BucketEncryption, BucketPolicy, ServerSideEncryptionRule, ServerSideEncryptionByDefault,
     Private, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, TagFilter,
 )
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
@@ -261,7 +261,9 @@ class C4Datastore(C4Part):
         template.add_resource(es)
         template.add_output(self.output_es_url(es))
 
-        # Add S3_ENCRYPT_KEY, application configuration template
+        # Add s3_encrypt_key, application configuration template
+        # IMPORTANT: This s3_encrypt_key is different than the key used for admin access keys in the
+        # system bucket. This key is used to encrypt all objects uploaded to s3.
         s3_encrypt_key = self.s3_encrypt_key()
         template.add_resource(s3_encrypt_key)
         secret = self.application_configuration_secret()
@@ -290,6 +292,7 @@ class C4Datastore(C4Part):
             if export_name != C4DatastoreExports.APPLICATION_SYSTEM_BUCKET:
                 bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy,
                                               s3_encrypt_key_ref=Ref(s3_encrypt_key))
+                template.add_resource(self.force_encryption_bucket_policy(bucket_name))
             else:  # if we are the system bucket, rely on the S3_ENCRYPT_KEY we created
                 bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy)
             template.add_resource(bucket)
@@ -370,6 +373,43 @@ class C4Datastore(C4Part):
                     )
                 )
             ]
+        )
+
+    @staticmethod
+    def force_encryption_bucket_policy(bucket_name):
+        """ Builds a bucket policy that makes the given bucket require encryption. """
+        return BucketPolicy(
+            f'{camelize(bucket_name)}EncryptionPolicy',
+            Bucket=bucket_name,
+            PolicyDocument={
+                'Version':'2012-10-17',
+                'Statement': [
+                    {
+                        'Sid': 'DenyIncorrectEncryptionHeader',
+                        'Effect': 'Deny',
+                        'Principal': '*',
+                        'Action': 's3:PutObject',
+                        'Resource': f'arn:aws:s3:::{bucket_name}/*',
+                        'Condition': {
+                            'StringNotEquals': {
+                                's3:x-amz-server-side-encryption': 'aws:kms'
+                            }
+                        }
+                    },
+                    {
+                        'Sid': 'DenyUnEncryptedObjectUploads',
+                        'Effect': 'Deny',
+                        'Principal': '*',
+                        'Action': 's3:PutObject',
+                        'Resource': f'arn:aws:s3:::{bucket_name}/*',
+                        'Condition': {
+                            'Null': {
+                                's3:x-amz-server-side-encryption': 'true'
+                            }
+                        }
+                    }
+                ]
+            }
         )
 
     @classmethod
