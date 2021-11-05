@@ -262,7 +262,8 @@ class C4Datastore(C4Part):
         template.add_output(self.output_es_url(es))
 
         # Add S3_ENCRYPT_KEY, application configuration template
-        # template.add_resource(self.s3_encrypt_key())
+        s3_encrypt_key = self.s3_encrypt_key()
+        template.add_resource(s3_encrypt_key)
         secret = self.application_configuration_secret()
         template.add_resource(secret)
         template.add_output(
@@ -285,7 +286,12 @@ class C4Datastore(C4Part):
             if export_name in self.LIFECYCLE_BUCKET_EXPORT_NAMES:
                 use_lifecycle_policy = True
             bucket_name = self.resolve_bucket_name(bucket_template)
-            bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy)
+            # use infra s3_encrypt_key for standard files
+            if export_name != C4DatastoreExports.APPLICATION_SYSTEM_BUCKET:
+                bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy,
+                                              s3_encrypt_key_ref=Ref(s3_encrypt_key))
+            else:  # if we are the system bucket, rely on the S3_ENCRYPT_KEY we created
+                bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy)
             template.add_resource(bucket)
             template.add_output(self.output_s3_bucket(export_name, bucket_name))
 
@@ -496,14 +502,14 @@ class C4Datastore(C4Part):
         logical_id = self.name.logical_id(self.rds_instance_name(env_name))  # was env_name
         secret_string_logical_id = self.rds_secret_logical_id()
         return DBInstance(
-            ConfigManager.get_config_setting(Settings.RDS_NAME) or logical_id,
+            logical_id,
             AllocatedStorage=storage_size or ConfigManager.get_config_setting(Settings.RDS_STORAGE_SIZE,
                                                                               default=self.DEFAULT_RDS_STORAGE_SIZE),
             DBInstanceClass=instance_size or ConfigManager.get_config_setting(Settings.RDS_INSTANCE_SIZE,
                                                                               default=self.DEFAULT_RDS_INSTANCE_SIZE),
             Engine='postgres',
             EngineVersion=postgres_version or self.DEFAULT_RDS_POSTGRES_VERSION,
-            DBInstanceIdentifier=f"rds-{env_name}",  # was logical_id,
+            DBInstanceIdentifier=ConfigManager.get_config_setting(Settings.RDS_NAME) or f"rds-{env_name}",  # was logical_id,
             DBName=db_name or ConfigManager.get_config_setting(Settings.RDS_DB_NAME, default=self.DEFAULT_RDS_DB_NAME),
             DBParameterGroupName=Ref(self.rds_parameter_group()),
             DBSubnetGroupName=Ref(self.rds_subnet_group()),
