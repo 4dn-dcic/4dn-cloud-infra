@@ -246,6 +246,12 @@ class C4Datastore(C4Part):
             Description='Name of network stack for network import value references',
             Type='String',
         ))
+        # Adds IAM Stack Parameter
+        template.add_parameter(Parameter(
+            self.IAM_EXPORTS.reference_param_key,
+            Description='Name of IAM stack for IAM role/instance profile references',
+            Type='String',
+        ))
 
         # Adds RDS primitives
         for i in [self.rds_secret(), self.rds_parameter_group(),
