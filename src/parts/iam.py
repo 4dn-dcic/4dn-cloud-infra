@@ -50,6 +50,8 @@ class C4IAM(C4Part):
         """
         iam_role = self.ecs_assumed_iam_role()
         template.add_resource(iam_role)
+        flowlog_role = self.vcp_flowlog_role()
+        template.add_resource(flowlog_role)  # no need to export, only used for logs
         dev_iam_role = self.dev_user_role()
         # template.add_resource(dev_iam_role) add back later
         instance_profile = self.ecs_instance_profile()
@@ -346,6 +348,53 @@ class C4IAM(C4Part):
             }
         )
 
+    @staticmethod
+    def cloudwatch_logger_policy() -> Policy:
+        """ A policy that when attached allows the user to log things to
+            any cloudwatch log.
+        """
+        return Policy(
+            PolicyName='CGAPCWLoggingAccess',
+            PolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "logs:CreateLogGroup",
+                            "logs:CreateLogStream",
+                            "logs:PutLogEvents",
+                            "logs:DescribeLogGroups",
+                            "logs:DescribeLogStreams"
+                        ],
+                        "Resource": "*"
+                    }
+                ]
+            }
+        )
+
+    def vcp_flowlog_role(self) -> Role:
+        """ Creates a role that can be assumed by the VPC flow logs service
+            that gives permission to log to Cloudwatch. Needed to enabled VPC
+            flow logs.
+        """
+        return Role(
+            'VPCFlowLogRole',
+            AssumeRolePolicyDocument=PolicyDocument(
+                Version='2012-10-17',
+                Statement=[Statement(
+                    Effect='Allow',
+                    Action=[
+                        Action('sts', 'AssumeRole')
+                    ],
+                    Principal=Principal('Service', 'vpc-flow-logs.amazonaws.com'))
+                ]
+            ),
+            Policies=[
+                self.cloudwatch_logger_policy()
+            ]
+        )
+
     def ecs_assumed_iam_role(self) -> Role:
         """ Builds a general purpose IAM role for use with ECS.
             TODO: split into several roles?
@@ -378,7 +427,6 @@ class C4IAM(C4Part):
                         Action=[
                             Action('sts', 'AssumeRole')
                         ],
-                        # XXX: not clear this is needed since we aren't using ec2 - Will Aug 31 2021
                         Principal=Principal('Service', 'ec2.amazonaws.com')),
                     Statement(
                         Effect='Allow',
