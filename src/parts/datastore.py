@@ -28,7 +28,8 @@ from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX
 from ..constants import Settings, Secrets
 from ..exports import C4Exports
 from ..part import C4Part
-from ..parts.network import C4NetworkExports
+from .network import C4NetworkExports
+from .iam import C4IAMExports
 
 
 class C4DatastoreExports(C4Exports):
@@ -123,6 +124,7 @@ class C4Datastore(C4Part):
     RDS_SECRET_NAME_SUFFIX = 'RDSSecret'  # Used as logical id suffix in resource names
     EXPORTS = C4DatastoreExports()
     NETWORK_EXPORTS = C4NetworkExports()
+    IAM_EXPORTS = C4IAMExports()
 
     DEFAULT_ES_DATA_NODE_COUNT = '1'
     DEFAULT_ES_DATA_NODE_TYPE = 'c5.large.elasticsearch'
@@ -490,7 +492,7 @@ class C4Datastore(C4Part):
                     'Effect': 'Allow',
                     'Principal': {
                         'AWS': [
-                            Join('', ['arn:aws:iam::', AccountId, ':user/', deploying_iam_user]),
+                            self.IAM_EXPORTS.import_value(C4IAMExports.S3_IAM_USER),
                         ]
                     },
                     'Action': 'kms:*',  # XXX: constrain further?
