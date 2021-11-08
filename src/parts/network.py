@@ -431,7 +431,7 @@ class C4Network(C4Part):
         logical_id = self.name.logical_id('DBPortRangeAccess', context='db_inbound_rule')
         return SecurityGroupIngress(
             logical_id,
-            CidrIp='0.0.0.0/0',  # TODO web sg w/ 'DestinationSecurityGroupId'
+            CidrIp=self.CIDR_BLOCK,
             Description='allows database access on tcp ports 54xx',
             GroupId=Ref(self.db_security_group()),
             IpProtocol='tcp',
@@ -446,7 +446,7 @@ class C4Network(C4Part):
         logical_id = self.name.logical_id('DBOutboundAllAccess', context='db_outbound_rule')
         return SecurityGroupEgress(
             logical_id,
-            CidrIp='0.0.0.0/0',  # TODO web sg w/ 'DestinationSecurityGroupId'
+            CidrIp=self.CIDR_BLOCK,
             Description='allows outbound traffic to tcp 54xx',
             GroupId=Ref(self.db_security_group()),
             IpProtocol='tcp',
@@ -485,7 +485,7 @@ class C4Network(C4Part):
         logical_id = self.name.logical_id('HTTPSInboundAccess', context='https_inbound_rule')
         return SecurityGroupIngress(
             logical_id,
-            CidrIp='0.0.0.0/0',
+            CidrIp=self.CIDR_BLOCK,
             Description='allows inbound traffic on tcp port 443',
             GroupId=Ref(self.https_security_group()),
             IpProtocol='tcp',
@@ -545,7 +545,7 @@ class C4Network(C4Part):
         return [
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationHTTPSInboundAccess', context='application_security_rules1'),
-                CidrIp='0.0.0.0/0',
+                CidrIp=self.CIDR_BLOCK,
                 Description='allows inbound traffic on tcp port 443',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
@@ -563,7 +563,7 @@ class C4Network(C4Part):
             ),
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationWebInboundAccess', context='application_security_rules3'),
-                CidrIp='0.0.0.0/0',
+                CidrIp=self.CIDR_BLOCK,
                 Description='allows inbound traffic on tcp port 80',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
@@ -581,7 +581,7 @@ class C4Network(C4Part):
             ),
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationNTPInboundAllAccess', context='application_security_rules5'),
-                CidrIp='0.0.0.0/0',
+                CidrIp=self.CIDR_BLOCK,
                 Description='allows inbound traffic on udp port 123',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='udp',
@@ -599,7 +599,7 @@ class C4Network(C4Part):
             ),
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationSSHInboundAllAccess', context='application_security_rules7'),
-                CidrIp='0.0.0.0/0',
+                CidrIp=self.CIDR_BLOCK,
                 Description='allows inbound traffic on tcp port 22',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
@@ -608,7 +608,7 @@ class C4Network(C4Part):
             ),
             SecurityGroupEgress(
                 self.name.logical_id('ApplicationSSHOutboundAllAccess', context='application_security_rules8'),
-                CidrIp='0.0.0.0/0',
+                CidrIp=self.CIDR_BLOCK,
                 Description='allows outbound traffic on tcp port 22',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
