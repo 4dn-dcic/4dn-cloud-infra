@@ -326,7 +326,8 @@ class C4Datastore(C4Part):
     def build_s3_lifecycle_policy() -> LifecycleConfiguration:
         """ Builds a standard life cycle policy for an S3 bucket based on the wfoutput bucket
             on CGAP production (using tags through foursight, to be implemented).
-            Note that we could also do time based migration.
+            Note that that these lifecycle policies are timelocked such that they cannot occur before
+            the minimum number of days has passed.
 
             Tag an S3 object with:
                 Lifecycle:IA to move the object to infrequent access
@@ -342,7 +343,8 @@ class C4Datastore(C4Part):
                     Status='Enabled',
                     TagFilters=[TagFilter(Key='Lifecycle', Value='IA')],
                     Transition=LifecycleRuleTransition(
-                        StorageClass='STANDARD_IA'
+                        StorageClass='STANDARD_IA',
+                        TransitionInDays=30
                     )
                 ),
                 LifecycleRule(
@@ -350,7 +352,8 @@ class C4Datastore(C4Part):
                     Status='Enabled',
                     TagFilters=[TagFilter(Key='Lifecycle', Value='Glacier')],
                     Transition=LifecycleRuleTransition(
-                        StorageClass='GLACIER'
+                        StorageClass='GLACIER',
+                        TransitionInDays=90
                     )
                 ),
                 LifecycleRule(
@@ -358,7 +361,8 @@ class C4Datastore(C4Part):
                     Status='Enabled',
                     TagFilters=[TagFilter(Key='Lifecycle', Value='GlacierDA')],
                     Transition=LifecycleRuleTransition(
-                        StorageClass='DEEP_ARCHIVE'
+                        StorageClass='DEEP_ARCHIVE',
+                        TransitionInDays=180
                     )
                 )
                 # TODO: add expiration rule? not convinced this should be configured for now - Will Nov 9 2021
