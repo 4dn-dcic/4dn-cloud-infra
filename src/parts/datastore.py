@@ -20,7 +20,7 @@ from troposphere.kms import Key
 from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.s3 import (
     Bucket, BucketEncryption, BucketPolicy, ServerSideEncryptionRule, ServerSideEncryptionByDefault,
-    Private, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, TagFilter,
+    Private, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, TagFilter, VersioningConfiguration
 )
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
@@ -300,10 +300,11 @@ class C4Datastore(C4Part):
             if export_name != C4DatastoreExports.APPLICATION_SYSTEM_BUCKET:
                 bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy,
                                               s3_encrypt_key_ref=Ref(s3_encrypt_key))
-                template.add_resource(self.force_encryption_bucket_policy(bucket_name))
-            else:  # if we are the system bucket, rely on the S3_ENCRYPT_KEY we created
+                template.add_resource(bucket)  # must be added before policy
+                template.add_resource(self.force_encryption_bucket_policy(bucket_name, bucket))
+            else:  # if we are the system bucket, rely on the S3_ENCRYPT_KEY we manually create
                 bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy)
-            template.add_resource(bucket)
+                template.add_resource(bucket)
             template.add_output(self.output_s3_bucket(export_name, bucket_name))
 
         for export_name, bucket_template in self.APPLICATION_LAYER_BUCKETS.items():
@@ -359,13 +360,14 @@ class C4Datastore(C4Part):
                     Transition=LifecycleRuleTransition(
                         StorageClass='DEEP_ARCHIVE'
                     )
-                ),
-                LifecycleRule(
-                    'expire',
-                    Status='Enabled',
-                    TagFilters=[TagFilter(Key='Lifecycle', Value='expire')],
-                    ExpirationInDays=1
                 )
+                # TODO: add expiration rule? not convinced this should be configured for now - Will Nov 9 2021
+                # LifecycleRule(
+                #     'expire',
+                #     Status='Enabled',
+                #     TagFilters=[TagFilter(Key='Lifecycle', Value='expire')],
+                #     ExpirationInDays=1
+                # )
             ]
         )
 
@@ -383,11 +385,11 @@ class C4Datastore(C4Part):
             ]
         )
 
-    @staticmethod
-    def force_encryption_bucket_policy(bucket_name):
+    def force_encryption_bucket_policy(self, bucket_name, bucket):
         """ Builds a bucket policy that makes the given bucket require encryption. """
         return BucketPolicy(
             f'{camelize(bucket_name)}EncryptionPolicy',
+            DependsOn=[f'C4Bucket{camelize(bucket_name)}'],
             Bucket=bucket_name,
             PolicyDocument={
                 'Version':'2012-10-17',
@@ -422,7 +424,7 @@ class C4Datastore(C4Part):
 
     @classmethod
     def build_s3_bucket(cls, bucket_name, access_control=Private, include_lifecycle=True,
-                        s3_encrypt_key_ref=None) -> Bucket:
+                        s3_encrypt_key_ref=None, versioning=True) -> Bucket:
         """ Creates an S3 bucket under the given name/access control permissions.
             See troposphere.s3 for access control options.
 
@@ -436,6 +438,7 @@ class C4Datastore(C4Part):
             "LifecycleConfiguration": cls.build_s3_lifecycle_policy() if include_lifecycle else None,
             "BucketEncryption":
                 cls.build_s3_bucket_encryption(s3_encrypt_key_ref) if s3_encrypt_key_ref is not None else None,
+            "VersioningConfiguration": VersioningConfiguration(Status='Enabled') if versioning else None,
         }
         return Bucket(
             cls.build_s3_bucket_resource_name(bucket_name),
@@ -498,7 +501,9 @@ class C4Datastore(C4Part):
                     'Effect': 'Allow',
                     'Principal': {
                         'AWS': [
-                            self.IAM_EXPORTS.import_value(C4IAMExports.S3_IAM_USER),
+                            Join('', ['arn:aws:iam::', AccountId, ':user/',
+                                      self.IAM_EXPORTS.import_value(C4IAMExports.S3_IAM_USER)]),
+                            'arn:aws:iam::854218920701:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_AdministratorAccess_1b9a612a7ace4d54'
                         ]
                     },
                     'Action': 'kms:*',  # XXX: constrain further?
