@@ -221,8 +221,18 @@ To deploy the CGAP portal you have uploaded:
   * For ``Security groups``, select ``Edit``. This will take you to a new page that lets you set values:
 
     * Choose ``Existing Security Group``
-    * Select the group named ``C4NetworkDBSecurityGroup``.
-    * Select the group named ``C4NetworkApplicationSecurityGroup``.
+    * If HTTP port 80 is enabled by default, disable that. (This might happen only for ``Deployment`` if ``InitialDeployment`` has not been done.)
+    * We previously suggested:
+
+      * Select the group named ``C4NetworkDBSecurityGroup``.  (not recommended now)
+      * Select the group named ``C4NetworkApplicationSecurityGroup``.  (not recommended now)
+
+      but we are now experimenting with just:
+
+      * Select the group with ``ContainerSecurityGroup`` in its name.  (tentativel recommended now)
+
+      If problems result, we may need to revert. Please report any odd behaviors that might be attributable to this.
+
     * Once all security groups are selected, click ``Save`` at the bottom to return to where
       you were in specifying task options.
 
@@ -295,16 +305,10 @@ At this point, you should be ready to deploy foursight. To do so, use this comma
 
     source custom/aws_creds/test_creds.sh
     poetry run cli provision foursight --upload-change-set
-    #############################################################################################################
-    # NOTE: It should no longer be necessary to add an environment variable here, such as:                      #
-    #       GLOBAL_BUCKET_ENV=foursight-cgap-mastertest-envs                                                    #
-    #       Instead you should add entries for "GLOBAL_BUCKET_ENV" and "GLOBAL_ENV_BUCKET" to your config.json  #
-    #       (The name is in transition, so for now please set both names. Eventually ony GLOBAL_ENV_BUCKET      #
-    #       will be needed.)                                                                                    #
-    #       It should also no longer be necessary to provide --output-file out/foursight-dev-tmp/ --stage dev   #
-    #       on the command line because these are now the default for this provision operation.                 #
-    # NOTE: Will wants an explanation of 'dev' vs 'prod' here.                                                  #
-    #############################################################################################################
+    ##############################################################################################################
+    # NOTE: By default, you'll get --output-file out/foursight-dev-tmp/ --stage dev and if you want a production #
+    #       deploy you should specify --stage prod and an appropriate output file.                               #
+    ##############################################################################################################
 
 * Go to the console and execute the change set.
 
@@ -341,7 +345,8 @@ Step Seven: Deploying Tibanna Zebra
 Now it is time to provision Tibanna in this account for CGAP. Ensure test creds are active, in particular the
 correct ``GLOBAL_BUCKET_ENV`` and ``S3_ENCRYPT_KEY``, then deploy Tibanna. Note that all of the following steps
 take some significant time so should be run in parallel if possible. Note additionally that the
-credentials for the account you're deploying into must be active for all subsequent steps::
+credentials for the account you're deploying into must be active for all subsequent steps.
+The general form of the command is the following, but read on and you'll find out how to obtain these arguments::
 
     source custom/aws_creds/test_creds.sh
     tibanna_cgap deploy_zebra --subnets <private_subnet> -r <application_security_group> -e <env_name>
@@ -354,7 +359,7 @@ each point.
 If you have ENV_NAME set correctly as an environment variable, you can accomplish this by doing::
 
     source custom/aws_creds/test_creds.sh
-    tibanna_cgap deploy_zebra --subnets `network-attribute PrivateSudbnetA` -e $ENV_NAME -r `network-attribute ApplicationSecurityGroup`
+    tibanna_cgap deploy_zebra --subnets `network-attribute PrivateSubnetA` -e $ENV_NAME -r `network-attribute ApplicationSecurityGroup`
 
 
 While the tibanna deploy is happening, you may want to do this next step in another shell window.
@@ -363,6 +368,14 @@ While the tibanna deploy is happening, you may want to do this next step in anot
 as you were in ``(your 4dn-cloud-infra`` repository) **and also** re-run the ``source`` command
 to get new credentials in that window. Even if you think it's redundant, it's advisable to do it anyway to
 avoid error. It's very low-cost and avoids a lot of headache.
+
+Finally, push the tibanna-awsf image to the newly created ECR Repository in the new account::
+
+    ./scripts/upload_tibanna_awsf
+
+
+If setting up a new account (not migrating an existing one)...
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For this next step, you need the ``aws`` command line operation to be functioning. If you have any problems with
 that, you may need to run this script::
@@ -386,10 +399,6 @@ be posted, so ensure ``$AWS_REGION`` is set.::
     python post_patch_to_portal.py --ff-env=$ENV_NAME --del-prev-version --ugrp-unrelated
 
 Note that the above post/patch process must be repeated from the cgap-sv-pipeline repo as well.
-
-Finally, push the tibanna-awsf image to the newly created ECR Repository in the new account::
-
-    ./scripts/upload_tibanna_awsf
 
 Once the above steps have completed after 20 mins or so, it is time to test it out. Navigate to
 Foursight and trigger the md5 check - this will run the md5 step on the reference files. You should be able
