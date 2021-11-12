@@ -77,3 +77,6 @@ class Settings:
 
     # Sentieon Options
     SENTIEON_SSH_KEY = 'sentieon.ssh_key'
+
+    # S3 KMS ServerSide Encryption Key
+    S3_ENCRYPT_KEY_ID = 's3.encrypt_key_id'

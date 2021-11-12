@@ -9,7 +9,7 @@ from ..parts.datastore import C4DatastoreExports
 from ..parts.ecs import C4ECSApplicationExports
 
 
-def configure_env_bucket(env=None):
+def configure_env_bucket(env=None, encrypted=False):
     """
     This will upload an appropriate entry into the global env bucket for the given env,
     which defaults to the config-declared environment if not specified.
@@ -31,8 +31,14 @@ def configure_env_bucket(env=None):
         raise
     body = json.dumps(content, indent=2).encode('utf-8')
     print(f"To be uploaded: {body.decode('utf-8')}")
-    if yes_or_no(f"Upload this into {env} in account {ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER)}?"):
-        s3.put_object(Bucket=global_env_bucket, Key=env, Body=body)
+    if yes_or_no(f"Upload this into {env} in account {ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER)}?"
+                 f" with encryption={encrypted}"):
+        if encrypted:
+            s3.put_object(Bucket=global_env_bucket, Key=env, Body=body,
+                          ServerSideEncryption='aws:kms',
+                          SSEKMSKeyId=ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID),)
+        else:
+            s3.put_object(Bucket=global_env_bucket, Key=env, Body=body)
     else:
         print("Aborted.")
 
@@ -40,10 +46,12 @@ def configure_env_bucket(env=None):
 def main():
     parser = argparse.ArgumentParser(description='Assures presence and initialization of the global env bucket.')
     parser.add_argument('--env_name', help='The environment name to assure', default=None, type=str)
+    parser.add_argument('--encrypted', help='Boolean on whether or not this environment has encryption enabled',
+                        default=False, action='store_true')
     args = parser.parse_args()
 
     with ConfigManager.validate_and_source_configuration():
-        configure_env_bucket(env=args.env_name)
+        configure_env_bucket(env=args.env_name, encrypted=args.encrypted)
 
 
 if __name__ == '__main__':

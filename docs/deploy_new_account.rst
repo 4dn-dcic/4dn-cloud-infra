@@ -272,11 +272,12 @@ that bucket in the AWS Console for S3 and upload a file that contains::
 The file ``.chalice/cgap-mastertest`` contains an example of what is loaded into our initial test account at
 ``s3://foursight-cgap-mastertest-envs/cgap-mastertest``, but the specific name of the bucket to load into is
 different in each account because s3 namespacing requires that. Rather than manage this manually there
-is an automatic tool to help.
+is an automatic tool to help. Note that if you are uploading to an encrypted environment, set the
+``"s3.encrypt_key_id"`` option in ``config.json`` and pass the ``--encrypted`` argument.
 
 To provision this bucket do::
 
-    assure-global-bucket-env <env-name>
+    assure-global-bucket-env --env_name <env-name>
 
 It should interactively confirm the environment that it will upload, and what account it will upload into.
 If the global env bucket has not been created yet for that account, it will complain, but that should have
