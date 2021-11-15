@@ -336,6 +336,9 @@ To open the URL instead, use::
 
     open-foursight-url
 
+Note that if you have orchestrated with S3 + KMS encryption enabled see ``encryption.rst``
+for additional needed setup.
+
 Step Seven: Deploying Tibanna Zebra
 -----------------------------------
 

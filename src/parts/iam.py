@@ -349,6 +349,26 @@ class C4IAM(C4Part):
         )
 
     @staticmethod
+    def kms_policy() -> Policy:
+        """ Defines a policy that gives permission access to a subset of actions on KMS.
+            Needed for the S3Federator to generate URLs that enable server side encryption. """
+        return Policy(
+            PolicyName='CGAPKMSPolicy',
+            PolicyDocument={
+                'Effect': 'Allow',
+                'Action': [
+                    'kms:Encrypt',
+                    'kms:Decrypt',
+                    'kms:ReEncrypt*',
+                    'kms:GenerateDataKey*',
+                    'kms:DescribeKey'
+                ],
+                'Resource': [
+                    '*'
+                ]
+            }
+        )
+    @staticmethod
     def cloudwatch_logger_policy() -> Policy:
         """ A policy that when attached allows the user to log things to
             any cloudwatch log.
@@ -409,7 +429,8 @@ class C4IAM(C4Part):
             self.ecs_ecr_policy(),  # to pull down container images
             self.ecs_cfn_policy(),  # to pull ECS Service URL from Cloudformation
             self.ecs_s3_policy(),  # for handling raw files
-            self.ecs_web_service_policy(),  # permissions for service
+            self.ecs_web_service_policy(),  # permissions for service,
+            self.kms_policy(),  # permission to use KMS keys to decrypt
         ]
         return Role(
             self.ROLE_NAME,
@@ -499,6 +520,7 @@ class C4IAM(C4Part):
             Policies=[
                 self.ecs_s3_policy(),
                 self.ecs_s3_user_sts_policy(),
+                self.kms_policy(),
             ],
             Tags=self.tags.cost_tag_obj(logical_id)
         )
