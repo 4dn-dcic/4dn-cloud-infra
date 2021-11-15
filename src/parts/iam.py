@@ -368,6 +368,7 @@ class C4IAM(C4Part):
                 ]
             }
         )
+
     @staticmethod
     def cloudwatch_logger_policy() -> Policy:
         """ A policy that when attached allows the user to log things to
