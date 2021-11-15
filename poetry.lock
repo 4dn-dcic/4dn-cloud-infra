@@ -700,7 +700,7 @@ tibanna-ff = ">=0.21.5,<0.22.0"
 
 [[package]]
 name = "foursight-core"
-version = "0.5.0.1b1"
+version = "0.5.0.1b2"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -1615,7 +1615,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.6.10,<3.7"
-content-hash = "cfe437fbfad931731944ee39a371e7b9905462970a07b51697b7478e2a617179"
+content-hash = "afb7d26dc06db68a00e3587ecca20fff4b7c28dce6471e581fd6959a7595c803"
 
 [metadata.files]
 ansicon = [
@@ -1746,8 +1746,8 @@ foursight-cgap = [
     {file = "foursight_cgap-1.2.1.0b1-py3-none-any.whl", hash = "sha256:ca134d306d00782622d85562e03c02b0cb49ba3fb0b80b9a86ea0de63005ed49"},
 ]
 foursight-core = [
-    {file = "foursight_core-0.5.0.1b1-py3-none-any.whl", hash = "sha256:1a1a48a2205ac5a027b1fe2127a63e2b1805154c9713f4353a1580e7ea2ecd25"},
-    {file = "foursight_core-0.5.0.1b1.tar.gz", hash = "sha256:800acb92f26e323b46eb6358d88c3d2ab4cbf756e47bacb6bff04f7650312b48"},
+    {file = "foursight_core-0.5.0.1b2-py3-none-any.whl", hash = "sha256:d3a67e518475c2bb6182a8d113f3f33aaf016afa7b6ebd9f0a8ae7bd1ab4c6b1"},
+    {file = "foursight_core-0.5.0.1b2.tar.gz", hash = "sha256:92fcbbb233f318710c3b1e1388c717d0afebb9b5024cee354276a52ab6c9c598"},
 ]
 future = [
     {file = "future-0.18.2.tar.gz", hash = "sha256:b1bead90b70cf6ec3f0710ae53a525360fa360d306a86583adc6bf83a4db537d"},
