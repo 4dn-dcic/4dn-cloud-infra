@@ -358,7 +358,7 @@ each point.
 If you have ENV_NAME set correctly as an environment variable, you can accomplish this by doing::
 
     source custom/aws_creds/test_creds.sh
-    tibanna_cgap deploy_zebra --subnets `network-attribute PrivateSudbnetA` -e $ENV_NAME -r `network-attribute ApplicationSecurityGroup`
+    tibanna_cgap deploy_zebra --subnets `network-attribute PrivateSubnetA` -e $ENV_NAME -r `network-attribute ApplicationSecurityGroup`
 
 
 While the tibanna deploy is happening, you may want to do this next step in another shell window.
