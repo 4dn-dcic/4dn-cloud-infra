@@ -58,6 +58,7 @@ class C4DatastoreExports(C4Exports):
     APPLICATION_BLOBS_BUCKET = exportify('AppBlobsBucket')
     APPLICATION_METADATA_BUNDLES_BUCKET = exportify('AppMetadataBundlesBucket')
     APPLICATION_TIBANNA_OUTPUT_BUCKET = exportify('AppTibannaLogsBucket')
+    APPLICATION_TIBANNA_CWL_BUCKET = exportify('AppTibannaCWLBucket')
 
     # Output SQS Queues
     APPLICATION_INDEXER_PRIMARY_QUEUE = exportify('ApplicationIndexerPrimaryQueue')
@@ -139,6 +140,7 @@ class C4Datastore(C4Part):
         C4DatastoreExports.APPLICATION_SYSTEM_BUCKET: ConfigManager.AppBucketTemplate.SYSTEM,
         C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET: ConfigManager.AppBucketTemplate.METADATA_BUNDLES,
         C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET: ConfigManager.AppBucketTemplate.TIBANNA_OUTPUT,
+        C4DatastoreExports.APPLICATION_TIBANNA_CWL_BUCKET: ConfigManager.AppBucketTemplate.TIBANNA_CWL,
     }
 
     # Buckets to apply the lifecycle policy to (files and wfoutput, as these are large)
