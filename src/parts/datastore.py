@@ -492,8 +492,9 @@ class C4Datastore(C4Part):
             uploading sensitive information to S3. This value should be written to the
             application configuration and also passed to Foursight/Tibanna.
 
-            TODO: implement APIs to use this key correctly, cannot download/distribute from KMS
-            Note that when doing this, the KeyPolicy will need to be updated
+            KeyPolicy creates two policies - one for admins who can manage the key, and
+            one for the S3IAMUser (and Tibanna) for using the key for normal operation.
+            Note that the roles are action restricted but not resource restricted.
         """
         deploying_iam_user = ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER)  # Required config setting
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
@@ -503,19 +504,37 @@ class C4Datastore(C4Part):
             Description=f'Key for encrypting sensitive S3 files for {env_name} environment',
             KeyPolicy={
                 'Version': '2012-10-17',
-                'Statement': [{
-                    'Sid': 'Enable IAM Policies',
-                    'Effect': 'Allow',
-                    'Principal': {
-                        'AWS': [
-                            Join('', ['arn:aws:iam::', AccountId, ':user/',
-                                      self.IAM_EXPORTS.import_value(C4IAMExports.S3_IAM_USER)]),
-                            'arn:aws:iam::854218920701:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_AdministratorAccess_1b9a612a7ace4d54'
-                        ]
+                'Statement': [
+                    {
+                        'Sid': 'Enable Admin IAM Policies',
+                        'Effect': 'Allow',
+                        'Principal': {
+                            'AWS': [
+                                Join('', ['arn:aws:iam::', AccountId, ':user/',
+                                          ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER)]),
+                                f'arn:aws:iam::{AccountId}:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_AdministratorAccess_1b9a612a7ace4d54'
+                            ]
+                        },
+                        'Action': 'kms:*',  # Admins get full access
+                        'Resource': '*'
                     },
-                    'Action': 'kms:*',  # XXX: constrain further?
-                    'Resource': '*'
-                }]
+                    {
+                        'Sid': 'Allow use of the key',  # NOTE: this identifier must stay the same for tibanna
+                        'Effect': 'Allow',
+                        'Principal': {'AWS': [
+                            Join('', ['arn:aws:iam::', AccountId, ':user/',
+                                      self.IAM_EXPORTS.import_value(C4IAMExports.S3_IAM_USER)])
+                        ]},
+                        'Action': [
+                            'kms:Encrypt',
+                            'kms:Decrypt',
+                            'kms:ReEncrypt*',
+                            'kms:GenerateDataKey*',
+                            'kms:DescribeKey'
+                        ],
+                        'Resource': '*'
+                    }
+                ]
             },
             KeySpec='SYMMETRIC_DEFAULT',  # (AES-256-GCM)
             Tags=self.tags.cost_tag_array()
