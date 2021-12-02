@@ -575,7 +575,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
 name = "dcicutils"
-version = "3.2.1"
+version = "3.3.0"
 description = "Utility package for interacting with the 4DN Data Portal and other 4DN resources"
 category = "main"
 optional = false
@@ -1443,7 +1443,7 @@ requests = ">=2.24.0,<3"
 
 [[package]]
 name = "tibanna"
-version = "1.9.0.0b9"
+version = "1.9.0.0b10"
 description = "Tibanna runs portable pipelines (in CWL/WDL) on the AWS Cloud."
 category = "main"
 optional = false
@@ -1459,7 +1459,7 @@ urllib3 = ">=1.24"
 
 [[package]]
 name = "tibanna-ff"
-version = "0.24.0.0b6"
+version = "0.24.0.0b8"
 description = "Tibanna runs portable pipelines (in CWL/WDL) on the AWS Cloud."
 category = "main"
 optional = false
@@ -1621,7 +1621,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.6.10,<3.7"
-content-hash = "428e1a6127b12f4bfad76aea53af94547f4f036d39e04a8dd583e0014656aa28"
+content-hash = "efebfd21c296885f7c3666ca1d4307403a5d3eea7c714d872ec702e57589574a"
 
 [metadata.files]
 ansicon = [
@@ -1719,8 +1719,8 @@ colorama = [
     {file = "colorama-0.4.3.tar.gz", hash = "sha256:e96da0d330793e2cb9485e9ddfd918d456036c7149416295932478192f4436a1"},
 ]
 dcicutils = [
-    {file = "dcicutils-3.2.1-py3-none-any.whl", hash = "sha256:87e19bfa32950888dfebcb9d20ac9cc18968a1b607706faa584845e134a85efd"},
-    {file = "dcicutils-3.2.1.tar.gz", hash = "sha256:af1da5e8dcf36edd3bc6945d6bd76e8a81429ec207f9a0579528cd3a42312309"},
+    {file = "dcicutils-3.3.0-py3-none-any.whl", hash = "sha256:9a5e52a19bd0905ced9c818b87aa0637d2ac6af21c7c05faa6e093c334f1468c"},
+    {file = "dcicutils-3.3.0.tar.gz", hash = "sha256:0e840524954a0ef5ccf8482c587be1726cfdf256b1a8384464172378b4c5d943"},
 ]
 decorator = [
     {file = "decorator-4.4.2-py2.py3-none-any.whl", hash = "sha256:41fa54c2a0cc4ba648be4fd43cff00aedf5b9465c9bf18d64325bc225f08f760"},
@@ -2154,14 +2154,14 @@ submit-cgap = [
     {file = "submit_cgap-1.0.0.tar.gz", hash = "sha256:aff92cb7b92b3ba8510b7b4cae0e177ff59e6cea07f3d6bf460be261db69afa7"},
 ]
 tibanna = [
-    {file = "tibanna-1.9.0.0b9-py3-none-any.whl", hash = "sha256:bb3076bb79d3c45f5cc217d85801157884ee8ffd958fcbbac5b4746ef55eae36"},
-    {file = "tibanna-1.9.0.0b9-py3.6.egg", hash = "sha256:fcc4eef36b58263a4ebc0b744ed378fa6406eca505512628ba7faee4326e46c9"},
-    {file = "tibanna-1.9.0.0b9.tar.gz", hash = "sha256:b6cf36324602b086a599231fde76158bc1032fb7b926d5689d1db91609178396"},
+    {file = "tibanna-1.9.0.0b10-py3-none-any.whl", hash = "sha256:ce5c3c95c234056960da5cd495b21985d97c15dfa86b3c2db4fe7d57f28c0d59"},
+    {file = "tibanna-1.9.0.0b10-py3.6.egg", hash = "sha256:8e0c6eedf50876c51ff84dd0a97470d93ef18c0ee80b46ef8e5beec9ac1c75e4"},
+    {file = "tibanna-1.9.0.0b10.tar.gz", hash = "sha256:dd08ad7f85f347c7cb7e1517f032d57997956337cf1df9c5ff04663b8f214ea1"},
 ]
 tibanna-ff = [
-    {file = "tibanna_ff-0.24.0.0b6-py3-none-any.whl", hash = "sha256:55d6d7ac2eb2e1624e307d960ef2aebbbb32cb8be998ec8521c1d04bd534e41a"},
-    {file = "tibanna_ff-0.24.0.0b6-py3.6.egg", hash = "sha256:a609beee7be168086966bc1d024a5cfa2eb695903a5ad63ae48e30752eef6f15"},
-    {file = "tibanna_ff-0.24.0.0b6.tar.gz", hash = "sha256:a25dc8c89c2702e60196c734118ff1b93827913e488b1747759b8eddb88332b3"},
+    {file = "tibanna_ff-0.24.0.0b8-py3-none-any.whl", hash = "sha256:47c72a836bc1b5c95ef21b1fdb2f9655104361b2303589eeaa78a22dc6db4c10"},
+    {file = "tibanna_ff-0.24.0.0b8-py3.6.egg", hash = "sha256:545b3555e88bfb68043382fbdcdc61f04db27e80ad4ff7422bfd22c263260cc9"},
+    {file = "tibanna_ff-0.24.0.0b8.tar.gz", hash = "sha256:a351a420bd3e7f996960b8cb992753d3efed505e514f74020547b19df841f8e8"},
 ]
 toml = [
     {file = "toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"},
