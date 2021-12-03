@@ -677,7 +677,7 @@ pyflakes = ">=2.4.0,<2.5.0"
 
 [[package]]
 name = "foursight-cgap"
-version = "1.2.1.0b3"
+version = "1.2.1.0b4"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -1443,7 +1443,7 @@ requests = ">=2.24.0,<3"
 
 [[package]]
 name = "tibanna"
-version = "1.9.0.0b16"
+version = "1.9.0.0b18"
 description = "Tibanna runs portable pipelines (in CWL/WDL) on the AWS Cloud."
 category = "main"
 optional = false
@@ -1621,7 +1621,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.6.10,<3.7"
-content-hash = "025743b967343655e3203578c0e6afb79fb045aba7b7e6474d5d43bd408b9625"
+content-hash = "82957f799ec051c298a494b434c68b9f8f2f5e97afd707502a59d1091d5651cc"
 
 [metadata.files]
 ansicon = [
@@ -1748,8 +1748,8 @@ flake8 = [
     {file = "flake8-4.0.1.tar.gz", hash = "sha256:806e034dda44114815e23c16ef92f95c91e4c71100ff52813adf7132a6ad870d"},
 ]
 foursight-cgap = [
-    {file = "foursight-cgap-1.2.1.0b3.tar.gz", hash = "sha256:f70ccdc101635c4270372820e9316bb5014ffc7d4bf000a4fb68ec68a2cc0092"},
-    {file = "foursight_cgap-1.2.1.0b3-py3-none-any.whl", hash = "sha256:14025806ede294fe31b1703bf4d0a8cd163db7903ed29f3007b7bf84ab7483d2"},
+    {file = "foursight-cgap-1.2.1.0b4.tar.gz", hash = "sha256:1c36085bf34a4a6d154d3a50f31f2d33fab67d533d2337e286fab34c19cec707"},
+    {file = "foursight_cgap-1.2.1.0b4-py3-none-any.whl", hash = "sha256:3dc61457a160fb1f319f8865b1170152e870e2e859e3e411c8f834ad52b3fcf1"},
 ]
 foursight-core = [
     {file = "foursight_core-0.5.0.1b5-py3-none-any.whl", hash = "sha256:11708b01c1a621fa7b492f1147f09c00677450a2ef975bbe7fbe1c48fda19b31"},
@@ -2154,9 +2154,9 @@ submit-cgap = [
     {file = "submit_cgap-1.0.0.tar.gz", hash = "sha256:aff92cb7b92b3ba8510b7b4cae0e177ff59e6cea07f3d6bf460be261db69afa7"},
 ]
 tibanna = [
-    {file = "tibanna-1.9.0.0b16-py3-none-any.whl", hash = "sha256:8e10940654b353b0842297885528745373300ac4e002bb7df05f0d98f1ad0a78"},
-    {file = "tibanna-1.9.0.0b16-py3.6.egg", hash = "sha256:46fea3fe9193668c1540342a8776830d9c4159550056a5829239fee3be17805c"},
-    {file = "tibanna-1.9.0.0b16.tar.gz", hash = "sha256:dd1311746f650c8478bfd3beb9f324dd875871e2f7a75b98edd2da94c3ccc2fc"},
+    {file = "tibanna-1.9.0.0b18-py3-none-any.whl", hash = "sha256:cf7ad593e8fab3808f454d4c30a088d3fd31b28e97462be8d24273dd0ed42461"},
+    {file = "tibanna-1.9.0.0b18-py3.6.egg", hash = "sha256:9e338420331c5c48aa14ce61a8f7b8d91de5a996a508376dc76778d789b61a19"},
+    {file = "tibanna-1.9.0.0b18.tar.gz", hash = "sha256:3f34e8b4f3160b602007e7f51b6a068230383c2a68c28f3a2b091066ecf14c5d"},
 ]
 tibanna-ff = [
     {file = "tibanna_ff-0.24.0.0b8-py3-none-any.whl", hash = "sha256:47c72a836bc1b5c95ef21b1fdb2f9655104361b2303589eeaa78a22dc6db4c10"},
