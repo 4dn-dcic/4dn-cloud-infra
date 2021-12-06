@@ -70,6 +70,7 @@ class C4ContainerRegistry(C4Part):
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
 
         # build repos
+        # note that these are defined by the structure in cgap-pipeline-master - Will Dec 6 2021
         repo_export_pairs = [
             (ECOSYSTEM, self.EXPORTS.PORTAL_REPO_URL),
             ('tibanna-awsf', self.EXPORTS.TIBANNA_REPO_URL),

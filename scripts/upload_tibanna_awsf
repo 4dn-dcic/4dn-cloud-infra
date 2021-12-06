@@ -1,7 +1,17 @@
 #!/usr/bin/env bash
 
+# use this script to update the tibann_awsf image
+# decide which of the two commands to run
+# if pulling an image from upstream, use pull
+# if you need to build the image, use build
+# the remaining commands are the same assuming
+# test_creds.sh is setup and sourced
+
+# Pull or Build
 #docker pull 4dndcic/tibanna-awsf:"$TIBANNA_VERSION"
 #docker build -t 4dndcic/tibanna-awsf:"$TIBANNA_VERSION" --build-arg version="$TIBANNA_VERSION" awsf3-docker/
+
+# Tag and Push
 docker tag 4dndcic/tibanna-awsf:"$TIBANNA_VERSION" "$ACCOUNT_NUMBER".dkr.ecr.us-east-1.amazonaws.com/tibanna-awsf:"$TIBANNA_VERSION"
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ACCOUNT_NUMBER}.dkr.ecr.us-east-1.amazonaws.com
 docker push "$ACCOUNT_NUMBER".dkr.ecr.us-east-1.amazonaws.com/tibanna-awsf:"$TIBANNA_VERSION"
