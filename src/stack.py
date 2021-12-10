@@ -121,7 +121,7 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
                 'ES_HOST': C4DatastoreExports.get_es_url() + ":443",
                 'ENV_NAME': ConfigManager.get_config_setting(Settings.ENV_NAME),
                 'RDS_NAME': ConfigManager.get_config_setting(Settings.RDS_NAME),
-                'S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID)
+                'S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
             }
         # print(f"self.trial_creds['ENV_NAME'] = {self.trial_creds['ENV_NAME']}")
         super().__init__(description, name, tags, account)

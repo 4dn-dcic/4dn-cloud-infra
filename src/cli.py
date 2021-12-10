@@ -103,7 +103,7 @@ class C4Client:
             bucket = ConfigManager.resolve_bucket_name(ConfigManager.FSBucketTemplate.APPLICATION_VERSIONS)
 
         creds_dir = ConfigManager.get_aws_creds_dir()
-        s3_key = ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID)
+        s3_key = ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
 
         # Mounts the output_file directory to the docker image's execution directory (/root/aws)
         mount_chalice_package = '{}/{}:/aws'.format(os.path.abspath(os.getcwd()), output_file)
