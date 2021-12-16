@@ -1,5 +1,5 @@
 from ..base import register_stack_creator, registered_stack_class
-from ..parts import network, datastore, ecr, iam, logging, ecs, fourfront_ecs, appconfig, datastore_slim
+from ..parts import network, datastore, ecr, iam, logging, ecs, fourfront_ecs, appconfig, datastore_slim, sentieon
 from ..stack import C4Stack, C4Tags, C4Account, C4FoursightCGAPStack, C4Part, BaseC4FoursightStack
 
 
@@ -118,8 +118,16 @@ def c4_alpha_stack_fourfront_ecs_standalone(account: C4Account):
 @register_stack_creator(name='datastore_slim', kind='alpha',
                         implementation_class=datastore_slim.C4DatastoreSlim)
 def c4_alpha_stack_datastore_slim(account: C4Account):
-    """ Slim datastore stack, intended for use with a fourfront environment. """
+    """ Slim datastore stack, intended for use with a fourfront environment.
+        Assumes existing S3 resources, but creates new RDS and ES resources.
+    """
     return create_c4_alpha_stack(name='datastore_slim', account=account)
+
+
+@register_stack_creator(name='sentieon', kind='alpha', implementation_class=sentieon.C4SentieonSupport)
+def c4_alpha_stack_sentieon(account: C4Account):
+    """ Sentieon stack, used for spinning up a Sentieon license server for the account. """
+    return create_c4_alpha_stack(name='sentieon', account=account)
 
 
 @register_stack_creator(name='foursight', kind='alpha', implementation_class=C4FoursightCGAPStack)

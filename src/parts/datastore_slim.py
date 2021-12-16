@@ -25,6 +25,13 @@ class C4DatastoreSlim(C4Datastore):
         """ Builds the "slim" datastore by omitting S3 resources and only
             creating RDS and ES in the network locations passed.
         """
+        # TODO use Network Stack Parameter
+        # template.add_parameter(Parameter(
+        #     self.NETWORK_EXPORTS.reference_param_key,
+        #     Description='Name of network stack for network import value references',
+        #     Type='String',
+        # ))
+
         # Add params
         template.add_parameter(self.ecs_vpc())
         template.add_parameter(self.ecs_subnet_a())
@@ -145,7 +152,7 @@ class C4DatastoreSlim(C4Datastore):
         logical_id = self.name.logical_id(self.rds_instance_name(env_name))  # was env_name
         secret_string_logical_id = self.rds_secret_logical_id()
         return DBInstance(
-            logical_id,
+            ConfigManager.get_config_setting(Settings.RDS_NAME) or logical_id,
             AllocatedStorage=storage_size or ConfigManager.get_config_setting(Settings.RDS_STORAGE_SIZE,
                                                                               default=self.DEFAULT_RDS_STORAGE_SIZE),
             DBInstanceClass=instance_size or ConfigManager.get_config_setting(Settings.RDS_INSTANCE_SIZE,

@@ -41,6 +41,7 @@ class Settings:
     RDS_DB_USERNAME = 'rds.db_username'
     RDS_AZ = 'rds.az'                        # TODO: Ignored for now. Always defaults to "us-east-1"
     RDS_POSTGRES_VERSION = 'rds.postgres_version'
+    RDS_NAME = 'rds.name'  # can be used to configure name of RDS instance, foursight must know it - Will Nov 2 2021
 
     # ES Configuration Options
 
@@ -51,7 +52,6 @@ class Settings:
     ES_VOLUME_SIZE = 'elasticsearch.volume_size'
 
     # ECS Configuration Options
-
     ECS_IMAGE_TAG = 'ecs.image_tag'
     ECS_WSGI_COUNT = 'ecs.wsgi.count'
     ECS_WSGI_CPU = 'ecs.wsgi.cpu'
@@ -74,3 +74,9 @@ class Settings:
     FOURFRONT_SECONDARY_SUBNET = 'fourfront.vpc.subnet_b'
     FOURFRONT_RDS_SECURITY_GROUP = 'fourfront.rds.sg'
     FOURFRONT_HTTPS_SECURITY_GROUP = 'fourfront.https.sg'
+
+    # Sentieon Options
+    SENTIEON_SSH_KEY = 'sentieon.ssh_key'
+
+    # S3 KMS ServerSide Encryption Key
+    S3_ENCRYPT_KEY_ID = 's3.encrypt_key_id'

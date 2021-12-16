@@ -19,8 +19,8 @@ except ImportError:
 from troposphere.kms import Key
 from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.s3 import (
-    Bucket, BucketEncryption, ServerSideEncryptionRule, ServerSideEncryptionByDefault,
-    Private, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, TagFilter,
+    Bucket, BucketEncryption, BucketPolicy, ServerSideEncryptionRule, ServerSideEncryptionByDefault,
+    Private, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, TagFilter, VersioningConfiguration
 )
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
@@ -28,7 +28,8 @@ from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX
 from ..constants import Settings, Secrets
 from ..exports import C4Exports
 from ..part import C4Part
-from ..parts.network import C4NetworkExports
+from .network import C4NetworkExports
+from .iam import C4IAMExports
 
 
 class C4DatastoreExports(C4Exports):
@@ -57,6 +58,7 @@ class C4DatastoreExports(C4Exports):
     APPLICATION_BLOBS_BUCKET = exportify('AppBlobsBucket')
     APPLICATION_METADATA_BUNDLES_BUCKET = exportify('AppMetadataBundlesBucket')
     APPLICATION_TIBANNA_OUTPUT_BUCKET = exportify('AppTibannaLogsBucket')
+    APPLICATION_TIBANNA_CWL_BUCKET = exportify('AppTibannaCWLBucket')
 
     # Output SQS Queues
     APPLICATION_INDEXER_PRIMARY_QUEUE = exportify('ApplicationIndexerPrimaryQueue')
@@ -106,7 +108,7 @@ class C4Datastore(C4Part):
     DEFAULT_RDS_DB_NAME = 'ebdb'
     DEFAULT_RDS_DB_PORT = '5432'
     DEFAULT_RDS_DB_USERNAME = 'postgresql'
-    DEFAULT_RDS_AZ = 'us-east-1'
+    DEFAULT_RDS_AZ = 'us-east-1a'
     DEFAULT_RDS_STORAGE_SIZE = 20
     DEFAULT_RDS_INSTANCE_SIZE = 'db.t3.medium'
     DEFAULT_RDS_STORAGE_TYPE = 'standard'
@@ -123,6 +125,7 @@ class C4Datastore(C4Part):
     RDS_SECRET_NAME_SUFFIX = 'RDSSecret'  # Used as logical id suffix in resource names
     EXPORTS = C4DatastoreExports()
     NETWORK_EXPORTS = C4NetworkExports()
+    IAM_EXPORTS = C4IAMExports()
 
     DEFAULT_ES_DATA_NODE_COUNT = '1'
     DEFAULT_ES_DATA_NODE_TYPE = 'c5.large.elasticsearch'
@@ -137,6 +140,7 @@ class C4Datastore(C4Part):
         C4DatastoreExports.APPLICATION_SYSTEM_BUCKET: ConfigManager.AppBucketTemplate.SYSTEM,
         C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET: ConfigManager.AppBucketTemplate.METADATA_BUNDLES,
         C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET: ConfigManager.AppBucketTemplate.TIBANNA_OUTPUT,
+        C4DatastoreExports.APPLICATION_TIBANNA_CWL_BUCKET: ConfigManager.AppBucketTemplate.TIBANNA_CWL,
     }
 
     # Buckets to apply the lifecycle policy to (files and wfoutput, as these are large)
@@ -230,7 +234,8 @@ class C4Datastore(C4Part):
             'S3_ENCRYPT_KEY': ConfigManager.get_config_setting(Secrets.S3_ENCRYPT_KEY,
                                                                ConfigManager.get_s3_encrypt_key_from_file()),
             # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
-            'ENCODED_SENTRY_DSN': "",
+            'ENCODED_S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None),
+            'ENCODED_SENTRY_DSN': '',
             'reCaptchaKey': ConfigManager.get_config_secret(Secrets.RECAPTCHA_KEY, default=None),
             'reCaptchaSecret': ConfigManager.get_config_secret(Secrets.RECAPTCHA_SECRET, default=None),
         })
@@ -242,6 +247,12 @@ class C4Datastore(C4Part):
         template.add_parameter(Parameter(
             self.NETWORK_EXPORTS.reference_param_key,
             Description='Name of network stack for network import value references',
+            Type='String',
+        ))
+        # Adds IAM Stack Parameter
+        template.add_parameter(Parameter(
+            self.IAM_EXPORTS.reference_param_key,
+            Description='Name of IAM stack for IAM role/instance profile references',
             Type='String',
         ))
 
@@ -261,8 +272,11 @@ class C4Datastore(C4Part):
         template.add_resource(es)
         template.add_output(self.output_es_url(es))
 
-        # Add S3_ENCRYPT_KEY, application configuration template
-        # template.add_resource(self.s3_encrypt_key())
+        # Add s3_encrypt_key, application configuration template
+        # IMPORTANT: This s3_encrypt_key is different than the key used for admin access keys in the
+        # system bucket. This key is used to encrypt all objects uploaded to s3.
+        s3_encrypt_key = self.s3_encrypt_key()
+        template.add_resource(s3_encrypt_key)
         secret = self.application_configuration_secret()
         template.add_resource(secret)
         template.add_output(
@@ -285,8 +299,15 @@ class C4Datastore(C4Part):
             if export_name in self.LIFECYCLE_BUCKET_EXPORT_NAMES:
                 use_lifecycle_policy = True
             bucket_name = self.resolve_bucket_name(bucket_template)
-            bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy)
-            template.add_resource(bucket)
+            # use infra s3_encrypt_key for standard files
+            if export_name != C4DatastoreExports.APPLICATION_SYSTEM_BUCKET:
+                bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy,
+                                              s3_encrypt_key_ref=Ref(s3_encrypt_key))
+                template.add_resource(bucket)  # must be added before policy
+                template.add_resource(self.force_encryption_bucket_policy(bucket_name, bucket))
+            else:  # if we are the system bucket, rely on the S3_ENCRYPT_KEY we manually create
+                bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy)
+                template.add_resource(bucket)
             template.add_output(self.output_s3_bucket(export_name, bucket_name))
 
         for export_name, bucket_template in self.APPLICATION_LAYER_BUCKETS.items():
@@ -308,7 +329,8 @@ class C4Datastore(C4Part):
     def build_s3_lifecycle_policy() -> LifecycleConfiguration:
         """ Builds a standard life cycle policy for an S3 bucket based on the wfoutput bucket
             on CGAP production (using tags through foursight, to be implemented).
-            Note that we could also do time based migration.
+            Note that that these lifecycle policies are timelocked such that they cannot occur before
+            the minimum number of days has passed.
 
             Tag an S3 object with:
                 Lifecycle:IA to move the object to infrequent access
@@ -324,7 +346,8 @@ class C4Datastore(C4Part):
                     Status='Enabled',
                     TagFilters=[TagFilter(Key='Lifecycle', Value='IA')],
                     Transition=LifecycleRuleTransition(
-                        StorageClass='STANDARD_IA'
+                        StorageClass='STANDARD_IA',
+                        TransitionInDays=30
                     )
                 ),
                 LifecycleRule(
@@ -332,7 +355,8 @@ class C4Datastore(C4Part):
                     Status='Enabled',
                     TagFilters=[TagFilter(Key='Lifecycle', Value='Glacier')],
                     Transition=LifecycleRuleTransition(
-                        StorageClass='GLACIER'
+                        StorageClass='GLACIER',
+                        TransitionInDays=90
                     )
                 ),
                 LifecycleRule(
@@ -340,15 +364,17 @@ class C4Datastore(C4Part):
                     Status='Enabled',
                     TagFilters=[TagFilter(Key='Lifecycle', Value='GlacierDA')],
                     Transition=LifecycleRuleTransition(
-                        StorageClass='DEEP_ARCHIVE'
+                        StorageClass='DEEP_ARCHIVE',
+                        TransitionInDays=180
                     )
-                ),
-                LifecycleRule(
-                    'expire',
-                    Status='Enabled',
-                    TagFilters=[TagFilter(Key='Lifecycle', Value='expire')],
-                    ExpirationInDays=1
                 )
+                # TODO: add expiration rule? not convinced this should be configured for now - Will Nov 9 2021
+                # LifecycleRule(
+                #     'expire',
+                #     Status='Enabled',
+                #     TagFilters=[TagFilter(Key='Lifecycle', Value='expire')],
+                #     ExpirationInDays=1
+                # )
             ]
         )
 
@@ -366,9 +392,46 @@ class C4Datastore(C4Part):
             ]
         )
 
+    def force_encryption_bucket_policy(self, bucket_name, bucket):
+        """ Builds a bucket policy that makes the given bucket require encryption. """
+        return BucketPolicy(
+            f'{camelize(bucket_name)}EncryptionPolicy',
+            DependsOn=[f'C4Bucket{camelize(bucket_name)}'],
+            Bucket=bucket_name,
+            PolicyDocument={
+                'Version':'2012-10-17',
+                'Statement': [
+                    {
+                        'Sid': 'DenyIncorrectEncryptionHeader',
+                        'Effect': 'Deny',
+                        'Principal': '*',
+                        'Action': 's3:PutObject',
+                        'Resource': f'arn:aws:s3:::{bucket_name}/*',
+                        'Condition': {
+                            'StringNotEquals': {
+                                's3:x-amz-server-side-encryption': 'aws:kms'
+                            }
+                        }
+                    },
+                    {
+                        'Sid': 'DenyUnEncryptedObjectUploads',
+                        'Effect': 'Deny',
+                        'Principal': '*',
+                        'Action': 's3:PutObject',
+                        'Resource': f'arn:aws:s3:::{bucket_name}/*',
+                        'Condition': {
+                            'Null': {
+                                's3:x-amz-server-side-encryption': 'true'
+                            }
+                        }
+                    }
+                ]
+            }
+        )
+
     @classmethod
     def build_s3_bucket(cls, bucket_name, access_control=Private, include_lifecycle=True,
-                        s3_encrypt_key_ref=None) -> Bucket:
+                        s3_encrypt_key_ref=None, versioning=True) -> Bucket:
         """ Creates an S3 bucket under the given name/access control permissions.
             See troposphere.s3 for access control options.
 
@@ -382,6 +445,7 @@ class C4Datastore(C4Part):
             "LifecycleConfiguration": cls.build_s3_lifecycle_policy() if include_lifecycle else None,
             "BucketEncryption":
                 cls.build_s3_bucket_encryption(s3_encrypt_key_ref) if s3_encrypt_key_ref is not None else None,
+            "VersioningConfiguration": VersioningConfiguration(Status='Enabled') if versioning else None,
         }
         return Bucket(
             cls.build_s3_bucket_resource_name(bucket_name),
@@ -428,8 +492,9 @@ class C4Datastore(C4Part):
             uploading sensitive information to S3. This value should be written to the
             application configuration and also passed to Foursight/Tibanna.
 
-            TODO: implement APIs to use this key correctly, cannot download/distribute from KMS
-            Note that when doing this, the KeyPolicy will need to be updated
+            KeyPolicy creates two policies - one for admins who can manage the key, and
+            one for the S3IAMUser (and Tibanna) for using the key for normal operation.
+            Note that the roles are action restricted but not resource restricted.
         """
         deploying_iam_user = ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER)  # Required config setting
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
@@ -439,17 +504,37 @@ class C4Datastore(C4Part):
             Description=f'Key for encrypting sensitive S3 files for {env_name} environment',
             KeyPolicy={
                 'Version': '2012-10-17',
-                'Statement': [{
-                    'Sid': 'Enable IAM Policies',
-                    'Effect': 'Allow',
-                    'Principal': {
-                        'AWS': [
-                            Join('', ['arn:aws:iam::', AccountId, ':user/', deploying_iam_user]),
-                        ]
+                'Statement': [
+                    {
+                        'Sid': 'Enable Admin IAM Policies',
+                        'Effect': 'Allow',
+                        'Principal': {
+                            'AWS': [
+                                Join('', ['arn:aws:iam::', AccountId, ':user/',
+                                          ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER)]),
+                                f'arn:aws:iam::{AccountId}:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_AdministratorAccess_1b9a612a7ace4d54'
+                            ]
+                        },
+                        'Action': 'kms:*',  # Admins get full access
+                        'Resource': '*'
                     },
-                    'Action': 'kms:*',  # XXX: constrain further?
-                    'Resource': '*'
-                }]
+                    {
+                        'Sid': 'Allow use of the key',  # NOTE: this identifier must stay the same for tibanna
+                        'Effect': 'Allow',
+                        'Principal': {'AWS': [
+                            Join('', ['arn:aws:iam::', AccountId, ':user/',
+                                      self.IAM_EXPORTS.import_value(C4IAMExports.S3_IAM_USER)])
+                        ]},
+                        'Action': [
+                            'kms:Encrypt',
+                            'kms:Decrypt',
+                            'kms:ReEncrypt*',
+                            'kms:GenerateDataKey*',
+                            'kms:DescribeKey'
+                        ],
+                        'Resource': '*'
+                    }
+                ]
             },
             KeySpec='SYMMETRIC_DEFAULT',  # (AES-256-GCM)
             Tags=self.tags.cost_tag_array()
@@ -459,11 +544,12 @@ class C4Datastore(C4Part):
         """ Returns the application configuration secret. Note that this pushes up just a
             template - you must fill it out according to the specification in the README.
         """
-        env_name = ConfigManager.get_config_setting(Settings.IDENTITY)
-        logical_id = self.name.logical_id(camelize(env_name) + self.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
+        identity = ConfigManager.get_config_setting(Settings.IDENTITY)  # will use setting from config
+        if not identity:
+            identity = self.name.logical_id(camelize(env_name) + self.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
         return Secret(
-            logical_id,
-            Name=logical_id,
+            identity,
+            Name=identity,
             Description='This secret defines the application configuration for the orchestrated environment.',
             SecretString=json.dumps(self.application_configuration_template(), indent=2),
             Tags=self.tags.cost_tag_array()
@@ -503,7 +589,7 @@ class C4Datastore(C4Part):
                                                                               default=self.DEFAULT_RDS_INSTANCE_SIZE),
             Engine='postgres',
             EngineVersion=postgres_version or self.DEFAULT_RDS_POSTGRES_VERSION,
-            DBInstanceIdentifier=f"rds-{env_name}",  # was logical_id,
+            DBInstanceIdentifier=ConfigManager.get_config_setting(Settings.RDS_NAME) or f"rds-{env_name}",  # was logical_id,
             DBName=db_name or ConfigManager.get_config_setting(Settings.RDS_DB_NAME, default=self.DEFAULT_RDS_DB_NAME),
             DBParameterGroupName=Ref(self.rds_parameter_group()),
             DBSubnetGroupName=Ref(self.rds_subnet_group()),

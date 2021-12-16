@@ -25,14 +25,19 @@ from ..exports import C4Exports
 
 
 class C4ECRExports(C4Exports):
-    """ Holds exports for ECR. """
+    """ Holds exports for ECR.
+        For pipeline repository structure, see cgap-pipeline documentation.
+    """
     PORTAL_REPO_URL = 'RepoURL'
-    TIBANNA_REPO_URL = 'TibannaRepositoryURL'
-    CNV_REPO_URL = 'CNVRepositoryURL'
     FASTQC_REPO_URL = 'FastqcRepositoryURL'
-    MANTA_REPO_URL = 'MantaRepositoryURL'
+    BASE_REPO_URL = 'BaseRepositoryURL'
     MD5_REPO_URL = 'MD5RepositoryURL'
-    SNV_REPO_URL = 'SNVRepositoryURL'
+    UPSTREAM_SENTIEON = 'UpstreamSentieonRepositoryURL'
+    UPSTREAM_GATK = 'UpstreamGATKRepositoryURL'
+    MANTA_REPO_URL = 'MantaRepositoryURL'
+    SV_GERMLINE = 'SVGermlineRepositoryURL'
+    SNV_GERMLINE = 'SNVGermlineRepositoryURL'
+    TIBANNA_REPO_URL = 'TibannaRepositoryURL'
 
     def __init__(self):
         parameter = 'ECRStackNameParameter'
@@ -65,14 +70,18 @@ class C4ContainerRegistry(C4Part):
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
 
         # build repos
+        # note that these are defined by the structure in cgap-pipeline-master - Will Dec 6 2021
         repo_export_pairs = [
             (ECOSYSTEM, self.EXPORTS.PORTAL_REPO_URL),
             ('tibanna-awsf', self.EXPORTS.TIBANNA_REPO_URL),
-            ('cnv', self.EXPORTS.CNV_REPO_URL),
-            ('snv', self.EXPORTS.SNV_REPO_URL),
+            ('base', self.EXPORTS.BASE_REPO_URL),
+            ('upstream_gatk', self.EXPORTS.UPSTREAM_GATK),
+            ('upstream_sentieon', self.EXPORTS.UPSTREAM_SENTIEON),
+            ('snv_germline', self.EXPORTS.SNV_GERMLINE),
+            ('sv_germline', self.EXPORTS.SV_GERMLINE),
             ('manta', self.EXPORTS.MANTA_REPO_URL),
             ('md5', self.EXPORTS.MD5_REPO_URL),
-            ('fastqc', self.EXPORTS.FASTQC_REPO_URL)
+            ('fastqc', self.EXPORTS.FASTQC_REPO_URL),
         ]
         for rname, export in repo_export_pairs:
             if is_fourfront_env(env_name) and rname != ECOSYSTEM:

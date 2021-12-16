@@ -5,6 +5,8 @@ from troposphere.ec2 import (
     VPCEndpoint,
 )
 from ..part import C4Part
+from ..base import ConfigManager, Settings
+from .network import C4NetworkExports, C4Network
 
 
 class C4SentieonSupport(C4Part):
@@ -14,13 +16,18 @@ class C4SentieonSupport(C4Part):
     SENTIEON_MASTER_CIDR = '52.89.132.242/32'
     STACK_NAME_TOKEN = "sentieon"
     STACK_TITLE_TOKEN = "Sentieon"
+    NETWORK_EXPORTS = C4NetworkExports()
 
     def build_template(self, template: Template) -> Template:
-        # Parameters
-        template.add_parameter(self.vpc_id())
-        template.add_parameter(self.vpc_cidr())
+        # Network Stack Parameter
+        template.add_parameter(Parameter(
+            self.NETWORK_EXPORTS.reference_param_key,
+            Description='Name of network stack for network import value references',
+            Type='String',
+        ))
+
+        # SSH Key for access
         template.add_parameter(self.ssh_key())
-        template.add_parameter(self.subnet_a())
 
         # Security Group
         template.add_resource(self.application_security_group())
@@ -33,37 +40,6 @@ class C4SentieonSupport(C4Part):
         return template
 
     @staticmethod
-    def vpc_id() -> Parameter:
-        """ Parameter for the VPC ID. """
-        return Parameter(
-            'SentieonVPCID',
-            Description='VPC ID to associate with Sentieon SG',
-            Type='String',
-        )
-
-    @staticmethod
-    def vpc_cidr() -> Parameter:
-        """
-        Parameter for the vpc CIDR block we would like to deploy to
-        """
-        return Parameter(
-            'SentieonTargetCIDR',
-            Description='CIDR block for VPC',
-            Type='String',
-        )
-
-    @staticmethod
-    def subnet_a() -> Parameter:
-        """
-        Parameter for the subnet we would like to deploy to
-        """
-        return Parameter(
-            'SentieonTargetSubnet',
-            Description='Subnet to deploy Sentieon license server to',
-            Type='String',
-        )
-
-    @staticmethod
     def ssh_key() -> Parameter:
         """
         Parameter for the ssh key to associate with the Sentieon License Server
@@ -72,6 +48,7 @@ class C4SentieonSupport(C4Part):
             'SentieonSSHKey',
             Description='SSH Key to use with Sentieon - must be created ahead of time',
             Type='String',
+            Default=ConfigManager.get_config_setting(Settings.SENTIEON_SSH_KEY)
         )
 
     def application_security_group(self) -> SecurityGroup:
@@ -81,7 +58,7 @@ class C4SentieonSupport(C4Part):
             logical_id,
             GroupName=logical_id,
             GroupDescription='allows access needed by Sentieon License Server',
-            VpcId=Ref(self.vpc_id()),
+            VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
             Tags=self.tags.cost_tag_array(name=logical_id),
         )
 
@@ -89,6 +66,7 @@ class C4SentieonSupport(C4Part):
         """ Builds the actual rules associated with the above SG. """
         return [
             # SSH Access
+            # TODO: maybe only manually add this, so "my IP" restriction can be used? - Will Oct 27 2021
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationSSHInboundAllAccess'),
                 CidrIp='0.0.0.0/0',
@@ -111,7 +89,7 @@ class C4SentieonSupport(C4Part):
             # License Server
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationSentieonServer'),
-                CidrIp=Ref(self.vpc_cidr()),
+                CidrIp=C4Network.CIDR_BLOCK,
                 Description='allows inbound traffic on tcp port 8990 (license server port)',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
@@ -134,6 +112,8 @@ class C4SentieonSupport(C4Part):
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationICMPInboundAllAccess'),
                 CidrIp='0.0.0.0/0',
+                FromPort=-1,
+                ToPort=-1,
                 Description='allows ICMP',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='icmp',
@@ -141,6 +121,8 @@ class C4SentieonSupport(C4Part):
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationICMPv6InboundAllAccess'),
                 CidrIp='0.0.0.0/0',
+                FromPort=-1,
+                ToPort=-1,
                 Description='allows ICMP',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='icmpv6',
@@ -148,6 +130,8 @@ class C4SentieonSupport(C4Part):
             SecurityGroupEgress(
                 self.name.logical_id('ApplicationICMPOutboundAllAccess'),
                 CidrIp='0.0.0.0/0',
+                FromPort=-1,
+                ToPort=-1,
                 Description='allows ICMP',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='icmp',
@@ -170,7 +154,7 @@ class C4SentieonSupport(C4Part):
                 AssociatePublicIpAddress=True,
                 DeviceIndex=0,
                 GroupSet=[Ref(self.application_security_group())],
-                SubnetId=Ref(self.subnet_a()),
+                SubnetId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNETS[0]),
             )],
             KeyName=Ref(self.ssh_key())
         )

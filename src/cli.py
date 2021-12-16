@@ -103,6 +103,7 @@ class C4Client:
             bucket = ConfigManager.resolve_bucket_name(ConfigManager.FSBucketTemplate.APPLICATION_VERSIONS)
 
         creds_dir = ConfigManager.get_aws_creds_dir()
+        s3_key = ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
 
         # Mounts the output_file directory to the docker image's execution directory (/root/aws)
         mount_chalice_package = '{}/{}:/aws'.format(os.path.abspath(os.getcwd()), output_file)
@@ -120,7 +121,10 @@ class C4Client:
             '--s3-bucket',
             bucket,
             '--output-template-file sam-packaged.yaml',
+
         ])
+        if s3_key:  # if an s3 key is set, pass to enable server side encryption
+            package_flags += f' --kms-key-id {s3_key}'
         # construct package cmd
         cmd_package = 'docker run --rm -it {mount_points} {cmd} {flags}'.format(
             mount_points=mount_points,
@@ -143,6 +147,8 @@ class C4Client:
             cls.build_capability_param(stack),  # defaults to IAM
             '--no-execute-changeset',  # creates a changeset, does not execute template
         ])
+        if s3_key:  # if an s3 key is set, pass to enable server side encryption
+            deploy_flags += f' --kms-key-id {s3_key}'
         # construct deploy cmd
         cmd_deploy = 'docker run --rm -it {mount_points} {cmd} {flags}'.format(
             mount_points=mount_points,

@@ -272,11 +272,12 @@ that bucket in the AWS Console for S3 and upload a file that contains::
 The file ``.chalice/cgap-mastertest`` contains an example of what is loaded into our initial test account at
 ``s3://foursight-cgap-mastertest-envs/cgap-mastertest``, but the specific name of the bucket to load into is
 different in each account because s3 namespacing requires that. Rather than manage this manually there
-is an automatic tool to help.
+is an automatic tool to help. Note that if you are uploading to an encrypted environment, set the
+``"s3.encrypt_key_id"`` option in ``config.json`` and pass the ``--encrypted`` argument.
 
 To provision this bucket do::
 
-    assure-global-bucket-env <env-name>
+    assure-global-bucket-env --env_name <env-name>
 
 It should interactively confirm the environment that it will upload, and what account it will upload into.
 If the global env bucket has not been created yet for that account, it will complain, but that should have
@@ -335,6 +336,9 @@ To open the URL instead, use::
 
     open-foursight-url
 
+Note that if you have orchestrated with S3 + KMS encryption enabled see ``encryption.rst``
+for additional needed setup.
+
 Step Seven: Deploying Tibanna Zebra
 -----------------------------------
 
@@ -354,7 +358,7 @@ each point.
 If you have ENV_NAME set correctly as an environment variable, you can accomplish this by doing::
 
     source custom/aws_creds/test_creds.sh
-    tibanna_cgap deploy_zebra --subnets `network-attribute PrivateSudbnetA` -e $ENV_NAME -r `network-attribute ApplicationSecurityGroup`
+    tibanna_cgap deploy_zebra --subnets `network-attribute PrivateSubnetA` -e $ENV_NAME -r `network-attribute ApplicationSecurityGroup`
 
 
 While the tibanna deploy is happening, you may want to do this next step in another shell window.

@@ -264,6 +264,7 @@ class ConfigManager:
         METADATA_BUNDLES = '{application_prefix}{env_part}' + s3Utils.METADATA_BUCKET_SUFFIX  # metadata-bundles
         # NOTE: For TIBANNA_OUTPUT, we use a shared in ecosystem. No {env_part}
         TIBANNA_OUTPUT = '{application_prefix}' + s3Utils.TIBANNA_OUTPUT_BUCKET_SUFFIX          # tibanna-output
+        TIBANNA_CWL = '{application_prefix}' + s3Utils.TIBANNA_CWLS_BUCKET_SUFFIX
 
     class FSBucketTemplate:
 
