@@ -78,5 +78,12 @@ class Settings:
     # Sentieon Options
     SENTIEON_SSH_KEY = 'sentieon.ssh_key'
 
+    # JH Options
+    JH_SSH_KEY = 'jupyterhub.ssh_key'
+    JH_INSTANCE_SIZE = 'jupyterhub.instance_size'
+
+    # Secure AMI
+    HMS_SECURE_AMI = 'hms.secure_ami'
+
     # S3 KMS ServerSide Encryption Key
     S3_ENCRYPT_KEY_ID = 's3.encrypt_key_id'

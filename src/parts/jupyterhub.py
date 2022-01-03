@@ -8,14 +8,12 @@ from ..base import ConfigManager, Settings
 from .network import C4NetworkExports, C4Network
 
 
-class C4SentieonSupport(C4Part):
+class C4JupyterHubSupport(C4Part):
     """
-    Layer that provides an EC2 and associated resources for a Sentieon license server
+    Layer that provides a Load Balancer + EC2 instance for running our Dockerized JH component.
     """
-    SENTIEON_MASTER_CIDR = '52.89.132.242/32'
-    STACK_NAME_TOKEN = "sentieon"
-    STACK_TITLE_TOKEN = "Sentieon"
     NETWORK_EXPORTS = C4NetworkExports()
+    DEFAULT_HUB_SIZE = 'c5.large'
 
     def build_template(self, template: Template) -> Template:
         # Network Stack Parameter
@@ -28,35 +26,38 @@ class C4SentieonSupport(C4Part):
         # SSH Key for access
         template.add_parameter(self.ssh_key())
 
+        # TODO: ACM certificate parameter?
+
         # Security Group
         template.add_resource(self.application_security_group())
         for rule in self.application_security_rules():
             template.add_resource(rule)
 
-        # Add server
-        template.add_resource(self.sentieon_license_server())
+        # JupyterHub
+        template.add_resource(self.jupyterhub())
 
+        # TODO: Load balancer
         return template
 
     @staticmethod
     def ssh_key() -> Parameter:
         """
-        Parameter for the ssh key to associate with the Sentieon License Server
+        Parameter for the ssh key to associate with JH
         """
         return Parameter(
-            'SentieonSSHKey',
-            Description='SSH Key to use with Sentieon - must be created ahead of time',
+            'JHSSHKey',
+            Description='SSH Key to use with JH - must be created ahead of time',
             Type='String',
-            Default=ConfigManager.get_config_setting(Settings.SENTIEON_SSH_KEY)
+            Default=ConfigManager.get_config_setting(Settings.JH_SSH_KEY)
         )
 
     def application_security_group(self) -> SecurityGroup:
         """ Builds the application security group for the Sentieon License Server. """
-        logical_id = self.name.logical_id('SentieonSecurityGroup')
+        logical_id = self.name.logical_id('JHSecurityGroup')
         return SecurityGroup(
             logical_id,
             GroupName=logical_id,
-            GroupDescription='allows access needed by Sentieon License Server',
+            GroupDescription='allows access needed by Jupyterhub',
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
             Tags=self.tags.cost_tag_array(name=logical_id),
         )
@@ -85,69 +86,56 @@ class C4SentieonSupport(C4Part):
                 ToPort=22,
             ),
 
-            # License Server
+            # HTTP to/from LB
             SecurityGroupIngress(
-                self.name.logical_id('ApplicationSentieonServer'),
+                self.name.logical_id('ApplicationSSHInboundAllAccess'),
                 CidrIp=C4Network.CIDR_BLOCK,
-                Description='allows inbound traffic on tcp port 8990 (license server port)',
+                Description='allows inbound traffic on tcp port 80',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
-                FromPort=8990,
-                ToPort=8990,
+                FromPort=80,
+                ToPort=80,
+            ),
+            SecurityGroupEgress(
+                self.name.logical_id('ApplicationSSHOutboundAllAccess'),
+                CidrIp=C4Network.CIDR_BLOCK,
+                Description='allows outbound traffic on tcp port 80',
+                GroupId=Ref(self.application_security_group()),
+                IpProtocol='tcp',
+                FromPort=80,
+                ToPort=80,
             ),
 
-            # Outbound HTTPS to license master
+            # HTTPS to/from LB
+            SecurityGroupIngress(
+                self.name.logical_id('ApplicationSSHInboundAllAccess'),
+                CidrIp=C4Network.CIDR_BLOCK,
+                Description='allows inbound traffic on tcp port 443',
+                GroupId=Ref(self.application_security_group()),
+                IpProtocol='tcp',
+                FromPort=443,
+                ToPort=443,
+            ),
             SecurityGroupEgress(
-                self.name.logical_id('ApplicationHTTPSOutboundAllAccess'),
-                CidrIp=self.SENTIEON_MASTER_CIDR,
+                self.name.logical_id('ApplicationSSHOutboundAllAccess'),
+                CidrIp=C4Network.CIDR_BLOCK,
                 Description='allows outbound traffic on tcp port 443',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
                 FromPort=443,
                 ToPort=443,
             ),
-
-            # Various ICMP for server
-            SecurityGroupIngress(
-                self.name.logical_id('ApplicationICMPInboundAllAccess'),
-                CidrIp='0.0.0.0/0',
-                FromPort=-1,
-                ToPort=-1,
-                Description='allows ICMP',
-                GroupId=Ref(self.application_security_group()),
-                IpProtocol='icmp',
-            ),
-            SecurityGroupIngress(
-                self.name.logical_id('ApplicationICMPv6InboundAllAccess'),
-                CidrIp='0.0.0.0/0',
-                FromPort=-1,
-                ToPort=-1,
-                Description='allows ICMP',
-                GroupId=Ref(self.application_security_group()),
-                IpProtocol='icmpv6',
-            ),
-            SecurityGroupEgress(
-                self.name.logical_id('ApplicationICMPOutboundAllAccess'),
-                CidrIp='0.0.0.0/0',
-                FromPort=-1,
-                ToPort=-1,
-                Description='allows ICMP',
-                GroupId=Ref(self.application_security_group()),
-                IpProtocol='icmp',
-            ),
         ]
 
-    def sentieon_license_server(self) -> Instance:
-        """ Builds an EC2 Instance for use with Sentieon. Requires some manual setup,
-            see: https://support.sentieon.com/appnotes/license_server/#amazon-web-services-running-a-license-server-in-a-persistent-t2-nano-instance
-        """
+    def jupyterhub(self) -> Instance:
+        """ Builds an EC2 Instance for Jupyterhub """
         logical_id = self.name.logical_id('SentieonLicenseServer')
         network_interface_logical_id = self.name.logical_id('SentieonLicenseServerNetworkInterface')
         return Instance(
             logical_id,
             Tags=self.tags.cost_tag_array(name=logical_id),
             ImageId=ConfigManager.get_config_setting(Settings.HMS_SECURE_AMI, default='ami-087c17d1fe0178315'),  # amzn2-ami-hvm-2.0.20210813.1-x86_64-gp2
-            InstanceType='t2.nano',
+            InstanceType=ConfigManager.get_config_setting(Settings.JH_INSTANCE_SIZE, default=self.DEFAULT_HUB_SIZE),
             NetworkInterfaces=[NetworkInterfaceProperty(
                 network_interface_logical_id,
                 AssociatePublicIpAddress=True,
