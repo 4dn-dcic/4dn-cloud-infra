@@ -80,3 +80,19 @@ class Settings:
 
     # S3 KMS ServerSide Encryption Key
     S3_ENCRYPT_KEY_ID = 's3.encrypt_key_id'
+    # Was going to add this, but Will suggested we just use
+    # bool(S3_ENCRYPT_KEY_ID). This doesn't allow us to declare intent
+    # to encrypt, but it's pretty close, so we'll try for now without it.
+    #
+    # S3_ENCRYPTED = 's3.encrypted'
+
+    # various ecosystem default settings for env_utils
+
+    ENV_UTILS_DEFAULT_DATA_SET = "env_utils.default_data_set"
+    ENV_UTILS_DEV_ENV_DOMAIN_SUFFIX = "env_utils.dev_env_domain_suffix"
+    ENV_UTILS_FULL_ENV_PREFIX = "env_utils.full_env_prefix"
+    ENV_UTILS_HOTSEAT_ENVS = "env_utils.hotseat_envs"
+    ENV_UTILS_INDEXER_ENV_NAME = "env_utils.indexer_env_name"
+    ENV_UTILS_MIRROR_ENV_NAME = "env_utils.mirror_env_name"
+    ENV_UTILS_PUBLIC_URL_MAPPINGS = "env_utils.public_url_mappings"
+    ENV_UTILS_TEST_ENVS = "env_utils.test_envs"
