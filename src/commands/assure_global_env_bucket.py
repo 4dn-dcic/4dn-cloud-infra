@@ -69,7 +69,7 @@ VIEW_REGEXP = re.compile("(http.*/api/view/)[^/]+")
 
 def make_env_utils_config(env_name=None, org=None,
                           mirror_env_name=None, default_data_set=None, indexer_env_name=None,
-                          dev_env_domain_suffix=None,
+                          dev_env_domain_suffix=None, stg_mirroring_enabled=None,
                           full_env_prefix=None, test_envs=None, public_url_mappings=None, hotseat_envs=None) -> dict:
 
     env_name = env_name or ENV_NAME
@@ -129,6 +129,7 @@ def make_env_utils_config(env_name=None, org=None,
         e.ORCHESTRATED_APP: 'cgap',
         e.PRD_ENV_NAME: env_name,
         e.PUBLIC_URL_TABLE: public_url_mappings,
+        e.STAGE_MIRRORING_ENABLED: stg_mirroring_enabled or False,
         e.STG_ENV_NAME: mirror_env_name,
         e.TEST_ENVS: test_envs or [],
         e.WEBPROD_PSEUDO_ENV: env_name,
@@ -139,7 +140,7 @@ def make_env_utils_config(env_name=None, org=None,
 
 def configure_env_bucket(env_name=None,
                          mirror_env_name=None, default_data_set=None, indexer_env_name=None, org=None,
-                         dev_env_domain_suffix=None,
+                         dev_env_domain_suffix=None, stg_mirroring_enabled=None,
                          full_env_prefix=None, test_envs=None, public_url_mappings=None, hotseat_envs=None):
     """
     This will upload an appropriate entry into the global env bucket for the given env,
@@ -153,6 +154,7 @@ def configure_env_bucket(env_name=None,
                                              mirror_env_name=mirror_env_name, default_data_set=default_data_set,
                                              indexer_env_name=indexer_env_name, org=org,
                                              dev_env_domain_suffix=dev_env_domain_suffix,
+                                             stg_mirroring_enabled=stg_mirroring_enabled,
                                              full_env_prefix=full_env_prefix, test_envs=test_envs,
                                              public_url_mappings=public_url_mappings, hotseat_envs=hotseat_envs)
 
@@ -217,6 +219,9 @@ def main():
     parser.add_argument('--public-url-mappings', '--public_url_mappings', default=None, type=str,
                         help="A comma-separated list of public URL mapping specs."
                              " Each spec should be name=host or public_name=internal_name=host.")
+    parser.add_argument('--stg-mirroring-enabled', '--stg_mirroring_enabled', default=None,
+                        action="store_true", dest='stg_mirroring_enabled',
+                        help="If supplied, enables stage mirroring. (Specifying a mirror name is not enough.)")
     parser.add_argument('--test-envs', '--test_envs', default=None, type=str,
                         help="A comma-separated list of test environments.")
 
@@ -234,6 +239,7 @@ def main():
             hotseat_envs=args.hotseat_envs,
             indexer_env_name=args.indexer_env_name,
             mirror_env_name=args.mirror_env_name,
+            stg_mirroring_enabled=args.stg_mirroring_enabled,
             public_url_mappings=args.public_url_mappings,
             test_envs=args.test_envs,
         )

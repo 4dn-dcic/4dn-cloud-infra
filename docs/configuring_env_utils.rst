@@ -32,23 +32,28 @@ They can be configured as follows:
 =============================  ====================================  =====================================  =================================
 ``"dev_data_set_table"``         ``--default-data-set`` (see note)     ``env_utils.dev_data_set``           Creates a table with one entry.
 ``"dev_env_domain_suffix"``      ``--dev-env-domain-suffix``           ``env_utils.dev_env_domain_suffix``
-                                 ``--env-name``
-``"foursight_url_prefix"``                                                                                  Computed automatically once it
+``"prd_env_name"``               ``--env-name`` (see note)             ``ENCODED_BS_ENV``                   The ``--env`` is assumed
+                                                                                                            to be the prd for this ecosystem.
+``"foursight_url_prefix"``       (not specifiable)                     (not configurable)                   Computed automatically once it
                                                                                                             exists. Not predictable before.
 ``"full_env_prefix"``            ``--full-env-prefix``                ``env_utils.full_env_prefix``
 ``"hotseat_envs"``               ``--hotseat-envs``                   ``env_utils.hotseat_envs``            Given as a comma-separated list.
 ``"indexer_env_name"``           ``--indexer-env-name``               ``env_utils.indexer_env_name``
-``"is_legacy"``                                                                                             Computed automatically
-                                 ``--mirror-env-name``                ``env_utils.mirror_env_name``         (always ``False``).
+``"is_legacy"``                  (not specifiable)                    (not configurable)                    Computed automatically
+                                                                                                            as constant ``False``.
 ``"orchestrated_app"``                                                                                      Defaults to ``APP_KIND``.
-                                 ``--org``
-``"prd_env_name"``
+                                 ``--org``                            ``s3.bucket.org``                     The org token used as part of
+                                                                                                            S3 bucket name.
 ``"public_url_table"``           ``--public-url-mappings``            ``env_utils.public_url_mappings``     Special syntax required.
                                  (see note)
-``"stage_mirroring_enabled"``                                                                               Computed automatically.
-``"stg_env_name"``
+``"stage_mirroring_enabled"``    ``--stg-mirroring-enabled``          ``env_utils.stg_mirroring_enabled``   Defaults to ``False``
+                                                                                                            unless explicitly ``True``
+                                                                                                            on command line or in config.
+``"stg_env_name"``               ``--mirror-env-name`` (see note)     ``env_utils.mirror_env_name``         As ``--env``is assumed to be prd,
+                                                                                                            its mirror is assumed to be stg.
 ``"test_envs"``                  ``--test-envs``                       ``env_utils.test_envs``              Given as a comma-separated list.
-``"webprod_pseudo_env"``                                                                                    Probably same as prd_env_name
+``"webprod_pseudo_env"``         (not specifiable)                     (not configurable)                   Probably same as prd_env_name
                                                                                                             except for legacy compatibility.
+                                                                                                            Set it by hand in that rare case.
 =============================  ====================================  =====================================  =================================
 
