@@ -5,13 +5,12 @@ import re
 
 from dcicutils.command_utils import yes_or_no
 from dcicutils.env_utils import EnvNames, PublicUrlParts, ClassificationParts
-from dcicutils.misc_utils import PRINT, ignored
+from dcicutils.misc_utils import PRINT, ignored, string_list, find_association
 from urllib.parse import urlparse
 from ..base import (
     ConfigManager,
-    ENV_NAME, S3_BUCKET_ORG, S3_IS_ENCRYPTED,
+    ENV_NAME, S3_BUCKET_ORG, S3_IS_ENCRYPTED, APP_KIND,
 )
-from ..base import string_list
 from ..constants import Settings
 from ..parts.datastore import C4DatastoreExports
 from ..parts.ecs import C4ECSApplicationExports
@@ -149,11 +148,6 @@ def configure_env_bucket(env_name=None,
     global_env_bucket = C4DatastoreExports.get_env_bucket()
     s3 = boto3.client('s3')
     env_name = env_name or ConfigManager.get_config_setting(Settings.ENV_NAME)
-    content = {
-        "fourfront": C4ECSApplicationExports.get_application_url(env_name) + ":80",
-        "es": "https://" + C4DatastoreExports.get_es_url() + ":443",
-        "ff_env": env_name,
-    }
 
     env_utils_config = make_env_utils_config(env_name=env_name,
                                              mirror_env_name=mirror_env_name, default_data_set=default_data_set,
@@ -161,6 +155,17 @@ def configure_env_bucket(env_name=None,
                                              dev_env_domain_suffix=dev_env_domain_suffix,
                                              full_env_prefix=full_env_prefix, test_envs=test_envs,
                                              public_url_mappings=public_url_mappings, hotseat_envs=hotseat_envs)
+
+    internal_server_url = C4ECSApplicationExports.get_application_url(env_name) + ":80"
+    entry = find_association(env_utils_config.get(e.PUBLIC_URL_TABLE, []), **{p.ENVIRONMENT: env_name})
+    public_server_url = entry.get(p.URL) if entry else None
+
+    content = {
+        "fourfront": public_server_url or internal_server_url,
+        "es": "https://" + C4DatastoreExports.get_es_url() + ":443",
+        "ff_env": env_name,
+    }
+
     content.update(env_utils_config)
 
     try:

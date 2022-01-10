@@ -575,7 +575,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
 name = "dcicutils"
-version = "3.1.0.1b15"
+version = "3.1.0.1b16"
 description = "Utility package for interacting with the 4DN Data Portal and other 4DN resources"
 category = "main"
 optional = false
@@ -1622,7 +1622,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.6.10,<3.7"
-content-hash = "e7e6254fd13d252705ee6af61a33a924a9a4441d47c0d9bebcee80520d2de592"
+content-hash = "4da2af734e3e425976691abd3007d40c2bad97fa8fbd3ec3c17fe29f3a22c2d2"
 
 [metadata.files]
 ansicon = [
@@ -1720,8 +1720,8 @@ colorama = [
     {file = "colorama-0.4.3.tar.gz", hash = "sha256:e96da0d330793e2cb9485e9ddfd918d456036c7149416295932478192f4436a1"},
 ]
 dcicutils = [
-    {file = "dcicutils-3.1.0.1b15-py3-none-any.whl", hash = "sha256:2fe6a70eb354095c70f260a65e6efe9a4f8d0d4726fe92792ae08cbc4fc225a0"},
-    {file = "dcicutils-3.1.0.1b15.tar.gz", hash = "sha256:5b189f763552be58f1f804269609a0297de0c392a36351561364c415d98e97e1"},
+    {file = "dcicutils-3.1.0.1b16-py3-none-any.whl", hash = "sha256:757e243c390e18ad48cbdc8ab88aa0df834e2301e5433261ef2b16f429b4c17e"},
+    {file = "dcicutils-3.1.0.1b16.tar.gz", hash = "sha256:a120da08c11d9098514cc9992933d676689d2072f3ca775c32bdddc6f78fa8e0"},
 ]
 decorator = [
     {file = "decorator-4.4.2-py2.py3-none-any.whl", hash = "sha256:41fa54c2a0cc4ba648be4fd43cff00aedf5b9465c9bf18d64325bc225f08f760"},
