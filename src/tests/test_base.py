@@ -1,7 +1,7 @@
 import pytest
 
 from dcicutils.exceptions import InvalidParameterError
-from ..base import REGISTERED_STACKS, register_stack_creator, lookup_stack_creator
+from ..base import REGISTERED_STACKS, register_stack_creator, lookup_stack_creator  # , string_list
 
 
 def test_register_stack_creator_and_lookup_stack_creator():
@@ -50,3 +50,18 @@ def test_register_stack_creator_and_lookup_stack_creator():
 
     assert lookup_stack_creator(name='foo', kind='alpha', exact=False) == create_alpha_foo_stack
     assert lookup_stack_creator(name='bar', kind='alpha', exact=False) == create_alpha_bar_stack
+
+
+# Moved to dcicutils
+# def test_string_list():
+# 
+#     assert string_list('') == []
+#     assert string_list('foo') == ['foo']
+#     assert string_list('foo,bar') == ['foo', 'bar']
+#     assert string_list('foo,bar,baz') == ['foo', 'bar', 'baz']
+# 
+#     # Edge cases
+#     assert string_list(' ') == []
+#     assert string_list('  foo   ') == ['foo']
+#     assert string_list('  foo   ,,bar ,  ') == ['foo', 'bar']
+

@@ -12,10 +12,18 @@ from dcicutils.exceptions import InvalidParameterError, SynonymousEnvironmentVar
 from dcicutils.lang_utils import conjoined_list
 from dcicutils.misc_utils import (
     PRINT, check_true, decorator, file_contents, find_association, find_associations, ignorable, override_environ,
+    string_md5
 )
 from dcicutils.s3_utils import s3Utils
 from .exceptions import CLIException
 from .constants import Secrets, Settings
+
+
+# Moved to dcicutils 3.6
+# def string_list(s):  # TODO: move to utils
+#     if not isinstance(s, str):
+#         raise ValueError(f"Not a string: {s!r}")
+#     return [p for p in [part.strip() for part in s.split(",")] if p]
 
 
 _MISSING = object()
@@ -354,8 +362,10 @@ class ConfigManager:
         return default
 
 
-def string_md5(unicode_string):
-    return hashlib.md5(unicode_string.encode('utf-8')).hexdigest()
+# Moved to dcicutils.misc_utils
+#
+# def string_md5(unicode_string):
+#     return hashlib.md5(unicode_string.encode('utf-8')).hexdigest()
 
 
 def check_environment_variable_consistency(checker=None, verbose_success=False):
@@ -467,3 +477,16 @@ if not DEPLOYING_IAM_USER:
     raise ValueError(f"A setting for {Settings.DEPLOYING_IAM_USER} is required.")
 
 ECOSYSTEM = ConfigManager.get_config_setting(Settings.S3_BUCKET_ECOSYSTEM, default=DEFAULT_ECOSYSTEM)
+
+S3_BUCKET_ORG = ConfigManager.get_config_setting(Settings.S3_BUCKET_ORG)
+
+# The reason we have a S3_IS_ALWAYS_ENCRYPTED that we 'or' with the key ID to find out if we're running with
+# encrypted S3 buckets is that especially after a change to make it the default, we might in some cases
+# know that we want encryption but don't yet have the key configured, so better errors will result
+# if we look for the key and report an error for not finding it than if we assume that the key being
+# missing is intended. In the long run, we can phase this detail out. -kmp 7-Jan-2022
+
+S3_IS_ALWAYS_ENCRYPTED = False  # This may change soon
+
+S3_IS_ENCRYPTED = (S3_IS_ALWAYS_ENCRYPTED
+                   or bool(ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)))

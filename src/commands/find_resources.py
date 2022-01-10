@@ -3,7 +3,7 @@ import boto3
 import os
 import subprocess
 
-from dcicutils.cloudformation_utils import camelize
+from dcicutils.cloudformation_utils import camelize, hyphenify
 from dcicutils.misc_utils import find_association, PRINT
 from ..base import ConfigManager, ENV_NAME, ECOSYSTEM, COMMON_STACK_PREFIX_CAMEL_CASE
 from ..constants import Settings
@@ -16,8 +16,10 @@ EPILOG = __doc__
 REGION = 'us-east-1'  # TODO: make customizable
 
 
-def hyphenify(x):
-    return x.replace("_", "-")
+# This has been moved to dcicutils.cloudformation_utils
+#
+# def hyphenify(x):
+#     return x.replace("_", "-")
 
 
 # I didn't use the actual code snippets that were given, but this information was useful:
