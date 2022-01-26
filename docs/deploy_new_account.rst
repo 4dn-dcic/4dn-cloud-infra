@@ -444,7 +444,7 @@ MSA URL with the new URL.::
             "AllowedMethods": [
                 "GET"
             ],
-            "AllowedOrigins": [,
+            "AllowedOrigins": [
                 "https://cgap-msa.hms.harvard.edu"
             ],
             "ExposeHeaders": []
