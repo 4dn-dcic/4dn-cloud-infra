@@ -1,6 +1,9 @@
-from troposphere import Ref, Template, Parameter
+from troposphere import (
+    Ref, Template, Parameter,
+    elasticloadbalancingv2 as elbv2,
+)
 from troposphere.ec2 import (
-    SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
+    SecurityGroup, SecurityGroupEgress, SecurityGroupIngress, SecurityGroupRule,
     Instance, NetworkInterfaceProperty,
 )
 from ..part import C4Part
@@ -36,7 +39,7 @@ class C4JupyterHubSupport(C4Part):
         # JupyterHub
         template.add_resource(self.jupyterhub())
 
-        # TODO: Load balancer
+        # TODO: Load balancer? Probably make configurable whether to include
         return template
 
     @staticmethod
@@ -128,9 +131,11 @@ class C4JupyterHubSupport(C4Part):
         ]
 
     def jupyterhub(self) -> Instance:
-        """ Builds an EC2 Instance for Jupyterhub """
-        logical_id = self.name.logical_id('SentieonLicenseServer')
-        network_interface_logical_id = self.name.logical_id('SentieonLicenseServerNetworkInterface')
+        """ Builds an EC2 Instance for Jupyterhub.
+            This EC2 runs in a private subnet, intended for use with a public subnet load balancer.
+        """
+        logical_id = self.name.logical_id('JupyterHub')
+        network_interface_logical_id = self.name.logical_id('JupyterHubNetworkInterface')
         return Instance(
             logical_id,
             Tags=self.tags.cost_tag_array(name=logical_id),
@@ -141,7 +146,85 @@ class C4JupyterHubSupport(C4Part):
                 AssociatePublicIpAddress=True,
                 DeviceIndex=0,
                 GroupSet=[Ref(self.application_security_group())],
-                SubnetId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNETS[0]),
+                SubnetId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNETS[0]),
             )],
             KeyName=Ref(self.ssh_key())
+        )
+
+    def jupyterhub_lb_security_group(self) -> SecurityGroup:
+        """ SG for the LB, allowing traffic on ports 80/443.
+            TODO: refactor into common component that can imported (see duplicate in ecs.py)
+        """
+        logical_id = self.name.logical_id('LBSecurityGroup')
+        return SecurityGroup(
+            logical_id,
+            GroupDescription="Web load balancer security group.",
+            VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
+            SecurityGroupIngress=[
+                SecurityGroupRule(
+                    IpProtocol='tcp',
+                    FromPort=443,
+                    ToPort=443,
+                    CidrIp='0.0.0.0/0',
+                ),
+                SecurityGroupRule(
+                    IpProtocol='tcp',
+                    FromPort=80,
+                    ToPort=80,
+                    CidrIp='0.0.0.0/0',
+                ),
+            ],
+            Tags=self.tags.cost_tag_array()
+        )
+
+    def jupyterhub_lbv2_target_group(self, name='TargetGroupJupyterhub') -> elbv2.TargetGroup:
+        """ Creates LBv2 target group for Jupyterhub.
+            Like the portal, terminates HTTPS at the load balancer.
+            Note that unlike the ECS services, JH will NOT automatically associate with the target group!
+            Navigate to the console to do so manually once ready.
+        """
+        logical_id = self.name.logical_id(name)
+        return elbv2.TargetGroup(
+            logical_id,
+            HealthCheckIntervalSeconds=60,
+            HealthCheckPath='/health?format=json',
+            HealthCheckProtocol='HTTP',
+            HealthCheckTimeoutSeconds=10,
+            Matcher=elbv2.Matcher(HttpCode='200'),
+            Name=name,
+            Port=80,
+            TargetType='ip',
+            Protocol='HTTP',
+            VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
+            Tags=self.tags.cost_tag_array()
+        )
+
+    def jupyterhub_application_load_balancer_listener(self, target_group: elbv2.TargetGroup) -> elbv2.Listener:
+        """ Listener for the application load balancer, forwards traffic to the target group (JH). """
+        logical_id = self.name.logical_id('LBListener')
+        return elbv2.Listener(
+            logical_id,
+            Port=80,
+            Protocol='HTTP',
+            LoadBalancerArn=Ref(self.jupyterhub_application_load_balancer()),
+            DefaultActions=[
+                elbv2.Action(Type='forward', TargetGroupArn=Ref(target_group))
+            ]
+        )
+
+    def jupyterhub_application_load_balancer(self) -> elbv2.LoadBalancer:
+        """ Application load balancer for JupyterHub. """
+        lb_name = 'JupyterHubLB'
+        logical_id = self.name.logical_id('LoadBalancer')
+        return elbv2.LoadBalancer(
+            logical_id,
+            IpAddressType='ipv4',
+            Name=lb_name,  # was logical_id
+            Scheme='internet-facing',
+            SecurityGroups=[
+                Ref(self.jupyterhub_lb_security_group())
+            ],
+            Subnets=[self.NETWORK_EXPORTS.import_value(subnet_key) for subnet_key in C4NetworkExports.PUBLIC_SUBNETS],
+            Tags=self.tags.cost_tag_array(name=logical_id),
+            Type='application',
         )

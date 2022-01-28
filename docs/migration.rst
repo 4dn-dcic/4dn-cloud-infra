@@ -61,4 +61,44 @@ in the new account.
 Functional Validation
 =====================
 
-Write me!
+Use the following checklist to validate a large chunk of standard functionality for
+the portal. If you encounter issues (internal server error, client side error etc), double
+check the application code (cgap-portal or fourfront). Note that this checklist assumes
+sufficient production data for various modules to be available.
+
+1. Main Page
+    a. Core project searches load within ~5 seconds
+    b. q= searches work
+    c. Facets work (term, range, SAYT)
+    d. Project selection works
+2. Submission (Ingestion, Indexing)
+    a. Submit gene list works
+    b. Submit xls works
+3. General Case navigation
+    a. Case page loads
+    b. Pedigree loads
+    c. Patient info loads
+    e. Family info loads
+    f. Status overview bar loads
+    g. Accessioning tab filled out
+    h. Bioinformatics tab
+    i. Link to QC reports should work
+    j. Link to wfoutput files should work
+4. Filtering tab
+    a. Add facets to filter sets
+    b. Name, save filter sets
+    c. Saved filter set results persist on reload
+    d. Can save VS's to interpretation space
+5. Interpretation tab
+    a. VS's moved successfully to this module
+    b. Classifications can be made, are visible
+    c. Gene, transcript links
+6. Case review tab
+    a. Report generation
+7. Variant Sample/Structural Variant Sample View
+    a. Variant opens first, fields/links present
+    b. Gene info present
+    c. Sample info present
+    d. Annotation browser loads all tracks
+    e. BAM file browser loads all tracks
+    f. Bamsnap image links work
