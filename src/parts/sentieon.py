@@ -13,8 +13,8 @@ class C4SentieonSupport(C4Part):
     Layer that provides an EC2 and associated resources for a Sentieon license server
     """
     SENTIEON_MASTER_CIDR = '52.89.132.242/32'
-    STACK_NAME_TOKEN = "sentieon"
-    STACK_TITLE_TOKEN = "Sentieon"
+    STACK_NAME_TOKEN = 'sentieon'
+    STACK_TITLE_TOKEN = 'Sentieon'
     NETWORK_EXPORTS = C4NetworkExports()
 
     def build_template(self, template: Template) -> Template:

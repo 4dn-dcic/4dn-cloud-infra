@@ -15,6 +15,8 @@ class C4JupyterHubSupport(C4Part):
     """
     Layer that provides a Load Balancer + EC2 instance for running our Dockerized JH component.
     """
+    STACK_NAME_TOKEN = 'jupyterhub'
+    STACK_TITLE_TOKEN = 'Jupyterhub'
     NETWORK_EXPORTS = C4NetworkExports()
     DEFAULT_HUB_SIZE = 'c5.large'
 
