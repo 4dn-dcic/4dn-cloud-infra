@@ -41,7 +41,12 @@ class C4JupyterHubSupport(C4Part):
         # JupyterHub
         template.add_resource(self.jupyterhub())
 
-        # TODO: Load balancer? Probably make configurable whether to include
+        # Add load balancer for the hub
+        template.add_resource(self.jupyterhub_lb_security_group())
+        target_group = self.jupyterhub_lbv2_target_group()
+        template.add_resource(target_group)
+        template.add_resource(self.jupyterhub_application_load_balancer_listener(target_group))
+        template.add_resource(self.jupyterhub_application_load_balancer())
         return template
 
     @staticmethod
