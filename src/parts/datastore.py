@@ -236,6 +236,7 @@ class C4Datastore(C4Part):
             # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
             'ENCODED_S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None),
             'ENCODED_SENTRY_DSN': '',
+            'ENCODED_URL': '',  # set this manually post orchestration
             'reCaptchaKey': ConfigManager.get_config_secret(Secrets.RECAPTCHA_KEY, default=None),
             'reCaptchaSecret': ConfigManager.get_config_secret(Secrets.RECAPTCHA_SECRET, default=None),
         })
