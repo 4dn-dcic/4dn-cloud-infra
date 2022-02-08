@@ -98,7 +98,7 @@ class C4JupyterHubSupport(C4Part):
 
             # HTTP to/from LB
             SecurityGroupIngress(
-                self.name.logical_id('ApplicationSSHInboundAllAccess'),
+                self.name.logical_id('ApplicationHTTPInboundAllAccess'),
                 CidrIp=C4Network.CIDR_BLOCK,
                 Description='allows inbound traffic on tcp port 80',
                 GroupId=Ref(self.application_security_group()),
@@ -107,7 +107,7 @@ class C4JupyterHubSupport(C4Part):
                 ToPort=80,
             ),
             SecurityGroupEgress(
-                self.name.logical_id('ApplicationSSHOutboundAllAccess'),
+                self.name.logical_id('ApplicationHTTPOutboundAllAccess'),
                 CidrIp=C4Network.CIDR_BLOCK,
                 Description='allows outbound traffic on tcp port 80',
                 GroupId=Ref(self.application_security_group()),
@@ -118,7 +118,7 @@ class C4JupyterHubSupport(C4Part):
 
             # HTTPS to/from LB
             SecurityGroupIngress(
-                self.name.logical_id('ApplicationSSHInboundAllAccess'),
+                self.name.logical_id('ApplicationHTTPSInboundAllAccess'),
                 CidrIp=C4Network.CIDR_BLOCK,
                 Description='allows inbound traffic on tcp port 443',
                 GroupId=Ref(self.application_security_group()),
@@ -127,7 +127,7 @@ class C4JupyterHubSupport(C4Part):
                 ToPort=443,
             ),
             SecurityGroupEgress(
-                self.name.logical_id('ApplicationSSHOutboundAllAccess'),
+                self.name.logical_id('ApplicationHTTPSOutboundAllAccess'),
                 CidrIp=C4Network.CIDR_BLOCK,
                 Description='allows outbound traffic on tcp port 443',
                 GroupId=Ref(self.application_security_group()),
