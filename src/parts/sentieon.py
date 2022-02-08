@@ -1,8 +1,7 @@
-from troposphere import Ref, GetAtt, Output, Template, Parameter
+from troposphere import Ref, Template, Parameter
 from troposphere.ec2 import (
-    InternetGateway, Route, RouteTable, SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
-    Subnet, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment, NatGateway, EIP, Instance, NetworkInterfaceProperty,
-    VPCEndpoint,
+    SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
+    Instance, NetworkInterfaceProperty,
 )
 from ..part import C4Part
 from ..base import ConfigManager, Settings
@@ -14,8 +13,8 @@ class C4SentieonSupport(C4Part):
     Layer that provides an EC2 and associated resources for a Sentieon license server
     """
     SENTIEON_MASTER_CIDR = '52.89.132.242/32'
-    STACK_NAME_TOKEN = "sentieon"
-    STACK_TITLE_TOKEN = "Sentieon"
+    STACK_NAME_TOKEN = 'sentieon'
+    STACK_TITLE_TOKEN = 'Sentieon'
     NETWORK_EXPORTS = C4NetworkExports()
 
     def build_template(self, template: Template) -> Template:
@@ -138,7 +137,7 @@ class C4SentieonSupport(C4Part):
             ),
         ]
 
-    def sentieon_license_server(self):
+    def sentieon_license_server(self) -> Instance:
         """ Builds an EC2 Instance for use with Sentieon. Requires some manual setup,
             see: https://support.sentieon.com/appnotes/license_server/#amazon-web-services-running-a-license-server-in-a-persistent-t2-nano-instance
         """
@@ -147,7 +146,7 @@ class C4SentieonSupport(C4Part):
         return Instance(
             logical_id,
             Tags=self.tags.cost_tag_array(name=logical_id),
-            ImageId='ami-087c17d1fe0178315',  # amzn2-ami-hvm-2.0.20210813.1-x86_64-gp2
+            ImageId=ConfigManager.get_config_setting(Settings.HMS_SECURE_AMI, default='ami-087c17d1fe0178315'),  # amzn2-ami-hvm-2.0.20210813.1-x86_64-gp2
             InstanceType='t2.nano',
             NetworkInterfaces=[NetworkInterfaceProperty(
                 network_interface_logical_id,

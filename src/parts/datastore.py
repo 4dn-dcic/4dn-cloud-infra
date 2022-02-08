@@ -236,6 +236,7 @@ class C4Datastore(C4Part):
             # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
             'ENCODED_S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None),
             'ENCODED_SENTRY_DSN': '',
+            'ENCODED_URL': '',  # set this manually post orchestration
             'reCaptchaKey': ConfigManager.get_config_secret(Secrets.RECAPTCHA_KEY, default=None),
             'reCaptchaSecret': ConfigManager.get_config_secret(Secrets.RECAPTCHA_SECRET, default=None),
         })
@@ -275,8 +276,11 @@ class C4Datastore(C4Part):
         # Add s3_encrypt_key, application configuration template
         # IMPORTANT: This s3_encrypt_key is different than the key used for admin access keys in the
         # system bucket. This key is used to encrypt all objects uploaded to s3.
-        s3_encrypt_key = self.s3_encrypt_key()
-        template.add_resource(s3_encrypt_key)
+        s3_encrypt_key = None
+        encryption_enabled = ConfigManager.get_config_setting(Settings.S3_BUCKET_ENCRYPTION, default=False)
+        if encryption_enabled:
+            s3_encrypt_key = self.s3_encrypt_key()
+            template.add_resource(s3_encrypt_key)
         secret = self.application_configuration_secret()
         template.add_resource(secret)
         template.add_output(
@@ -299,13 +303,13 @@ class C4Datastore(C4Part):
             if export_name in self.LIFECYCLE_BUCKET_EXPORT_NAMES:
                 use_lifecycle_policy = True
             bucket_name = self.resolve_bucket_name(bucket_template)
-            # use infra s3_encrypt_key for standard files
-            if export_name != C4DatastoreExports.APPLICATION_SYSTEM_BUCKET:
+            # use infra s3_encrypt_key for standard files if specified
+            if encryption_enabled and export_name != C4DatastoreExports.APPLICATION_SYSTEM_BUCKET:
                 bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy,
                                               s3_encrypt_key_ref=Ref(s3_encrypt_key))
                 template.add_resource(bucket)  # must be added before policy
                 template.add_resource(self.force_encryption_bucket_policy(bucket_name, bucket))
-            else:  # if we are the system bucket, rely on the S3_ENCRYPT_KEY we manually create
+            else:  # do not set the policy if encryption is not enabled OR we are the system bucket
                 bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy)
                 template.add_resource(bucket)
             template.add_output(self.output_s3_bucket(export_name, bucket_name))

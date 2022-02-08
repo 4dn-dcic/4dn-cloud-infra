@@ -28,6 +28,7 @@ class Settings:
     IDENTITY = 'identity'  # XXX: import from dcicutils  -- change in progress to put it on health page
     S3_BUCKET_ORG = "s3.bucket.org"  # was 'ENCODED_S3_BUCKET_ORG'
     S3_BUCKET_ECOSYSTEM = "s3.bucket.ecosystem"
+    S3_BUCKET_ENCRYPTION = "s3.bucket.encryption"
 
     APP_KIND = "app.kind"
 
@@ -77,6 +78,13 @@ class Settings:
 
     # Sentieon Options
     SENTIEON_SSH_KEY = 'sentieon.ssh_key'
+
+    # JH Options
+    JH_SSH_KEY = 'jupyterhub.ssh_key'
+    JH_INSTANCE_SIZE = 'jupyterhub.instance_size'
+
+    # Secure AMI
+    HMS_SECURE_AMI = 'hms.secure_ami'
 
     # S3 KMS ServerSide Encryption Key
     S3_ENCRYPT_KEY_ID = 's3.encrypt_key_id'

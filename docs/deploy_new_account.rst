@@ -38,6 +38,10 @@ Note that the HMS email you use to create this account is treated as the 'root a
   link the ``custom/aws_creds`` folder in any given sandbox to the appropriate credentials directory, that might be
   shared.
 
+* Decide whether or not you would like this version of the system to be deployed with S3 encryption or not.
+cgap-portal in its current form does not take PHI, and thus in theory does not need to encrypt any raw files
+stored in S3. We have still implemented the ability to do so by setting the
+
 
 Step Two: CGAP Orchestration with Cloud Formation
 -------------------------------------------------
@@ -444,7 +448,7 @@ MSA URL with the new URL.::
             "AllowedMethods": [
                 "GET"
             ],
-            "AllowedOrigins": [,
+            "AllowedOrigins": [
                 "https://cgap-msa.hms.harvard.edu"
             ],
             "ExposeHeaders": []
