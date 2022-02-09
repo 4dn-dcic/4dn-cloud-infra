@@ -186,7 +186,7 @@ class C4IAM(C4Part):
                         'ecs:*',
                         'elasticloadbalancing:*',
                     ],
-                    Resource='*',
+                    Resource=['*'],
                 )],
             ),
         )
@@ -204,7 +204,7 @@ class C4IAM(C4Part):
                         'logs:Create*',
                         'logs:PutLogEvents',
                     ],
-                    Resource='*'  # XXX: Constrain further? Must match WRT log group and AWS logs
+                    Resource=['*']  # XXX: Constrain further? Must match WRT log group and AWS logs
                 )]
             )
         )
@@ -224,7 +224,7 @@ class C4IAM(C4Part):
                         BatchGetImage,
                         BatchCheckLayerAvailability,
                     ],
-                    Resource='*',  # XXX: constrain further?
+                    Resource=['*'],  # XXX: constrain further?
                 )],
             ),
         )
@@ -245,7 +245,7 @@ class C4IAM(C4Part):
                         'ec2:Describe*',
                         'ec2:AuthorizeSecurityGroupIngress',
                     ],
-                    Resource='*',  # XXX: constrain further?
+                    Resource=['*'],  # XXX: constrain further?
                 )],
             ),
         )
@@ -266,7 +266,7 @@ class C4IAM(C4Part):
                     Action=[
                         'cloudformation:DescribeStacks',
                     ],
-                    Resource='*',  # XXX: constrain further?
+                    Resource=['*'],  # XXX: constrain further?
                 )],
             ),
         )
@@ -286,7 +286,7 @@ class C4IAM(C4Part):
                         's3:GetObject',
                         's3:DeleteObject',
                     ],
-                    Resource='*',  # XXX: constrain further?
+                    Resource=['*'],  # XXX: constrain further?
                 )],
             ),
         )
@@ -337,12 +337,12 @@ class C4IAM(C4Part):
         return Policy(
             PolicyName='CGAPDevUserRDSAccess',
             PolicyDocument={
-                "Version": "2012-10-17",
-                "Statement": [
+                'Version': '2012-10-17',
+                'Statement': [
                     {
-                        "Effect": "Allow",
-                        "Action": "rds:*",
-                        "Resource": "*"
+                        'Effect': 'Allow',
+                        'Action': 'rds:*',
+                        'Resource': '*'
                     }
                 ]
             }
@@ -355,16 +355,21 @@ class C4IAM(C4Part):
         return Policy(
             PolicyName='CGAPKMSPolicy',
             PolicyDocument={
-                'Effect': 'Allow',
-                'Action': [
-                    'kms:Encrypt',
-                    'kms:Decrypt',
-                    'kms:ReEncrypt*',
-                    'kms:GenerateDataKey*',
-                    'kms:DescribeKey'
-                ],
-                'Resource': [
-                    '*'
+                'Version': '2012-10-17',
+                'Statement': [
+                    {
+                        'Effect': 'Allow',
+                        'Action': [
+                            'kms:Encrypt',
+                            'kms:Decrypt',
+                            'kms:ReEncrypt*',
+                            'kms:GenerateDataKey*',
+                            'kms:DescribeKey'
+                        ],
+                        'Resource': [
+                            '*'
+                        ]
+                    }
                 ]
             }
         )
