@@ -490,6 +490,8 @@ class C4IAM(C4Part):
                     Principal=AWSPrincipal(AccountId)
                 )]
             ),
+            # we can use 10 of these policies, so these 10 are selected with intention
+            # as they are hard to craft reasonably - Will Feb 10 2022
             ManagedPolicyArns=[
                 'arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess',  # read only for logs
                 'arn:aws:iam::aws:policy/IAMReadOnlyAccess',  # read only for IAM
@@ -500,6 +502,7 @@ class C4IAM(C4Part):
                 'arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess',  # full access for Step Functions (tibanna)
                 'arn:aws:iam::aws:policy/AWSLambda_FullAccess',  # full access to lambda (foursight)
                 'arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess',  # full perms to codebuild (app version build)
+                'arn:aws:iam::aws:policy/AmazonEC2FullAccess'  # full access to EC2 (tibanna)
             ],
             Policies=policies
         )
