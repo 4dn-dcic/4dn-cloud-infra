@@ -4,8 +4,7 @@ default: info
 
 configure:
 	pip install --upgrade pip
-	pip install poetry==1.1.12
-	pip install wheel
+	pip install poetry wheel
 
 build:
 	make configure
@@ -29,15 +28,6 @@ alpha:
 	# TODO validate foursight
 	# TODO provision Tibanna
 	@echo 'Validation Succeeded! Note that this does NOT mean the stacks will build - consider a "light check".'
-
-legacy:
-	@echo 'Validating CGAP-Portal Legacy'
-	poetry run cli provision c4-network-trial --validate
-	poetry run cli provision c4-datastore-trial --validate
-	poetry run cli provision c4-beanstalk-trial --validate
-	# TODO provision foursight
-	# TODO provision Tibanna
-	@echo 'Validation Succeeded!'
 
 assure-s3-encrypt-key:
 	@./scripts/assure_s3_encrypt_key
@@ -117,7 +107,6 @@ info:
 	   $(info - Use 'make deploy-alpha-p1' to trigger phase 1 of the alpha deployment: change set upload of the IAM, Logging, Network, ECR and Datastore.)
 	   $(info - Use 'make deploy-alpha-p2' to trigger phase 2 of the alpha deployment: application version upload to ECR, ECS provisioning.)
 	   $(info - use 'make ingestion' to trigger the last phase of testing)
-	   $(info - Use 'make legacy' to trigger validation of the legacy stack.)
 	   $(info - use 'make provision-knowledge-base' to trigger phase 1 of testing)
 	   $(info - use 'make submission' to trigger phase 2 of testing, note manual steps after phase 2!)
 	   $(info - use 'make test' to run unit tests. (These only test scattered things. Manual testing is essential.))
