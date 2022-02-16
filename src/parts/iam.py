@@ -1,4 +1,4 @@
-from awacs.aws import PolicyDocument, Statement, Action, Principal
+from awacs.aws import PolicyDocument, Statement, Action, Principal, AWSPrincipal
 from awacs.ecr import (
     GetAuthorizationToken,
     GetDownloadUrlForLayer,
@@ -53,7 +53,7 @@ class C4IAM(C4Part):
         flowlog_role = self.vcp_flowlog_role()
         template.add_resource(flowlog_role)  # no need to export, only used for logs
         dev_iam_role = self.dev_user_role()
-        # template.add_resource(dev_iam_role) add back later
+        template.add_resource(dev_iam_role)
         instance_profile = self.ecs_instance_profile()
         template.add_resource(instance_profile)
         autoscaling_iam_role = self.ecs_autoscaling_role()
@@ -186,7 +186,7 @@ class C4IAM(C4Part):
                         'ecs:*',
                         'elasticloadbalancing:*',
                     ],
-                    Resource='*',
+                    Resource=['*'],
                 )],
             ),
         )
@@ -204,7 +204,7 @@ class C4IAM(C4Part):
                         'logs:Create*',
                         'logs:PutLogEvents',
                     ],
-                    Resource='*'  # XXX: Constrain further? Must match WRT log group and AWS logs
+                    Resource=['*']  # XXX: Constrain further? Must match WRT log group and AWS logs
                 )]
             )
         )
@@ -224,7 +224,7 @@ class C4IAM(C4Part):
                         BatchGetImage,
                         BatchCheckLayerAvailability,
                     ],
-                    Resource='*',  # XXX: constrain further?
+                    Resource=['*'],  # XXX: constrain further?
                 )],
             ),
         )
@@ -245,7 +245,7 @@ class C4IAM(C4Part):
                         'ec2:Describe*',
                         'ec2:AuthorizeSecurityGroupIngress',
                     ],
-                    Resource='*',  # XXX: constrain further?
+                    Resource=['*'],  # XXX: constrain further?
                 )],
             ),
         )
@@ -266,7 +266,7 @@ class C4IAM(C4Part):
                     Action=[
                         'cloudformation:DescribeStacks',
                     ],
-                    Resource='*',  # XXX: constrain further?
+                    Resource=['*'],  # XXX: constrain further?
                 )],
             ),
         )
@@ -286,7 +286,7 @@ class C4IAM(C4Part):
                         's3:GetObject',
                         's3:DeleteObject',
                     ],
-                    Resource='*',  # XXX: constrain further?
+                    Resource=['*'],  # XXX: constrain further?
                 )],
             ),
         )
@@ -332,39 +332,27 @@ class C4IAM(C4Part):
         )
 
     @staticmethod
-    def dev_rds_policy() -> Policy:
-        """ A policy granting full RDS perms to a dev user. """
-        return Policy(
-            PolicyName='CGAPDevUserRDSAccess',
-            PolicyDocument={
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Effect": "Allow",
-                        "Action": "rds:*",
-                        "Resource": "*"
-                    }
-                ]
-            }
-        )
-
-    @staticmethod
     def kms_policy() -> Policy:
         """ Defines a policy that gives permission access to a subset of actions on KMS.
             Needed for the S3Federator to generate URLs that enable server side encryption. """
         return Policy(
             PolicyName='CGAPKMSPolicy',
             PolicyDocument={
-                'Effect': 'Allow',
-                'Action': [
-                    'kms:Encrypt',
-                    'kms:Decrypt',
-                    'kms:ReEncrypt*',
-                    'kms:GenerateDataKey*',
-                    'kms:DescribeKey'
-                ],
-                'Resource': [
-                    '*'
+                'Version': '2012-10-17',
+                'Statement': [
+                    {
+                        'Effect': 'Allow',
+                        'Action': [
+                            'kms:Encrypt',
+                            'kms:Decrypt',
+                            'kms:ReEncrypt*',
+                            'kms:GenerateDataKey*',
+                            'kms:DescribeKey'
+                        ],
+                        'Resource': [
+                            '*'
+                        ]
+                    }
                 ]
             }
         )
@@ -485,23 +473,36 @@ class C4IAM(C4Part):
             self.ecs_access_policy(),
             # full control of the ES
             self.ecs_es_policy(),
-            # full control of SQS
-            self.ecs_sqs_policy(),
-            self.ecs_ecr_policy(),  # to pull down container images
-
             # standard s3 perms
             self.ecs_s3_policy(),
-            # full rds perms
-            self.dev_rds_policy()
+            # kms access
+            self.kms_policy()
         ]
         return Role(
             self.DEV_ROLE,
-            AssumeRolePolicyDocument=PolicyDocument(  # no one can assume this role
+            AssumeRolePolicyDocument=PolicyDocument(
                 Version='2012-10-17',
-                Statement=[]
+                Statement=[Statement(
+                    Effect='Allow',
+                    Action=[
+                        Action('sts', 'AssumeRole')
+                    ],
+                    Principal=AWSPrincipal(AccountId)
+                )]
             ),
+            # we can use 10 of these policies, so these 10 are selected with intention
+            # as they are hard to craft reasonably - Will Feb 10 2022
             ManagedPolicyArns=[
-                'arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess'
+                'arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess',  # read only for logs
+                'arn:aws:iam::aws:policy/IAMReadOnlyAccess',  # read only for IAM
+                'arn:aws:iam::aws:policy/AmazonRDSReadOnlyAccess',  # read only for RDS
+                'arn:aws:iam::aws:policy/AWSCloudFormationReadOnlyAccess',  # read only for cfn
+                'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser',  # most perms for ECR
+                'arn:aws:iam::aws:policy/AmazonSQSFullAccess',  # full access to sqs (indexing queues)
+                'arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess',  # full access for Step Functions (tibanna)
+                'arn:aws:iam::aws:policy/AWSLambda_FullAccess',  # full access to lambda (foursight)
+                'arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess',  # full perms to codebuild (app version build)
+                'arn:aws:iam::aws:policy/AmazonEC2FullAccess'  # full access to EC2 (tibanna)
             ],
             Policies=policies
         )

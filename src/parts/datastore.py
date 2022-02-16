@@ -514,9 +514,7 @@ class C4Datastore(C4Part):
                         'Effect': 'Allow',
                         'Principal': {
                             'AWS': [
-                                Join('', ['arn:aws:iam::', AccountId, ':user/',
-                                          ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER)]),
-                                f'arn:aws:iam::{AccountId}:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_AdministratorAccess_1b9a612a7ace4d54'
+                                ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER)
                             ]
                         },
                         'Action': 'kms:*',  # Admins get full access

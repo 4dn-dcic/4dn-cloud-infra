@@ -17,7 +17,8 @@ from troposphere import (
 )
 from dcicutils.cloudformation_utils import dehyphenate
 from dcicutils.env_utils import is_fourfront_env
-from troposphere.ecr import Repository
+from dcicutils.misc_utils import snake_case_to_camel_case
+from troposphere.ecr import Repository, ImageScanningConfiguration
 from ..base import ECOSYSTEM, ConfigManager, Settings
 from ..parts.iam import C4IAMExports
 from ..part import C4Part
@@ -156,10 +157,10 @@ class C4ContainerRegistry(C4Part):
         # repo_name = repo_name or ConfigManager.get_config_setting(Settings.ENV_NAME)
         repo_name = repo_name or ECOSYSTEM
         return Repository(
-            dehyphenate(repo_name),  # must be lowercase, appears unused?
+            dehyphenate(snake_case_to_camel_case(repo_name)),  # must be lowercase, no hyphens or underscores
             RepositoryName=repo_name,  # might be we need many of these?
             RepositoryPolicyText=self.ecr_access_policy(),
-            ImageScanningConfiguration={"ScanOnPush": True},
+            ImageScanningConfiguration=ImageScanningConfiguration(ScanOnPush=True),
             Tags=self.tags.cost_tag_obj(),
         )
 
