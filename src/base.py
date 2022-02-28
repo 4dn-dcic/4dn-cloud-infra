@@ -28,8 +28,9 @@ REGISTERED_STACK_CLASSES = {}
 COMMON_STACK_PREFIX = "c4-"
 COMMON_STACK_PREFIX_CAMEL_CASE = "C4"
 
-STACK_KINDS = ['alpha']  # No longer supporting 'legacy' stacks
-
+# Alpha stacks are generally CGAP related but can be used with FF
+# 4dn stacks are specific to 4DN
+STACK_KINDS = ['alpha', '4dn']
 _INI_FILE_KEY_REGEXP = re.compile("^([^ =]+)[ ]*=[ ]*(.*)$")
 
 

@@ -86,8 +86,6 @@ class C4Client:
                 break
         return caps
 
-    # APPLICATION_BUCKET_TEMPLATE = "{foursight_prefix}{env_part}application-versions"
-
     @classmethod
     def upload_chalice_package(cls, *, output_file, stack: BaseC4FoursightStack, bucket=None):
         """ Specific upload process for a chalice application, e.g. foursight. Assumes chalice package has been run.
@@ -227,10 +225,26 @@ class C4Client:
     @staticmethod
     def resolve_alpha_stack(stack_name):
         """ Figures out which stack to run in the ECS case. """
-        account = C4Client.resolve_account()
-        stack_creator = lookup_stack_creator(name=stack_name, kind='alpha', exact=True)  # fourfront_ecs != ecs
-        stack = stack_creator(account=account)
-        return stack
+        try:
+            account = C4Client.resolve_account()
+            stack_creator = lookup_stack_creator(name=stack_name, kind='alpha', exact=True)
+            stack = stack_creator(account=account)
+            return stack
+        except CLIException as e:
+            PRINT(f'Got known exception {e}')
+            return None
+
+    @staticmethod
+    def resolve_4dn_stack(stack_name):
+        """ Figures out which stack to run for 4dn specific stacks. """
+        try:
+            account = C4Client.resolve_account()
+            stack_creator = lookup_stack_creator(name=stack_name, kind='4dn', exact=True)
+            stack = stack_creator(account=account)
+            return stack
+        except CLIException as e:
+            PRINT(f'Got known exception {e}')
+            return None
 
     @staticmethod
     def resolve_legacy_stack(args):
@@ -287,10 +301,21 @@ class C4Client:
 
         with ConfigManager.validate_and_source_configuration():
 
-            print("Account=", ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER))
-            print("AWS_ACCESS_KEY_ID=", os.environ.get("AWS_ACCESS_KEY_ID"))
+            PRINT("Account=", ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER))
+            PRINT("AWS_ACCESS_KEY_ID=", os.environ.get("AWS_ACCESS_KEY_ID"))
 
-            stack = cls.resolve_alpha_stack(stack_name=stack_name)
+            alpha_stack = cls.resolve_alpha_stack(stack_name=stack_name)
+            dcic_stack = cls.resolve_4dn_stack(stack_name=stack_name)
+            if alpha_stack and dcic_stack:
+                raise CLIException(f'Ambiguous stack name {stack_name} resolved'
+                                   f' to both alpha and 4dn stacks! Update your stack'
+                                   f' name so it does not clash with other stacks.')
+            if alpha_stack:
+                stack = alpha_stack
+            if dcic_stack:
+                stack = dcic_stack
+            if not stack:
+                raise CLIException(f'Did not locate stack name: {stack_name}')
 
             if cls.is_foursight_stack(stack):  # Handle foursight
 

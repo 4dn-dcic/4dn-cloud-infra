@@ -20,7 +20,7 @@ class C4IAMExports(C4Exports):
     ECS_ASSUMED_IAM_ROLE = exportify('ECSAssumedIAMRole')  # was 'ExportECSAssumedIAMRole'
     ECS_INSTANCE_PROFILE = exportify('ECSInstanceProfile')  # was 'ExportECSInstanceProfile'
     AUTOSCALING_IAM_ROLE = exportify('ECSAutoscalingIAMRole')  # was 'ExportECSAutoscalingIAMRole'
-    DEV_IAM_ROLE = exportify('CGAPDevUserRole')
+    DEV_IAM_ROLE = exportify('ECSDevUserRole')
     S3_IAM_USER = exportify('ECSS3IAMUser')  # was 'ExportECSS3IAMUser'
 
     def __init__(self):
@@ -29,7 +29,9 @@ class C4IAMExports(C4Exports):
 
 
 class C4IAM(C4Part):
-    """ Contains IAM Role configuration for CGAP.
+    """ Contains IAM Role configuration for CGAP/FF.
+        Both apps have the same permission sets needed (for now) so the roles are used interchangably.
+        If this changes, feel free to extend this class and override as needed.
         Right now, there is only one important IAM Role to configure.
         That is the assumed IAM role assigned to ECS.
     """
@@ -70,8 +72,8 @@ class C4IAM(C4Part):
                                                                  export_name=C4IAMExports.AUTOSCALING_IAM_ROLE))
         template.add_output(self.output_assumed_iam_role_or_user(s3_iam_user,
                                                                  export_name=C4IAMExports.S3_IAM_USER))
-        # template.add_output(self.output_assumed_iam_role_or_user(dev_iam_role,
-        #                                                          export_name=C4IAMExports.DEV_IAM_ROLE))
+        template.add_output(self.output_assumed_iam_role_or_user(dev_iam_role,
+                                                                 export_name=C4IAMExports.DEV_IAM_ROLE))
         template.add_output(self.output_instance_profile(instance_profile))
         return template
 
@@ -295,7 +297,7 @@ class C4IAM(C4Part):
     def ecs_autoscaling_access_policy() -> Policy:
         """ Contains policies needed for the IAM role assumed by the autoscaling service. """
         return Policy(
-            PolicyName='CGAPAutoscalingPolicy',
+            PolicyName='ECSPortalAutoscalingPolicy',
             PolicyDocument=dict(
                 Version='2012-10-17',
                 Statement=[dict(
@@ -318,7 +320,7 @@ class C4IAM(C4Part):
             user who federates access to S3.
         """
         return Policy(
-            PolicyName='CGAPSTSPolicyforS3Access',
+            PolicyName='ECSSTSPolicyforS3Access',
             PolicyDocument={
                 "Version": "2012-10-17",
                 "Statement": [
@@ -336,7 +338,7 @@ class C4IAM(C4Part):
         """ Defines a policy that gives permission access to a subset of actions on KMS.
             Needed for the S3Federator to generate URLs that enable server side encryption. """
         return Policy(
-            PolicyName='CGAPKMSPolicy',
+            PolicyName='ECSKMSPolicy',
             PolicyDocument={
                 'Version': '2012-10-17',
                 'Statement': [
@@ -363,7 +365,7 @@ class C4IAM(C4Part):
             any cloudwatch log.
         """
         return Policy(
-            PolicyName='CGAPCWLoggingAccess',
+            PolicyName='ECSCWLoggingAccess',
             PolicyDocument={
                 "Version": "2012-10-17",
                 "Statement": [
