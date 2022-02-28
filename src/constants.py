@@ -2,7 +2,7 @@
 # that contain the desired information. Setting any of these values
 # in config.json will have the effect of setting the configuration
 # option for the orchestration. The only options listed that are
-# currently unavailable are: ES_MASTER_COUNT, ES_MASTER_TYPE, IDENTITY
+# currently unavailable are: ES_MASTER_COUNT, ES_MASTER_TYPE
 
 class Secrets:
     # Secrets (customarily held in environment variables by these names)
@@ -26,11 +26,12 @@ class Settings:
     # GLOBAL_ENV_BUCKET = 'GLOBAL_ENV_BUCKET'
 
     IDENTITY = 'identity'  # XXX: import from dcicutils  -- change in progress to put it on health page
-    S3_BUCKET_ORG = "s3.bucket.org"  # was 'ENCODED_S3_BUCKET_ORG'
-    S3_BUCKET_ECOSYSTEM = "s3.bucket.ecosystem"
-    S3_BUCKET_ENCRYPTION = "s3.bucket.encryption"
+    S3_BUCKET_ORG = 's3.bucket.org'  # was 'ENCODED_S3_BUCKET_ORG'
+    S3_BUCKET_ECOSYSTEM = 's3.bucket.ecosystem'
+    S3_BUCKET_ENCRYPTION = 's3.bucket.encryption'
 
-    APP_KIND = "app.kind"
+    APP_KIND = 'app.kind'
+    APP_DEPLOYMENT = 'app.deploy'
 
     # RDS Configuration Options
 

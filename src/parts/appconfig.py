@@ -109,13 +109,23 @@ class C4AppConfig(C4Part):
     }
 
     def build_template(self, template: Template) -> Template:
-        application_configuration_secret = self.application_configuration_secret()
-        template.add_resource(application_configuration_secret)
-        template.add_output(self.output_configuration_secret(application_configuration_secret))
+        """ Builds the appconfig template - builds GACs for blue/green if APP_DEPLOYMENT == bg """
+        if ConfigManager.get_config_setting(Settings.APP_DEPLOYMENT) == 'bg':  # blue/green
+            gac_blue = self.application_configuration_secret(postfix='Blue')
+            template.add_resource(gac_blue)
+            template.add_output(self.output_configuration_secret(gac_blue, postfix='Blue'))
+            gac_green = self.application_configuration_secret(postfix='Green')
+            template.add_resource(gac_green)
+            template.add_output(self.output_configuration_secret(gac_green, postfix='Green'))
+        else:  # standalone
+            application_configuration_secret = self.application_configuration_secret()
+            template.add_resource(application_configuration_secret)
+            template.add_output(self.output_configuration_secret(application_configuration_secret))
         return template
 
-    def output_configuration_secret(self, application_configuration_secret):
-        logical_id = self.name.logical_id(C4AppConfigExports.EXPORT_APPLICATION_CONFIG)
+    def output_configuration_secret(self, application_configuration_secret, postfix=None):
+        """ Outputs GAC """
+        logical_id = self.name.logical_id(C4AppConfigExports.EXPORT_APPLICATION_CONFIG) + postfix if postfix else ''
         return Output(
             logical_id,
             Description='Application Configuration Secret',
@@ -123,11 +133,12 @@ class C4AppConfig(C4Part):
             Export=self.EXPORTS.export(C4AppConfigExports.EXPORT_APPLICATION_CONFIG)
         )
 
-    def application_configuration_secret(self) -> Secret:
+    def application_configuration_secret(self, postfix=None) -> Secret:
         """ Returns the application configuration secret. Note that this pushes up just a
             template - you must fill it out according to the specification in the README.
         """
-        env_identifier = ConfigManager.get_config_setting(Settings.ENV_NAME).replace('-', '')
+        env_identifier = (ConfigManager.get_config_setting(Settings.ENV_NAME).replace('-', '') +
+                          postfix if postfix else '')
         if not env_identifier:
             raise Exception('Did not set required key in .env! Should never get here.')
         logical_id = self.name.logical_id(self.APPLICATION_SECRET_STRING) + env_identifier
