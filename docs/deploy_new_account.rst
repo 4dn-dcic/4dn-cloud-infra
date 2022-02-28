@@ -299,7 +299,7 @@ in your ``config.json``.)
 At this point, you should be ready to deploy foursight. To do so, use this command::
 
     source custom/aws_creds/test_creds.sh
-    poetry run cli provision foursight --upload-change-set
+    poetry run cli provision foursight --upload-change-set --stage prod
     #############################################################################################################
     # NOTE: It should no longer be necessary to add an environment variable here, such as:                      #
     #       GLOBAL_BUCKET_ENV=foursight-cgap-mastertest-envs                                                    #
@@ -308,7 +308,8 @@ At this point, you should be ready to deploy foursight. To do so, use this comma
     #       will be needed.)                                                                                    #
     #       It should also no longer be necessary to provide --output-file out/foursight-dev-tmp/ --stage dev   #
     #       on the command line because these are now the default for this provision operation.                 #
-    # NOTE: Will wants an explanation of 'dev' vs 'prod' here.                                                  #
+    # NOTE: We are specifying the prod stage explicitly here. Do not pass --stage if you do not want actions to #
+    #       run automatically.                                                                                  #
     #############################################################################################################
 
 * Go to the console and execute the change set.
@@ -318,7 +319,7 @@ Some information is only available after completely executing the first change s
 We'll change that in the future.
 For now, you'll need to run this a second time once various values have been created.
 
-* Deploy the deployment action a second time, same as the first::
+* Provision the changeset (and thus triggering a redeployment) a second time, same as the first::
 
    poetry run cli provision foursight --upload-change-set
 

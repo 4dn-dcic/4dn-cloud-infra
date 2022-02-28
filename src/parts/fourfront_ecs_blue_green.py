@@ -24,6 +24,8 @@ class FourfrontECSBlueGreen(C4ECSApplication):
         Note that this only orchestrates the ECS component - datastore is still TODO.
     """
     VPC_SQS_URL = 'https://sqs.us-east-1.amazonaws.com/'
+    IMAGE_TAG_BLUE = 'blue'
+    IMAGE_TAG_GREEN = 'green'
 
     def build_template(self, template: Template) -> Template:
         """ Builds the template containing two ECS environments. """
@@ -64,14 +66,20 @@ class FourfrontECSBlueGreen(C4ECSApplication):
         template.add_resource(self.ecs_cluster_green())
 
         # ECS Tasks/Services
-        # template.add_resource(self.ecs_portal_task())
-        # portal = self.ecs_portal_service()
-        # template.add_resource(portal)
-        # template.add_resource(self.ecs_indexer_task())
-        # indexer = self.ecs_indexer_service()
-        # template.add_resource(indexer)
-        # template.add_resource(self.ecs_deployment_task(initial=True))
-        # template.add_resource(self.ecs_deployment_task())
+        tags = ['blue', 'green']
+        for tag in tags:
+            portal_task = self.ecs_portal_task(image_tag=tag)
+            template.add_resource(portal_task)
+            portal_service = self.ecs_portal_service(task_definition=Ref(portal_task))
+            template.add_resource(portal_service)
+
+            indexer_task = self.ecs_indexer_task(image_tag=tag)
+            template.add_resource(indexer_task)
+            indexer_service = self.ecs_indexer_service(task_definition=Ref(indexer_task))
+            template.add_resource(indexer_service)
+
+            template.add_resource(self.ecs_deployment_task(image_tag=tag, initial=True))
+            template.add_resource(self.ecs_deployment_task(image_tag=tag))
 
         # Target Groups
         target_group_green = self.ecs_lbv2_target_group_green()
@@ -167,13 +175,14 @@ class FourfrontECSBlueGreen(C4ECSApplication):
         """ Defines the green application load balancer. """
         return self.ecs_application_load_balancer(terminal='-green')
 
-    def ecs_portal_task(self, cpu='1024', mem='2048', identity=None) -> TaskDefinition:
+    def ecs_portal_task(self, cpu='4096', mem='8192', image_tag=None, identity=None) -> TaskDefinition:
         """ Defines the portal Task (serve HTTP requests).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
             Note that not much has changed for the FF version.
 
             :param cpu: CPU value to assign to this task, default 256 (play with this value)
             :param mem: Memory amount for this task, default to 512 (play with this value)
+            :param image_tag: image tag to use for this task
             :param identity: name of secret containing the identity information for this environment
         """
         return TaskDefinition(
@@ -191,7 +200,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
-                        self.IMAGE_TAG,
+                        self.IMAGE_TAG if image_tag is None else image_tag,
                     ]),
                     PortMappings=[PortMapping(
                         ContainerPort=Ref(self.ecs_web_worker_port()),
@@ -226,12 +235,13 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             Tags=self.tags.cost_tag_obj(),
         )
 
-    def ecs_portal_service(self, concurrency=8) -> Service:
+    def ecs_portal_service(self, task_definition=None, concurrency=8) -> Service:
         """ Defines the portal service (manages portal Tasks)
             Note dependencies: https://stackoverflow.com/questions/53971873/the-target-group-does-not-have-an-associated-load-balancer
 
             Defined by the ECR Image tag 'latest'.
 
+            :param task_definition: reference to task definition to use
             :param concurrency: # of concurrent tasks to run - since this setup is intended for use with
                                 production, this value is 8, approximately matching our current resources.
         """  # noQA - ignore line length issues
@@ -259,7 +269,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                     Weight=1
                 )
             ],
-            TaskDefinition=Ref(self.ecs_portal_task()),
+            TaskDefinition=Ref(self.ecs_portal_task()) if not task_definition else task_definition,
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
@@ -273,12 +283,13 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             Tags=self.tags.cost_tag_obj()
         )
 
-    def ecs_indexer_task(self, cpu=None, memory=None, identity=None) -> TaskDefinition:
+    def ecs_indexer_task(self, cpu='256', memory='512', image_tag=None, identity=None) -> TaskDefinition:
         """ Defines the Indexer task (indexer app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
             :param cpu: CPU value to assign to this task, default 256 (play with this value)
             :param memory: Memory amount for this task, default to 512 (play with this value)
+            :param image_tag: image tag to use for this task, latest by default
             :param identity: name of secret containing the identity information for this environment
                              (defaults to value of environment variable IDENTITY,
                              or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
@@ -298,7 +309,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                     Image=Join('', [
                         self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
-                        self.IMAGE_TAG,
+                        image_tag if image_tag else self.IMAGE_TAG,
                     ]),
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
@@ -331,12 +342,13 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             Tags=self.tags.cost_tag_obj()
         )
 
-    def ecs_indexer_service(self, concurrency=4) -> Service:
+    def ecs_indexer_service(self, task_definition=None, concurrency=4) -> Service:
         """ Defines the Indexer service (manages Indexer Tasks)
             TODO SQS autoscaling trigger?
 
             Defined by the ECR Image tag 'latest-indexer'.
 
+            :param task_definition: reference to task definition to use
             :param concurrency: # of concurrent tasks to run - since this setup is intended for use with
                                 production, this value is 4, approximately matching our current resources.
         """
@@ -356,7 +368,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                     Weight=1
                 )
             ],
-            TaskDefinition=Ref(self.ecs_indexer_task()),
+            TaskDefinition=Ref(self.ecs_indexer_task()) if not task_definition else task_definition,
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
@@ -370,7 +382,8 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             Tags=self.tags.cost_tag_obj()
         )
 
-    def ecs_deployment_task(self, cpu=None, memory=None, identity=None, initial=False) -> TaskDefinition:
+    def ecs_deployment_task(self, cpu='1024', memory='2048', image_tag=None, identity=None,
+                            initial=False) -> TaskDefinition:
         """ Defines the Deployment task (run deployment action).
             Meant to be run manually from ECS Console (or from foursight), so no associated service.
 
@@ -378,6 +391,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
 
             :param cpu: CPU value to assign to this task, default 256 (play with this value)
             :param memory: Memory amount for this task, default to 512 (play with this value)
+            :param image_tag: image tag to use for this task, latest by default
             :param identity: name of secret containing the identity information for this environment
                              (defaults to value of environment variable IDENTITY,
                              or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
@@ -410,7 +424,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
-                        self.IMAGE_TAG,
+                        image_tag if image_tag else self.IMAGE_TAG,
                     ]),
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
@@ -444,7 +458,3 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             ],
             Tags=self.tags.cost_tag_obj()
         )
-
-
-
-

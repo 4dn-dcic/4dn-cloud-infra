@@ -252,6 +252,22 @@ class C4ECSApplication(C4Part):
             ]
         )
 
+    @staticmethod
+    def ecs_application_load_balancer_stickiness_options():
+        """ Configure the LB such that a session cookie is used to map user sessions to specific
+            worker nodes on a 1 hour rotating basis.
+        """
+        return elbv2.LoadBalancerAttributes([
+            {
+                'Key': 'stickiness.enabled',
+                'Value': 'true'
+            },
+            {
+                'Key': 'stickiness.lb_cookie.duration_seconds',
+                'Value': '3600'  # 1 hour
+            }
+        ])
+
     def ecs_application_load_balancer(self, terminal=None) -> elbv2.LoadBalancer:
         """ Application load balancer for the portal ECS Task.
             Allows one to pass a "terminal", allowing blue/green configuration
@@ -265,6 +281,7 @@ class C4ECSApplication(C4Part):
             IpAddressType='ipv4',
             Name=env_name,  # was logical_id
             Scheme='internet-facing',
+            LoadBalancerAttributes=self.ecs_application_load_balancer_stickiness_options(),
             SecurityGroups=[
                 Ref(self.ecs_lb_security_group())
             ],
