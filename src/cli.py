@@ -25,7 +25,7 @@ AWS_REGION = 'us-east-1'
 
 class C4Client:
     """ Client class for interacting with and provisioning CGAP Infrastructure as Code. """
-    ALPHA_LEAF_STACKS = ['iam', 'logging', 'network']  # stacks that only export values
+    ALPHA_LEAF_STACKS = ['iam', 'logging', 'network', 'appconfig']  # stacks that only export values
     CAPABILITY_IAM = 'CAPABILITY_IAM'
     FOURFRONT_NETWORK_STACK = 'c4-network-main-stack'  # this stack name is shared by all fourfront envs
     REQUIRES_CAPABILITY_IAM = ['iam', 'foursight']  # these stacks require CAPABILITY_IAM, just IAM for now

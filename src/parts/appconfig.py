@@ -1,6 +1,7 @@
 import json
 
 from dcicutils.misc_utils import ignorable
+from dcicutils.cloudformation_utils import dehyphenate
 from troposphere import (
     # Join,
     Ref,
@@ -30,6 +31,7 @@ class C4AppConfigExports(C4Exports):
     # Output ES URL for use by foursight/application
     ES_URL = 'ExportElasticSearchURL'
 
+    # Standalone, blue/green version is inlined
     EXPORT_APPLICATION_CONFIG = 'ExportApplicationConfig'
 
     # RDS Exports
@@ -63,11 +65,10 @@ class C4AppConfigExports(C4Exports):
 
 class C4AppConfig(C4Part):
     """ Defines the AppConfig stack - see resources created in build_template method. """
-    STACK_NAME_TOKEN = "appconfig"
-    STACK_TITLE_TOKEN = "AppConfig"
+    STACK_NAME_TOKEN = 'appconfig'
+    STACK_TITLE_TOKEN = 'AppConfig'
     SHARING = 'env'
 
-    APPLICATION_SECRET_STRING = 'ApplicationConfiguration'
     RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names
     EXPORTS = C4AppConfigExports()
     NETWORK_EXPORTS = C4NetworkExports()
@@ -125,23 +126,22 @@ class C4AppConfig(C4Part):
 
     def output_configuration_secret(self, application_configuration_secret, postfix=None):
         """ Outputs GAC """
-        logical_id = self.name.logical_id(C4AppConfigExports.EXPORT_APPLICATION_CONFIG) + postfix if postfix else ''
+        logical_id = (self.name.logical_id(C4AppConfigExports.EXPORT_APPLICATION_CONFIG) +
+                      postfix if postfix else '')
+        export = (self.EXPORTS.export(C4AppConfigExports.EXPORT_APPLICATION_CONFIG +
+                  postfix if postfix else ''))
         return Output(
             logical_id,
             Description='Application Configuration Secret',
             Value=Ref(application_configuration_secret),
-            Export=self.EXPORTS.export(C4AppConfigExports.EXPORT_APPLICATION_CONFIG)
+            Export=export
         )
 
     def application_configuration_secret(self, postfix=None) -> Secret:
         """ Returns the application configuration secret. Note that this pushes up just a
             template - you must fill it out according to the specification in the README.
         """
-        env_identifier = (ConfigManager.get_config_setting(Settings.ENV_NAME).replace('-', '') +
-                          postfix if postfix else '')
-        if not env_identifier:
-            raise Exception('Did not set required key in .env! Should never get here.')
-        logical_id = self.name.logical_id(self.APPLICATION_SECRET_STRING) + env_identifier
+        logical_id = dehyphenate(self.name.logical_id(postfix if postfix else '')).replace('_', '')
         return Secret(
             logical_id,
             Name=logical_id,

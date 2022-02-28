@@ -107,9 +107,7 @@ class C4Name:
         today = str(datetime.now().date())
         md5sum = hashlib.new('md5', bytes(template_text, 'utf-8')).hexdigest()
         # path = 'out/templates/'
-        filename = '{stack_name}-{today}-{md5sum}.{file_type}'.format(
-            stack_name=stack_name, today=today, md5sum=md5sum, file_type=file_type)
-
+        filename = f'{stack_name}-{md5sum}-{today}.{file_type}'  # so ordered by date
         return filename  # was path, filename
 
 
