@@ -31,13 +31,13 @@ def configure_env_bucket(env=None, url_override=None):
         raise
     body = json.dumps(content, indent=2).encode('utf-8')
     print(f"To be uploaded: {body.decode('utf-8')}")
-    s3_key_id = ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID)
+    s3_encrypt_key_id = ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID)
     if yes_or_no(f"Upload this into {env} in account {ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER)}?"
-                 f" with s3_encrypt_key_id={s3_key_id}"):
-        if s3_key_id:
+                 f" with s3_encrypt_key_id={s3_encrypt_key_id}"):
+        if s3_encrypt_key_id:
             s3.put_object(Bucket=global_env_bucket, Key=env, Body=body,
                           ServerSideEncryption='aws:kms',
-                          SSEKMSKeyId=s3_key_id)
+                          SSEKMSKeyId=s3_encrypt_key_id)
         else:
             s3.put_object(Bucket=global_env_bucket, Key=env, Body=body)
     else:

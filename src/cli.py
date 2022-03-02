@@ -245,16 +245,6 @@ class C4Client:
             PRINT(f'Got known exception {e}')
             return None
 
-    @staticmethod
-    def resolve_legacy_stack(args):
-
-        raise NotImplementedError("resolve_legacy_stack() has been removed.")
-
-        # account = C4Client.resolve_account()
-        # stack_creator = lookup_stack_creator(name=args.stack, kind='legacy', exact=True)
-        # stack = stack_creator(account=account)
-        # return stack
-
     @classmethod
     def write_and_validate_template(cls, stack, use_stdout_and_exit, validate):
         """ Writes and validates the generated cloudformation template

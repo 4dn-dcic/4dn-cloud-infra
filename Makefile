@@ -93,7 +93,6 @@ submission:  # TODO: This make target is highly account-specific and needs work 
 test:
 	poetry run pytest -vv
 
-
 ingestion:
 	@echo 'Triggering ingestion'
 	poetry run queue-ingestion
