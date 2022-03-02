@@ -26,8 +26,8 @@ class FourfrontECSBlueGreen(C4ECSApplication):
     VPC_SQS_URL = 'https://sqs.us-east-1.amazonaws.com/'
     IMAGE_TAG_BLUE = 'blue'
     IMAGE_TAG_GREEN = 'green'
-    BLUE_TERMINAL = '_blue'
-    GREEN_TERMINAL = '_green'
+    BLUE_TERMINAL = 'blue'
+    GREEN_TERMINAL = 'green'
 
     def build_template(self, template: Template) -> Template:
         """ Builds the template containing two ECS environments. """
@@ -82,14 +82,14 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             # Portal task/service
             portal_task = self.ecs_portal_task(image_tag=tag)
             template.add_resource(portal_task)
-            portal_service = self.ecs_portal_service(cluster_ref=Ref(cluster),
+            portal_service = self.ecs_portal_service(cluster_ref=Ref(cluster), image_tag=tag,
                                                      task_definition=Ref(portal_task))
             template.add_resource(portal_service)
 
             # Indexer task/service
             indexer_task = self.ecs_indexer_task(image_tag=tag)
             template.add_resource(indexer_task)
-            indexer_service = self.ecs_indexer_service(cluster_ref=Ref(cluster),
+            indexer_service = self.ecs_indexer_service(cluster_ref=Ref(cluster), image_tag=tag,
                                                        task_definition=Ref(indexer_task))
             template.add_resource(indexer_service)
 
@@ -196,7 +196,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
-                    Name='portal',
+                    Name=f'{image_tag}portal',
                     Essential=True,
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
@@ -236,25 +236,27 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             Tags=self.tags.cost_tag_obj(),
         )
 
-    def ecs_portal_service(self, cluster_ref=None, task_definition=None, concurrency=8) -> Service:
+    def ecs_portal_service(self, cluster_ref=None, image_tag='',
+                           task_definition=None, concurrency=8) -> Service:
         """ Defines the portal service (manages portal Tasks)
             Note dependencies: https://stackoverflow.com/questions/53971873/the-target-group-does-not-have-an-associated-load-balancer
 
             Defined by the ECR Image tag 'latest'.
 
             :param cluster_ref: reference to cluster to associate with this service
+            :param image_tag: used to postfix various references if passed
             :param task_definition: reference to task definition to use
             :param concurrency: # of concurrent tasks to run - since this setup is intended for use with
                                 production, this value is 8, approximately matching our current resources.
         """  # noQA - ignore line length issues
         return Service(
-            'FourfrontPortalService',
+            f'Fourfront{image_tag}PortalService',
             Cluster=Ref(self.ecs_cluster()) if not cluster_ref else cluster_ref,
             DependsOn=[self.name.logical_id('LBListener')],
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(
-                    ContainerName='portal',  # this must match Name in TaskDefinition (ContainerDefinition)
+                    ContainerName=f'{image_tag}portal',  # this must match Name in TaskDefinition (ContainerDefinition)
                     ContainerPort=Ref(self.ecs_web_worker_port()),
                     TargetGroupArn=Ref(self.ecs_lbv2_target_group()))
             ],
@@ -306,7 +308,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
-                    Name='Indexer',
+                    Name=f'{image_tag}Indexer',
                     Essential=True,
                     Image=Join('', [
                         self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
@@ -344,7 +346,8 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             Tags=self.tags.cost_tag_obj()
         )
 
-    def ecs_indexer_service(self, cluster_ref=None, task_definition=None, concurrency=4) -> Service:
+    def ecs_indexer_service(self, cluster_ref=None, image_tag='',
+                            task_definition=None, concurrency=4) -> Service:
         """ Defines the Indexer service (manages Indexer Tasks)
 
             :param cluster_ref: reference to cluster to associate with this service
@@ -353,7 +356,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                                 production, this value is 4, approximately matching our current resources.
         """
         return Service(
-            'FourfrontIndexerService',
+            f'Fourfront{image_tag}IndexerService',
             Cluster=Ref(self.ecs_cluster()) if not cluster_ref else cluster_ref,
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_INDEXER_COUNT, concurrency),
             CapacityProviderStrategy=[
@@ -419,7 +422,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
-                    Name='DeploymentAction',
+                    Name=f'{image_tag}DeploymentAction',
                     Essential=True,
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),

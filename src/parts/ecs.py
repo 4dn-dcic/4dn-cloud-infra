@@ -275,7 +275,7 @@ class C4ECSApplication(C4Part):
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         if terminal:
             env_name = env_name + terminal
-        logical_id = self.name.logical_id('LoadBalancer')
+        logical_id = self.name.logical_id(f'{terminal}LoadBalancer')
         return elbv2.LoadBalancer(
             logical_id,
             IpAddressType='ipv4',

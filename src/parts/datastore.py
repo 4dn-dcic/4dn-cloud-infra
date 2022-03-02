@@ -36,6 +36,8 @@ class C4DatastoreExports(C4Exports):
     """ Holds datastore export metadata. """
     # Output ES URL for use by foursight/application
     ES_URL = exportify('ElasticSearchURL')
+    BLUE_ES_URL = exportify('BlueESURL')
+    GREEN_ES_URL = exportify('GreenESURL')
 
     # RDS Exports
     RDS_URL = exportify('RdsUrl')
@@ -713,9 +715,10 @@ class C4Datastore(C4Part):
         )
         return domain
 
-    def output_es_url(self, resource: Domain) -> Output:
+    def output_es_url(self, resource: Domain, export_name=None) -> Output:
         """ Outputs ES URL """
-        export_name = C4DatastoreExports.ES_URL
+        if not export_name:
+            export_name = C4DatastoreExports.ES_URL
         logical_id = self.name.logical_id(export_name)
         return Output(
             logical_id,
