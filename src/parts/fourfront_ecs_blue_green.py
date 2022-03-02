@@ -470,7 +470,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                                     C4LoggingExports.APPLICATION_LOG_GROUP if not log_group_export else log_group_export
                                 ),
                             'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': 'fourfront-initial-deployment' if initial else 'cgap-deployment',
+                            'awslogs-stream-prefix': 'fourfront-initial-deployment' if initial else 'fourfront-deployment',
                         }
                     ),
                     Environment=[

@@ -524,7 +524,7 @@ class C4ECSApplication(C4Part):
             Allows passing a postfix (for use with blue/green).
         """
         return Alarm(
-            'IndexingQueueDepthAlarm',
+            f'IndexingQueueDepthAlarm{postfix}',
             AlarmDescription='Alarm if total queue depth exceeds %s' % depth,
             Namespace='AWS/SQS',
             MetricName='ApproximateNumberOfMessagesVisible',
@@ -548,7 +548,7 @@ class C4ECSApplication(C4Part):
             Allows passing a postfix (for use with blue/green).
         """
         return Alarm(
-            'IndexingQueueEmptyAlarm',
+            f'IndexingQueueEmptyAlarm{postfix}',
             AlarmDescription='Alarm when queue depth reaches 0',
             Namespace='AWS/SQS',
             MetricName='ApproximateNumberOfMessagesVisible',
