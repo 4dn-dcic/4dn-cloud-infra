@@ -180,8 +180,6 @@ class C4Client:
             parameter_flags = [
                 '--parameter-overrides',  # the flag itself
                 cls.build_parameter_override(param_name='NetworkStackNameParameter',
-                                             value=network_stack_name.stack_name),
-                cls.build_parameter_override(param_name='NetworkStackNameParameter',
                                              value=ConfigManager.app_case(if_cgap=network_stack_name.stack_name,
                                                                           if_ff=cls.FOURFRONT_NETWORK_STACK)),
                 cls.build_parameter_override(param_name='ECRStackNameParameter',
@@ -190,6 +188,7 @@ class C4Client:
                                              value=iam_stack_name.stack_name),
                 cls.build_parameter_override(param_name='LoggingStackNameParameter',
                                              value=logging_stack_name.stack_name),
+                # TODO: integrate so auto-populates into GAC
                 # cls.build_parameter_override(param_name='DatastoreStackNameParameter',
                 #                              value=datastore_stack_name.stack_name)
             ]

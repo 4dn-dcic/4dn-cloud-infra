@@ -253,20 +253,14 @@ class C4ECSApplication(C4Part):
         )
 
     @staticmethod
-    def ecs_application_load_balancer_stickiness_options():
+    def ecs_target_group_stickiness_options():
         """ Configure the LB such that a session cookie is used to map user sessions to specific
             worker nodes on a 1 hour rotating basis.
         """
-        return elbv2.LoadBalancerAttributes([
-            {
-                'Key': 'stickiness.enabled',
-                'Value': 'true'
-            },
-            {
-                'Key': 'stickiness.lb_cookie.duration_seconds',
-                'Value': '3600'  # 1 hour
-            }
-        ])
+        return [
+            elbv2.TargetGroupAttribute(Key='stickiness.enabled', Value='true'),
+            elbv2.TargetGroupAttribute(Key='stickiness.lb_cookie.duration_seconds', Value='3600'),
+        ]
 
     def ecs_application_load_balancer(self, terminal=None) -> elbv2.LoadBalancer:
         """ Application load balancer for the portal ECS Task.
@@ -281,7 +275,6 @@ class C4ECSApplication(C4Part):
             IpAddressType='ipv4',
             Name=env_name,  # was logical_id
             Scheme='internet-facing',
-            LoadBalancerAttributes=self.ecs_application_load_balancer_stickiness_options(),
             SecurityGroups=[
                 Ref(self.ecs_lb_security_group())
             ],
@@ -312,6 +305,7 @@ class C4ECSApplication(C4Part):
             Name=name,
             Port=Ref(self.ecs_web_worker_port()),
             TargetType='ip',
+            TargetGroupAttributes=self.ecs_target_group_stickiness_options(),
             Protocol='HTTP',
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
             Tags=self.tags.cost_tag_array()
@@ -321,8 +315,8 @@ class C4ECSApplication(C4Part):
         """ Defines the portal Task (serve HTTP requests).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
-            :param cpu: CPU value to assign to this task, default 256 (play with this value)
-            :param mem: Memory amount for this task, default to 512 (play with this value)
+            :param cpu: CPU value to assign to this task
+            :param mem: Memory amount for this task
             :param identity: name of secret containing the identity information for this environment
                              (defaults to value of environment variable IDENTITY,
                              or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).

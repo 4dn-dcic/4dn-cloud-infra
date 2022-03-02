@@ -26,6 +26,8 @@ class Settings:
     # GLOBAL_ENV_BUCKET = 'GLOBAL_ENV_BUCKET'
 
     IDENTITY = 'identity'  # XXX: import from dcicutils  -- change in progress to put it on health page
+    BLUE_IDENTITY = 'blue.identity'
+    GREEN_IDENTITY = 'green.identity'
     S3_BUCKET_ORG = 's3.bucket.org'  # was 'ENCODED_S3_BUCKET_ORG'
     S3_BUCKET_ECOSYSTEM = 's3.bucket.ecosystem'
     S3_BUCKET_ENCRYPTION = 's3.bucket.encryption'
