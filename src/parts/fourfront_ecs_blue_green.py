@@ -129,6 +129,15 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                                                                           logical_id='LBListenerGreen',
                                                                           lb_ref=Ref(green_lb)))
 
+        # Add indexing Cloudwatch Alarms
+        # These alarms are meant to trigger symmetric scaling actions in response to
+        # sustained indexing load - the specifics of the autoscaling is left for
+        # manual configuration by the orchestrator according to their needs
+        template.add_resource(self.indexer_queue_empty_alarm(postfix=self.BLUE_TERMINAL))
+        template.add_resource(self.indexer_queue_depth_alarm(postfix=self.BLUE_TERMINAL))
+        template.add_resource(self.indexer_queue_empty_alarm(postfix=self.GREEN_TERMINAL))
+        template.add_resource(self.indexer_queue_depth_alarm(postfix=self.GREEN_TERMINAL))
+
         # Output URLs
         template.add_output(self.output_blue_application_url())
         template.add_output(self.output_green_application_url())
