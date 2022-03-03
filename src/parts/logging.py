@@ -9,8 +9,8 @@ from ..exports import C4Exports
 class C4LoggingExports(C4Exports):
     """ Contains export for logging layer, just the name of the log group """
     APPLICATION_LOG_GROUP = 'ExportApplicationLogGroup'
-    APPLICATION_LOG_GROUP_BLUE = 'ExportApplicationLogGroupBlue'
-    APPLICATION_LOG_GROUP_GREEN = 'ExportApplicationLogGroupGreen'
+    APPLICATION_LOG_GROUP_BLUE = f'ExportApplicationLogGroup{DeploymentParadigm.BLUE.capitalize()}'
+    APPLICATION_LOG_GROUP_GREEN = f'ExportApplicationLogGroup{DeploymentParadigm.GREEN.capitalize()}'
 
     def __init__(self):
         parameter = 'LoggingStackNameParameter'
@@ -29,22 +29,24 @@ class C4Logging(C4Part):
         """
         if ConfigManager.get_config_setting(Settings.APP_DEPLOYMENT) == DeploymentParadigm.BLUE_GREEN:
             blue_lg = self.build_log_group(
-                identifier=f'{dehyphenate(ConfigManager.get_config_setting(Settings.ENV_NAME))}DockerLogsBlue',
+                identifier=f'{dehyphenate(ConfigManager.get_config_setting(Settings.ENV_NAME))}'
+                           f'DockerLogs{DeploymentParadigm.BLUE.capitalize()}',
                 retention_in_days=365, deletion_policy='Retain'
             )
             template.add_resource(blue_lg)
             template.add_output(
                 self.output_application_log_group(blue_lg, export_name=C4LoggingExports.APPLICATION_LOG_GROUP_BLUE))
-            template.add_resource(self.build_log_group(identifier='VPCFlowLogsBlue',
+            template.add_resource(self.build_log_group(identifier=f'VPCFlowLogs{DeploymentParadigm.BLUE.capitalize()}',
                                                        retention_in_days=365, deletion_policy='Retain'))
 
             green_lg = self.build_log_group(
-                identifier=f'{dehyphenate(ConfigManager.get_config_setting(Settings.ENV_NAME))}DockerLogsGreen',
+                identifier=f'{dehyphenate(ConfigManager.get_config_setting(Settings.ENV_NAME))}DockerLogs'
+                           f'{DeploymentParadigm.GREEN.capitalize()}',
                 retention_in_days=365, deletion_policy='Retain')
             template.add_resource(green_lg)
             template.add_output(
                 self.output_application_log_group(green_lg, export_name=C4LoggingExports.APPLICATION_LOG_GROUP_GREEN))
-            template.add_resource(self.build_log_group(identifier='VPCFlowLogsGreen',
+            template.add_resource(self.build_log_group(identifier=f'VPCFlowLogs{DeploymentParadigm.GREEN.capitalize()}',
                                                        retention_in_days=365, deletion_policy='Retain'))
         else:
             docker_log_group = self.build_log_group(

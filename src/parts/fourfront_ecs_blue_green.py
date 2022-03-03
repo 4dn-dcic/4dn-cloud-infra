@@ -24,10 +24,6 @@ class FourfrontECSBlueGreen(C4ECSApplication):
         Note that this only orchestrates the ECS component - datastore is still TODO.
     """
     VPC_SQS_URL = 'https://sqs.us-east-1.amazonaws.com/'
-    IMAGE_TAG_BLUE = 'blue'
-    IMAGE_TAG_GREEN = 'green'
-    BLUE_TERMINAL = 'blue'
-    GREEN_TERMINAL = 'green'
 
     def build_template(self, template: Template) -> Template:
         """ Builds the template containing two ECS environments. """
@@ -69,9 +65,9 @@ class FourfrontECSBlueGreen(C4ECSApplication):
         template.add_resource(self.ecs_container_security_group())
 
         # clusters
-        blue_cluster = self.ecs_cluster(deployment_type=self.BLUE_TERMINAL)
+        blue_cluster = self.ecs_cluster(deployment_type=DeploymentParadigm.BLUE)
         template.add_resource(blue_cluster)
-        green_cluster = self.ecs_cluster(deployment_type=self.GREEN_TERMINAL)
+        green_cluster = self.ecs_cluster(deployment_type=DeploymentParadigm.GREEN)
         template.add_resource(green_cluster)
 
         # Target Groups
@@ -89,12 +85,12 @@ class FourfrontECSBlueGreen(C4ECSApplication):
         #   * Identity (GAC)
         #   * Log Group
         tags = {
-            'blue': (blue_cluster, target_group_blue,
-                     ConfigManager.get_config_setting(Settings.BLUE_IDENTITY),
-                     C4LoggingExports.APPLICATION_LOG_GROUP_BLUE),
-            'green': (green_cluster, target_group_green,
-                      ConfigManager.get_config_setting(Settings.GREEN_IDENTITY),
-                      C4LoggingExports.APPLICATION_LOG_GROUP_GREEN)
+            DeploymentParadigm.BLUE: (blue_cluster, target_group_blue,
+                                      ConfigManager.get_config_setting(Settings.BLUE_IDENTITY),
+                                      C4LoggingExports.APPLICATION_LOG_GROUP_BLUE),
+            DeploymentParadigm.GREEN: (green_cluster, target_group_green,
+                                       ConfigManager.get_config_setting(Settings.GREEN_IDENTITY),
+                                       C4LoggingExports.APPLICATION_LOG_GROUP_GREEN)
         }
         for tag, (cluster, target_group, identity, log_export) in tags.items():
             # Portal task/service
@@ -119,25 +115,29 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                                                            identity=identity))
 
         # Load Balancers
-        blue_lb = self.ecs_application_load_balancer_blue()
+        blue_lb = self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.BLUE)
         template.add_resource(blue_lb)
-        green_lb = self.ecs_application_load_balancer_green()
+        green_lb = self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.GREEN)
         template.add_resource(green_lb)
-        template.add_resource(self.ecs_application_load_balancer_listener(target_group_blue,
-                                                                          logical_id='LBListenerBlue',
-                                                                          lb_ref=Ref(blue_lb)))
-        template.add_resource(self.ecs_application_load_balancer_listener(target_group_green,
-                                                                          logical_id='LBListenerGreen',
-                                                                          lb_ref=Ref(green_lb)))
+        template.add_resource(
+            self.ecs_application_load_balancer_listener(target_group_blue,
+                                                        logical_id=f'LBListener{DeploymentParadigm.BLUE}',
+                                                        lb_ref=Ref(blue_lb))
+        )
+        template.add_resource(
+            self.ecs_application_load_balancer_listener(target_group_green,
+                                                        logical_id=f'LBListener{DeploymentParadigm.GREEN}',
+                                                        lb_ref=Ref(green_lb))
+        )
 
         # Add indexing Cloudwatch Alarms
         # These alarms are meant to trigger symmetric scaling actions in response to
         # sustained indexing load - the specifics of the autoscaling is left for
         # manual configuration by the orchestrator according to their needs
-        template.add_resource(self.indexer_queue_empty_alarm(deployment_type=self.BLUE_TERMINAL))
-        template.add_resource(self.indexer_queue_depth_alarm(deployment_type=self.BLUE_TERMINAL))
-        template.add_resource(self.indexer_queue_empty_alarm(deployment_type=self.GREEN_TERMINAL))
-        template.add_resource(self.indexer_queue_depth_alarm(deployment_type=self.GREEN_TERMINAL))
+        template.add_resource(self.indexer_queue_empty_alarm(deployment_type=DeploymentParadigm.BLUE))
+        template.add_resource(self.indexer_queue_depth_alarm(deployment_type=DeploymentParadigm.BLUE))
+        template.add_resource(self.indexer_queue_empty_alarm(deployment_type=DeploymentParadigm.GREEN))
+        template.add_resource(self.indexer_queue_depth_alarm(deployment_type=DeploymentParadigm.GREEN))
 
         # Output URLs
         template.add_output(self.output_blue_application_url())
@@ -147,20 +147,22 @@ class FourfrontECSBlueGreen(C4ECSApplication):
 
     def output_blue_application_url(self, env=None) -> Output:
         """ Outputs URL to access portal. """
-        env = env or (ConfigManager.get_config_setting(Settings.ENV_NAME) + self.BLUE_TERMINAL)
+        env = env or (ConfigManager.get_config_setting(Settings.ENV_NAME) + DeploymentParadigm.BLUE)
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
             Description='URL of Fourfront-Portal-Blue.',
-            Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer_blue(), 'DNSName')])
+            Value=Join('', ['http://', GetAtt(
+                self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.BLUE), 'DNSName')])
         )
 
     def output_green_application_url(self, env=None) -> Output:
         """ Outputs URL to access portal. """
-        env = env or (ConfigManager.get_config_setting(Settings.ENV_NAME) + self.GREEN_TERMINAL)
+        env = env or (ConfigManager.get_config_setting(Settings.ENV_NAME) + DeploymentParadigm.GREEN)
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
             Description='URL of Fourfront-Portal-Green.',
-            Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer_green(), 'DNSName')])
+            Value=Join('', ['http://',
+                GetAtt(self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.GREEN), 'DNSName')])
         )
 
     def ecs_cluster(self, deployment_type=None):
@@ -180,25 +182,17 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             self.name.logical_id(logical_id) if logical_id else self.name.logical_id('LBListener'),
             Port=80,
             Protocol='HTTP',
-            LoadBalancerArn=lb_ref if lb_ref else Ref(self.ecs_application_load_balancer_blue()),
+            LoadBalancerArn=lb_ref or Ref(self.ecs_application_load_balancer()),
             DefaultActions=[
                 elbv2.Action(Type='forward', TargetGroupArn=Ref(target_group))
             ]
         )
 
     def ecs_lbv2_target_group_blue(self) -> elbv2.TargetGroup:
-        return self.ecs_lbv2_target_group(name='TargetGroupApplicationBlue')
+        return self.ecs_lbv2_target_group(name=f'TargetGroupApplication{DeploymentParadigm.BLUE.capitalize()}')
 
     def ecs_lbv2_target_group_green(self) -> elbv2.TargetGroup:
-        return self.ecs_lbv2_target_group(name='TargetGroupApplicationGreen')
-
-    def ecs_application_load_balancer_blue(self):
-        """ Defines the blue application load balancer. """
-        return self.ecs_application_load_balancer(deployment_type=self.BLUE_TERMINAL)
-
-    def ecs_application_load_balancer_green(self):
-        """ Defines the green application load balancer. """
-        return self.ecs_application_load_balancer(deployment_type=self.GREEN_TERMINAL)
+        return self.ecs_lbv2_target_group(name=f'TargetGroupApplication{DeploymentParadigm.GREEN.capitalize()}')
 
     def ecs_portal_task(self, cpu='4096', mem='8192', image_tag='',
                         log_group_export=None, identity=None) -> TaskDefinition:
@@ -227,7 +221,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
-                        self.IMAGE_TAG if image_tag is None else image_tag,
+                        image_tag or self.IMAGE_TAG,
                     ]),
                     PortMappings=[PortMapping(
                         ContainerPort=Ref(self.ecs_web_worker_port()),
@@ -237,7 +231,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                         Options={
                             'awslogs-group':
                                 self.LOGGING_EXPORTS.import_value(
-                                    C4LoggingExports.APPLICATION_LOG_GROUP if not log_group_export else log_group_export
+                                    log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP
                                 ),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'fourfront-portal'
@@ -344,14 +338,14 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                     Image=Join('', [
                         self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
-                        image_tag if image_tag else self.IMAGE_TAG,
+                        image_tag or self.IMAGE_TAG,
                     ]),
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
                         Options={
                             'awslogs-group':
                                 self.LOGGING_EXPORTS.import_value(
-                                    C4LoggingExports.APPLICATION_LOG_GROUP if not log_group_export else log_group_export
+                                    log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP
                                 ),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'fourfront-indexer'
@@ -461,14 +455,14 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
-                        image_tag if image_tag else self.IMAGE_TAG,
+                        image_tag or self.IMAGE_TAG,
                     ]),
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
                         Options={
                             'awslogs-group':
                                 self.LOGGING_EXPORTS.import_value(
-                                    C4LoggingExports.APPLICATION_LOG_GROUP if not log_group_export else log_group_export
+                                    log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP
                                 ),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'fourfront-initial-deployment' if initial else 'fourfront-deployment',
