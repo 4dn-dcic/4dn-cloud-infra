@@ -262,14 +262,15 @@ class C4ECSApplication(C4Part):
             elbv2.TargetGroupAttribute(Key='stickiness.lb_cookie.duration_seconds', Value='3600'),
         ]
 
-    def ecs_application_load_balancer(self, terminal='') -> elbv2.LoadBalancer:
+    def ecs_application_load_balancer(self, deployment_type='') -> elbv2.LoadBalancer:
         """ Application load balancer for the portal ECS Task.
-            Allows one to pass a "terminal", allowing blue/green configuration
+            Allows one to pass a "deployment_type", allowing blue/green configuration
+            In this case deployment_type == '', 'blue' or 'green'
         """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        if terminal:
-            env_name = env_name + terminal
-        logical_id = self.name.logical_id(f'{terminal}LoadBalancer')
+        if deployment_type:
+            env_name = env_name + deployment_type
+        logical_id = self.name.logical_id(f'{deployment_type}LoadBalancer')
         return elbv2.LoadBalancer(
             logical_id,
             IpAddressType='ipv4',
@@ -518,13 +519,14 @@ class C4ECSApplication(C4Part):
         )
 
     @staticmethod
-    def indexer_queue_depth_alarm(depth=1000, postfix='') -> Alarm:
+    def indexer_queue_depth_alarm(depth=1000, deployment_type='') -> Alarm:
         """ Creates a Cloudwatch alarm for Secondary queue depth.
             Checks the secondary queue to see if it is backlogged.
-            Allows passing a postfix (for use with blue/green).
+            Allows passing a deployment_type (for use with blue/green).
+            In this case deployment_type == '', 'blue' or 'green'
         """
         return Alarm(
-            f'IndexingQueueDepthAlarm{postfix}',
+            f'IndexingQueueDepthAlarm{deployment_type}',
             AlarmDescription='Alarm if total queue depth exceeds %s' % depth,
             Namespace='AWS/SQS',
             MetricName='ApproximateNumberOfMessagesVisible',
@@ -532,7 +534,7 @@ class C4ECSApplication(C4Part):
                 MetricDimension(
                     Name='QueueName',
                     Value=ConfigManager.get_config_setting(Settings.ENV_NAME) +
-                          f'-{postfix}-secondary-indexer-queue'),
+                          f'-{deployment_type}-secondary-indexer-queue'),
             ],
             Statistic='Maximum',
             Period='300',
@@ -542,13 +544,14 @@ class C4ECSApplication(C4Part):
         )
 
     @staticmethod
-    def indexer_queue_empty_alarm(postfix='') -> Alarm:
+    def indexer_queue_empty_alarm(deployment_type='') -> Alarm:
         """ Creates a Cloudwatch alarm for when the Secondary queue is empty.
             Checks the secondary queue to see if it is empty, if detected scale down.
-            Allows passing a postfix (for use with blue/green).
+            Allows passing a deployment_type (for use with blue/green).
+            In this case deployment_type == '', 'blue' or 'green'
         """
         return Alarm(
-            f'IndexingQueueEmptyAlarm{postfix}',
+            f'IndexingQueueEmptyAlarm{deployment_type}',
             AlarmDescription='Alarm when queue depth reaches 0',
             Namespace='AWS/SQS',
             MetricName='ApproximateNumberOfMessagesVisible',
@@ -556,7 +559,7 @@ class C4ECSApplication(C4Part):
                 MetricDimension(
                     Name='QueueName',
                     Value=ConfigManager.get_config_setting(Settings.ENV_NAME) +
-                          f'-{postfix}-secondary-indexer-queue'),
+                          f'-{deployment_type}-secondary-indexer-queue'),
             ],
             Statistic='Maximum',
             Period='300',

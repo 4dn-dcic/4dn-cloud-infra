@@ -10,7 +10,7 @@ from troposphere.ecs import (
 )
 from dcicutils.cloudformation_utils import camelize
 from ..base import ConfigManager
-from ..constants import Settings
+from ..constants import Settings, DeploymentParadigm
 from .ecs import C4ECSApplicationExports, C4ECSApplication
 from .network import C4NetworkExports
 from .ecr import C4ECRExports
@@ -31,9 +31,10 @@ class FourfrontECSBlueGreen(C4ECSApplication):
 
     def build_template(self, template: Template) -> Template:
         """ Builds the template containing two ECS environments. """
-        if ConfigManager.get_config_setting(Settings.APP_DEPLOYMENT, '') != 'bg':
+        if ConfigManager.get_config_setting(Settings.APP_DEPLOYMENT,
+                                            default=DeploymentParadigm.STANDALONE) != DeploymentParadigm.BLUE_GREEN:
             raise Exception('Tried to build Fourfront blue/green but APP_DEPLOYMENT '
-                            'is not "bg"!')
+                            'is not "blue/green"!')
 
         # Add network parameters
         template.add_parameter(Parameter(
@@ -68,9 +69,9 @@ class FourfrontECSBlueGreen(C4ECSApplication):
         template.add_resource(self.ecs_container_security_group())
 
         # clusters
-        blue_cluster = self.ecs_cluster(postfix=self.BLUE_TERMINAL)
+        blue_cluster = self.ecs_cluster(deployment_type=self.BLUE_TERMINAL)
         template.add_resource(blue_cluster)
-        green_cluster = self.ecs_cluster(postfix=self.GREEN_TERMINAL)
+        green_cluster = self.ecs_cluster(deployment_type=self.GREEN_TERMINAL)
         template.add_resource(green_cluster)
 
         # Target Groups
@@ -133,10 +134,10 @@ class FourfrontECSBlueGreen(C4ECSApplication):
         # These alarms are meant to trigger symmetric scaling actions in response to
         # sustained indexing load - the specifics of the autoscaling is left for
         # manual configuration by the orchestrator according to their needs
-        template.add_resource(self.indexer_queue_empty_alarm(postfix=self.BLUE_TERMINAL))
-        template.add_resource(self.indexer_queue_depth_alarm(postfix=self.BLUE_TERMINAL))
-        template.add_resource(self.indexer_queue_empty_alarm(postfix=self.GREEN_TERMINAL))
-        template.add_resource(self.indexer_queue_depth_alarm(postfix=self.GREEN_TERMINAL))
+        template.add_resource(self.indexer_queue_empty_alarm(deployment_type=self.BLUE_TERMINAL))
+        template.add_resource(self.indexer_queue_depth_alarm(deployment_type=self.BLUE_TERMINAL))
+        template.add_resource(self.indexer_queue_empty_alarm(deployment_type=self.GREEN_TERMINAL))
+        template.add_resource(self.indexer_queue_depth_alarm(deployment_type=self.GREEN_TERMINAL))
 
         # Output URLs
         template.add_output(self.output_blue_application_url())
@@ -162,12 +163,12 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer_green(), 'DNSName')])
         )
 
-    def ecs_cluster(self, postfix=None):
+    def ecs_cluster(self, deployment_type=None):
         """ Defines an ECS cluster """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         return Cluster(
             # Always use env name for cluster
-            camelize(env_name + (postfix if postfix else '')),
+            camelize(env_name + (deployment_type or '')),
             CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
             Tags=self.tags.cost_tag_obj()
         )
@@ -193,11 +194,11 @@ class FourfrontECSBlueGreen(C4ECSApplication):
 
     def ecs_application_load_balancer_blue(self):
         """ Defines the blue application load balancer. """
-        return self.ecs_application_load_balancer(terminal=self.BLUE_TERMINAL)
+        return self.ecs_application_load_balancer(deployment_type=self.BLUE_TERMINAL)
 
     def ecs_application_load_balancer_green(self):
         """ Defines the green application load balancer. """
-        return self.ecs_application_load_balancer(terminal=self.GREEN_TERMINAL)
+        return self.ecs_application_load_balancer(deployment_type=self.GREEN_TERMINAL)
 
     def ecs_portal_task(self, cpu='4096', mem='8192', image_tag='',
                         log_group_export=None, identity=None) -> TaskDefinition:

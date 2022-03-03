@@ -17,7 +17,7 @@ except ImportError:
         raise NotImplementedError('DomainEndpointOptions')
 from troposphere.secretsmanager import Secret
 from ..base import ConfigManager
-from ..constants import Settings, Secrets
+from ..constants import Settings, Secrets, DeploymentParadigm
 from ..exports import C4Exports
 from ..part import C4Part
 from ..parts.network import C4NetworkExports
@@ -111,26 +111,26 @@ class C4AppConfig(C4Part):
     }
 
     def build_template(self, template: Template) -> Template:
-        """ Builds the appconfig template - builds GACs for blue/green if APP_DEPLOYMENT == bg """
-        if ConfigManager.get_config_setting(Settings.APP_DEPLOYMENT) == 'bg':  # blue/green
+        """ Builds the appconfig template - builds GACs for blue/green if APP_DEPLOYMENT == blue/green """
+        if ConfigManager.get_config_setting(Settings.APP_DEPLOYMENT) == DeploymentParadigm.BLUE_GREEN:
             gac_blue = self.application_configuration_secret(postfix='Blue')
             template.add_resource(gac_blue)
-            template.add_output(self.output_configuration_secret(gac_blue, postfix='Blue'))
+            template.add_output(self.output_configuration_secret(gac_blue, deployment_type='Blue'))
             gac_green = self.application_configuration_secret(postfix='Green')
             template.add_resource(gac_green)
-            template.add_output(self.output_configuration_secret(gac_green, postfix='Green'))
+            template.add_output(self.output_configuration_secret(gac_green, deployment_type='Green'))
         else:  # standalone
             application_configuration_secret = self.application_configuration_secret()
             template.add_resource(application_configuration_secret)
             template.add_output(self.output_configuration_secret(application_configuration_secret))
         return template
 
-    def output_configuration_secret(self, application_configuration_secret, postfix=None):
+    def output_configuration_secret(self, application_configuration_secret, deployment_type=None):
         """ Outputs GAC """
         logical_id = (self.name.logical_id(C4AppConfigExports.EXPORT_APPLICATION_CONFIG) +
-                      postfix if postfix else '')
+                      deployment_type if deployment_type else '')
         export = (self.EXPORTS.export(C4AppConfigExports.EXPORT_APPLICATION_CONFIG +
-                  postfix if postfix else ''))
+                                      deployment_type if deployment_type else ''))
         return Output(
             logical_id,
             Description='Application Configuration Secret',

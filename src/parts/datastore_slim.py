@@ -10,6 +10,7 @@ from dcicutils.cloudformation_utils import camelize
 from ..base import (
     ConfigManager, Settings,
 )
+from ..constants import DeploymentParadigm
 from .datastore import C4Datastore, C4DatastoreExports
 
 
@@ -46,7 +47,7 @@ class C4DatastoreSlim(C4Datastore):
         template.add_output(self.output_rds_port(rds))
 
         # Elasticsearch
-        if ConfigManager.get_config_setting(Settings.APP_DEPLOYMENT) == 'bg':
+        if ConfigManager.get_config_setting(Settings.APP_DEPLOYMENT) == DeploymentParadigm.BLUE_GREEN:
             for env, export in {
                 '-blue': C4DatastoreExports.BLUE_ES_URL,
                 '-green': C4DatastoreExports.GREEN_ES_URL
@@ -58,7 +59,7 @@ class C4DatastoreSlim(C4Datastore):
         else:
             es = self.elasticsearch_instance()
             template.add_resource(es)
-            template.add_output(self.output_es_url(es))
+            template.add_output(self.output_es_url(es, export_name=C4DatastoreExports.ES_URL))
         return template
 
     # TODO: refactor parameters so they don't need to be repeated here

@@ -715,10 +715,8 @@ class C4Datastore(C4Part):
         )
         return domain
 
-    def output_es_url(self, resource: Domain, export_name=None) -> Output:
+    def output_es_url(self, resource: Domain, export_name=C4DatastoreExports.ES_URL) -> Output:
         """ Outputs ES URL """
-        if not export_name:
-            export_name = C4DatastoreExports.ES_URL
         logical_id = self.name.logical_id(export_name)
         return Output(
             logical_id,
