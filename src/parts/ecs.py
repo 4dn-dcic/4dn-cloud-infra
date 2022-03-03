@@ -137,12 +137,11 @@ class C4ECSApplication(C4Part):
         template.add_resource(self.ecs_ingester_service())
         template.add_resource(self.ecs_deployment_task(initial=True))
         template.add_resource(self.ecs_deployment_task())
-        template.add_resource(self.ecs_deployment_service())
 
         # Add load balancer for portal
         template.add_resource(self.ecs_lb_security_group())
         template.add_resource(self.ecs_container_security_group())
-        target_group = self.ecs_lbv2_target_group()
+        target_group = self.ecs_lbv2_target_group(name='TargetGroupApplication')  # consider better name?
         template.add_resource(target_group)
         template.add_resource(self.ecs_application_load_balancer_listener(target_group))
         template.add_resource(self.ecs_application_load_balancer())

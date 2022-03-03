@@ -115,7 +115,7 @@ class C4Datastore(C4Part):
     DEFAULT_RDS_INSTANCE_SIZE = 'db.t3.medium'
     DEFAULT_RDS_STORAGE_TYPE = 'standard'
 
-    DEFAULT_RDS_POSTGRES_VERSION = '12.6'
+    DEFAULT_RDS_POSTGRES_VERSION = '12.9'
 
     @classmethod
     def rds_postgres_version(cls):
@@ -550,7 +550,7 @@ class C4Datastore(C4Part):
         """
         identity = ConfigManager.get_config_setting(Settings.IDENTITY)  # will use setting from config
         if not identity:
-            identity = self.name.logical_id(camelize(env_name) + self.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
+            identity = self.name.logical_id(camelize(ConfigManager.get_config_setting(Settings.ENV_NAME)) + self.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
         return Secret(
             identity,
             Name=identity,
