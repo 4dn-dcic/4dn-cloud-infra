@@ -18,7 +18,7 @@ def configure_env_bucket(env=None, url_override=None):
     s3 = boto3.client('s3')
     env = env or ConfigManager.get_config_setting(Settings.ENV_NAME)
     content = {
-        "fourfront": C4ECSApplicationExports.get_application_url(env) + ":80" if not url_override else url_override,
+        "fourfront": url_override or C4ECSApplicationExports.get_application_url(env) + ":80",
         "es": "https://" + C4DatastoreExports.get_es_url() + ":443",
         "ff_env": env,
     }
