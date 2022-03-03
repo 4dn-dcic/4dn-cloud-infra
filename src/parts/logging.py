@@ -69,7 +69,7 @@ class C4Logging(C4Part):
 
     def output_application_log_group(self, resource: logs.LogGroup, export_name=None) -> Output:
         """ Outputs the application log group. """
-        export_name = C4LoggingExports.APPLICATION_LOG_GROUP if not export_name else export_name
+        export_name = export_name or C4LoggingExports.APPLICATION_LOG_GROUP
         logical_id = self.name.logical_id(export_name)
         return Output(
             logical_id,
