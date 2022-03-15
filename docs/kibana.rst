@@ -43,3 +43,8 @@ Finally, you can then navigate to
 http://localhost:9200/_plugin/kibana on your local machine and
 access Kibana. Be sure to disable the ``ssh`` session once you are done, and
 shut down the proxy on the EC2 as well.
+
+Common Commands
+===============
+
+This section contains some inline commands that are useful from Kibana.
