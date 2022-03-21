@@ -406,6 +406,9 @@ to track the progress from the Step Function console or CloudWatch. It should no
 for the small files. Once this is done, the portal is ready to analyze cases. One should consider requesting an
 increase in the spot instance allocation limits as well if the account is intended to run at scale.
 
+You might need to make the  ``Settings.HMS_SECURE_AMI`` available or specify a new AMI for use. Add the new
+account number you are deploying in to the set of account IDs that the secure AMI is shared with (6433).
+
 Step Eight: NA12879 Demo Analysis
 ---------------------------------
 
