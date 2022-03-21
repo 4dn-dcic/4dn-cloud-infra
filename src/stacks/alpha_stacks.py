@@ -1,5 +1,8 @@
 from ..base import register_stack_creator, registered_stack_class
-from ..parts import network, datastore, ecr, iam, logging, ecs, fourfront_ecs, appconfig, datastore_slim, sentieon, jupyterhub
+from ..parts import (
+    network, datastore, ecr, iam, logging, ecs, fourfront_ecs,
+    appconfig, datastore_slim, sentieon, jupyterhub, fourfront_ecs_blue_green
+)
 from ..stack import C4Stack, C4Tags, C4Account, C4FoursightCGAPStack, C4Part, BaseC4FoursightStack
 
 
@@ -7,6 +10,7 @@ from ..stack import C4Stack, C4Tags, C4Account, C4FoursightCGAPStack, C4Part, Ba
 # 'alpha' in this case refers to the first iteration of CGAP Docker on ECS
 
 def c4_alpha_stack_name(name):
+    """ This function determines stack names and is shared by CGAP/FF. """
     if isinstance(name, str):
         part = registered_stack_class(name, kind='alpha')
     else:
@@ -20,11 +24,22 @@ def c4_alpha_stack_name(name):
 
 
 def c4_alpha_stack_tags():
+    """ Tag resources with Alpha (CGAP) tag """
     return C4Tags(env='prod', project='cgap', owner='project')
 
 
+def c4_4dn_stack_tags():
+    """ Tag resources with 4DN tag. """
+    return C4Tags(env='prod', project='4dn', owner='project')
+
+
 def c4_alpha_stack_description(stack):
-    return f"AWS CloudFormation CGAP {stack} template, for use in an ECS-based CGAP environment."
+    return f"AWS CloudFormation Alpha {stack} template, for use in an ECS-based Standalone " \
+           f"(CGAP or generic) environment."
+
+
+def c4_4dn_stack_description(stack):
+    return f"AWS CloudFormation 4DN {stack} template, for use in an ECS-based 4DN environment."
 
 
 def c4_alpha_stack_metadata(name):  # was name='network'
@@ -52,6 +67,17 @@ def create_c4_alpha_stack(*, name: str, account: C4Account):
     )
 
 
+def create_c4_4dn_stack(*, name: str, account: C4Account):
+    part = registered_stack_class(name, kind='4dn')
+    return C4Stack(
+        name=c4_alpha_stack_name(part),
+        tags=c4_4dn_stack_tags(),
+        account=account,
+        parts=[part],
+        description=c4_4dn_stack_description(name),
+    )
+
+
 def create_c4_alpha_foursight_stack(*, name, account: C4Account):
     foursight_class = registered_stack_class(name, kind='alpha')
     return foursight_class(
@@ -63,11 +89,10 @@ def create_c4_alpha_foursight_stack(*, name, account: C4Account):
 
 
 # Trial-Alpha (ECS) Stacks
-
-@register_stack_creator(name='appconfig', kind='alpha', implementation_class=appconfig.C4AppConfig)
-def c4_alpha_stack_trial_appconfig(account: C4Account):
+@register_stack_creator(name='appconfig', kind='4dn', implementation_class=appconfig.C4AppConfig)
+def c4_4dn_stack_trial_appconfig(account: C4Account):
     """ Appconfig stack for the ECS version of Fourfront (just GAC) """
-    return create_c4_alpha_stack(name='appconfig', account=account)
+    return create_c4_4dn_stack(name='appconfig', account=account)
 
 
 @register_stack_creator(name='network', kind='alpha', implementation_class=network.C4Network)
@@ -108,20 +133,27 @@ def c4_alpha_stack_ecs(account: C4Account):
     return create_c4_alpha_stack(name='ecs', account=account)
 
 
-@register_stack_creator(name='fourfront_ecs', kind='alpha',
+@register_stack_creator(name='fourfront_ecs', kind='4dn',
                         implementation_class=fourfront_ecs.FourfrontECSApplication)
 def c4_alpha_stack_fourfront_ecs_standalone(account: C4Account):
     """ ECS Stack for a standalone fourfront environment. """
-    return create_c4_alpha_stack(name='fourfront_ecs', account=account)
+    return create_c4_4dn_stack(name='fourfront_ecs', account=account)
 
 
-@register_stack_creator(name='datastore_slim', kind='alpha',
+@register_stack_creator(name='fourfront_ecs_blue_green', kind='4dn',
+                        implementation_class=fourfront_ecs_blue_green.FourfrontECSBlueGreen)
+def c4_alpha_stack_fourfront_ecs_blue_green(account: C4Account):
+    """ ECS Stack for a blue/green fourfront environment. """
+    return create_c4_4dn_stack(name='fourfront_ecs_blue_green', account=account)
+
+
+@register_stack_creator(name='datastore_slim', kind='4dn',
                         implementation_class=datastore_slim.C4DatastoreSlim)
 def c4_alpha_stack_datastore_slim(account: C4Account):
     """ Slim datastore stack, intended for use with a fourfront environment.
         Assumes existing S3 resources, but creates new RDS and ES resources.
     """
-    return create_c4_alpha_stack(name='datastore_slim', account=account)
+    return create_c4_4dn_stack(name='datastore_slim', account=account)
 
 
 @register_stack_creator(name='sentieon', kind='alpha', implementation_class=sentieon.C4SentieonSupport)

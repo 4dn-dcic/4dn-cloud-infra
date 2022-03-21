@@ -2,9 +2,10 @@
 # that contain the desired information. Setting any of these values
 # in config.json will have the effect of setting the configuration
 # option for the orchestration. The only options listed that are
-# currently unavailable are: ES_MASTER_COUNT, ES_MASTER_TYPE, IDENTITY
+# currently unavailable are: ES_MASTER_COUNT, ES_MASTER_TYPE
 
 class Secrets:
+    """ Secret values pulled from custom/secrets.json follow these identifiers """
     # Secrets (customarily held in environment variables by these names)
     AUTH0_CLIENT = "Auth0Client"
     AUTH0_SECRET = "Auth0Secret"
@@ -14,7 +15,18 @@ class Secrets:
     S3_ENCRYPT_KEY = "S3_ENCRYPT_KEY"
 
 
+class DeploymentParadigm:
+    """ Application level deployment paradigm - either standalone or blue/green.
+        blue/green is not supported by CGAP. standalone is supported by both.
+    """
+    STANDALONE = 'standalone'
+    BLUE_GREEN = 'blue/green'
+    BLUE = 'blue'
+    GREEN = 'green'
+
+
 class Settings:
+    """ Config values pulled from custom/config.json follow these identifiers """
 
     # General constants
 
@@ -26,11 +38,14 @@ class Settings:
     # GLOBAL_ENV_BUCKET = 'GLOBAL_ENV_BUCKET'
 
     IDENTITY = 'identity'  # XXX: import from dcicutils  -- change in progress to put it on health page
-    S3_BUCKET_ORG = "s3.bucket.org"  # was 'ENCODED_S3_BUCKET_ORG'
-    S3_BUCKET_ECOSYSTEM = "s3.bucket.ecosystem"
-    S3_BUCKET_ENCRYPTION = "s3.bucket.encryption"
+    BLUE_IDENTITY = 'blue.identity'
+    GREEN_IDENTITY = 'green.identity'
+    S3_BUCKET_ORG = 's3.bucket.org'  # was 'ENCODED_S3_BUCKET_ORG'
+    S3_BUCKET_ECOSYSTEM = 's3.bucket.ecosystem'
+    S3_BUCKET_ENCRYPTION = 's3.bucket.encryption'
 
-    APP_KIND = "app.kind"
+    APP_KIND = 'app.kind'
+    APP_DEPLOYMENT = 'app.deploy'
 
     # RDS Configuration Options
 

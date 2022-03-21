@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "4dn-cloud-infra"
-version = "2.0.0"
+version = "2.0.1"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
 authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
@@ -16,15 +16,15 @@ boto3 = "^1.21.0"
 botocore = "^1.24.0"
 chalice = "^1.26.6"
 dcicutils = "^3.4.0"
-foursight-cgap = "^1.5.0.0b0"
-foursight-core = "^0.6.0.0b0"
+foursight-cgap = "^1.5.1"
+foursight-core = "^0.6.0"
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
 # python-levenshtein = "^0.12.2"
 submit-cgap = "^1.3.0"
 magma-suite = "^0.2.8"
-tibanna = "1.9.0"
-tibanna-ff = "0.24.0"
+tibanna = "1.9.1"
+tibanna-ff = "1.0.0"
 tqdm = "^4.62.3"
 troposphere = "^3.2.2"
 

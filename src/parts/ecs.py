@@ -137,12 +137,11 @@ class C4ECSApplication(C4Part):
         template.add_resource(self.ecs_ingester_service())
         template.add_resource(self.ecs_deployment_task(initial=True))
         template.add_resource(self.ecs_deployment_task())
-        template.add_resource(self.ecs_deployment_service())
 
         # Add load balancer for portal
         template.add_resource(self.ecs_lb_security_group())
         template.add_resource(self.ecs_container_security_group())
-        target_group = self.ecs_lbv2_target_group()
+        target_group = self.ecs_lbv2_target_group(name='TargetGroupApplication')  # consider better name?
         template.add_resource(target_group)
         template.add_resource(self.ecs_application_load_balancer_listener(target_group))
         template.add_resource(self.ecs_application_load_balancer())
@@ -252,14 +251,25 @@ class C4ECSApplication(C4Part):
             ]
         )
 
-    def ecs_application_load_balancer(self, terminal=None) -> elbv2.LoadBalancer:
+    @staticmethod
+    def ecs_target_group_stickiness_options():
+        """ Configure the LB such that a session cookie is used to map user sessions to specific
+            worker nodes on a 1 hour rotating basis.
+        """
+        return [
+            elbv2.TargetGroupAttribute(Key='stickiness.enabled', Value='true'),
+            elbv2.TargetGroupAttribute(Key='stickiness.lb_cookie.duration_seconds', Value='3600'),
+        ]
+
+    def ecs_application_load_balancer(self, deployment_type='') -> elbv2.LoadBalancer:
         """ Application load balancer for the portal ECS Task.
-            Allows one to pass a "terminal", allowing blue/green configuration
+            Allows one to pass a "deployment_type", allowing blue/green configuration
+            In this case deployment_type == '', 'blue' or 'green'
         """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        if terminal:
-            env_name = env_name + terminal
-        logical_id = self.name.logical_id('LoadBalancer')
+        if deployment_type:
+            env_name = env_name + deployment_type
+        logical_id = self.name.logical_id(f'{deployment_type}LoadBalancer')
         return elbv2.LoadBalancer(
             logical_id,
             IpAddressType='ipv4',
@@ -295,6 +305,7 @@ class C4ECSApplication(C4Part):
             Name=name,
             Port=Ref(self.ecs_web_worker_port()),
             TargetType='ip',
+            TargetGroupAttributes=self.ecs_target_group_stickiness_options(),
             Protocol='HTTP',
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
             Tags=self.tags.cost_tag_array()
@@ -304,8 +315,8 @@ class C4ECSApplication(C4Part):
         """ Defines the portal Task (serve HTTP requests).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
-            :param cpu: CPU value to assign to this task, default 256 (play with this value)
-            :param mem: Memory amount for this task, default to 512 (play with this value)
+            :param cpu: CPU value to assign to this task
+            :param mem: Memory amount for this task
             :param identity: name of secret containing the identity information for this environment
                              (defaults to value of environment variable IDENTITY,
                              or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
@@ -417,8 +428,8 @@ class C4ECSApplication(C4Part):
         """ Defines the Indexer task (indexer app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
-            :param cpu: CPU value to assign to this task, default 256 (play with this value)
-            :param memory: Memory amount for this task, default to 512 (play with this value)
+            :param cpu: CPU value to assign to this task
+            :param memory: Memory amount for this task
             :param identity: name of secret containing the identity information for this environment
                              (defaults to value of environment variable IDENTITY,
                              or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
@@ -507,18 +518,22 @@ class C4ECSApplication(C4Part):
         )
 
     @staticmethod
-    def indexer_queue_depth_alarm(depth=1000) -> Alarm:
+    def indexer_queue_depth_alarm(depth=1000, deployment_type='') -> Alarm:
         """ Creates a Cloudwatch alarm for Secondary queue depth.
             Checks the secondary queue to see if it is backlogged.
+            Allows passing a deployment_type (for use with blue/green).
+            In this case deployment_type == '', 'blue' or 'green'
         """
         return Alarm(
-            'IndexingQueueDepthAlarm',
+            f'IndexingQueueDepthAlarm{deployment_type}',
             AlarmDescription='Alarm if total queue depth exceeds %s' % depth,
             Namespace='AWS/SQS',
             MetricName='ApproximateNumberOfMessagesVisible',
             Dimensions=[
-                MetricDimension(Name='QueueName',
-                                Value=ConfigManager.get_config_setting(Settings.ENV_NAME) + '-secondary-indexer-queue'),
+                MetricDimension(
+                    Name='QueueName',
+                    Value=ConfigManager.get_config_setting(Settings.ENV_NAME) +
+                          f'-{deployment_type}-secondary-indexer-queue'),
             ],
             Statistic='Maximum',
             Period='300',
@@ -528,18 +543,22 @@ class C4ECSApplication(C4Part):
         )
 
     @staticmethod
-    def indexer_queue_empty_alarm() -> Alarm:
+    def indexer_queue_empty_alarm(deployment_type='') -> Alarm:
         """ Creates a Cloudwatch alarm for when the Secondary queue is empty.
             Checks the secondary queue to see if it is empty, if detected scale down.
+            Allows passing a deployment_type (for use with blue/green).
+            In this case deployment_type == '', 'blue' or 'green'
         """
         return Alarm(
-            'IndexingQueueEmptyAlarm',
+            f'IndexingQueueEmptyAlarm{deployment_type}',
             AlarmDescription='Alarm when queue depth reaches 0',
             Namespace='AWS/SQS',
             MetricName='ApproximateNumberOfMessagesVisible',
             Dimensions=[
-                MetricDimension(Name='QueueName',
-                                Value=ConfigManager.get_config_setting(Settings.ENV_NAME) + '-secondary-indexer-queue'),
+                MetricDimension(
+                    Name='QueueName',
+                    Value=ConfigManager.get_config_setting(Settings.ENV_NAME) +
+                          f'-{deployment_type}-secondary-indexer-queue'),
             ],
             Statistic='Maximum',
             Period='300',

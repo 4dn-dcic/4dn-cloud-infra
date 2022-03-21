@@ -1,6 +1,7 @@
 import json
 
 from dcicutils.misc_utils import ignorable
+from dcicutils.cloudformation_utils import dehyphenate
 from troposphere import (
     # Join,
     Ref,
@@ -16,7 +17,7 @@ except ImportError:
         raise NotImplementedError('DomainEndpointOptions')
 from troposphere.secretsmanager import Secret
 from ..base import ConfigManager
-from ..constants import Settings, Secrets
+from ..constants import Settings, Secrets, DeploymentParadigm
 from ..exports import C4Exports
 from ..part import C4Part
 from ..parts.network import C4NetworkExports
@@ -30,6 +31,7 @@ class C4AppConfigExports(C4Exports):
     # Output ES URL for use by foursight/application
     ES_URL = 'ExportElasticSearchURL'
 
+    # Standalone, blue/green version is inlined
     EXPORT_APPLICATION_CONFIG = 'ExportApplicationConfig'
 
     # RDS Exports
@@ -63,11 +65,10 @@ class C4AppConfigExports(C4Exports):
 
 class C4AppConfig(C4Part):
     """ Defines the AppConfig stack - see resources created in build_template method. """
-    STACK_NAME_TOKEN = "appconfig"
-    STACK_TITLE_TOKEN = "AppConfig"
+    STACK_NAME_TOKEN = 'appconfig'
+    STACK_TITLE_TOKEN = 'AppConfig'
     SHARING = 'env'
 
-    APPLICATION_SECRET_STRING = 'ApplicationConfiguration'
     RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names
     EXPORTS = C4AppConfigExports()
     NETWORK_EXPORTS = C4NetworkExports()
@@ -88,6 +89,7 @@ class C4AppConfig(C4Part):
         'ENCODED_BS_ENV': CONFIGURATION_PLACEHOLDER,
         'ENCODED_DATA_SET': CONFIGURATION_PLACEHOLDER,
         'ENCODED_ES_SERVER': CONFIGURATION_PLACEHOLDER,
+        'ENCODED_IDENTITY': None,  # This is the name of the Secrets Manager with all our identity's secrets
         'ENCODED_FILE_UPLOAD_BUCKET': CONFIGURATION_PLACEHOLDER,
         'ENCODED_FILE_WFOUT_BUCKET': CONFIGURATION_PLACEHOLDER,
         'ENCODED_BLOB_BUCKET': CONFIGURATION_PLACEHOLDER,
@@ -109,28 +111,38 @@ class C4AppConfig(C4Part):
     }
 
     def build_template(self, template: Template) -> Template:
-        application_configuration_secret = self.application_configuration_secret()
-        template.add_resource(application_configuration_secret)
-        template.add_output(self.output_configuration_secret(application_configuration_secret))
+        """ Builds the appconfig template - builds GACs for blue/green if APP_DEPLOYMENT == blue/green """
+        if ConfigManager.get_config_setting(Settings.APP_DEPLOYMENT) == DeploymentParadigm.BLUE_GREEN:
+            gac_blue = self.application_configuration_secret(postfix='Blue')
+            template.add_resource(gac_blue)
+            template.add_output(self.output_configuration_secret(gac_blue, deployment_type='Blue'))
+            gac_green = self.application_configuration_secret(postfix='Green')
+            template.add_resource(gac_green)
+            template.add_output(self.output_configuration_secret(gac_green, deployment_type='Green'))
+        else:  # standalone
+            application_configuration_secret = self.application_configuration_secret()
+            template.add_resource(application_configuration_secret)
+            template.add_output(self.output_configuration_secret(application_configuration_secret))
         return template
 
-    def output_configuration_secret(self, application_configuration_secret):
-        logical_id = self.name.logical_id(C4AppConfigExports.EXPORT_APPLICATION_CONFIG)
+    def output_configuration_secret(self, application_configuration_secret, deployment_type=None):
+        """ Outputs GAC """
+        logical_id = (self.name.logical_id(C4AppConfigExports.EXPORT_APPLICATION_CONFIG) +
+                      deployment_type if deployment_type else '')
+        export = (self.EXPORTS.export(C4AppConfigExports.EXPORT_APPLICATION_CONFIG +
+                                      deployment_type if deployment_type else ''))
         return Output(
             logical_id,
             Description='Application Configuration Secret',
             Value=Ref(application_configuration_secret),
-            Export=self.EXPORTS.export(C4AppConfigExports.EXPORT_APPLICATION_CONFIG)
+            Export=export
         )
 
-    def application_configuration_secret(self) -> Secret:
+    def application_configuration_secret(self, postfix=None) -> Secret:
         """ Returns the application configuration secret. Note that this pushes up just a
             template - you must fill it out according to the specification in the README.
         """
-        env_identifier = ConfigManager.get_config_setting(Settings.ENV_NAME).replace('-', '')
-        if not env_identifier:
-            raise Exception('Did not set required key in .env! Should never get here.')
-        logical_id = self.name.logical_id(self.APPLICATION_SECRET_STRING) + env_identifier
+        logical_id = dehyphenate(self.name.logical_id(postfix if postfix else '')).replace('_', '')
         return Secret(
             logical_id,
             Name=logical_id,

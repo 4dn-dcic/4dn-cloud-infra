@@ -3,19 +3,15 @@ from troposphere import (
 )
 from troposphere.rds import DBInstance, DBSubnetGroup
 from troposphere.elasticsearch import (
-    Domain, ElasticsearchClusterConfig,
+    Domain, ElasticsearchClusterConfig, DomainEndpointOptions,
     EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions
 )
-try:
-    from troposphere.elasticsearch import DomainEndpointOptions  # noQA
-except ImportError:
-    def DomainEndpointOptions(*args, **kwargs):  # noQA
-        raise NotImplementedError('DomainEndpointOptions')
 from dcicutils.cloudformation_utils import camelize
 from ..base import (
     ConfigManager, Settings,
 )
-from .datastore import C4Datastore
+from ..constants import DeploymentParadigm
+from .datastore import C4Datastore, C4DatastoreExports
 
 
 class C4DatastoreSlim(C4Datastore):
@@ -51,10 +47,19 @@ class C4DatastoreSlim(C4Datastore):
         template.add_output(self.output_rds_port(rds))
 
         # Elasticsearch
-        es = self.elasticsearch_instance()
-        template.add_resource(es)
-        template.add_output(self.output_es_url(es))
-
+        if ConfigManager.get_config_setting(Settings.APP_DEPLOYMENT) == DeploymentParadigm.BLUE_GREEN:
+            for env, export in {
+                f'-{DeploymentParadigm.BLUE}': C4DatastoreExports.BLUE_ES_URL,
+                f'-{DeploymentParadigm.GREEN}': C4DatastoreExports.GREEN_ES_URL
+            }.items():
+                env_name = ConfigManager.get_config_setting(Settings.ENV_NAME) + env
+                es = self.elasticsearch_instance(env_name=env_name)
+                template.add_resource(es)
+                template.add_output(self.output_es_url(es, export_name=export))
+        else:
+            es = self.elasticsearch_instance()
+            template.add_resource(es)
+            template.add_output(self.output_es_url(es, export_name=C4DatastoreExports.ES_URL))
         return template
 
     # TODO: refactor parameters so they don't need to be repeated here
@@ -152,14 +157,14 @@ class C4DatastoreSlim(C4Datastore):
         logical_id = self.name.logical_id(self.rds_instance_name(env_name))  # was env_name
         secret_string_logical_id = self.rds_secret_logical_id()
         return DBInstance(
-            ConfigManager.get_config_setting(Settings.RDS_NAME) or logical_id,
+            logical_id,
             AllocatedStorage=storage_size or ConfigManager.get_config_setting(Settings.RDS_STORAGE_SIZE,
                                                                               default=self.DEFAULT_RDS_STORAGE_SIZE),
             DBInstanceClass=instance_size or ConfigManager.get_config_setting(Settings.RDS_INSTANCE_SIZE,
                                                                               default=self.DEFAULT_RDS_INSTANCE_SIZE),
             Engine='postgres',
             EngineVersion=postgres_version or self.DEFAULT_RDS_POSTGRES_VERSION,
-            DBInstanceIdentifier=f"rds-{env_name}",  # was logical_id,
+            DBInstanceIdentifier=f'rds-{env_name}',  # was logical_id,
             DBName=db_name or ConfigManager.get_config_setting(Settings.RDS_DB_NAME, default=self.DEFAULT_RDS_DB_NAME),
             DBParameterGroupName=Ref(self.rds_parameter_group()),
             DBSubnetGroupName=Ref(self.rds_subnet_group()),
@@ -183,14 +188,15 @@ class C4DatastoreSlim(C4Datastore):
             Tags=self.tags.cost_tag_array(name=logical_id),
         )
 
-    def elasticsearch_instance(self, data_node_count=None, data_node_type=None):
+    def elasticsearch_instance(self, env_name=None, data_node_count=None, data_node_type=None):
         """ Returns an Elasticsearch domain with 1 data node, configurable via data_node_instance_type. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
             TODO allow master node configuration
         """
-        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        logical_id = self.name.logical_id(f"{camelize(env_name)}ElasticSearch")  # was env_name
-        domain_name = self.name.domain_name(f"es-{env_name}")
+        if not env_name:
+            env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        logical_id = f'{env_name}ElasticSearch'
+        domain_name = self.name.domain_name(f'es-{env_name}')
         options = {}
         try:  # feature not yet supported by troposphere
             options['DomainEndpointOptions'] = DomainEndpointOptions(EnforceHTTPS=True)

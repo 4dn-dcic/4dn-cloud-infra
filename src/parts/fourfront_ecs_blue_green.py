@@ -10,7 +10,7 @@ from troposphere.ecs import (
 )
 from dcicutils.cloudformation_utils import camelize
 from ..base import ConfigManager
-from ..constants import Settings
+from ..constants import Settings, DeploymentParadigm
 from .ecs import C4ECSApplicationExports, C4ECSApplication
 from .network import C4NetworkExports
 from .ecr import C4ECRExports
@@ -27,6 +27,11 @@ class FourfrontECSBlueGreen(C4ECSApplication):
 
     def build_template(self, template: Template) -> Template:
         """ Builds the template containing two ECS environments. """
+        if ConfigManager.get_config_setting(Settings.APP_DEPLOYMENT,
+                                            default=DeploymentParadigm.STANDALONE) != DeploymentParadigm.BLUE_GREEN:
+            raise Exception('Tried to build Fourfront blue/green but APP_DEPLOYMENT '
+                            'is not "blue/green"!')
+
         # Add network parameters
         template.add_parameter(Parameter(
             self.NETWORK_EXPORTS.reference_param_key,
@@ -59,125 +64,150 @@ class FourfrontECSBlueGreen(C4ECSApplication):
         template.add_resource(self.ecs_lb_security_group())
         template.add_resource(self.ecs_container_security_group())
 
-        # cluster
-        template.add_resource(self.ecs_cluster_blue())
-        template.add_resource(self.ecs_cluster_green())
-
-        # ECS Tasks/Services
-        # template.add_resource(self.ecs_portal_task())
-        # portal = self.ecs_portal_service()
-        # template.add_resource(portal)
-        # template.add_resource(self.ecs_indexer_task())
-        # indexer = self.ecs_indexer_service()
-        # template.add_resource(indexer)
-        # template.add_resource(self.ecs_deployment_task(initial=True))
-        # template.add_resource(self.ecs_deployment_task())
+        # clusters
+        blue_cluster = self.ecs_cluster(deployment_type=DeploymentParadigm.BLUE)
+        template.add_resource(blue_cluster)
+        green_cluster = self.ecs_cluster(deployment_type=DeploymentParadigm.GREEN)
+        template.add_resource(green_cluster)
 
         # Target Groups
+        # Provisioned now so refs can be passed to API services
         target_group_green = self.ecs_lbv2_target_group_green()
         target_group_blue = self.ecs_lbv2_target_group_blue()
         template.add_resource(target_group_green)
         template.add_resource(target_group_blue)
 
+        # ECS Tasks/Services
+        # This dictionary structure just collects all necessary components for building the
+        # symmetric blue/green cleanly - core components include:
+        #   * ECS Cluster
+        #   * Target Group
+        #   * Identity (GAC)
+        #   * Log Group
+        tags = {
+            DeploymentParadigm.BLUE: (blue_cluster, target_group_blue,
+                                      ConfigManager.get_config_setting(Settings.BLUE_IDENTITY),
+                                      C4LoggingExports.APPLICATION_LOG_GROUP_BLUE),
+            DeploymentParadigm.GREEN: (green_cluster, target_group_green,
+                                       ConfigManager.get_config_setting(Settings.GREEN_IDENTITY),
+                                       C4LoggingExports.APPLICATION_LOG_GROUP_GREEN)
+        }
+        for tag, (cluster, target_group, identity, log_export) in tags.items():
+            # Portal task/service
+            portal_task = self.ecs_portal_task(image_tag=tag, log_group_export=log_export, identity=identity)
+            template.add_resource(portal_task)
+            portal_service = self.ecs_portal_service(cluster_ref=Ref(cluster),
+                                                     target_group_ref=Ref(target_group), image_tag=tag,
+                                                     task_definition=Ref(portal_task))
+            template.add_resource(portal_service)
+
+            # Indexer task/service
+            indexer_task = self.ecs_indexer_task(image_tag=tag, log_group_export=log_export, identity=identity)
+            template.add_resource(indexer_task)
+            indexer_service = self.ecs_indexer_service(cluster_ref=Ref(cluster), image_tag=tag,
+                                                       task_definition=Ref(indexer_task))
+            template.add_resource(indexer_service)
+
+            # Deployment tasks
+            template.add_resource(self.ecs_deployment_task(image_tag=tag, log_group_export=log_export,
+                                                           identity=identity, initial=True))
+            template.add_resource(self.ecs_deployment_task(image_tag=tag, log_group_export=log_export,
+                                                           identity=identity))
+
         # Load Balancers
-        template.add_resource(self.ecs_application_load_balancer_listener_blue(target_group_blue))
-        template.add_resource(self.ecs_application_load_balancer_listener_green(target_group_green))
-        template.add_resource(self.ecs_application_load_balancer_blue())
-        template.add_resource(self.ecs_application_load_balancer_green())
+        blue_lb = self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.BLUE)
+        template.add_resource(blue_lb)
+        green_lb = self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.GREEN)
+        template.add_resource(green_lb)
+        template.add_resource(
+            self.ecs_application_load_balancer_listener(target_group_blue,
+                                                        logical_id=f'LBListener{DeploymentParadigm.BLUE}',
+                                                        lb_ref=Ref(blue_lb))
+        )
+        template.add_resource(
+            self.ecs_application_load_balancer_listener(target_group_green,
+                                                        logical_id=f'LBListener{DeploymentParadigm.GREEN}',
+                                                        lb_ref=Ref(green_lb))
+        )
+
+        # Add indexing Cloudwatch Alarms
+        # These alarms are meant to trigger symmetric scaling actions in response to
+        # sustained indexing load - the specifics of the autoscaling is left for
+        # manual configuration by the orchestrator according to their needs
+        template.add_resource(self.indexer_queue_empty_alarm(deployment_type=DeploymentParadigm.BLUE))
+        template.add_resource(self.indexer_queue_depth_alarm(deployment_type=DeploymentParadigm.BLUE))
+        template.add_resource(self.indexer_queue_empty_alarm(deployment_type=DeploymentParadigm.GREEN))
+        template.add_resource(self.indexer_queue_depth_alarm(deployment_type=DeploymentParadigm.GREEN))
 
         # Output URLs
+        template.add_output(self.output_blue_application_url())
+        template.add_output(self.output_green_application_url())
 
         return template
 
     def output_blue_application_url(self, env=None) -> Output:
         """ Outputs URL to access portal. """
-        env = env or ConfigManager.get_config_setting(Settings.ENV_NAME)
+        env = env or (ConfigManager.get_config_setting(Settings.ENV_NAME) + DeploymentParadigm.BLUE)
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
             Description='URL of Fourfront-Portal-Blue.',
-            Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer_blue(), 'DNSName')])
+            Value=Join('', ['http://', GetAtt(
+                self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.BLUE), 'DNSName')])
         )
 
     def output_green_application_url(self, env=None) -> Output:
         """ Outputs URL to access portal. """
-        env = env or ConfigManager.get_config_setting(Settings.ENV_NAME)
+        env = env or (ConfigManager.get_config_setting(Settings.ENV_NAME) + DeploymentParadigm.GREEN)
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
             Description='URL of Fourfront-Portal-Green.',
-            Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer_green(), 'DNSName')])
+            Value=Join('', ['http://',
+                GetAtt(self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.GREEN), 'DNSName')])
         )
 
-    def ecs_cluster_blue(self) -> Cluster:
-        """ Defines the blue cluster """
+    def ecs_cluster(self, deployment_type=None):
+        """ Defines an ECS cluster """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         return Cluster(
             # Always use env name for cluster
-            camelize(env_name + '-blue'),
+            camelize(env_name + (deployment_type or '')),
             CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
             Tags=self.tags.cost_tag_obj()
         )
 
-    def ecs_cluster_green(self) -> Cluster:
-        """ Defines the green cluster """
-        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        return Cluster(
-            # Always use env name for cluster
-            camelize(env_name + '-green'),
-            CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
-            Tags=self.tags.cost_tag_obj()
-        )
-
-    def ecs_application_load_balancer_listener_blue(self, target_group: elbv2.TargetGroup) -> elbv2.Listener:
-        """ Listener for the application load balancer, forwards traffic to the target group (containing portal). """
-        logical_id = self.name.logical_id('LBListenerBlue')
+    def ecs_application_load_balancer_listener(self, target_group: elbv2.TargetGroup,
+                                               logical_id=None, lb_ref=None):
+        """ Load balancer listener, forwards traffic to portal tasks """
         return elbv2.Listener(
-            logical_id,
+            self.name.logical_id(logical_id) if logical_id else self.name.logical_id('LBListener'),
             Port=80,
             Protocol='HTTP',
-            LoadBalancerArn=Ref(self.ecs_application_load_balancer_blue()),
-            DefaultActions=[
-                elbv2.Action(Type='forward', TargetGroupArn=Ref(target_group))
-            ]
-        )
-
-    def ecs_application_load_balancer_listener_green(self, target_group: elbv2.TargetGroup) -> elbv2.Listener:
-        """ Listener for the application load balancer, forwards traffic to the target group (containing portal). """
-        logical_id = self.name.logical_id('LBListenerGreen')
-        return elbv2.Listener(
-            logical_id,
-            Port=80,
-            Protocol='HTTP',
-            LoadBalancerArn=Ref(self.ecs_application_load_balancer_green()),
+            LoadBalancerArn=lb_ref or Ref(self.ecs_application_load_balancer()),
             DefaultActions=[
                 elbv2.Action(Type='forward', TargetGroupArn=Ref(target_group))
             ]
         )
 
     def ecs_lbv2_target_group_blue(self) -> elbv2.TargetGroup:
-        return self.ecs_lbv2_target_group(name='TargetGroupApplicationBlue')
+        return self.ecs_lbv2_target_group(name=f'TargetGroupApplication{DeploymentParadigm.BLUE.capitalize()}')
 
     def ecs_lbv2_target_group_green(self) -> elbv2.TargetGroup:
-        return self.ecs_lbv2_target_group(name='TargetGroupApplicationGreen')
+        return self.ecs_lbv2_target_group(name=f'TargetGroupApplication{DeploymentParadigm.GREEN.capitalize()}')
 
-    def ecs_application_load_balancer_blue(self):
-        """ Defines the blue application load balancer. """
-        return self.ecs_application_load_balancer(terminal='-blue')
-
-    def ecs_application_load_balancer_green(self):
-        """ Defines the green application load balancer. """
-        return self.ecs_application_load_balancer(terminal='-green')
-
-    def ecs_portal_task(self, cpu='1024', mem='2048', identity=None) -> TaskDefinition:
+    def ecs_portal_task(self, cpu='4096', mem='8192', image_tag='',
+                        log_group_export=None, identity=None) -> TaskDefinition:
         """ Defines the portal Task (serve HTTP requests).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
             Note that not much has changed for the FF version.
 
-            :param cpu: CPU value to assign to this task, default 256 (play with this value)
-            :param mem: Memory amount for this task, default to 512 (play with this value)
+            :param cpu: CPU value to assign to this task
+            :param mem: Memory amount for this task
+            :param image_tag: image tag to use for this task
+            :param log_group_export: log group export name to use
             :param identity: name of secret containing the identity information for this environment
         """
         return TaskDefinition(
-            'FourfrontPortal',
+            f'Fourfront{image_tag}Portal',
             RequiresCompatibilities=['FARGATE'],
             Cpu=ConfigManager.get_config_setting(Settings.ECS_WSGI_CPU, cpu),
             Memory=ConfigManager.get_config_setting(Settings.ECS_WSGI_MEMORY, mem),
@@ -186,12 +216,12 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
-                    Name='portal',
+                    Name=f'{image_tag}portal',
                     Essential=True,
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
-                        self.IMAGE_TAG,
+                        image_tag or self.IMAGE_TAG,
                     ]),
                     PortMappings=[PortMapping(
                         ContainerPort=Ref(self.ecs_web_worker_port()),
@@ -200,7 +230,9 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                         LogDriver='awslogs',
                         Options={
                             'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
+                                self.LOGGING_EXPORTS.import_value(
+                                    log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP
+                                ),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'fourfront-portal'
                         }
@@ -226,25 +258,30 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             Tags=self.tags.cost_tag_obj(),
         )
 
-    def ecs_portal_service(self, concurrency=8) -> Service:
+    def ecs_portal_service(self, cluster_ref=None, target_group_ref=None, image_tag='',
+                           task_definition=None, concurrency=8) -> Service:
         """ Defines the portal service (manages portal Tasks)
             Note dependencies: https://stackoverflow.com/questions/53971873/the-target-group-does-not-have-an-associated-load-balancer
 
             Defined by the ECR Image tag 'latest'.
 
+            :param cluster_ref: reference to cluster to associate with this service
+            :param target_group_ref: reference to target group, will fallback to standalone
+            :param image_tag: used to postfix various references if passed
+            :param task_definition: reference to task definition to use
             :param concurrency: # of concurrent tasks to run - since this setup is intended for use with
                                 production, this value is 8, approximately matching our current resources.
         """  # noQA - ignore line length issues
         return Service(
-            "FourfrontPortalService",
-            Cluster=Ref(self.ecs_cluster()),
-            DependsOn=[self.name.logical_id('LBListener')],
+            f'Fourfront{image_tag}PortalService',
+            Cluster=Ref(self.ecs_cluster()) if not cluster_ref else cluster_ref,
+            DependsOn=[self.name.logical_id(f'LBListener{image_tag.capitalize()}')],
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(
-                    ContainerName='portal',  # this must match Name in TaskDefinition (ContainerDefinition)
+                    ContainerName=f'{image_tag}portal',  # this must match Name in TaskDefinition (ContainerDefinition)
                     ContainerPort=Ref(self.ecs_web_worker_port()),
-                    TargetGroupArn=Ref(self.ecs_lbv2_target_group()))
+                    TargetGroupArn=Ref(self.ecs_lbv2_target_group()) if not target_group_ref else target_group_ref)
             ],
             # Run portal service on Fargate Spot
             CapacityProviderStrategy=[
@@ -259,7 +296,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                     Weight=1
                 )
             ],
-            TaskDefinition=Ref(self.ecs_portal_task()),
+            TaskDefinition=Ref(self.ecs_portal_task()) if not task_definition else task_definition,
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
@@ -273,18 +310,21 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             Tags=self.tags.cost_tag_obj()
         )
 
-    def ecs_indexer_task(self, cpu=None, memory=None, identity=None) -> TaskDefinition:
+    def ecs_indexer_task(self, cpu='256', memory='512', image_tag='',
+                         log_group_export=None, identity=None) -> TaskDefinition:
         """ Defines the Indexer task (indexer app).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
             :param cpu: CPU value to assign to this task, default 256 (play with this value)
             :param memory: Memory amount for this task, default to 512 (play with this value)
+            :param image_tag: image tag to use for this task, latest by default
+            :param log_group_export: log group export name to use
             :param identity: name of secret containing the identity information for this environment
                              (defaults to value of environment variable IDENTITY,
                              or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
         """
         return TaskDefinition(
-            'FourfrontIndexer',
+            f'Fourfront{image_tag}Indexer',
             RequiresCompatibilities=['FARGATE'],
             Cpu=cpu or ConfigManager.get_config_setting(Settings.ECS_INDEXER_CPU, self.DEFAULT_INDEXER_CPU),
             Memory=memory or ConfigManager.get_config_setting(Settings.ECS_INDEXER_MEMORY, self.DEFAULT_INDEXER_MEMORY),
@@ -293,18 +333,20 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
-                    Name='Indexer',
+                    Name=f'{image_tag}Indexer',
                     Essential=True,
                     Image=Join('', [
                         self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
-                        self.IMAGE_TAG,
+                        image_tag or self.IMAGE_TAG,
                     ]),
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
                         Options={
                             'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
+                                self.LOGGING_EXPORTS.import_value(
+                                    log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP
+                                ),
                             'awslogs-region': Ref(AWS_REGION),
                             'awslogs-stream-prefix': 'fourfront-indexer'
                         }
@@ -331,18 +373,18 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             Tags=self.tags.cost_tag_obj()
         )
 
-    def ecs_indexer_service(self, concurrency=4) -> Service:
+    def ecs_indexer_service(self, cluster_ref=None, image_tag='',
+                            task_definition=None, concurrency=4) -> Service:
         """ Defines the Indexer service (manages Indexer Tasks)
-            TODO SQS autoscaling trigger?
 
-            Defined by the ECR Image tag 'latest-indexer'.
-
+            :param cluster_ref: reference to cluster to associate with this service
+            :param task_definition: reference to task definition to use
             :param concurrency: # of concurrent tasks to run - since this setup is intended for use with
                                 production, this value is 4, approximately matching our current resources.
         """
         return Service(
-            "FourfrontIndexerService",
-            Cluster=Ref(self.ecs_cluster()),
+            f'Fourfront{image_tag}IndexerService',
+            Cluster=Ref(self.ecs_cluster()) if not cluster_ref else cluster_ref,
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_INDEXER_COUNT, concurrency),
             CapacityProviderStrategy=[
                 CapacityProviderStrategyItem(
@@ -356,7 +398,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                     Weight=1
                 )
             ],
-            TaskDefinition=Ref(self.ecs_indexer_task()),
+            TaskDefinition=Ref(self.ecs_indexer_task()) if not task_definition else task_definition,
             SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
             NetworkConfiguration=NetworkConfiguration(
                 AwsvpcConfiguration=AwsvpcConfiguration(
@@ -370,14 +412,17 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             Tags=self.tags.cost_tag_obj()
         )
 
-    def ecs_deployment_task(self, cpu=None, memory=None, identity=None, initial=False) -> TaskDefinition:
+    def ecs_deployment_task(self, cpu='1024', memory='2048', image_tag='',
+                            log_group_export=None, identity=None, initial=False) -> TaskDefinition:
         """ Defines the Deployment task (run deployment action).
             Meant to be run manually from ECS Console (or from foursight), so no associated service.
 
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
 
-            :param cpu: CPU value to assign to this task, default 256 (play with this value)
-            :param memory: Memory amount for this task, default to 512 (play with this value)
+            :param cpu: CPU value to assign to this task
+            :param memory: Memory amount for this task
+            :param image_tag: image tag to use for this task, latest by default
+            :param log_group_export: log group export name to use
             :param identity: name of secret containing the identity information for this environment
                              (defaults to value of environment variable IDENTITY,
                              or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
@@ -386,7 +431,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                             causing a different initialization sequence.
         """
         return TaskDefinition(
-            'FourfrontInitialDeployment' if initial else 'FourfrontDeployment',
+            f'Fourfront{image_tag}InitialDeployment' if initial else f'Fourfront{image_tag}Deployment',
             RequiresCompatibilities=['FARGATE'],
             Cpu=cpu or ConfigManager.get_config_setting(Settings.ECS_INITIAL_DEPLOYMENT_CPU
                                                         if initial else
@@ -405,20 +450,22 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
-                    Name='DeploymentAction',
+                    Name=f'{image_tag}DeploymentAction',
                     Essential=True,
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
                         ':',
-                        self.IMAGE_TAG,
+                        image_tag or self.IMAGE_TAG,
                     ]),
                     LogConfiguration=LogConfiguration(
                         LogDriver='awslogs',
                         Options={
                             'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
+                                self.LOGGING_EXPORTS.import_value(
+                                    log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP
+                                ),
                             'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': 'fourfront-initial-deployment' if initial else 'cgap-deployment',
+                            'awslogs-stream-prefix': 'fourfront-initial-deployment' if initial else 'fourfront-deployment',
                         }
                     ),
                     Environment=[
@@ -444,7 +491,3 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             ],
             Tags=self.tags.cost_tag_obj()
         )
-
-
-
-
