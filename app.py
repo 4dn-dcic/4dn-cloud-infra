@@ -175,6 +175,12 @@ def hourly_checks_2(event):
     app_utils_manager.singleton.queue_scheduled_checks('all', 'hourly_checks_2')
 
 
+@app.schedule(foursight_cron_by_schedule[STAGE]['monthly_checks'])
+def monthly_checks(event):
+    ignored(event)
+    app_utils_manager.singleton.queue_scheduled_checks('all', 'monthly_checks')
+
+
 ###############################
 # Foursight Route Configuration
 ###############################
