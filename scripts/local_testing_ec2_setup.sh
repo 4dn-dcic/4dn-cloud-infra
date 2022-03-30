@@ -25,6 +25,7 @@ pyenv virtualenv 3.7.12 foursight-testing
 
 curl -sSL https://install.python-poetry.org | python -
 export PATH="/home/ubuntu/.local/bin:$PATH"
+echo 'export PATH="/home/ubuntu/.local/bin:$PATH"' >> ~/.bashrc
 
 git clone https://github.com/dbmi-bgm/foursight-cgap
 
