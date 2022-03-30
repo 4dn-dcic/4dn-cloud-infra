@@ -78,6 +78,14 @@ class C4DatastoreExports(C4Exports):
     def get_es_url(cls):
         return ConfigManager.find_stack_output(cls._ES_URL_EXPORT_PATTERN.match, value_only=True)
 
+    @classmethod
+    def get_es_url_with_port(cls):
+        result = None
+        es_url = cls.get_es_url()
+        if es_url:
+            result = es_url + ":443"
+        return result
+
     # e.g., name will be C4DatastoreTrialAlphaExportFoursightEnvBucket
     #       or might not contain '...Alpha...'
     # Also, name change in progress from EnvsBucket turning to EnvBucket, so match both

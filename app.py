@@ -8,6 +8,10 @@ from dcicutils.exceptions import InvalidParameterError
 from dcicutils.misc_utils import environ_bool, remove_suffix, ignored
 from foursight_core.deploy import Deploy
 
+from src.base import ConfigManager
+from src.constants import Settings
+from src.parts.datastore import C4Datastore, C4DatastoreExports
+
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(levelname)-8s %(message)s')
 logger = logging.getLogger(__name__)
@@ -26,11 +30,22 @@ if DEBUG_CHALICE:
 # Minimal app.py; used to initially verify packaging scripts
 app = Chalice(app_name='foursight_cgap_trial')
 STAGE = os.environ.get('chalice_stage', 'dev')
-HOST = os.environ.get('ES_HOST', None)
+
+DEFAULT_REGION = os.environ.get("AWS_DEFAULT_REGION")
+if DEFAULT_REGION is None:
+    raise Exception("AWS default region not configured. Please set up accordingly.")
+
+HOST = os.environ.get("ES_HOST", None)
+if HOST is None:
+    HOST = C4DatastoreExports.get_es_url_with_port()
 # previously FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'  # TODO: This should probably just be "foursight-cgap"
 FOURSIGHT_PREFIX = os.environ.get('FOURSIGHT_PREFIX')
 if not FOURSIGHT_PREFIX:
-    _GLOBAL_ENV_BUCKET = os.environ.get('GLOBAL_ENV_BUCKET') or os.environ.get('GLOBAL_BUCKET_ENV')
+    _GLOBAL_ENV_BUCKET = os.environ.get("GLOBAL_ENV_BUCKET") or os.environ.get("GLOBAL_BUCKET_ENV")
+    if _GLOBAL_ENV_BUCKET is None:
+        _GLOBAL_ENV_BUCKET = C4DatastoreExports.get_env_bucket()
+        if _GLOBAL_ENV_BUCKET is not None:
+            os.environ["GLOBAL_ENV_BUCKET"] = _GLOBAL_ENV_BUCKET
     if _GLOBAL_ENV_BUCKET is not None:
         print("_GLOBAL_ENV_BUCKET=", _GLOBAL_ENV_BUCKET)  # TODO: Temporary print statement, for debugging
         FOURSIGHT_PREFIX = remove_suffix("-envs", _GLOBAL_ENV_BUCKET, required=True)
@@ -38,7 +53,9 @@ if not FOURSIGHT_PREFIX:
     else:
         raise RuntimeError("The FOURSIGHT_PREFIX environment variable is not set. Heuristics failed.")
 
-DEFAULT_ENV = os.environ.get('ENV_NAME', "cgap-uninitialized")
+DEFAULT_ENV = os.environ.get("ENV_NAME")
+if DEFAULT_ENV is None:
+    DEFAULT_ENV = ConfigManager.get_config_setting(Settings.ENV_NAME)
 
 
 class SingletonManager():  # TODO: Move to dcicutils

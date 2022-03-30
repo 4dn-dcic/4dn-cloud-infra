@@ -64,3 +64,11 @@ scripts/delete_pending_buckets.data.txt
 ~$*
 .~*#
 
+# Vim
+*.swp
+
+# Pyenv
+.python-version
+
+# Jupyter notebooks
+*.ipynb_checkpoints
