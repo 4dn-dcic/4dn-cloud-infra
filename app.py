@@ -32,8 +32,6 @@ app = Chalice(app_name='foursight_cgap_trial')
 STAGE = os.environ.get('chalice_stage', 'dev')
 
 DEFAULT_REGION = os.environ.get("AWS_DEFAULT_REGION")
-if DEFAULT_REGION is None:
-    raise Exception("AWS default region not configured. Please set up accordingly.")
 
 HOST = os.environ.get("ES_HOST", None)
 if HOST is None:

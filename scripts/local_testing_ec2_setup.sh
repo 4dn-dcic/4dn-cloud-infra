@@ -13,11 +13,11 @@ sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
 curl https://pyenv.run | bash
 
 export PATH="$HOME/.pyenv/bin:$PATH"
-echo 'export PATH="$HOME/.pyenv/bin:$PATH"' >> ~/.bashrc
+echo 'export PATH="$HOME/.pyenv/bin:$PATH"' >> ~/.profile
 eval "$(pyenv init --path)"
-echo 'eval "$(pyenv init --path)"' >> ~/.bashrc
+echo 'eval "$(pyenv init --path)"' >> ~/.profile
 eval "$(pyenv virtualenv-init -)"
-echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
+echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.profile
 
 pyenv install 3.7.12
 pyenv global 3.7.12
@@ -25,7 +25,7 @@ pyenv virtualenv 3.7.12 foursight-testing
 
 curl -sSL https://install.python-poetry.org | python -
 export PATH="/home/ubuntu/.local/bin:$PATH"
-echo 'export PATH="/home/ubuntu/.local/bin:$PATH"' >> ~/.bashrc
+echo 'export PATH="/home/ubuntu/.local/bin:$PATH"' >> ~/.profile
 
 git clone https://github.com/dbmi-bgm/foursight-cgap
 
@@ -36,8 +36,8 @@ pyenv local foursight-testing
 # Install foursight locally via poetry
 sed -i 's/.*foursight-cgap =.*/foursight-cgap = { path = "..\/foursight-cgap", develop = true }/' pyproject.toml
 
+poetry update
 pip install --upgrade pip
-poetry install
 pip install jupyter  # Poetry not installing jupyter as nicely
 
 cd $start_path
