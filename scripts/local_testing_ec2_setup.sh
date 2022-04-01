@@ -13,7 +13,7 @@ sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
 	libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl
 
 if [ ! -d $expected_pyenv_dir ]; then
-    curl https://pyenv.run | bash
+    git clone https://github.com/pyenv/pyenv.git ~/.pyenv
 
     export PATH="$HOME/.pyenv/bin:$PATH"
     eval "$(pyenv init --path)"
