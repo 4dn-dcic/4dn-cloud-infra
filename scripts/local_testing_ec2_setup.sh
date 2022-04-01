@@ -4,6 +4,7 @@
 
 start_path=$PWD
 
+current_python=$(which python)
 python_version=3.7.12
 expected_pyenv_dir="$HOME/.pyenv"
 expected_poetry_dir="$HOME/.poetry"
@@ -18,6 +19,7 @@ sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
 
 if [ ! -d $expected_pyenv_dir ]; then
     git clone https://github.com/pyenv/pyenv.git ~/.pyenv
+    git clone https://github.com/pyenv/pyenv-virtualenv.git $(pyenv root)/plugins/pyenv-virtualenv
 
     export PATH="$HOME/.pyenv/bin:$PATH"
     eval "$(pyenv init --path)"
@@ -32,7 +34,7 @@ if [ ! -d "$expected_pyenv_dir/versions/$python_version" ]; then
     pyenv install 3.7.12
 fi
 
-if which python > /dev/null 2>&1; then
+if [ ! -z $current_python ]; then
     pyenv global 3.7.12
 fi
 
