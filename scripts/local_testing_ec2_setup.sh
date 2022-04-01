@@ -3,8 +3,12 @@
 ### For Ubuntu-based EC2s as of March 2022 -drr
 
 start_path=$PWD
+
+python_version=3.7.12
 expected_pyenv_dir="$HOME/.pyenv"
 expected_poetry_dir="$HOME/.poetry"
+expected_4dn_infra_dir="$HOME/4dn-cloud-infra"
+expected_foursight_dir="$Home/foursight-cgap"
 
 cd $HOME
 sudo apt-get update
@@ -24,20 +28,33 @@ if [ ! -d $expected_pyenv_dir ]; then
     sed -i '1i export PATH="$HOME/.pyenv/bin:$PATH"' ~/.bashrc
 fi
 
-pyenv install 3.7.12
-pyenv global 3.7.12
-pyenv virtualenv 3.7.12 foursight-local
+if [ ! -d "$expected_pyenv_dir/versions/$python_version" ]; then
+    pyenv install 3.7.12
+fi
+
+if which python > /dev/null 2>&1; then
+    pyenv global 3.7.12
+fi
 
 if [ ! -d $expected_poetry_dir ]; then
     curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
-    source $HOME/.poetry/env
+    source "$HOME/.poetry/env"
     sed -i '1i export PATH="$HOME/.poetry/bin:$PATH"' ~/.bashrc
 fi
 
-git clone https://github.com/dbmi-bgm/foursight-cgap
+if [ ! -d $expected_4dn_infra_dir ]; then
+    git clone https://github.com/4dn-dcic/4dn-cloud-infra.git
+fi
+
+if [ ! -d $expected_foursight_dir ]; then
+    git clone https://github.com/dbmi-bgm/foursight-cgap
+fi
 
 cd 4dn-cloud-infra
-pyenv local foursight-local
+if [ ! -f ".python-version" ]; then
+    pyenv virtualenv 3.7.12 foursight-local
+    pyenv local foursight-local
+fi
 
 # Install foursight locally via poetry
 sed -i 's/.*foursight-cgap =.*/foursight-cgap = { path = "..\/foursight-cgap", develop = true }/' pyproject.toml
