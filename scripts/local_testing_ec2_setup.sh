@@ -24,25 +24,25 @@ pyenv install 3.7.12
 pyenv global 3.7.12
 pyenv virtualenv 3.7.12 foursight-testing
 cd 4dn-cloud-infra
-pyenv local foursight-testing
 cd $HOME
 
-curl -sSL https://install.python-poetry.org | python -
-export PATH="/home/ubuntu/.local/bin:$PATH"
-sed -i '1i export PATH="/home/ubuntu/.local/bin:$PATH"' ~/.bashrc
+
+curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+sed -i '1i export PATH="$HOME/.poetry/bin:$PATH"' ~/.bashrc
 
 git clone https://github.com/dbmi-bgm/foursight-cgap
 
 cd 4dn-cloud-infra
+pyenv local foursight-testing
 # git checkout drr_foursight_ec2  # Switch to new local branch
 
 # Install foursight locally via poetry
 sed -i 's/.*foursight-cgap =.*/foursight-cgap = { path = "..\/foursight-cgap", develop = true }/' pyproject.toml
 
-echo "pyenv version"
+pyenv version
 pip install --upgrade pip
 pip install jupyter
 poetry install
-echo "pip list"
+pip list
 
 cd $start_path
