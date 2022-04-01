@@ -9,7 +9,7 @@ python_version=3.7.12
 expected_pyenv_dir="$HOME/.pyenv"
 expected_poetry_dir="$HOME/.poetry"
 expected_4dn_infra_dir="$HOME/4dn-cloud-infra"
-expected_foursight_dir="$Home/foursight-cgap"
+expected_foursight_dir="$HOME/foursight-cgap"
 
 cd $HOME
 sudo apt-get update
@@ -53,10 +53,8 @@ if [ ! -d $expected_foursight_dir ]; then
 fi
 
 cd 4dn-cloud-infra
-if [ ! -f ".python-version" ]; then
-    pyenv virtualenv 3.7.12 foursight-local
-    pyenv local foursight-local
-fi
+pyenv virtualenv 3.7.12 foursight-local
+pyenv local foursight-local
 
 # Install foursight locally via poetry
 sed -i 's/.*foursight-cgap =.*/foursight-cgap = { path = "..\/foursight-cgap", develop = true }/' pyproject.toml
