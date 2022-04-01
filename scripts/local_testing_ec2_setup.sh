@@ -23,6 +23,9 @@ sed -i '1i export PATH="$HOME/.pyenv/bin:$PATH"' ~/.bashrc
 pyenv install 3.7.12
 pyenv global 3.7.12
 pyenv virtualenv 3.7.12 foursight-testing
+cd 4dn-cloud-infra
+pyenv local foursight-testing
+cd $HOME
 
 curl -sSL https://install.python-poetry.org | python -
 export PATH="/home/ubuntu/.local/bin:$PATH"
@@ -32,13 +35,14 @@ git clone https://github.com/dbmi-bgm/foursight-cgap
 
 cd 4dn-cloud-infra
 # git checkout drr_foursight_ec2  # Switch to new local branch
-pyenv local foursight-testing
 
 # Install foursight locally via poetry
 sed -i 's/.*foursight-cgap =.*/foursight-cgap = { path = "..\/foursight-cgap", develop = true }/' pyproject.toml
 
-poetry update
+echo "pyenv version"
 pip install --upgrade pip
-pip install jupyter  # Poetry not installing jupyter as nicely
+pip install jupyter
+poetry install
+echo "pip list"
 
 cd $start_path
