@@ -13,11 +13,12 @@ sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
 curl https://pyenv.run | bash
 
 export PATH="$HOME/.pyenv/bin:$PATH"
-sed -i '1i export PATH="$HOME/.pyenv/bin:$PATH"' ~/.bashrc
 eval "$(pyenv init --path)"
-sed -i '1i eval "$(pyenv init --path)"' ~/.bashrc
 eval "$(pyenv virtualenv-init -)"
+
 sed -i '1i eval "$(pyenv virtualenv-init -)"' ~/.bashrc
+sed -i '1i eval "$(pyenv init --path)"' ~/.bashrc
+sed -i '1i export PATH="$HOME/.pyenv/bin:$PATH"' ~/.bashrc
 
 pyenv install 3.7.12
 pyenv global 3.7.12
