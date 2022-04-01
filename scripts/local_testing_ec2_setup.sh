@@ -13,11 +13,11 @@ sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
 curl https://pyenv.run | bash
 
 export PATH="$HOME/.pyenv/bin:$PATH"
-echo 'export PATH="$HOME/.pyenv/bin:$PATH"' >> ~/.profile
+sed -i '1i export PATH="$HOME/.pyenv/bin:$PATH"' ~/.bashrc
 eval "$(pyenv init --path)"
-echo 'eval "$(pyenv init --path)"' >> ~/.profile
+sed -i '1i eval "$(pyenv init --path)"' ~/.bashrc
 eval "$(pyenv virtualenv-init -)"
-echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.profile
+sed -i '1i eval "$(pyenv virtualenv-init -)"' ~/.bashrc
 
 pyenv install 3.7.12
 pyenv global 3.7.12
@@ -25,7 +25,7 @@ pyenv virtualenv 3.7.12 foursight-testing
 
 curl -sSL https://install.python-poetry.org | python -
 export PATH="/home/ubuntu/.local/bin:$PATH"
-echo 'export PATH="/home/ubuntu/.local/bin:$PATH"' >> ~/.profile
+sed -i '1i export PATH="/home/ubuntu/.local/bin:$PATH"' ~/.bashrc
 
 git clone https://github.com/dbmi-bgm/foursight-cgap
 
