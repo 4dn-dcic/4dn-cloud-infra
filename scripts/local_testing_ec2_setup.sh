@@ -5,9 +5,11 @@
 start_path=$PWD
 
 current_python=$(which python)
-python_version=3.7.12
-expected_pyenv_dir="$HOME/.pyenv"
-expected_poetry_dir="$HOME/.poetry"
+python_version="3.7.12"
+current_pyenv=$(which pyenv)
+current_pyenv_versions=$(pyenv versions 2>/dev/null | grep -c $python_version)
+current_pyenv_virtualenv=$(pyenv virtualenv --version 2>/dev/null)
+current_poetry=$(which poetry)
 expected_4dn_infra_dir="$HOME/4dn-cloud-infra"
 expected_foursight_dir="$HOME/foursight-cgap"
 
@@ -17,12 +19,14 @@ sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
 	libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev \
 	libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl
 
-if [ ! -d $expected_pyenv_dir ]; then
+if [ -z $current_pyenv ]; then
     git clone https://github.com/pyenv/pyenv.git ~/.pyenv
-    git clone https://github.com/pyenv/pyenv-virtualenv.git $(pyenv root)/plugins/pyenv-virtualenv
 
     export PATH="$HOME/.pyenv/bin:$PATH"
     eval "$(pyenv init --path)"
+
+    git clone https://github.com/pyenv/pyenv-virtualenv.git $(pyenv root)/plugins/pyenv-virtualenv
+
     eval "$(pyenv virtualenv-init -)"
 
     sed -i '1i eval "$(pyenv virtualenv-init -)"' ~/.bashrc
@@ -30,15 +34,15 @@ if [ ! -d $expected_pyenv_dir ]; then
     sed -i '1i export PATH="$HOME/.pyenv/bin:$PATH"' ~/.bashrc
 fi
 
-if [ ! -d "$expected_pyenv_dir/versions/$python_version" ]; then
-    pyenv install 3.7.12
+if [ $current_pyenv_versions == 0 ]; then
+    pyenv install $python_version
 fi
 
-if [ ! -z $current_python ]; then
-    pyenv global 3.7.12
+if [ -z $current_python ]; then
+    pyenv global $python_version
 fi
 
-if [ ! -d $expected_poetry_dir ]; then
+if [ -z $current_poetry ]; then
     curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
     source "$HOME/.poetry/env"
     sed -i '1i export PATH="$HOME/.poetry/bin:$PATH"' ~/.bashrc
@@ -53,7 +57,7 @@ if [ ! -d $expected_foursight_dir ]; then
 fi
 
 cd 4dn-cloud-infra
-pyenv virtualenv 3.7.12 foursight-local
+pyenv virtualenv $python_version foursight-local
 pyenv local foursight-local
 
 # Install foursight locally via poetry
