@@ -2,7 +2,7 @@ import json
 
 import app
 
-check = "wrangler_checks/item_counts_by_type"
+check = "ecs_checks/ecs_status"
 check_parameters = {"primary": True}
 action = ""
 stage = "prod"
