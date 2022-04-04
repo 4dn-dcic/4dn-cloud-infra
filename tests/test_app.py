@@ -7,7 +7,7 @@ from dcicutils.misc_utils import override_environ
 with override_environ(
     FOURSIGHT_PREFIX='just-for-testing-',
     ENV_NAME='just-for-testing-some-env',
-    HOST='just-for-testing-some-es-host',
+    ES_HOST='just-for-testing-some-es-host',
 ):
     import app as app_module
 

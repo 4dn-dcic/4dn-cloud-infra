@@ -31,8 +31,6 @@ if DEBUG_CHALICE:
 app = Chalice(app_name='foursight_cgap_trial')
 STAGE = os.environ.get('chalice_stage', 'dev')
 
-DEFAULT_REGION = os.environ.get("AWS_DEFAULT_REGION")
-
 HOST = os.environ.get("ES_HOST", None)
 if HOST is None:
     HOST = C4DatastoreExports.get_es_url_with_port()
