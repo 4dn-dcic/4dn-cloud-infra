@@ -97,6 +97,9 @@ variables will also need to be set:
 * ``ES_HOST``
 * ``ENV_NAME``
 
+Some of these variable you may be able to source from *custom/aws_creds/test_creds.sh*,
+but beware of setting expired AWS credentials with this route.
+
 
 Step Seven: Run check script
 ----------------------------
