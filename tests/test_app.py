@@ -4,7 +4,11 @@ import pytest
 
 from dcicutils.misc_utils import override_environ
 
-with override_environ(FOURSIGHT_PREFIX='just-for-testing-', ENV_NAME='just-for-testing-some-env'):
+with override_environ(
+    FOURSIGHT_PREFIX='just-for-testing-',
+    ENV_NAME='just-for-testing-some-env',
+    AWS_DEFAULT_REGION="us-east-1",
+):
     import app as app_module
 
 
