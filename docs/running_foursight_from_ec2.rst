@@ -27,13 +27,16 @@ Step Two: Configure EC2 with this repository
 
 This step can be performed in either of the following manners:
 
-* Copy local repository to EC2 instance via
-  ``scp -r -i <path to PEM> <path to local repository> ubuntu@<EC2 public address>:~``.
+* Copy local repository to EC2 instance via:
+
+        ``scp -r -i <path to PEM> <path to local repository> ubuntu@<EC2 public address>:~``.
+
   - Ensure appropriate, up-to-date credentials are linked via *custom* directory, as
     symlinks are fully expanded with ``scp`` (consider using ``rsync`` to maintain
     symlinks, if desired).
 
 * Clone repository to EC2 instance.
+
   - This will be performed automatically by this EC2's configuration script.
   - **Note**: GitHub credentials may need to be configured on EC2 first. This is
     recommended if debugging foursight so commits can be pushed.
@@ -49,10 +52,10 @@ Step Three: Configure EC2 Python environment
 --------------------------------------------
 
 The EC2 will need a minimum of acceptable versions of Python and poetry. This
-repository's **scripts/local_testing_ec2_setup.sh** script utilizes pyenv tools to
+repository's *scripts/local_testing_ec2_setup.sh* script utilizes pyenv tools to
 configure a virtual environment with all required packages; see the script for details.
 
-Note the modification of this repo's **pyproject.toml** within the script above to
+Note the modification of this repo's *pyproject.toml* within the script above to
 install foursight locally, enabling on-the-fly debugging and changes to be incorporated
 when running checks/actions.
 
@@ -68,7 +71,9 @@ Step Five: Update check_setup.json
 ------------------------------------
 
 Create the appropriate *check_setup.json* for the environment of interest to use for
-checks/actions via ``poetry run resolve-foursight-checks``.
+checks/actions via:
+
+        ``poetry run resolve-foursight-checks``.
 
 **Note**: If adding or deleting checks/actions, be sure to modify the foursight repo's
 check setup file prior to the above.
@@ -97,7 +102,10 @@ Step Seven: Run check script
 ----------------------------
 
 Before launching a Jupyter notebook to run checks/actions, ensure all necessary
-configuration has succeeded by running a default check via ``python foursight_local.py``
+configuration has succeeded by running a default check via:
+
+        ``python foursight_local.py``
+
 from the root of this repository.
 
 If the check fails to run successfully, check the traceback and environmental variables.
@@ -142,6 +150,7 @@ Then, the script can be run via:
         ``source <name of script> <EC2 public IPv4> <path to PEM> <foursight branch>``
 
 .. code-block:: bash
+
    #!/bin/sh
    
    ec2_address=$1
