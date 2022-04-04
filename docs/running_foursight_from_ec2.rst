@@ -37,7 +37,7 @@ This step can be performed in either of the following manners:
 
 * Clone repository to EC2 instance.
 
-  - This will be performed automatically by this EC2's configuration script.
+  - This will be performed automatically by this repo's configuration script.
   - **Note**: GitHub credentials may need to be configured on EC2 first. This is
     recommended if debugging foursight so commits can be pushed.
   - **Note**: An appropriately configured *custom* folder must be included in the
@@ -149,7 +149,7 @@ Then, the script can be run via:
 
         ``source <name of script> <EC2 public IPv4> <path to PEM> <foursight branch>``
 
-.. code-block:: bash
+.. code-block::
 
    #!/bin/sh
    
