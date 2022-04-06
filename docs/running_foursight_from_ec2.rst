@@ -98,7 +98,11 @@ variables will also need to be set:
 * ``ENV_NAME``
 
 Some of these variable you may be able to source from *custom/aws_creds/test_creds.sh*,
-but beware of setting expired AWS credentials with this route.
+but beware of setting expired AWS credentials with this route, especially if the EC2 is
+configured with an IAM role.
+
+**Note**: If ``FOURSIGHT_PREFIX`` is set, ensure it does not end in a dash ("-"), as it
+currently appears on the health page.
 
 
 Step Seven: Run check script

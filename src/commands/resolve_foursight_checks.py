@@ -61,7 +61,7 @@ def main(simulated_args=None):
     parser.add_argument("--env_name", default=None,
                         help=f"name of environment to configure (default {DEFAULT_ENVIRONMENT})")
     parser.add_argument("--template_file", default=None,
-                        help=f"template path to use for testing instead of {DEFAULT_TEMPLATE_FILE}")
+                        help=f"template path to use for testing instead of {FOURSIGHT_CHECK_TEMPLATE}")
     parser.add_argument("--target_file", default=None,
                         help=f"target path to use for testing instead of {DEFAULT_TARGET_FILE}")
     args = parser.parse_args(args=simulated_args)

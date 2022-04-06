@@ -9,7 +9,7 @@ from dcicutils.misc_utils import environ_bool, remove_suffix, ignored
 from foursight_core.deploy import Deploy
 
 from src.constants import Settings
-from src.parts.datastore import C4DatastoreExports
+from src.exceptions import CLIException
 
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(levelname)-8s %(message)s')
@@ -27,20 +27,30 @@ if DEBUG_CHALICE:
 
 
 # Minimal app.py; used to initially verify packaging scripts
+# For some variables, attempt to fallback to custom configuration for local setup, but
+# catch errors due to lack of custom dir so app doesn't fail in production.
 app = Chalice(app_name='foursight_cgap_trial')
 STAGE = os.environ.get('chalice_stage', 'dev')
 
-HOST = os.environ.get("ES_HOST", None)
+HOST = os.environ.get("ES_HOST")
 if HOST is None:
-    HOST = C4DatastoreExports.get_es_url_with_port()
+    try:
+        from src.parts.datastore import C4DatastoreExports
+        HOST = C4DatastoreExports.get_es_url_with_port()
+    except CLIException:
+        pass
 # previously FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'  # TODO: This should probably just be "foursight-cgap"
 FOURSIGHT_PREFIX = os.environ.get('FOURSIGHT_PREFIX')
 if not FOURSIGHT_PREFIX:
     _GLOBAL_ENV_BUCKET = os.environ.get("GLOBAL_ENV_BUCKET") or os.environ.get("GLOBAL_BUCKET_ENV")
     if _GLOBAL_ENV_BUCKET is None:
-        _GLOBAL_ENV_BUCKET = C4DatastoreExports.get_env_bucket()
-        if _GLOBAL_ENV_BUCKET is not None:
-            os.environ["GLOBAL_ENV_BUCKET"] = _GLOBAL_ENV_BUCKET
+        try:
+            from src.parts.datastore import C4DatastoreExports
+            _GLOBAL_ENV_BUCKET = C4DatastoreExports.get_env_bucket()
+            if _GLOBAL_ENV_BUCKET is not None:
+                os.environ["GLOBAL_ENV_BUCKET"] = _GLOBAL_ENV_BUCKET
+        except CLIException:
+            pass
     if _GLOBAL_ENV_BUCKET is not None:
         print("_GLOBAL_ENV_BUCKET=", _GLOBAL_ENV_BUCKET)  # TODO: Temporary print statement, for debugging
         FOURSIGHT_PREFIX = remove_suffix("-envs", _GLOBAL_ENV_BUCKET, required=True)
@@ -50,8 +60,11 @@ if not FOURSIGHT_PREFIX:
 
 DEFAULT_ENV = os.environ.get("ENV_NAME")
 if DEFAULT_ENV is None:
-    from src.base import ConfigManager
-    DEFAULT_ENV = ConfigManager.get_config_setting(Settings.ENV_NAME)
+    try:
+        from src.base import ConfigManager
+        DEFAULT_ENV = ConfigManager.get_config_setting(Settings.ENV_NAME)
+    except CLIException:
+        DEFAULT_ENV = "cgap-uninitialized"
 
 
 class SingletonManager():  # TODO: Move to dcicutils
