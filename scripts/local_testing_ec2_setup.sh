@@ -34,7 +34,7 @@ if [ -z $current_pyenv ]; then
     sed -i '1i export PATH="$HOME/.pyenv/bin:$PATH"' ~/.bashrc
 fi
 
-if [ $current_pyenv_versions == 0 ]; then
+if [ $current_pyenv_versions -eq 0 ]; then
     pyenv install $python_version
 fi
 
