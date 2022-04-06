@@ -59,7 +59,10 @@ fi
 cd 4dn-cloud-infra
 pyenv virtualenv $python_version foursight-local
 pyenv local foursight-local
-git checkout -b foursight-local  # Prevent accidental master commits
+git_branch=$(git rev-parse --abbrev-ref HEAD)
+if [ $git_branch = "master" ]; then
+    git checkout -b foursight-local  # Prevent accidental master commits
+fi
 
 # Install foursight locally via poetry
 sed -i 's/.*foursight-cgap =.*/foursight-cgap = { path = "..\/foursight-cgap", develop = true }/' pyproject.toml

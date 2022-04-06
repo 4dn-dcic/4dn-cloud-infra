@@ -8,9 +8,8 @@ from dcicutils.exceptions import InvalidParameterError
 from dcicutils.misc_utils import environ_bool, remove_suffix, ignored
 from foursight_core.deploy import Deploy
 
-from src.base import ConfigManager
 from src.constants import Settings
-from src.parts.datastore import C4Datastore, C4DatastoreExports
+from src.parts.datastore import C4DatastoreExports
 
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(levelname)-8s %(message)s')
@@ -51,6 +50,7 @@ if not FOURSIGHT_PREFIX:
 
 DEFAULT_ENV = os.environ.get("ENV_NAME")
 if DEFAULT_ENV is None:
+    from src.base import ConfigManager
     DEFAULT_ENV = ConfigManager.get_config_setting(Settings.ENV_NAME)
 
 

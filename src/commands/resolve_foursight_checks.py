@@ -6,16 +6,17 @@ import os
 from chalicelib.vars import CHECK_SETUP_FILE as FOURSIGHT_CHECK_TEMPLATE
 from dcicutils.misc_utils import full_class_name, json_leaf_subst
 
-from ..base import ConfigManager
 from ..constants import Settings
 
 
 EPILOG = __doc__
 
-DEFAULT_ENVIRONMENT = ConfigManager.get_config_setting(Settings.ENV_NAME)
-DEFAULT_TEMPLATE_FILE = "check_setup.template.json"
-DEFAULT_TARGET_FILE = "vendor/check_setup.json"
+DEFAULT_ENVIRONMENT = os.environ.get("ENV_NAME")
+if DEFAULT_ENVIRONMENT is None:
+    from ..base import ConfigManager  # Allow command without custom dir -drr 04/05/2022
+    DEFAULT_ENVIRONMENT = ConfigManager.get_config_setting(Settings.ENV_NAME)
 
+DEFAULT_TARGET_FILE = "vendor/check_setup.json"
 ENV_NAME_MARKER = "<env-name>"
 
 
