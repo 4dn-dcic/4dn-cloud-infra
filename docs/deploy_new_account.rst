@@ -101,7 +101,9 @@ There is more documentation on this is in ``docs/setup.rst``.
 Step Three (Intermission): Push a cgap-portal Image
 ---------------------------------------------------
 
-**NOTE:** This step is done from the ``cgap-portal`` repo.
+**NOTE:** This step is done from the ``cgap-portal`` repo. You probably want to
+create a CodeBuild project to expedite the build process, but you can build/push
+an image manually from your local machine.
 
 * Once your new ECR comes online, upload an application image to it.
   See the cgap-portal Makefile. Push the image tag specified in ``config.json`` prior to deploying ECS.
@@ -178,6 +180,8 @@ Step Four: Fill out any remaining application secrets
 
 Step Five: More CGAP Orchestration with Cloud Formation
 -------------------------------------------------------
+
+* Ensure that you have set the ``identity`` and ``s3.encrypt_key_id`` (if applicable) variables in ``config.json``.
 
 * Once all base stacks have finishing instantiating -- all stacks should be in state `UPDATE_COMPLETE` -- you can
   provision the application stack by doing::
@@ -321,7 +325,7 @@ For now, you'll need to run this a second time once various values have been cre
 
 * Provision the changeset (and thus triggering a redeployment) a second time, same as the first::
 
-   poetry run cli provision foursight --upload-change-set
+   poetry run cli provision foursight --upload-change-set --stage prod
 
 * Of course you'll have to go to the console and execute the change set.
 
@@ -458,6 +462,10 @@ MSA URL with the new URL.::
             "ExposeHeaders": []
         }
     ]
+
+You will also need to update the CORS configuration on
+the cgap-higlass bucket in the main account (6433). Add
+the new environment CNAME to the allowed origins.
 
 Step Ten: Open Support Tickets
 ------------------------------

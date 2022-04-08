@@ -36,6 +36,25 @@ the source account.
 S3
 ==
 
+For transferring files from one account to another, use the S3 User
+from the target account and add the following permission to the source
+buckets "Statement" block::
+
+    {
+        "Effect": "Allow",
+        "Action": [
+            "s3:ListBucket",
+            "s3:GetObject"
+         ],
+        "Principal": {
+            "AWS": "arn:aws:iam::<target_account>:user/c4-iam-main-stack-C4IAMMainApplicationS3Federator-<unique_id>"
+        },
+        "Resource": [
+            "arn:aws:s3:::cgap-env-main-application-cgap-env-files/*",
+            "arn:aws:s3:::cgap-env-main-application-cgap-env-files"
+        ]
+    }
+
 There is a significant amount of S3 data stored in buckets that must be transferred.
 The data that is most critical exist in the application layer buckets. The system
 bucket we can ignore, as that bucket does not get migrated. The remaining files,
@@ -52,6 +71,10 @@ arguments to the command::
 
 Pipe this command into a file to get a record of the transfer. Note additionally
 that files that are stored in Glacier will NOT be transferred and will be ignored.
+
+Once done transferring s3 files, remove the permission you just added from the
+buckets so the IAM user can no longer access them.
+
 Be wary of this when deleting the files from the source account. Foursight and
 Tibanna run data is kept in the old account only for historical purposes and
 should be deleted after some time. New metadata for future runs will be created

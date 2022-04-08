@@ -209,7 +209,7 @@ class C4Datastore(C4Part):
             'ENV_NAME': env_name,
             'ENCODED_APPLICATION_BUCKET_PREFIX': cls.resolve_bucket_name("{application_prefix}"),
             'ENCODED_BS_ENV': env_name,
-            'ENCODED_DATA_SET': 'prod',
+            'ENCODED_DATA_SET': 'deploy',
             'ENCODED_ES_SERVER': C4DatastoreExports.get_es_url(),  # None,
             'ENCODED_FOURSIGHT_BUCKET_PREFIX': cls.resolve_bucket_name("{foursight_prefix}"),
             'ENCODED_IDENTITY': None,  # This is the name of the Secrets Manager with all our identity's secrets

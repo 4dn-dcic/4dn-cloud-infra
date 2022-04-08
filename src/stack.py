@@ -111,8 +111,6 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
             self.security_ids = C4NetworkExports.get_security_ids()
             self.subnet_ids = C4NetworkExports.get_subnet_ids()
             self.global_env_bucket = C4DatastoreExports.get_env_bucket()
-            if ConfigManager.get_config_secret(Secrets.ENCODED_SECRET):
-                print(f"Ignoring secrets.json setting of {Secrets.ENCODED_SECRET}, which has been deprecated.")
             self.trial_creds = {
                 'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY),
                 'CLIENT_ID': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT),
@@ -123,7 +121,6 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
                 'RDS_NAME': ConfigManager.get_config_setting(Settings.RDS_NAME),
                 'S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
             }
-        # print(f"self.trial_creds['ENV_NAME'] = {self.trial_creds['ENV_NAME']}")
         super().__init__(description, name, tags, account)
 
     def package_foursight_stack(self, args):
