@@ -64,8 +64,9 @@ if [ $git_branch = "master" ]; then
     git checkout -b foursight-local  # Prevent accidental master commits
 fi
 
-# Install foursight locally via poetry
+# Install foursight locally and create foursight_local package via poetry
 sed -i 's/.*foursight-cgap =.*/foursight-cgap = { path = "..\/foursight-cgap", develop = true }/' pyproject.toml
+sed -i 's/.*\{ include = \"src\" \}.*/    { include = "src" },\n    { include = "foursight_local" }/' pyproject.toml
 
 pip install --upgrade pip
 poetry install
