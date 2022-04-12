@@ -8,6 +8,9 @@ from dcicutils.exceptions import InvalidParameterError
 from dcicutils.misc_utils import environ_bool, remove_suffix, ignored
 from foursight_core.deploy import Deploy
 
+from src.exceptions import CLIException
+from src.constants import Settings
+
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(levelname)-8s %(message)s')
 logger = logging.getLogger(__name__)
@@ -27,22 +30,52 @@ if DEBUG_CHALICE:
 # For some variables, attempt to fallback to custom configuration for local setup, but
 # catch errors due to lack of custom dir so app doesn't fail in production.
 app = Chalice(app_name='foursight_cgap_trial')
-STAGE = os.environ.get('chalice_stage', 'dev')
+STAGE = os.environ.get('chalice_stage', 'prod')
 
-HOST = os.environ.get("ES_HOST")
 
-# previously FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'  # TODO: This should probably just be "foursight-cgap"
-FOURSIGHT_PREFIX = os.environ.get('FOURSIGHT_PREFIX')
-if not FOURSIGHT_PREFIX:
-    _GLOBAL_ENV_BUCKET = os.environ.get("GLOBAL_ENV_BUCKET") or os.environ.get("GLOBAL_BUCKET_ENV")
-    if _GLOBAL_ENV_BUCKET is not None:
-        print("_GLOBAL_ENV_BUCKET=", _GLOBAL_ENV_BUCKET)  # TODO: Temporary print statement, for debugging
-        FOURSIGHT_PREFIX = remove_suffix("-envs", _GLOBAL_ENV_BUCKET, required=True)
-        print(f"Inferred FOURSIGHT_PREFIX={FOURSIGHT_PREFIX}")
-    else:
-        raise RuntimeError("The FOURSIGHT_PREFIX environment variable is not set. Heuristics failed.")
+def get_deploy_variables():
+    """"""
+    import pdb; pdb.set_trace()
+    es_host = os.environ.get("ES_HOST")
+    environment_name = os.environ.get("ENV_NAME")
+    environment_bucket = os.environ.get("GLOBAL_ENV_BUCKET")
+    if es_host is None or environment_name is None or environment_bucket is None:
+        es_host, environment_name, environment_bucket = configure_from_custom()
+    foursight_prefix = remove_suffix("-envs", environment_bucket, required=True)
+    return es_host, environment_name, environment_bucket, foursight_prefix
 
-DEFAULT_ENV = os.environ.get("ENV_NAME", "cgap-uninitialized")
+
+def configure_from_custom(es_host, environment_name, environment_bucket):
+    """"""
+    found = {
+        "ES_HOST": es_host,
+        "GLOBAL_ENV_BUCKET": environment_bucket,
+        "ENV_NAME": environment_name,
+    }
+    try:
+        from src.base import ConfigManager
+        from src.parts.datastore import C4DatastoreExports
+
+        if es_host is None:
+            es_host = C4DatastoreExports.get_es_url_with_port()
+        found["ES_HOST"] = es_host
+        if environment_bucket is None:
+            environment_bucket = C4DatastoreExports.get_env_bucket()
+        found["GLOBAL_ENV_BUCKET"] = environment_bucket
+        if environment_name is None:
+            environment_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        found["ENV_NAME"] = environment_name
+    except CLIException:
+        raise RuntimeError(
+            "Failed to configure app variables required for deployment. Please"
+            " set environmental variables or configure custom directory appropriately."
+            "\nCurrent configuration:\n%s"
+            % json.dumps(found, indent=4)
+        )
+    return es_host, environment_name, environment_bucket
+
+
+HOST, DEFAULT_ENV, _GLOBAL_ENV_BUCKET, FOURSIGHT_PREFIX = get_deploy_variables()
 
 
 class SingletonManager():  # TODO: Move to dcicutils
@@ -68,7 +101,7 @@ class AppUtils(AppUtils_from_cgap):
     host = HOST
     package_name = 'chalicelib'
     # check_setup is moved to vendor/ where it will be automatically placed at top level
-    check_setup_dir = os.path.dirname(__file__)
+    check_setup_dir = os.path.dirname(os.path.dirname(__file__))
     # This will heuristically mostly title-case te DEFAULT_ENV but will put CGAP in all-caps.
     html_main_title = f'Foursight-{DEFAULT_ENV}'.title().replace("Cgap", "CGAP")  # was 'Foursight-CGAP-Mastertest'
 
@@ -411,4 +444,3 @@ def set_stage(stage):
 
 def set_timeout(timeout):
     app_utils_manager.singleton.set_timeout(timeout)
-

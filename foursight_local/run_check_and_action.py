@@ -1,7 +1,7 @@
 import argparse
 import json
 
-import app
+from foursight_local import app
 
 
 EPILOG = __doc__
