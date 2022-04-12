@@ -24,23 +24,19 @@ if DEBUG_CHALICE:
 ######################
 # Foursight App Config
 ######################
-
-
-# Minimal app.py; used to initially verify packaging scripts
 # For some variables, attempt to fallback to custom configuration for local setup, but
 # catch errors due to lack of custom dir so app doesn't fail in production.
-app = Chalice(app_name='foursight_cgap_trial')
-STAGE = os.environ.get('chalice_stage', 'prod')
 
 
 def get_deploy_variables():
     """"""
-    import pdb; pdb.set_trace()
     es_host = os.environ.get("ES_HOST")
     environment_name = os.environ.get("ENV_NAME")
     environment_bucket = os.environ.get("GLOBAL_ENV_BUCKET")
     if es_host is None or environment_name is None or environment_bucket is None:
-        es_host, environment_name, environment_bucket = configure_from_custom()
+        es_host, environment_name, environment_bucket = configure_from_custom(
+            es_host, environment_name, environment_bucket
+        )
     foursight_prefix = remove_suffix("-envs", environment_bucket, required=True)
     return es_host, environment_name, environment_bucket, foursight_prefix
 
@@ -75,7 +71,10 @@ def configure_from_custom(es_host, environment_name, environment_bucket):
     return es_host, environment_name, environment_bucket
 
 
+app = Chalice(app_name='foursight_cgap_trial')
+STAGE = os.environ.get('chalice_stage', 'prod')
 HOST, DEFAULT_ENV, _GLOBAL_ENV_BUCKET, FOURSIGHT_PREFIX = get_deploy_variables()
+os.environ["GLOBAL_ENV_BUCKET"] = _GLOBAL_ENV_BUCKET
 
 
 class SingletonManager():  # TODO: Move to dcicutils

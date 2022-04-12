@@ -66,7 +66,7 @@ fi
 
 # Install foursight locally and create foursight_local package via poetry
 sed -i 's/.*foursight-cgap =.*/foursight-cgap = { path = "..\/foursight-cgap", develop = true }/' pyproject.toml
-sed -i 's/.*\{ include = \"src\" \}.*/    { include = "src" },\n    { include = "foursight_local" }/' pyproject.toml
+sed -i 's/.*{ include = "src" }.*/    { include = "src" },\n    { include = "foursight_local" }/' pyproject.toml
 
 pip install --upgrade pip
 poetry install
