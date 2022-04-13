@@ -3,12 +3,10 @@ import json
 from dcicutils.misc_utils import ignorable
 from dcicutils.cloudformation_utils import dehyphenate
 from troposphere import (
-    # Join,
+    AccountId,
     Ref,
     Template,
-    # Tags, Parameter,
     Output,
-    # GetAtt, AccountId
 )
 try:
     from troposphere.elasticsearch import DomainEndpointOptions  # noQA
@@ -81,6 +79,7 @@ class C4AppConfig(C4Part):
 
     APPLICATION_CONFIGURATION_TEMPLATE = {
         'deploying_iam_user': CONFIGURATION_PLACEHOLDER,
+        'ACCOUNT_NUMBER': AccountId,
         'S3_AWS_ACCESS_KEY_ID': None,
         'S3_AWS_SECRET_ACCESS_KEY': None,
         'ENCODED_AUTH0_CLIENT': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
