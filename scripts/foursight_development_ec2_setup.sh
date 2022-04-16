@@ -7,7 +7,7 @@ start_path=$PWD
 desired_python_version="3.7.12"
 expected_4dn_infra_dir="$HOME/4dn-cloud-infra"
 expected_foursight_dir="$HOME/foursight-cgap"
-desired_pyproject_foursight_version='foursight-cgap = { path = "..\/foursight-cgap", develop = true }/' 
+desired_pyproject_foursight_version='foursight-cgap = { path = "..\/foursight-cgap", develop = true }' 
 desired_pyproject_foursight_package='{ include = "foursight_development" }'
 
 current_python=$(which python)
@@ -60,8 +60,8 @@ if [ ! -d $expected_foursight_dir ]; then
 fi
 
 cd 4dn-cloud-infra
-pyenv virtualenv $desired_python_version foursight-local
-pyenv local foursight-local
+pyenv virtualenv $desired_python_version foursight-development
+pyenv local foursight-development
 git_branch=$(git rev-parse --abbrev-ref HEAD)
 if [ $git_branch = "master" ]; then
     git checkout -b foursight-local  # Prevent accidental master commits
@@ -70,12 +70,12 @@ fi
 # Install foursight locally and create foursight_development package via poetry
 develop_foursight_installed=$(grep -c "$desired_pyproject_foursight_version" pyproject.toml)
 if [ $develop_foursight_installed -eq 0 ]; then
-    sed -i "s/.*foursight-cgap =.*/foursight-cgap = $desired_pyproject_foursight_version }" pyproject.toml
+    sed -i "s/.*foursight-cgap =.*/$desired_pyproject_foursight_version/" pyproject.toml
 fi
 
 foursight_local_installed=$(grep -c "$desired_pyproject_foursight_package" pyproject.toml)
 if [ $foursight_local_installed -eq 0 ]; then
-    sed -i "s/.*{ include = \"src\" }.*/    { include = \"src\" },\n    $desired_pyproject_foursight_package" pyproject.toml
+    sed -i "s/.*{ include = \"src\" }.*/    { include = \"src\" },\n    $desired_pyproject_foursight_package/" pyproject.toml
 fi
 
 pip install --upgrade pip
