@@ -52,7 +52,7 @@ Step Three: Configure EC2 Python environment
 --------------------------------------------
 
 The EC2 will need a minimum of acceptable versions of Python and poetry. This
-repository's *scripts/local_testing_ec2_setup.sh* script utilizes pyenv tools to
+repository's *scripts/foursight_development_ec2_setup.sh* script utilizes pyenv tools to
 configure a virtual environment with all required packages; see the script for details.
 
 As pyenv and poetry require proper environmental variables to function, these will be
