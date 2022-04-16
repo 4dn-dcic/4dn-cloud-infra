@@ -55,6 +55,17 @@ The EC2 will need a minimum of acceptable versions of Python and poetry. This
 repository's *scripts/local_testing_ec2_setup.sh* script utilizes pyenv tools to
 configure a virtual environment with all required packages; see the script for details.
 
+As pyenv and poetry require proper environmental variables to function, these will be
+set by the script and added to the shell configuration file. If running the script
+within an interactive shell, the variables can be set via:
+
+    ``source ~/4dn-cloud-infra/scripts/local_testing_ec2_setup.sh``
+
+or via:
+
+    ``sh ~/4dn-cloud-infra/scripts/local_testing_ec2_setup.sh``
+    ``source ~/.bashrc``.
+
 Note the modification of this repo's *pyproject.toml* within the script above to
 install foursight locally, enabling on-the-fly debugging and changes to be incorporated
 when running checks/actions.
@@ -101,9 +112,6 @@ Some of these variable you may be able to source from *custom/aws_creds/test_cre
 but beware of setting expired AWS credentials with this route, especially if the EC2 is
 configured with an IAM role.
 
-**Note**: If ``FOURSIGHT_PREFIX`` is set, ensure it does not end in a dash ("-"), as it
-currently appears on the health page.
-
 
 Step Seven: Run check script
 ----------------------------
@@ -111,13 +119,13 @@ Step Seven: Run check script
 Before launching a Jupyter notebook to run checks/actions, ensure all necessary
 configuration has succeeded by running a default check via:
 
-        ``python foursight_local.py``
+        ``python foursight_local/run_check_and_action.py``
 
 from the root of this repository.
 
-If the check fails to run successfully, check the traceback and environmental variables.
-Lack of appropriate environmental variables can cause inexplicit errors, so these should
-be confirmed accurate if uncertain of the error.
+If the check fails to run successfully, check the traceback.
+Lack of appropriate environmental variables can cause inexplicit errors, so start by
+checking the variables above are set appropriately if uncertain of the error raised.
 
 
 Step Eight (optional): Launch Jupyter notebook and run checks/actions or debug
@@ -140,9 +148,9 @@ Example Umbrella Script
 =======================
 
 For a direct, no-frills configuration that should permit quick access to running checks/
-actions, consider using the template script below and following its assumptions.
+actions, consider using the template script below and meeting its assumptions.
 
-Note the path to the local 4dn-cloud-infra repo must be filled in and the following
+Note the path to the local 4dn-cloud-infra repo must be filled in, and the following
 environmental variables must be set correctly:
 
 * ``MY_GIT_TOKEN``: GitHub PAT (see GitHub docs for details)

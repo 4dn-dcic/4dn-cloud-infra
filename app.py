@@ -24,8 +24,6 @@ if DEBUG_CHALICE:
 
 
 # Minimal app.py; used to initially verify packaging scripts
-# For some variables, attempt to fallback to custom configuration for local setup, but
-# catch errors due to lack of custom dir so app doesn't fail in production.
 app = Chalice(app_name='foursight_cgap_trial')
 STAGE = os.environ.get('chalice_stage', 'dev')
 
@@ -177,6 +175,12 @@ def hourly_checks(event):
 def hourly_checks_2(event):
     ignored(event)
     app_utils_manager.singleton.queue_scheduled_checks('all', 'hourly_checks_2')
+
+
+@app.schedule(foursight_cron_by_schedule[STAGE]['monthly_checks'])
+def monthly_checks(event):
+    ignored(event)
+    app_utils_manager.singleton.queue_scheduled_checks('all', 'monthly_checks')
 
 
 ###############################
