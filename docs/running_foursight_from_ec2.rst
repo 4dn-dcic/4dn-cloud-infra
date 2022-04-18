@@ -63,8 +63,8 @@ within an interactive shell, the variables can be set via:
 
 or via::
 
-    ``sh ~/4dn-cloud-infra/scripts/local_testing_ec2_setup.sh``
-    ``source ~/.bashrc``.
+    sh ~/4dn-cloud-infra/scripts/local_testing_ec2_setup.sh
+    source ~/.bashrc
 
 Note the modification of this repo's *pyproject.toml* within the script above to
 download and install the foursight-cgap repo locally for on-the-fly debugging.
