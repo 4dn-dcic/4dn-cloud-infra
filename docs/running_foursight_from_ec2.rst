@@ -61,7 +61,7 @@ within an interactive shell, the variables can be set via:
 
     ``source ~/4dn-cloud-infra/scripts/local_testing_ec2_setup.sh``
 
-or via:
+or via::
 
     ``sh ~/4dn-cloud-infra/scripts/local_testing_ec2_setup.sh``
     ``source ~/.bashrc``.

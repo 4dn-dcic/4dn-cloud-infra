@@ -18,15 +18,12 @@ if DEBUG_CHALICE:
     logger.warning('debug mode on...')
 
 
-######################
-# Foursight App Config
-######################
+#####################################
+# Foursight App Config for Deployment
+#####################################
 
-
-# Minimal app.py; used to initially verify packaging scripts
 app = Chalice(app_name='foursight_cgap_trial')
 STAGE = os.environ.get('chalice_stage', 'dev')
-
 HOST = os.environ.get("ES_HOST")
 
 # previously FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'  # TODO: This should probably just be "foursight-cgap"

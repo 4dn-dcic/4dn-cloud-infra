@@ -7,7 +7,6 @@ from dcicutils.misc_utils import override_environ
 with override_environ(
     FOURSIGHT_PREFIX='just-for-testing-',
     ENV_NAME='just-for-testing-some-env',
-    ES_HOST='just-for-testing-some-es-host',
 ):
     import app as app_module
 
@@ -62,6 +61,7 @@ def test_app_event_sources():
         'fifteen_min_checks_3',
         'hourly_checks',
         'hourly_checks_2',
+        'monthly_checks',
     }
 
 
