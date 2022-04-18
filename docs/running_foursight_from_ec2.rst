@@ -67,8 +67,7 @@ or via:
     ``source ~/.bashrc``.
 
 Note the modification of this repo's *pyproject.toml* within the script above to
-install foursight locally, enabling on-the-fly debugging and changes to be incorporated
-when running checks/actions.
+download and install the foursight-cgap repo locally for on-the-fly debugging.
 
 
 Step Four: Checkout foursight branch of interest
