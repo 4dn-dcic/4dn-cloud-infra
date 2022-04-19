@@ -59,15 +59,16 @@ As pyenv and poetry require proper environmental variables to function, these wi
 set by the script and added to the shell configuration file. If running the script
 within an interactive shell, the variables can be set via::
 
-    source ~/4dn-cloud-infra/scripts/local_testing_ec2_setup.sh
+    source ~/4dn-cloud-infra/scripts/foursight_development_ec2_setup.sh
 
 or via::
 
-    sh ~/4dn-cloud-infra/scripts/local_testing_ec2_setup.sh
+    sh ~/4dn-cloud-infra/scripts/foursight_development_ec2_setup.sh
     source ~/.bashrc
 
 Note the modification of this repo's *pyproject.toml* within the script above to
-download and install the foursight-cgap repo locally for on-the-fly debugging.
+download and install the foursight-cgap repo locally for on-the-fly debugging as well
+as to install the ``foursight_development`` module utilized in Steps Seven and Eight.
 
 
 Step Four: Checkout foursight branch of interest
@@ -118,7 +119,7 @@ Step Seven: Run check script
 Before launching a Jupyter notebook to run checks/actions, ensure all necessary
 configuration has succeeded by running a default check via::
 
-        python foursight_local/run_check_and_action.py
+        python foursight_development/run_check_and_action.py
 
 from the root of this repository.
 
@@ -178,7 +179,7 @@ Then, the script can be run via::
    ssh -i $pem_file ubuntu@$ec2_address "git config --global url.\"https://api:$MY_GIT_TOKEN@github.com/\".insteadOf \"https://github.com/\""
    
    # Configure EC2 with Python, poetry, repos
-   ssh -i $pem_file ubuntu@$ec2_address 'bash -s' < <path to local 4dn-cloud-infra>/scripts/local_testing_ec2_setup.sh
+   ssh -i $pem_file ubuntu@$ec2_address 'bash -s' < <path to local 4dn-cloud-infra>/scripts/foursight_development_ec2_setup.sh
 
    # Add local, configured custom file for the environment
    scp -r -i $pem_file <path to local 4dn-cloud-infra>/custom ubuntu@$ec2_address:~/4dn-cloud-infra/custom
