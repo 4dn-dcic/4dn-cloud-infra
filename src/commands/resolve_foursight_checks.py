@@ -6,16 +6,22 @@ import os
 from chalicelib.vars import CHECK_SETUP_FILE as FOURSIGHT_CHECK_TEMPLATE
 from dcicutils.misc_utils import full_class_name, json_leaf_subst
 
-from ..constants import Settings
+from src.constants import Settings
+from src.exceptions import CLIException
 
 
 EPILOG = __doc__
 
 DEFAULT_ENVIRONMENT = os.environ.get("ENV_NAME")
 if DEFAULT_ENVIRONMENT is None:
-    from ..base import ConfigManager  # Allow command without custom dir -drr 04/05/2022
-    DEFAULT_ENVIRONMENT = ConfigManager.get_config_setting(Settings.ENV_NAME)
-
+    try:
+        from src.base import ConfigManager  # Import will fail without custom dir
+        DEFAULT_ENVIRONMENT = ConfigManager.get_config_setting(Settings.ENV_NAME)
+    except CLIException:
+        raise RuntimeError(
+            "Could not determine environment name. Please set environmental variable"
+            " 'ENV_NAME' or configure the custom directory."
+        )
 DEFAULT_TARGET_FILE = "vendor/check_setup.json"
 ENV_NAME_MARKER = "<env-name>"
 
