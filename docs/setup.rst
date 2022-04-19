@@ -51,6 +51,10 @@ and a test_creds.sh file::
     export S3_ENCRYPT_KEY=<key>
     export GLOBAL_BUCKET_ENV=<bucket>
 
+**Note**: The credentials and config file **must** contain the ``[default]`` profile
+for full functionality. Beware of copying Okta's profile name into these files,
+especially the credentials file.
+
 -------------
 Configuration
 -------------

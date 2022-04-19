@@ -6,6 +6,16 @@
 Change Log
 ----------
 
+2.0.1
+=====
+
+* Adds ``foursight_development`` module with app configuration and scripts for Foursight
+  development-related tasks
+* Adds script for configuring EC2 to utilize above module
+* Documents use of module and script above
+* Brings in foursight-cgap 1.6.0 with updated ``check_setup.json`` to work with this
+  repo's ``resolve-foursight-checks`` command
+
 1.4.0
 =====
 

@@ -18,19 +18,18 @@ if DEBUG_CHALICE:
     logger.warning('debug mode on...')
 
 
-######################
-# Foursight App Config
-######################
+#####################################
+# Foursight App Config for Deployment
+#####################################
 
-
-# Minimal app.py; used to initially verify packaging scripts
 app = Chalice(app_name='foursight_cgap_trial')
 STAGE = os.environ.get('chalice_stage', 'dev')
-HOST = os.environ.get('ES_HOST', None)
+HOST = os.environ.get("ES_HOST")
+
 # previously FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'  # TODO: This should probably just be "foursight-cgap"
 FOURSIGHT_PREFIX = os.environ.get('FOURSIGHT_PREFIX')
 if not FOURSIGHT_PREFIX:
-    _GLOBAL_ENV_BUCKET = os.environ.get('GLOBAL_ENV_BUCKET') or os.environ.get('GLOBAL_BUCKET_ENV')
+    _GLOBAL_ENV_BUCKET = os.environ.get("GLOBAL_ENV_BUCKET") or os.environ.get("GLOBAL_BUCKET_ENV")
     if _GLOBAL_ENV_BUCKET is not None:
         print("_GLOBAL_ENV_BUCKET=", _GLOBAL_ENV_BUCKET)  # TODO: Temporary print statement, for debugging
         FOURSIGHT_PREFIX = remove_suffix("-envs", _GLOBAL_ENV_BUCKET, required=True)
@@ -38,7 +37,7 @@ if not FOURSIGHT_PREFIX:
     else:
         raise RuntimeError("The FOURSIGHT_PREFIX environment variable is not set. Heuristics failed.")
 
-DEFAULT_ENV = os.environ.get('ENV_NAME', "cgap-uninitialized")
+DEFAULT_ENV = os.environ.get("ENV_NAME", "cgap-uninitialized")
 
 
 class SingletonManager():  # TODO: Move to dcicutils
@@ -173,6 +172,12 @@ def hourly_checks(event):
 def hourly_checks_2(event):
     ignored(event)
     app_utils_manager.singleton.queue_scheduled_checks('all', 'hourly_checks_2')
+
+
+@app.schedule(foursight_cron_by_schedule[STAGE]['monthly_checks'])
+def monthly_checks(event):
+    ignored(event)
+    app_utils_manager.singleton.queue_scheduled_checks('all', 'monthly_checks')
 
 
 ###############################

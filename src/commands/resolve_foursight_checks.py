@@ -3,17 +3,26 @@ import io
 import json
 import os
 
+from chalicelib.vars import CHECK_SETUP_FILE as FOURSIGHT_CHECK_TEMPLATE
 from dcicutils.misc_utils import full_class_name, json_leaf_subst
-from ..base import ConfigManager
-from ..constants import Settings
+
+from src.constants import Settings
+from src.exceptions import CLIException
 
 
 EPILOG = __doc__
 
-DEFAULT_ENVIRONMENT = ConfigManager.get_config_setting(Settings.ENV_NAME)
-DEFAULT_TEMPLATE_FILE = "check_setup.template.json"
+DEFAULT_ENVIRONMENT = os.environ.get("ENV_NAME")
+if DEFAULT_ENVIRONMENT is None:
+    try:
+        from src.base import ConfigManager  # Import will fail without custom dir
+        DEFAULT_ENVIRONMENT = ConfigManager.get_config_setting(Settings.ENV_NAME)
+    except CLIException:
+        raise RuntimeError(
+            "Could not determine environment name. Please set environmental variable"
+            " 'ENV_NAME' or configure the custom directory."
+        )
 DEFAULT_TARGET_FILE = "vendor/check_setup.json"
-
 ENV_NAME_MARKER = "<env-name>"
 
 
@@ -23,7 +32,7 @@ def resolve_foursight_checks(env_name=None, template_file=None, target_file=None
     writing the result as the target file.
     """
     env_name = env_name or DEFAULT_ENVIRONMENT
-    template_file = template_file or DEFAULT_TEMPLATE_FILE
+    template_file = template_file or FOURSIGHT_CHECK_TEMPLATE
     target_file = target_file or DEFAULT_TARGET_FILE
     with io.open(template_file, 'r') as input_fp:
         template_value = json.load(input_fp)
@@ -58,7 +67,7 @@ def main(simulated_args=None):
     parser.add_argument("--env_name", default=None,
                         help=f"name of environment to configure (default {DEFAULT_ENVIRONMENT})")
     parser.add_argument("--template_file", default=None,
-                        help=f"template path to use for testing instead of {DEFAULT_TEMPLATE_FILE}")
+                        help=f"template path to use for testing instead of {FOURSIGHT_CHECK_TEMPLATE}")
     parser.add_argument("--target_file", default=None,
                         help=f"target path to use for testing instead of {DEFAULT_TARGET_FILE}")
     args = parser.parse_args(args=simulated_args)
