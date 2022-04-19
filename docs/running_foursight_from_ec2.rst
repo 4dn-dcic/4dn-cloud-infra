@@ -27,18 +27,15 @@ Step Two: Configure EC2 with this repository
 
 This step can be performed in either of the following manners:
 
-* Copy local repository to EC2 instance.
-
-    - Use ``scp`` (expands symlinks) or ``rsync`` (maintains symlinks)::
+* Copy local repository to EC2 instance with either ``scp`` (expands symlinks) or
+  ``rsync`` (maintains symlinks)::
 
         scp -r -i <path to PEM> <path to local repository> ubuntu@<EC2 public address>:~
-
-    - **Note**: This route is slower than cloning below.
 
 * Clone repository to EC2 instance.
 
   - This will be performed automatically by this repo's configuration script.
-  - **Note**: GitHub credentials may need to be configured on EC2 first. This is
+  - **Note**: GitHub credentials may need to be configured on the EC2 first. This is
     recommended if debugging foursight so commits can be pushed.
 
 For either of the two suggested routes above, an appropriately configured *custom*
