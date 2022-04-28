@@ -16,7 +16,10 @@ boto3 = "^1.21.0"
 botocore = "^1.24.0"
 chalice = "^1.26.6"
 dcicutils = "^3.4.0"
-foursight-cgap = "^1.5.1"
+#lock foursight to deploy foursight-ff
+foursight = "^1.10.0"
+#lock foursight-cgap to deploy foursight-cgap
+#foursight-cgap = "^1.5.1"
 foursight-core = "^0.6.0"
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021

@@ -18,9 +18,9 @@ if DEBUG_CHALICE:
     logger.warning('debug mode on...')
 
 
-######################
-# Foursight App Config
-######################
+#############################
+# Foursight (CGAP) App Config
+#############################
 
 
 # Minimal app.py; used to initially verify packaging scripts
@@ -73,7 +73,6 @@ if DEBUG_CHALICE:
     logger.warning('creating app utils object')
 
 
-# app_utils_obj = AppUtils()
 # TODO: Will asks if this isn't redundant with other things done to keep this from being re-evaluated.
 #       We weren't sure and will look again at this another time. -kmp 17-Aug-2021
 app_utils_manager = SingletonManager(AppUtils)
