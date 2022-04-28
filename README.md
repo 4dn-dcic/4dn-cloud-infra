@@ -63,3 +63,11 @@ Instructions for testing:  (TODO: May need some updating)
     # Then, after following the "make submission" output instructions
     # queue output VCF ingestion
     make ingestion
+
+## Deploying Foursight for Development
+
+`foursight_development` contains scripts for running foursight checks and actions for
+development purposes as well as a separate app configuration (`development_app.py`) than
+the one used for deployment.
+
+For more information, see `docs/running_foursight_from_ec2.rst`.

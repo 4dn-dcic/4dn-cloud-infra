@@ -296,9 +296,13 @@ You'll also need to initialize the foursight checks for your environment. This w
 
     resolve-foursight-checks
 
-(The ``resolve-foursight-checks`` command copies ``check_setup.template.json`` into ``vendor/check_setup.json``,
+By default, the ``resolve-foursight-checks`` command copies foursight-cgap's ``check_setup.json`` into ``vendor/check_setup.json``,
 replacing ``"<env-name>"`` with your chosen environment name, which is taken from the setting of ``ENCODED_BS_ENV``
-in your ``config.json``.)
+in your ``config.json``. If a different check configuration is desired, run the command
+with the ``--template_file`` argument set accordingly, e.g.::
+
+   resolve-foursight-checks --template_file <path to check file>
+
 
 At this point, you should be ready to deploy foursight. To do so, use this command::
 

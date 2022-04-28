@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "4dn-cloud-infra"
-version = "2.0.2"
+version = "3.0.0"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
 authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
@@ -19,7 +19,7 @@ dcicutils = "^3.4.0"
 #lock foursight to deploy foursight-ff
 foursight = "^1.10.0"
 #lock foursight-cgap to deploy foursight-cgap
-#foursight-cgap = "^1.5.1"
+#foursight-cgap = "^1.6.0"
 foursight-core = "^0.6.0"
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
@@ -30,6 +30,7 @@ tibanna = "1.9.1"
 tibanna-ff = "1.0.0"
 tqdm = "^4.62.3"
 troposphere = "^3.2.2"
+jupyter = "^1.0.0"
 
 [tool.poetry.dev-dependencies]
 cfn-flip = "^1.2.3"  # do we need to specify this explicitly? -kmp 27-Jul-2021
