@@ -17,7 +17,7 @@ botocore = "^1.24.0"
 chalice = "^1.26.6"
 dcicutils = "^3.4.0"
 #lock foursight to deploy foursight-ff
-foursight = "^1.10.0.0b1"
+foursight = "^1.10.0.1b2"
 #lock foursight-cgap to deploy foursight-cgap
 #foursight-cgap = "^1.6.0"
 foursight-core = "^0.6.0"
