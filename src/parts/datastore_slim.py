@@ -6,7 +6,7 @@ from troposphere.elasticsearch import (
     Domain, ElasticsearchClusterConfig, DomainEndpointOptions,
     EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions
 )
-from dcicutils.cloudformation_utils import camelize
+from dcicutils.cloudformation_utils import camelize, dehyphenate
 from ..base import (
     ConfigManager, Settings,
 )
@@ -195,7 +195,7 @@ class C4DatastoreSlim(C4Datastore):
         """
         if not env_name:
             env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        logical_id = f'{env_name}ElasticSearch'
+        logical_id = f'{dehyphenate(env_name)}ElasticSearch'
         domain_name = self.name.domain_name(f'es-{env_name}')
         options = {}
         try:  # feature not yet supported by troposphere

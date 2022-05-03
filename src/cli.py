@@ -318,7 +318,8 @@ class C4Client:
 
                 stack.package_foursight_stack(args)  # <-- this will implicitly use args.stage, among others
                 if upload_change_set:
-                    cls.upload_chalice_package(output_file=output_file, stack=stack)
+                    bucket = ConfigManager.get_config_setting(Settings.FOURSIGHT_APP_VERSION_BUCKET, default=None)
+                    cls.upload_chalice_package(output_file=output_file, stack=stack, bucket=bucket)
 
             else:
                 # Handle 4dn-cloud-infra stacks

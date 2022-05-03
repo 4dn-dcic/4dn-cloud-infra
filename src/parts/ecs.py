@@ -88,6 +88,7 @@ class C4ECSApplication(C4Part):
     LB_NAME = 'AppLB'
     IMAGE_TAG = ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, 'latest')
     LEGACY_DEFAULT_IDENTITY = 'dev/beanstalk/cgap-dev'
+    TARGET_GROUP_NAME = 'TargetGroupPortal'  # consider better name?
 
     STACK_NAME_TOKEN = "ecs"
     STACK_TITLE_TOKEN = "ECS"
@@ -141,7 +142,7 @@ class C4ECSApplication(C4Part):
         # Add load balancer for portal
         template.add_resource(self.ecs_lb_security_group())
         template.add_resource(self.ecs_container_security_group())
-        target_group = self.ecs_lbv2_target_group(name='TargetGroupApplication')  # consider better name?
+        target_group = self.ecs_lbv2_target_group(name=self.TARGET_GROUP_NAME)
         template.add_resource(target_group)
         template.add_resource(self.ecs_application_load_balancer_listener(target_group))
         template.add_resource(self.ecs_application_load_balancer())
@@ -292,8 +293,7 @@ class C4ECSApplication(C4Part):
             Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer(), 'DNSName')])
         )
 
-    def ecs_lbv2_target_group(self, name='TargetGroupApplication') -> elbv2.TargetGroup:
-        """ Creates LBv2 target group (intended for use with portal Service). """
+    def _lbv2_target_group(self, name):
         logical_id = self.name.logical_id(name)
         return elbv2.TargetGroup(
             logical_id,
@@ -310,6 +310,10 @@ class C4ECSApplication(C4Part):
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
             Tags=self.tags.cost_tag_array()
         )
+
+    def ecs_lbv2_target_group(self, name=TARGET_GROUP_NAME) -> elbv2.TargetGroup:
+        """ Creates LBv2 target group (intended for use with portal Service). """
+        return self._lbv2_target_group(name)
 
     def ecs_portal_task(self, cpu='4096', mem='8192', identity=None) -> TaskDefinition:   # XXX: refactor
         """ Defines the portal Task (serve HTTP requests).
@@ -392,7 +396,7 @@ class C4ECSApplication(C4Part):
                 LoadBalancer(
                     ContainerName='portal',  # this must match Name in TaskDefinition (ContainerDefinition)
                     ContainerPort=Ref(self.ecs_web_worker_port()),
-                    TargetGroupArn=Ref(self.ecs_lbv2_target_group()))
+                    TargetGroupArn=Ref(self.ecs_lbv2_target_group(name=self.TARGET_GROUP_NAME)))
             ],
             # Run portal service on Fargate Spot
             CapacityProviderStrategy=[
