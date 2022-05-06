@@ -15,9 +15,9 @@ awscli = ">=1.22.55"
 boto3 = "^1.21.0"
 botocore = "^1.24.0"
 chalice = "^1.26.6"
-dcicutils = "^3.4.0"
+dcicutils = "^3.11.0"
 #lock foursight to deploy foursight-ff
-foursight = "^1.10.1"
+foursight = "1.10.3.1b3"
 #lock foursight-cgap to deploy foursight-cgap
 #foursight-cgap = "^1.6.0"
 foursight-core = "^0.6.0"
