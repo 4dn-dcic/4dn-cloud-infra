@@ -28,8 +28,8 @@ class C4Client:
     ALPHA_LEAF_STACKS = ['iam', 'logging', 'network', 'appconfig']  # stacks that only export values
     CAPABILITY_IAM = 'CAPABILITY_IAM'
     FOURFRONT_NETWORK_STACK = 'c4-network-main-stack'  # this stack name is shared by all fourfront envs
-    REQUIRES_CAPABILITY_IAM = ['iam', 'foursight']  # these stacks require CAPABILITY_IAM, just IAM for now
-    # CONFIGURATION = 'config.json'  # path to config file, top level by default
+    # these stacks require CAPABILITY_IAM, just IAM for now
+    REQUIRES_CAPABILITY_IAM = ['iam', 'foursight', 'foursight-development', 'foursight-production']
 
     @classmethod
     def _out_templates_mapping_for_mount(cls) -> str:
