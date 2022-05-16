@@ -57,8 +57,9 @@ class C4Account:
 
 class C4Name:
     """ Helper class for working with stack names and resource name construction """
-    def __init__(self, name, title_token=None, string_to_trim=None):
+    def __init__(self, name, raw_name=None, title_token=None, string_to_trim=None):
         self.name = name
+        self.raw_name = raw_name
         self.stack_name = f'{name}-stack'  # was '{}-stack'.format(name)
         self.logical_id_prefix = title_token or camelize(name)
         self.string_to_trim = string_to_trim or self.logical_id_prefix
@@ -137,16 +138,26 @@ class StackNameMixin:
         return cls._SHARING_QUALIFIERS[sharing]
 
     @classmethod
-    def suggest_stack_name(cls):
+    def suggest_stack_name(cls, name=None):
+        title_token = cls.stack_title_token()
+        if name:  # for stack names, defer to the name of that stack as declared in alpha_stacks.py
+            name_camel = camelize(name)
+            return C4Name(name=f'{COMMON_STACK_PREFIX}{name}',
+                          raw_name=name,
+                          title_token=(f'{COMMON_STACK_PREFIX_CAMEL_CASE}{title_token}{name_camel}'
+                                       if title_token else None),
+                          string_to_trim=name_camel)
+        import pdb; pdb.set_trace()
         qualifier = cls.suggest_sharing_qualifier()
         qualifier_suffix = f"-{qualifier}"
         qualifier_camel = camelize(qualifier)
         name_token = cls.STACK_NAME_TOKEN
-        title_token = cls.stack_title_token()
+
         return C4Name(name=f'{COMMON_STACK_PREFIX}{name_token}{qualifier_suffix}',
                       title_token=(f'{COMMON_STACK_PREFIX_CAMEL_CASE}{title_token}{qualifier_camel}'
                                    if title_token else None),
                       string_to_trim=qualifier_camel)
+
 
 
 class C4Part(StackNameMixin):

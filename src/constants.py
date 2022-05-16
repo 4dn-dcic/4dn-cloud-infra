@@ -91,6 +91,10 @@ class Settings:
     FOURFRONT_RDS_SECURITY_GROUP = 'fourfront.rds.sg'
     FOURFRONT_HTTPS_SECURITY_GROUP = 'fourfront.https.sg'
 
+    # Foursight options
+    FOURSIGHT_ES_URL = 'foursight.es_url'
+    FOURSIGHT_APP_VERSION_BUCKET = 'foursight.application_version_bucket'
+
     # Sentieon Options
     SENTIEON_SSH_KEY = 'sentieon.ssh_key'
 

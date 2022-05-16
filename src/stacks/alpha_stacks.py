@@ -3,16 +3,18 @@ from ..parts import (
     network, datastore, ecr, iam, logging, ecs, fourfront_ecs,
     appconfig, datastore_slim, sentieon, jupyterhub, fourfront_ecs_blue_green
 )
-from ..stack import C4Stack, C4Tags, C4Account, C4FoursightCGAPStack, C4Part, BaseC4FoursightStack
+from ..stack import (
+    C4Stack, C4Tags, C4Account, C4Part, BaseC4FoursightStack,
+    C4FoursightCGAPStack, C4FoursightFourfrontStack
+)
 
 
 # Stack metadata
 # 'alpha' in this case refers to the first iteration of CGAP Docker on ECS
-
-def c4_alpha_stack_name(name):
+def _c4_stack_name(name, kind):
     """ This function determines stack names and is shared by CGAP/FF. """
     if isinstance(name, str):
-        part = registered_stack_class(name, kind='alpha')
+        part = registered_stack_class(name, kind=kind)
     else:
         part = name
     assert issubclass(part, C4Part) or issubclass(part, BaseC4FoursightStack), (
@@ -20,7 +22,15 @@ def c4_alpha_stack_name(name):
     )
     # e.g., if name='network, result will be c4-network-trial-alpha
     # return C4Name(name=f'{COMMON_STACK_PREFIX}{name}-trial-alpha')
-    return part.suggest_stack_name()
+    return part.suggest_stack_name(name=name)
+
+
+def c4_alpha_stack_name(name):
+    return _c4_stack_name(name, kind='alpha')
+
+
+def c4_4dn_stack_name(name):
+    return _c4_stack_name(name, kind='4dn')
 
 
 def c4_alpha_stack_tags():
@@ -70,7 +80,7 @@ def create_c4_alpha_stack(*, name: str, account: C4Account):
 def create_c4_4dn_stack(*, name: str, account: C4Account):
     part = registered_stack_class(name, kind='4dn')
     return C4Stack(
-        name=c4_alpha_stack_name(part),
+        name=c4_4dn_stack_name(part),
         tags=c4_4dn_stack_tags(),
         account=account,
         parts=[part],
@@ -85,6 +95,16 @@ def create_c4_alpha_foursight_stack(*, name, account: C4Account):
         tags=c4_alpha_stack_tags(),
         account=account,
         description=c4_alpha_stack_description(name),
+    )
+
+
+def create_c4_4dn_foursight_stack(*, name, account: C4Account):
+    foursight_class = registered_stack_class(name, kind='4dn')
+    return foursight_class(
+        name=c4_4dn_stack_name(name),
+        tags=c4_4dn_stack_tags(),
+        account=account,
+        description=c4_4dn_stack_description(name),
     )
 
 
@@ -170,5 +190,17 @@ def c4_alpha_stack_jupyterhub(account: C4Account):
 
 @register_stack_creator(name='foursight', kind='alpha', implementation_class=C4FoursightCGAPStack)
 def c4_alpha_stack_foursight_cgap(account: C4Account):
-    """ Foursight stack """
+    """ Foursight (prod) stack for cgap - note that either stage can be deployed """
     return create_c4_alpha_foursight_stack(name='foursight', account=account)
+
+
+@register_stack_creator(name='foursight-production', kind='4dn', implementation_class=C4FoursightFourfrontStack)
+def c4_alpha_stack_foursight_fourfront(account: C4Account):
+    """ Foursight (prod) stack for fourfront """
+    return create_c4_4dn_foursight_stack(name='foursight-production', account=account)
+
+
+@register_stack_creator(name='foursight-development', kind='4dn', implementation_class=C4FoursightFourfrontStack)
+def c4_alpha_stack_foursight_fourfront(account: C4Account):
+    """ Foursight (dev) stack for fourfront """
+    return create_c4_4dn_foursight_stack(name='foursight-development', account=account)

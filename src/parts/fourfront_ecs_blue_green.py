@@ -20,10 +20,12 @@ from .fourfront_ecs import FourfrontApplicationTypes
 
 
 class FourfrontECSBlueGreen(C4ECSApplication):
-    """ Configures two ECS clusters in a blue/green fashion.
-        Note that this only orchestrates the ECS component - datastore is still TODO.
+    """ Configures two ECS clusters in a blue/green fashion (identity swap compatible).
     """
     VPC_SQS_URL = 'https://sqs.us-east-1.amazonaws.com/'
+    PORTAL_CONTAINER_DEFINITION = 'Portal'
+    INDEXER_CONTAINER_DEFINITION = 'Indexer'
+    DEPLOYMENT_CONTAINER_DEFINITION = 'DeploymentAction'
 
     def build_template(self, template: Template) -> Template:
         """ Builds the template containing two ECS environments. """
@@ -195,7 +197,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
         return self.ecs_lbv2_target_group(name=f'TargetGroupApplication{DeploymentParadigm.GREEN.capitalize()}')
 
     def ecs_portal_task(self, cpu='4096', mem='8192', image_tag='',
-                        log_group_export=None, identity=None) -> TaskDefinition:
+                        log_group_export=None, identity=None, mirror=False) -> TaskDefinition:
         """ Defines the portal Task (serve HTTP requests).
             See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
             Note that not much has changed for the FF version.
@@ -205,6 +207,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             :param image_tag: image tag to use for this task
             :param log_group_export: log group export name to use
             :param identity: name of secret containing the identity information for this environment
+            :param mirror: build a mirror task
         """
         return TaskDefinition(
             f'Fourfront{image_tag}Portal',
@@ -216,7 +219,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
-                    Name=f'{image_tag}portal',
+                    Name=self.PORTAL_CONTAINER_DEFINITION,
                     Essential=True,
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
@@ -279,7 +282,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(
-                    ContainerName=f'{image_tag}portal',  # this must match Name in TaskDefinition (ContainerDefinition)
+                    ContainerName=self.PORTAL_CONTAINER_DEFINITION,  # this must match Name in TaskDefinition (ContainerDefinition)
                     ContainerPort=Ref(self.ecs_web_worker_port()),
                     TargetGroupArn=Ref(self.ecs_lbv2_target_group()) if not target_group_ref else target_group_ref)
             ],
@@ -333,7 +336,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
-                    Name=f'{image_tag}Indexer',
+                    Name=self.INDEXER_CONTAINER_DEFINITION,
                     Essential=True,
                     Image=Join('', [
                         self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
@@ -450,7 +453,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             NetworkMode='awsvpc',  # required for Fargate
             ContainerDefinitions=[
                 ContainerDefinition(
-                    Name=f'{image_tag}DeploymentAction',
+                    Name=self.DEPLOYMENT_CONTAINER_DEFINITION,
                     Essential=True,
                     Image=Join("", [
                         self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
