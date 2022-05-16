@@ -1,13 +1,14 @@
 from troposphere import (
     Parameter, Join, Ref,
     AWS_REGION, Template, Output, GetAtt,
+    elasticloadbalancingv2 as elbv2,
 )
 from troposphere.ecs import (
     Cluster, TaskDefinition, ContainerDefinition, LogConfiguration,
     PortMapping, Service, LoadBalancer, AwsvpcConfiguration, NetworkConfiguration,
     Environment, CapacityProviderStrategyItem, SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
-from dcicutils.cloudformation_utils import camelize
+from dcicutils.cloudformation_utils import camelize, dehyphenate
 from ..base import ConfigManager
 from ..constants import Settings
 from .ecs import C4ECSApplicationExports, C4ECSApplication
@@ -33,6 +34,7 @@ class FourfrontECSApplication(C4ECSApplication):
     """ Configures an ECS Cluster application for Fourfront """
     LEGACY_DEFAULT_IDENTITY = 'fourfront-mastertest'
     VPC_SQS_URL = 'https://sqs.us-east-1.amazonaws.com/'
+    TARGET_GROUP_NAME = f'TargetGroup{ConfigManager.get_config_setting(Settings.ENV_NAME)}'
 
     def build_template(self, template: Template) -> Template:
         """ We override the build template method here so we can do things drastically
@@ -94,7 +96,7 @@ class FourfrontECSApplication(C4ECSApplication):
         #     template.add_resource(rule)
 
         # Add Target Group
-        target_group = self.ecs_lbv2_target_group()
+        target_group = self.fourfront_ecs_lbv2_target_group()
         template.add_resource(target_group)
 
         # Add load balancer for portal
@@ -122,6 +124,10 @@ class FourfrontECSApplication(C4ECSApplication):
             CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
             Tags=self.tags.cost_tag_obj()
         )
+
+    def fourfront_ecs_lbv2_target_group(self, name=TARGET_GROUP_NAME) -> elbv2.TargetGroup:
+        """ Creates LBv2 target group (intended for use with portal Service). """
+        return self._lbv2_target_group(dehyphenate(name))
 
     def ecs_portal_task(self, cpu='1024', mem='2048', identity=None) -> TaskDefinition:
         """ Defines the portal Task (serve HTTP requests).
@@ -200,7 +206,7 @@ class FourfrontECSApplication(C4ECSApplication):
                 LoadBalancer(
                     ContainerName='portal',  # this must match Name in TaskDefinition (ContainerDefinition)
                     ContainerPort=Ref(self.ecs_web_worker_port()),
-                    TargetGroupArn=Ref(self.ecs_lbv2_target_group()))
+                    TargetGroupArn=Ref(self.fourfront_ecs_lbv2_target_group()))
             ],
             # Run portal service on Fargate Spot
             CapacityProviderStrategy=[

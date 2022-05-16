@@ -145,7 +145,7 @@ class ConfigManager:
         return bucket_name
 
     REQUIRED_CONFIGS = [Settings.ACCOUNT_NUMBER, Settings.DEPLOYING_IAM_USER, Settings.ENV_NAME]
-    REQUIRED_SECRETS = [Secrets.AUTH0_CLIENT, Secrets.AUTH0_SECRET, Secrets.ENCODED_SECRET, Secrets.S3_ENCRYPT_KEY]
+    REQUIRED_SECRETS = [Secrets.AUTH0_CLIENT, Secrets.AUTH0_SECRET, Secrets.S3_ENCRYPT_KEY]
 
     _CACHED_CONFIG = None
 

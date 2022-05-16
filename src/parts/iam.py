@@ -62,8 +62,8 @@ class C4IAM(C4Part):
         template.add_resource(autoscaling_iam_role)
         s3_iam_user = self.ecs_s3_iam_user()
         template.add_resource(s3_iam_user)
-        s3_iam_user_access_key = self.ecs_s3_iam_user_access_key(s3_iam_user)
-        template.add_resource(s3_iam_user_access_key)  # TODO: properly extract and pass this key
+        # s3_iam_user_access_key = self.ecs_s3_iam_user_access_key(s3_iam_user)
+        # template.add_resource(s3_iam_user_access_key)  # TODO: properly extract and pass this key
 
         # add outputs
         template.add_output(self.output_assumed_iam_role_or_user(iam_role,

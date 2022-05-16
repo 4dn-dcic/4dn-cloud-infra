@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 
-from chalicelib.package import PackageDeploy as PackageDeploy_from_cgap
+from chalicelib.package import PackageDeploy as PackageDeploy_from_app
 from dcicutils.misc_utils import PRINT, full_class_name
 from os.path import dirname
 from troposphere import Template
@@ -111,19 +111,17 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
             self.security_ids = C4NetworkExports.get_security_ids()
             self.subnet_ids = C4NetworkExports.get_subnet_ids()
             self.global_env_bucket = C4DatastoreExports.get_env_bucket()
-            if ConfigManager.get_config_secret(Secrets.ENCODED_SECRET):
-                print(f"Ignoring secrets.json setting of {Secrets.ENCODED_SECRET}, which has been deprecated.")
             self.trial_creds = {
                 'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY),
                 'CLIENT_ID': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT),
                 'CLIENT_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET),
                 'DEV_SECRET': '',  # Better not to set this. ConfigManager.get_config_secret(Secrets.ENCODED_SECRET),
-                'ES_HOST': C4DatastoreExports.get_es_url() + ":443",
+                'ES_HOST': ConfigManager.get_config_setting(Settings.FOURSIGHT_ES_URL, default=None) or
+                           C4DatastoreExports.get_es_url() + ":443",
                 'ENV_NAME': ConfigManager.get_config_setting(Settings.ENV_NAME),
                 'RDS_NAME': ConfigManager.get_config_setting(Settings.RDS_NAME),
                 'S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
             }
-        # print(f"self.trial_creds['ENV_NAME'] = {self.trial_creds['ENV_NAME']}")
         super().__init__(description, name, tags, account)
 
     def package_foursight_stack(self, args):
@@ -151,10 +149,73 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
                           or "CheckRunner-PLACEHOLDER")
         )
 
-    class PackageDeploy(PackageDeploy_from_cgap):
+    class PackageDeploy(PackageDeploy_from_app):
 
-        CONFIG_BASE = PackageDeploy_from_cgap.CONFIG_BASE
-        CONFIG_BASE['app_name'] = 'foursight-trial'
+        CONFIG_BASE = PackageDeploy_from_app.CONFIG_BASE
+        CONFIG_BASE['app_name'] = 'foursight-cgap'
 
         config_dir = dirname(dirname(__file__))
         print(f"Config dir: {config_dir}")
+
+
+class C4FoursightFourfrontStack(BaseC4FoursightStack):
+    """ Foursight-fourfront specific class. Mostly identical to CGAP (for now). """
+
+    STACK_NAME_TOKEN = "foursight"
+    STACK_TITLE_TOKEN = "Foursight"
+    SHARING = 'env'
+
+    NETWORK_EXPORTS = C4NetworkExports()
+
+    def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account):
+
+        with ConfigManager.validate_and_source_configuration():
+            self.security_ids = C4NetworkExports.get_security_ids()
+            self.subnet_ids = C4NetworkExports.get_subnet_ids()
+            self.global_env_bucket = C4DatastoreExports.get_env_bucket()
+            self.trial_creds = {
+                'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY),
+                'CLIENT_ID': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT),
+                'CLIENT_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET),
+                'DEV_SECRET': '',  # Better not to set this. ConfigManager.get_config_secret(Secrets.ENCODED_SECRET),
+                'ES_HOST': ConfigManager.get_config_setting(Settings.FOURSIGHT_ES_URL, default=None) or
+                           C4DatastoreExports.get_es_url() + ":443",
+                'ENV_NAME': ConfigManager.get_config_setting(Settings.ENV_NAME),
+                'RDS_NAME': ConfigManager.get_config_setting(Settings.RDS_NAME),
+                'S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
+            }
+        super().__init__(description, name, tags, account)
+
+    def package_foursight_stack(self, args):
+        # # TODO (C4-691): foursight-core presently picks up the global bucket env as an environment variable.
+        # #       We should fix it to pass the argument lexically instead, as shown below.
+        # #       Meanwhile, too, we're transitioning the name of the variable (from GLOBAL_BUCKET_ENV
+        # #       to GLOBAL_ENV_BUCKET), so we compatibly bind both variables just in case that
+        # #       name change goes into effect first. -kmp 4-Aug-2021
+        # # TODO (C4-692): foursight-core presently wants us to pass an 'args' argument (from 'argparser').
+        # #       It should instead ask for all the various arguments it plans to look at.
+        # with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
+        self.PackageDeploy.build_config_and_package(
+            args,  # this should not be needed any more, but we didn't quite write the code that way
+            merge_template=args.merge_template,
+            output_file=args.output_file,
+            stage=args.stage,
+            trial=args.trial,
+            global_env_bucket=self.global_env_bucket,
+            security_ids=self.security_ids,
+            subnet_ids=self.subnet_ids,
+            trial_creds=self.trial_creds,
+            # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
+            # On the second attempt to create the stack, the physical resource ID will be used.
+            check_runner=(ConfigManager.find_stack_resource(self.name.raw_name, 'CheckRunner', 'physical_resource_id')
+                          or "CheckRunner-PLACEHOLDER")
+        )
+
+    class PackageDeploy(PackageDeploy_from_app):
+
+        CONFIG_BASE = PackageDeploy_from_app.CONFIG_BASE
+        CONFIG_BASE['app_name'] = 'foursight-fourfront'
+
+        config_dir = dirname(dirname(__file__))
+        print(f"Config dir: {config_dir}")
+
