@@ -371,7 +371,7 @@ class C4Datastore(C4Part):
                     TagFilters=[TagFilter(Key='Lifecycle', Value='Glacier')],
                     Transition=LifecycleRuleTransition(
                         StorageClass='GLACIER',
-                        TransitionInDays=90
+                        TransitionInDays=1
                     )
                 ),
                 LifecycleRule(
@@ -380,16 +380,15 @@ class C4Datastore(C4Part):
                     TagFilters=[TagFilter(Key='Lifecycle', Value='GlacierDA')],
                     Transition=LifecycleRuleTransition(
                         StorageClass='DEEP_ARCHIVE',
-                        TransitionInDays=180
+                        TransitionInDays=1
                     )
+                ),
+                LifecycleRule(
+                    'expire',
+                    Status='Enabled',
+                    TagFilters=[TagFilter(Key='Lifecycle', Value='expire')],
+                    ExpirationInDays=1
                 )
-                # TODO: add expiration rule? not convinced this should be configured for now - Will Nov 9 2021
-                # LifecycleRule(
-                #     'expire',
-                #     Status='Enabled',
-                #     TagFilters=[TagFilter(Key='Lifecycle', Value='expire')],
-                #     ExpirationInDays=1
-                # )
             ]
         )
 
