@@ -4,7 +4,9 @@ default: info
 
 configure:
 	pip install --upgrade pip
-	pip install poetry wheel
+	pip install wheel
+	curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+
 
 build:
 	make configure
