@@ -601,7 +601,7 @@ class C4Datastore(C4Part):
                                                                               default=self.DEFAULT_RDS_INSTANCE_SIZE),
             Engine='postgres',
             EngineVersion=postgres_version or self.DEFAULT_RDS_POSTGRES_VERSION,
-            DBInstanceIdentifier=ConfigManager.get_config_setting(Settings.RDS_NAME) or f"rds-{env_name}",  # was logical_id,
+            DBInstanceIdentifier=ConfigManager.get_config_setting(Settings.RDS_NAME, default=None) or f"rds-{env_name}",  # was logical_id,
             DBName=db_name or ConfigManager.get_config_setting(Settings.RDS_DB_NAME, default=self.DEFAULT_RDS_DB_NAME),
             DBParameterGroupName=Ref(self.rds_parameter_group()),
             DBSubnetGroupName=Ref(self.rds_subnet_group()),

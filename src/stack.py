@@ -111,6 +111,7 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
             self.security_ids = C4NetworkExports.get_security_ids()
             self.subnet_ids = C4NetworkExports.get_subnet_ids()
             self.global_env_bucket = C4DatastoreExports.get_env_bucket()
+            env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
             self.trial_creds = {
                 'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY),
                 'CLIENT_ID': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT),
@@ -118,8 +119,9 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
                 'DEV_SECRET': '',  # Better not to set this. ConfigManager.get_config_secret(Secrets.ENCODED_SECRET),
                 'ES_HOST': ConfigManager.get_config_setting(Settings.FOURSIGHT_ES_URL, default=None) or
                            C4DatastoreExports.get_es_url() + ":443",
-                'ENV_NAME': ConfigManager.get_config_setting(Settings.ENV_NAME),
-                'RDS_NAME': ConfigManager.get_config_setting(Settings.RDS_NAME),
+                'ENV_NAME': env_name,
+                'RDS_NAME': ConfigManager.get_config_setting(Settings.RDS_NAME, default=None) or
+                            f"rds-{env_name}",
                 'S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
             }
         super().__init__(description, name, tags, account)
@@ -173,6 +175,7 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
             self.security_ids = C4NetworkExports.get_security_ids()
             self.subnet_ids = C4NetworkExports.get_subnet_ids()
             self.global_env_bucket = C4DatastoreExports.get_env_bucket()
+            env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
             self.trial_creds = {
                 'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY),
                 'CLIENT_ID': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT),
@@ -180,8 +183,9 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
                 'DEV_SECRET': '',  # Better not to set this. ConfigManager.get_config_secret(Secrets.ENCODED_SECRET),
                 'ES_HOST': ConfigManager.get_config_setting(Settings.FOURSIGHT_ES_URL, default=None) or
                            C4DatastoreExports.get_es_url() + ":443",
-                'ENV_NAME': ConfigManager.get_config_setting(Settings.ENV_NAME),
-                'RDS_NAME': ConfigManager.get_config_setting(Settings.RDS_NAME),
+                'ENV_NAME': env_name,
+                'RDS_NAME': ConfigManager.get_config_setting(Settings.RDS_NAME, default=None) or
+                            f"rds-{env_name}",
                 'S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
             }
         super().__init__(description, name, tags, account)
