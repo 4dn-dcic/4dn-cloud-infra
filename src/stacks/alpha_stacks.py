@@ -62,14 +62,14 @@ def c4_alpha_stack_metadata(name):  # was name='network'
     assert issubclass(part, C4Part) or issubclass(part, BaseC4FoursightStack), (
         f"The part {part} is not a C4Part of foursight stack."
     )
-    return (c4_alpha_stack_name(part),
+    return (c4_alpha_stack_name(name),
             c4_alpha_stack_description(name))
 
 
 def create_c4_alpha_stack(*, name: str, account: C4Account):
     part = registered_stack_class(name, kind='alpha')
     return C4Stack(
-        name=c4_alpha_stack_name(part),
+        name=c4_alpha_stack_name(name),
         tags=c4_alpha_stack_tags(),
         account=account,
         parts=[part],
