@@ -26,6 +26,10 @@ class FourfrontECSBlueGreen(C4ECSApplication):
     PORTAL_CONTAINER_DEFINITION = 'Portal'
     INDEXER_CONTAINER_DEFINITION = 'Indexer'
     DEPLOYMENT_CONTAINER_DEFINITION = 'DeploymentAction'
+    #
+    # New at suggestion from Kent 2022-05-17 @ 2:15pm
+    #
+    SHARING = 'account'
 
     def build_template(self, template: Template) -> Template:
         """ Builds the template containing two ECS environments. """
