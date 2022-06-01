@@ -1,7 +1,7 @@
 # --------------------------------------------------------------------------------------------------
 # Simple script to view AWS stack templates.
 #
-# usage: aws-stacks-template stack-name
+# usage: aws-stack-template stack-name
 # --------------------------------------------------------------------------------------------------
 
 import argparse
