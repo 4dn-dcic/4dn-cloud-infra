@@ -109,7 +109,7 @@ def main():
     args_parser = argparse.ArgumentParser()
     args_parser.add_argument("--name", type=str, required=False)
     #
-    # How can we make --secret take an *option* argument,
+    # How can we make --secret take an *optional* argument,
     # so we can not have both '--secrets' and '--secret pattern'?
     #
     args_parser.add_argument("--secret", type=str, required=False)

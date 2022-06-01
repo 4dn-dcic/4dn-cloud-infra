@@ -6,7 +6,7 @@
 #
 # usage: aws-stacks [--name stack-name-pattern]
 #                   {
-#                   | [ --outputs | --output output-key-pattern]
+#                   | [ --outputs | --output output-key-pattern ]
 #                   | [ --resources | --resource resource-name-pattern ]
 #                   | [ --parameters | -parameter  parameter-name-pattern ]
 #                   }
@@ -41,6 +41,10 @@ import json
 
 args_parser = argparse.ArgumentParser()
 args_parser.add_argument("--name", type=str, required=False)
+#
+# How can we make --outputs take an *optional* argument,
+# so we can not have both '--outputs' and '--output pattern'?
+#
 args_parser.add_argument("--outputs", action="store_true", required=False)
 args_parser.add_argument("--output", type=str, required=False)
 args_parser.add_argument("--verbose", action="store_true", required=False)
@@ -94,8 +98,6 @@ def print_aws_stacks():
                 stack_output_value = stack_output["OutputValue"]
                 stack_output_export_name = stack_output.get("ExportName")
                 print(" - %s: %s" % (stack_output_key, stack_output_value))
-                # print(" - %s:" % (stack_output_key))
-                # print("   %s" % (stack_output_value))
                 if args.verbose and stack_output_export_name:
                     print("   %s (export name)" % (stack_output_export_name))
         elif args.resources or args.resource:
@@ -114,8 +116,6 @@ def print_aws_stacks():
                         continue
                     stack_parameter_value = stack_parameter["ParameterValue"]
                     print(" - %s: %s" % (stack_parameter_key, stack_parameter_value))
-                    # print(" - %s:" % (stack_parameter_key))
-                    # print("   %s" % (stack_parameter_value))
 
 def main():
     print_aws_stacks()
