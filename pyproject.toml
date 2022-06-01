@@ -48,6 +48,9 @@ pytest = ">=5.1.2"  # 5.1.2 is needed by foursight-cgap, but otherwise we'd be h
 
 [tool.poetry.scripts]
 assure-global-bucket-env = "src.commands.assure_global_env_bucket:main"
+aws-secrets = "src.cli_utils.aws_secrets:main"
+aws-stacks = "src.cli_utils.aws_stacks:main"
+aws-stack-template = "src.cli_utils.aws_stack_template:main"
 cli = "src.cli:cli"
 create-demo-metawfr = "src.commands.create_demo_metawfr:main"
 datastore-attribute = "src.commands.find_resources:datastore_attribute_main"
