@@ -30,10 +30,10 @@ def print_aws_secrets(secret_name_pattern: str = None, secret_key_name_pattern: 
     Prints (to stdout) AWS secrets for the currently active AWS credentials.
 
     By default prints just (all) the *names* of the secrets available, e.g.
-    C4DatastoreCgapSupertestApplicationConfiguration. Use :param:`secret_name_pattern`
+    C4DatastoreCgapSupertestRDSSecret. Use :param:`secret_name_pattern`
     to limit these secret names. Use :param:`secret_key_name_pattern` set to '*'
     to print all secret keys/values (for each secret name), or to some pattern to
-    limit to those matching that pattern. Secret values with key name which *look*
+    limit to keys matching that pattern. Secret values with key name which *look*
     secret will obfuscated by default; use :param:`show` to print them in plaintext.
     See SECRET_KEY_NAMES_FOR_OBFUSCATION below for what looks like a secret key name. 
 
