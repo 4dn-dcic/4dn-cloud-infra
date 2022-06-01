@@ -47,7 +47,13 @@ def print_aws_secrets(secret_name_pattern: str = None, secret_key_name_pattern: 
 
     # Adjust/amend this as necessary.
     #
-    SECRET_KEY_NAMES_FOR_OBFUSCATION = [ ".*secret.*", ".*secrt.*", ".*password.*", ".*passwd.*", ".*crypt.*" ]
+    SECRET_KEY_NAMES_FOR_OBFUSCATION = [
+        ".*secret.*",
+        ".*secrt.*",
+        ".*password.*",
+        ".*passwd.*",
+        ".*crypt.*"
+    ]
 
     def should_obfuscate_secret(key: str) -> bool:
         """
