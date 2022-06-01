@@ -40,9 +40,9 @@ def print_aws_secrets(secret_name_pattern: str = None, secret_key_name_pattern: 
     :param secret_name_pattern: If None then prints all secrets name,
       otherwise only those that contain the given pattern.
     :param secret_key_name_pattern: If None then does not print any secret keys/values;
-      otherwise prints only those that contain the given pattern; use '*' for all.
-    :param show: If False then obfuscates secret values with key name that look secret,
-      e.g. containing 'password' or 'secret', otherwise prints all values in plaintext.
+      otherwise prints only for keys that contain the given pattern; use '*' for all.
+    :param show: If False (default) then obfuscates secret values with key name that look
+      secret, e.g. containing 'password' or 'secret', otherwise prints values in plaintext.
     """
 
     # Adjust/amend this as necessary.
