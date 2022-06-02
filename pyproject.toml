@@ -32,7 +32,6 @@ tibanna = "1.9.1"
 tibanna-ff = "1.0.0"
 tqdm = "^4.62.3"
 troposphere = "^3.2.2"
-webencodings = ">=0.5.1"
 
 [tool.poetry.dev-dependencies]
 jupyter = "^1.0.0"
