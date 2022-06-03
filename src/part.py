@@ -141,13 +141,15 @@ class StackNameMixin:
     def suggest_stack_name(cls, name=None):
         title_token = cls.stack_title_token()
         if name:  # for stack names, defer to the name of that stack as declared in alpha_stacks.py
+            qualifier = cls.suggest_sharing_qualifier()
+            qualifier_suffix = f"-{qualifier}"
+            name = f"{COMMON_STACK_PREFIX}{name}" + qualifier_suffix
             name_camel = camelize(name)
-            return C4Name(name=f'{COMMON_STACK_PREFIX}{name}',
+            return C4Name(name=name,
                           raw_name=name,
                           title_token=(f'{COMMON_STACK_PREFIX_CAMEL_CASE}{title_token}{name_camel}'
                                        if title_token else None),
                           string_to_trim=name_camel)
-        import pdb; pdb.set_trace()
         qualifier = cls.suggest_sharing_qualifier()
         qualifier_suffix = f"-{qualifier}"
         qualifier_camel = camelize(qualifier)
