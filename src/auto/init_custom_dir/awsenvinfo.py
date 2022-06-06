@@ -16,6 +16,7 @@
 import os
 import glob
 
+
 class AwsEnvInfo:
     """
     Class to gather/dispense info about the ~/.aws_test directories
