@@ -86,7 +86,7 @@ class C4Name:
             if maybe_resource_name:  # make sure we didn't remove the whole string
                 resource_name = maybe_resource_name
         res = self.logical_id_prefix + resource_name
-        print(f"{context}{self}.logical_id({resource!r}) => {res}")
+        # print(f"{context}{self}.logical_id({resource!r}) => {res}")
         return res
 
     @staticmethod

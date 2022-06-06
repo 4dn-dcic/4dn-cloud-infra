@@ -157,7 +157,7 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
         CONFIG_BASE['app_name'] = 'foursight-cgap'
 
         config_dir = dirname(dirname(__file__))
-        print(f"Config dir: {config_dir}")
+        # print(f"Config dir: {config_dir}")
 
 
 class C4FoursightFourfrontStack(BaseC4FoursightStack):
@@ -221,5 +221,5 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
         CONFIG_BASE['app_name'] = 'foursight-fourfront'
 
         config_dir = dirname(dirname(__file__))
-        print(f"Config dir: {config_dir}")
+        # print(f"Config dir: {config_dir}")
 
