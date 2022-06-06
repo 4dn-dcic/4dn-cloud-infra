@@ -36,13 +36,13 @@ def expand_json_template_file(template_file: str, output_file: str, template_sub
         json.dump(expanded_template_json, output_f, indent=2)
         output_f.write("\n")
 
-def generate_s3_encrypt_key(length: int = 32):
+def generate_s3_encrypt_key():
     """
     Returns a value suitable for an S3 encryption key.
     We use the cryptographically secure Python 'secrets' module.
     See: https://docs.python.org/3/library/secrets.html
     """
-    return "".join(secrets.choice(string.ascii_letters + string.digits) for i in range(length))
+    return secrets.token_urlsafe()
 
     # TODO - OLD
     # Replicating exactly the method used in scripts/create_s3_encrypt_key but
