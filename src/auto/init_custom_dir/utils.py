@@ -132,7 +132,7 @@ def print_directory_tree(directory: str) -> None:
         contents = [os.path.join(dirname, item) for item in sorted(os.listdir(dirname))]
         pointers = [tee] * (len(contents) - 1) + [last]
         for pointer, path in zip(pointers, contents):
-            symlink = "@ ─> " + os.readlink(path) if os.path.islink(path) else ""
+            symlink = "@ -> " + os.readlink(path) if os.path.islink(path) else ""
             yield prefix + pointer + os.path.basename(path) + symlink
             if os.path.isdir(path):
                 extension = branch if pointer == tee else space
