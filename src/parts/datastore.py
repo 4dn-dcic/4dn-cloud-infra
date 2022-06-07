@@ -24,7 +24,7 @@ from troposphere.s3 import (
 )
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
-from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX
+from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX, ENV_NAME
 from ..constants import Settings, Secrets
 from ..exports import C4Exports
 from ..part import C4Part
@@ -100,6 +100,12 @@ class C4DatastoreExports(C4Exports):
     @classmethod
     def get_tibanna_output_bucket(cls):
         return ConfigManager.find_stack_output(cls._TIBANNA_OUTPUT_BUCKET_PATTERN.match, value_only=True)
+
+    _FOURSIGHT_RESULT_BUCKET_PATTERN = re.compile(f".*Datastore.*FoursightResult")
+
+    @classmethod
+    def get_foursight_result_bucket(cls):
+        return ConfigManager.find_stack_output(cls._FOURSIGHT_RESULT_BUCKET_PATTERN.match, value_only=True)
 
     def __init__(self):
         # The intention here is that Beanstalk/ECS stacks will use these outputs and reduce amount
@@ -205,19 +211,16 @@ class C4Datastore(C4Part):
 
     @classmethod
     def application_configuration_template(cls):
-        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        # print("ENV_NAME=", repr(ENV_NAME))
-        # print("env_name=", repr(env_name))
         result = cls.add_placeholders({
             'deploying_iam_user': ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER),  # required
-            'ACCOUNT_NUMBER': AccountId,
+            'ACCOUNT_NUMBER': ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER),  # required
             'S3_AWS_ACCESS_KEY_ID': None,
             'S3_AWS_SECRET_ACCESS_KEY': None,
             'ENCODED_AUTH0_CLIENT': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
             'ENCODED_AUTH0_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET, default=None),
-            'ENV_NAME': env_name,
+            'ENV_NAME': ENV_NAME,
             'ENCODED_APPLICATION_BUCKET_PREFIX': cls.resolve_bucket_name("{application_prefix}"),
-            'ENCODED_BS_ENV': env_name,
+            'ENCODED_BS_ENV': ENV_NAME,
             'ENCODED_DATA_SET': 'deploy',
             'ENCODED_ES_SERVER': C4DatastoreExports.get_es_url(),  # None,
             'ENCODED_FOURSIGHT_BUCKET_PREFIX': cls.resolve_bucket_name("{foursight_prefix}"),
@@ -242,8 +245,8 @@ class C4Datastore(C4Part):
             'RDS_PORT': ConfigManager.get_config_setting(Settings.RDS_DB_PORT, default=cls.DEFAULT_RDS_DB_PORT),
             'RDS_USERNAME': cls.rds_db_username(),
             'RDS_PASSWORD': None,
-            'S3_ENCRYPT_KEY': ConfigManager.get_config_setting(Secrets.S3_ENCRYPT_KEY,
-                                                               ConfigManager.get_s3_encrypt_key_from_file()),
+            'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY,
+                                                              ConfigManager.get_s3_encrypt_key_from_file()),
             # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
             'ENCODED_S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None),
             'ENCODED_SENTRY_DSN': '',
@@ -251,7 +254,6 @@ class C4Datastore(C4Part):
             'reCaptchaKey': ConfigManager.get_config_secret(Secrets.RECAPTCHA_KEY, default=None),
             'reCaptchaSecret': ConfigManager.get_config_secret(Secrets.RECAPTCHA_SECRET, default=None),
         })
-        # print("application_configuration_template() => %s" % json.dumps(result, indent=2))
         return result
 
     def build_template(self, template: Template) -> Template:

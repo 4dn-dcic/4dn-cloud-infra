@@ -147,7 +147,6 @@ class StackNameMixin:
                           title_token=(f'{COMMON_STACK_PREFIX_CAMEL_CASE}{title_token}{name_camel}'
                                        if title_token else None),
                           string_to_trim=name_camel)
-        import pdb; pdb.set_trace()
         qualifier = cls.suggest_sharing_qualifier()
         qualifier_suffix = f"-{qualifier}"
         qualifier_camel = camelize(qualifier)
