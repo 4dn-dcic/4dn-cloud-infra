@@ -426,7 +426,7 @@ def write_secrets_json_file(args) -> None:
     })
 
 
-def write_s3_encrypt_key_file(args, s3_encrypt_key) -> None:
+def write_s3_encrypt_key_file(args, s3_encrypt_key: str) -> None:
     """
     Writes the s3_encrypt_key.txt file (in the custom/aws_creds directory) with the given value.
     Will NOT overwrite if this file already exists!
@@ -494,7 +494,7 @@ def main():
 
     write_secrets_json_file(args)
 
-    # Create the symlink from custom/aws_creds to ~/.aws_test.ENV_NAME.
+    # Create the symlink from custom/aws_creds to ~/.aws_test.{ENV_NAME}.
 
     custom_aws_creds_dir = InfraDirectories.get_custom_aws_creds_dir(args.custom_dir)
     print(f"Creating symlink: {custom_aws_creds_dir}@ -> {args.env_dir} ")

@@ -106,7 +106,7 @@ def confirm_with_user(message: str) -> bool:
     return input(message + " (yes|no) ").strip().lower() == "yes"
 
 
-def exit_with_no_action(message: str = "", status: int = 0) -> None:
+def exit_with_no_action(message: str = "", status: int = 1) -> None:
     """
     Prints the given message (if any) and exits with the given status.
     :param message: Message to print before exit.
