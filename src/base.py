@@ -49,7 +49,7 @@ def register_stack_creator(*, name, kind, implementation_class):
     if registered_classes is None:
         REGISTERED_STACK_CLASSES[kind] = registered_classes = {}
     registered_classes[name] = implementation_class
-    # print(f"Registered {kind} class {name} as {implementation_class}.")
+    print(f"Registered {kind} class {name} as {implementation_class}.")
     if kind not in STACK_KINDS:
         raise InvalidParameterError(parameter="kind", value=kind, options=STACK_KINDS)
 

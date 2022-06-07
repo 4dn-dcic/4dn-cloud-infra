@@ -107,3 +107,30 @@ class Settings:
 
     # S3 KMS ServerSide Encryption Key
     S3_ENCRYPT_KEY_ID = 's3.encrypt_key_id'
+
+
+# dmichaels/2022-06-06
+# Factored out COMMON_STACK_PREFIX and COMMON_STACK_PREFIX_CAMEL_CASE from base.py.
+# This is so we can use in (new) get_suggest_stack_name in names.py,
+# which (both init-custom-dir and) StackNameMixin.suggest_stack_name() will use.
+#
+COMMON_STACK_PREFIX = "c4-"
+COMMON_STACK_PREFIX_CAMEL_CASE = "C4"
+
+# dmichaels/2022-06-06
+# Factored out values for STACK_NAME_TOKEN ("datastore") and STACK_TITLE_TOKEN ("Datastore")
+# in datastore.py into these DATASTORE_STACK_TITLE_TOKEN and DATASTORE_STACK_NAME_TOKEN;
+# different name (with DATASTORE_ prefix) because defined in StackNameMixin in part.py
+# This is so we can use in (new) get_global_application_configuration_secret_name in names.py,
+# which (both init-custom-dir and) C4Datastore.application_configuration_secret() will use.
+#
+DATASTORE_STACK_NAME_TOKEN = "datastore"
+DATASTORE_STACK_TITLE_TOKEN = "Datastore"
+
+# dmichaels/2022-06-06
+# Factored out APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX from C4Datastore in datastore.py;
+# different name for clarity (with DATASTORE_ prefix to indicate from C4Datastore class).
+# This is so we can use in (new) get_global_application_configuration_secret_name in names.py,
+# which (both init-custom-dir and) C4Datastore.application_configuration_secret() will use.
+#
+DATASTORE_APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = 'ApplicationConfiguration'

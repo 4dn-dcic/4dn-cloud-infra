@@ -1,6 +1,6 @@
 # IN PROGRESS / dmichaels / 2022-06-04
 #
-# Module to define all files/paths used and other (e.g. template) global vars.
+# Definitions for files/paths, template variables, and evironment variables.
 #
 # Testing notes:
 # - External resources accesed by this module:
@@ -19,7 +19,7 @@ class Directories:
     THIS_SCRIPT_DIR = os.path.dirname(__file__)
 
     @staticmethod
-    def get_custom_aws_creds_dir(custom_dir: str):
+    def get_custom_aws_creds_dir(custom_dir: str) -> str:
         return os.path.abspath(os.path.join(custom_dir, Directories.CUSTOM_AWS_CREDS_DIR))
 
 
@@ -30,17 +30,18 @@ class Files:
     CONFIG_TEMPLATE_FILE = "templates/config.template.json"
     SECRETS_TEMPLATE_FILE = "templates/secrets.template.json"
     S3_ENCRYPT_KEY_FILE = "s3_encrypt_key.txt"
+    SYSTEM_WORDS_DICTIONARY_FILE = "/usr/share/dict/words"
 
     @staticmethod
-    def get_test_creds_script_file(env_dir: str):
+    def get_test_creds_script_file(env_dir: str) -> str:
         return os.path.abspath(os.path.join(env_dir, Files.TEST_CREDS_SCRIPT_FILE))
 
     @staticmethod
-    def get_config_file(custom_dir: str):
+    def get_config_file(custom_dir: str) -> str:
         return os.path.abspath(os.path.join(custom_dir, Files.CONFIG_FILE))
 
     @staticmethod
-    def get_secrets_file(custom_dir: str):
+    def get_secrets_file(custom_dir: str) -> str:
         return os.path.abspath(os.path.join(custom_dir, Files.SECRETS_FILE))
 
     # TODO
@@ -48,16 +49,17 @@ class Files:
     # Is this okay?
     #
     @staticmethod
-    def get_config_template_file():
+    def get_config_template_file() -> str:
         return os.path.abspath(os.path.join(Directories.THIS_SCRIPT_DIR, Files.CONFIG_TEMPLATE_FILE))
 
     @staticmethod
-    def get_secrets_template_file():
+    def get_secrets_template_file() -> str:
         return os.path.abspath(os.path.join(Directories.THIS_SCRIPT_DIR, Files.SECRETS_TEMPLATE_FILE))
 
     @staticmethod
-    def get_s3_encrypt_key_file(custom_dir: str):
-        return os.path.abspath(os.path.join(Directories.get_custom_aws_creds_dir(custom_dir), Files.S3_ENCRYPT_KEY_FILE))
+    def get_s3_encrypt_key_file(custom_dir: str) -> str:
+        return os.path.abspath(
+            os.path.join(Directories.get_custom_aws_creds_dir(custom_dir), Files.S3_ENCRYPT_KEY_FILE))
 
 
 class ConfigTemplateVars:
@@ -72,4 +74,12 @@ class SecretsTemplateVars:
     AUTH0_CLIENT = "__TEMPLATE_VALUE_AUTH0_CLIENT__"
     AUTH0_SECRET = "__TEMPLATE_VALUE_AUTH0_SECRET__"
     RE_CAPTCHA_KEY = "__TEMPLATE_VALUE_RE_CAPTCHA_KEY__"
-    RE_CAPTCHA_SECRET  = "__TEMPLATE_VALUE_RE_CAPTCHA_SECRET__"
+    RE_CAPTCHA_SECRET = "__TEMPLATE_VALUE_RE_CAPTCHA_SECRET__"
+
+
+class EnvVars:
+    #
+    # This is used only to get this environment variable from the test_creds.sh file,
+    # as a default/fallback in case it is not specified on command-line.
+    #
+    ACCOUNT_NUMBER = "ACCOUNT_NUMBER"

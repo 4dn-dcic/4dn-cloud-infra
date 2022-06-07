@@ -25,11 +25,12 @@ from troposphere.s3 import (
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
 from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX
-from ..constants import Settings, Secrets
+from ..constants import Settings, Secrets, DATASTORE_APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX, DATASTORE_STACK_NAME_TOKEN, DATASTORE_STACK_TITLE_TOKEN
 from ..exports import C4Exports
 from ..part import C4Part
 from .network import C4NetworkExports
 from .iam import C4IAMExports
+from ..names import Names
 
 
 class C4DatastoreExports(C4Exports):
@@ -110,11 +111,20 @@ class C4DatastoreExports(C4Exports):
 
 class C4Datastore(C4Part):
     """ Defines the datastore stack - see resources created in build_template method. """
-    STACK_NAME_TOKEN = "datastore"
-    STACK_TITLE_TOKEN = "Datastore"
+
+    # dmichaels/2022-06-06
+    # Factored out values for STACK_NAME_TOKEN ("datastore") and STACK_TITLE_TOKEN ("Datastore")
+    # into DATASTORE_STACK_TITLE_TOKEN and DATASTORE_STACK_NAME_TOKEN in constants.py.
+    #
+    STACK_NAME_TOKEN = DATASTORE_STACK_NAME_TOKEN
+    STACK_TITLE_TOKEN = DATASTORE_STACK_TITLE_TOKEN
     SHARING = 'env'
 
-    APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = 'ApplicationConfiguration'
+    # dmichaels/2022-06-06
+    # Factored out value for APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX ("ApplicationConfiguration")
+    # into DATASTORE_APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX in constants.py.
+    # 
+    APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = DATASTORE_APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX
     DEFAULT_RDS_DB_NAME = 'ebdb'
     DEFAULT_RDS_DB_PORT = '5432'
     DEFAULT_RDS_DB_USERNAME = 'postgresql'
@@ -558,7 +568,12 @@ class C4Datastore(C4Part):
         """
         identity = ConfigManager.get_config_setting(Settings.IDENTITY)  # will use setting from config
         if not identity:
-            identity = self.name.logical_id(camelize(ConfigManager.get_config_setting(Settings.ENV_NAME)) + self.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
+            #
+            # dmichaels/2022-06-06
+            # Refactored to use Names.application_configuration_secret in names.py.
+            # identity = self.name.logical_id(camelize(ConfigManager.get_config_setting(Settings.ENV_NAME)) + self.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
+            #
+            identity = Names.application_configuration_secret(ConfigManager.get_config_setting(Settings.ENV_NAME), self.name)
         return Secret(
             identity,
             Name=identity,
