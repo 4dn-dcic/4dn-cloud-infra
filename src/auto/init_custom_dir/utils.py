@@ -1,5 +1,3 @@
-# IN PROGRESS / dmichaels / 2022-06-04
-#
 # Miscellaneous utilities.
 #
 # Testing notes:
@@ -25,7 +23,7 @@ import subprocess
 from typing import Optional
 
 from dcicutils.misc_utils import json_leaf_subst as expand_json_template
-from .defs import Files
+from .defs import InfraFiles
 
 
 def expand_json_template_file(template_file: str, output_file: str, template_substitutions: dict) -> None:
@@ -53,20 +51,16 @@ def generate_s3_encrypt_key() -> str:
         :return: A cryptographically secure encryption key.
     """
     def generate_password() -> str:
-        #
         # Will suggests using a password from some (4) random words.
-        #
         password = ""
-        if os.path.isfile(Files.SYSTEM_WORDS_DICTIONARY_FILE):
+        if os.path.isfile(InfraFiles.SYSTEM_WORDS_DICTIONARY_FILE):
             try:
-                with open(Files.SYSTEM_WORDS_DICTIONARY_FILE) as system_words_f:
+                with open(InfraFiles.SYSTEM_WORDS_DICTIONARY_FILE) as system_words_f:
                     words = [word.strip() for word in system_words_f]
                     password = "".join(secrets.choice(words) for _ in range(4))
             except (Exception,) as _:
                 pass
-        #
         # As fallback for the words thing, and in any case, tack on a random token.
-        #
         return password + secrets.token_hex(16)
     password_salt = os.urandom(16)
     s3_encrypt_key = pbkdf2.PBKDF2(generate_password(), password_salt).read(16)
@@ -80,7 +74,7 @@ def read_env_variable_from_subshell(shell_script_file: str, env_variable_name: s
     executing the given shell script file in a sub-shell; be careful what you pass here.
     :param shell_script_file: The shell script file to execute.
     :param env_variable_name: The environment variable name.
-    :return: The value of the given environment variable name from the executed given shell script.
+    :return: The value of the given environment variable name from the executed given shell script or None.
     """
     try:
         if not os.path.isfile(shell_script_file):

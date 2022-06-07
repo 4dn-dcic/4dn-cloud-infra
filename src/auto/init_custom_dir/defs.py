@@ -1,5 +1,3 @@
-# IN PROGRESS / dmichaels / 2022-06-04
-#
 # Definitions for files/paths, template variables, and evironment variables.
 #
 # Testing notes:
@@ -12,7 +10,7 @@
 import os
 
 
-class Directories:
+class InfraDirectories:
     AWS_DIR = "~/.aws_test"
     CUSTOM_DIR = "custom"
     CUSTOM_AWS_CREDS_DIR = "aws_creds"
@@ -20,10 +18,10 @@ class Directories:
 
     @staticmethod
     def get_custom_aws_creds_dir(custom_dir: str) -> str:
-        return os.path.abspath(os.path.join(custom_dir, Directories.CUSTOM_AWS_CREDS_DIR))
+        return os.path.abspath(os.path.join(custom_dir, InfraDirectories.CUSTOM_AWS_CREDS_DIR))
 
 
-class Files:
+class InfraFiles:
     TEST_CREDS_SCRIPT_FILE = "test_creds.sh"
     CONFIG_FILE = "config.json"
     SECRETS_FILE = "secrets.json"
@@ -34,32 +32,28 @@ class Files:
 
     @staticmethod
     def get_test_creds_script_file(env_dir: str) -> str:
-        return os.path.abspath(os.path.join(env_dir, Files.TEST_CREDS_SCRIPT_FILE))
+        return os.path.abspath(os.path.join(env_dir, InfraFiles.TEST_CREDS_SCRIPT_FILE))
 
     @staticmethod
     def get_config_file(custom_dir: str) -> str:
-        return os.path.abspath(os.path.join(custom_dir, Files.CONFIG_FILE))
+        return os.path.abspath(os.path.join(custom_dir, InfraFiles.CONFIG_FILE))
 
     @staticmethod
     def get_secrets_file(custom_dir: str) -> str:
-        return os.path.abspath(os.path.join(custom_dir, Files.SECRETS_FILE))
+        return os.path.abspath(os.path.join(custom_dir, InfraFiles.SECRETS_FILE))
 
-    # TODO
-    # For now store the template file in the templates directory relative to these modules.
-    # Is this okay?
-    #
     @staticmethod
     def get_config_template_file() -> str:
-        return os.path.abspath(os.path.join(Directories.THIS_SCRIPT_DIR, Files.CONFIG_TEMPLATE_FILE))
+        return os.path.abspath(os.path.join(InfraDirectories.THIS_SCRIPT_DIR, InfraFiles.CONFIG_TEMPLATE_FILE))
 
     @staticmethod
     def get_secrets_template_file() -> str:
-        return os.path.abspath(os.path.join(Directories.THIS_SCRIPT_DIR, Files.SECRETS_TEMPLATE_FILE))
+        return os.path.abspath(os.path.join(InfraDirectories.THIS_SCRIPT_DIR, InfraFiles.SECRETS_TEMPLATE_FILE))
 
     @staticmethod
     def get_s3_encrypt_key_file(custom_dir: str) -> str:
         return os.path.abspath(
-            os.path.join(Directories.get_custom_aws_creds_dir(custom_dir), Files.S3_ENCRYPT_KEY_FILE))
+            os.path.join(InfraDirectories.get_custom_aws_creds_dir(custom_dir), InfraFiles.S3_ENCRYPT_KEY_FILE))
 
 
 class ConfigTemplateVars:
@@ -78,8 +72,8 @@ class SecretsTemplateVars:
 
 
 class EnvVars:
-    #
+
     # This is used only to get this environment variable from the test_creds.sh file,
     # as a default/fallback in case it is not specified on command-line.
-    #
+
     ACCOUNT_NUMBER = "ACCOUNT_NUMBER"

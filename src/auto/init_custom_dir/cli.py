@@ -1,5 +1,3 @@
-# IN PROGRESS / dmichaels / 2022-06-04
-#
 # Script to setup the local custom config directory for the 4dn-cloud-infra repo.
 # For example like this:
 #
@@ -112,11 +110,12 @@ from .utils import (
 )
 from .defs import (
     ConfigTemplateVars,
-    Directories,
+    InfraDirectories,
     EnvVars,
-    Files,
+    InfraFiles,
     SecretsTemplateVars
 )
+from ...names import Names
 
 
 def get_fallback_account_number(env_dir: str) -> str:
@@ -125,8 +124,9 @@ def get_fallback_account_number(env_dir: str) -> str:
     file for the chosen environment (in a sub-shell) and grabbing the value
     of the ACCOUNT_NUMBER environment value which is likely to be set there.
     :param env_dir: The AWS envronment directory path.
+    :return: The account number from test_creds.sh if found otherwise None.
     """
-    test_creds_script_file = Files.get_test_creds_script_file(env_dir)
+    test_creds_script_file = InfraFiles.get_test_creds_script_file(env_dir)
     return read_env_variable_from_subshell(test_creds_script_file, EnvVars.ACCOUNT_NUMBER)
 
 
@@ -134,6 +134,7 @@ def get_fallback_deploying_iam_user() -> str:
     """
     Obtains/returns the deploying_iam_user value
     simply from the USER environment variable.
+    :return: The username as found by os.getlogin().
     """
     return os.getlogin()
 
@@ -142,31 +143,30 @@ def get_fallback_identity(env_name: str) -> str:
     """
     Obtains/returns the 'identity', i.e. the global application configuration secret name using
     the same code that 4dn-cloud-infra code does (see C4Datastore.application_configuration_secret).
+    Had to do some refactoring to get this working (see names.py).
     :param env_name: The AWS environment name.
+    :return: The identity as gotten from the main 4dn-cloud-infra code.
     """
     try:
-        from ...names import Names
         identity_value = Names.application_configuration_secret(env_name)
     except (Exception,) as _:
         identity_value = None
     return identity_value
 
 
-def main():
-
-    signal.signal(signal.SIGINT, lambda *_: exit_with_no_action("\nCTRL-C"))
-
-    envinfo = AwsEnvInfo(Directories.AWS_DIR)
-
-    # Setup/parse arguments.
-
+def main_parse_args():
+    """
+    The main args parser for this CLI script.
+    :return: The args as returned by argparse.ArgumentParser.parse_args().
+    """
     argp = argparse.ArgumentParser()
     argp.add_argument("--env", dest="env_name", type=str, required=True,
-                      help=f"The name of your AWS credentials environment, e.g. ENV_NAME from {envinfo.dir}.ENV_NAME")
-    argp.add_argument("--awsdir", dest="aws_dir", type=str, required=False, default=Directories.AWS_DIR,
-                      help=f"Alternate directory to default: {envinfo.dir}")
-    argp.add_argument("--out", dest="custom_dir", type=str, required=False, default=Directories.CUSTOM_DIR,
-                      help=f"Alternate directory to default: {Directories.CUSTOM_DIR}")
+                      help=f"The name of your AWS credentials environment,"
+                           f"e.g. ENV_NAME from {InfraDirectories.AWS_DIR}.ENV_NAME")
+    argp.add_argument("--awsdir", dest="aws_dir", type=str, required=False, default=InfraDirectories.AWS_DIR,
+                      help=f"Alternate directory to default: {InfraDirectories.AWS_DIR}")
+    argp.add_argument("--out", dest="custom_dir", type=str, required=False, default=InfraDirectories.CUSTOM_DIR,
+                      help=f"Alternate directory to default: {InfraDirectories.CUSTOM_DIR}")
     argp.add_argument("--account", dest="account_number", type=str, required=False,
                       help="Your AWS account number")
     argp.add_argument("--username", dest="deploying_iam_user", type=str, required=False,
@@ -187,28 +187,35 @@ def main():
                       help="Turn on debugging for this script")
     argp.add_argument("--yes", dest="yes", action="store_true", required=False,
                       help="Answer yes for confirmation prompts for this script")
-    args = argp.parse_args()
+    return argp.parse_args()
 
-    if args.debug:
-        print(f"DEBUG: Current directory: {os.getcwd()}")
-        print(f"DEBUG: Current username: {os.environ.get('USER')}")
-        print(f"DEBUG: This script directory: {Directories.THIS_SCRIPT_DIR}")
 
-    # Since we allow the base ~/.aws_test to be change via --awsdir
+def check_env(args) -> None:
+    """
+    Checks the command-line args related to the given environment name.
+    May prompt for input if not set and may exit on error.
+    Uses these args: aws_dir, env_name, debug, yes.
+    Sets these args: env_dir (to full path to the selected environment directory)
+    Note side-efect: We may rewrite some of the related args values (aws_dir, env_name).
+    :return: The full path to the selected custom directory.
+    """
+    # Since we allow the base ~/.aws_test to be changed via --awsdir
     # we best check that it is not passed as empty.
 
     args.aws_dir = args.aws_dir.strip()
     if not args.aws_dir:
-        exit_with_no_action(f"An ~/.aws directory must be specified; default is: {Directories.AWS_DIR}")
+        exit_with_no_action(f"An ~/.aws directory must be specified; default is: {InfraDirectories.AWS_DIR}")
 
     # Get basic AWS credentials environment info.
 
-    envinfo = AwsEnvInfo(Directories.AWS_DIR)
-    current_env = envinfo.current_env
-    available_envs = envinfo.available_envs
+    envinfo = None
+    try:
+        envinfo = AwsEnvInfo(InfraDirectories.AWS_DIR)
+    except (Exception,) as e:
+        exit_with_no_action(str(e))
 
     if args.debug:
-        print(f"DEBUG: AWS directory: {envinfo.dir}")
+        print(f"DEBUG: AWS base directory: {envinfo.dir}")
         print(f"DEBUG: AWS environments: {envinfo.available_envs}")
         print(f"DEBUG: AWS current environment: {envinfo.current_env}")
 
@@ -220,23 +227,23 @@ def main():
 
     args.env_name = args.env_name.strip()
     if not args.env_name and not args.yes:
-        if not current_env:
+        if not envinfo.current_env:
             exit_with_no_action("No environment specified. Use the --env option to specify this.")
         else:
-            args.env_name = current_env
+            args.env_name = envinfo.current_env
             print(f"No environment specified. Use the --env option to specify this.")
-            print(f"Though it looks like your current environment is: {current_env}")
-            if not confirm_with_user(f"Do you want to use this ({current_env})?"):
+            print(f"Though it looks like your current environment is: {envinfo.current_env}")
+            if not confirm_with_user(f"Do you want to use this ({envinfo.current_env})?"):
                 exit_with_no_action()
 
     # Make sure the environment specified
     # actually exists as a ~/.aws_test.{ENV_NAME} directory.
 
-    if not args.env_name or args.env_name not in available_envs:
+    if not args.env_name or args.env_name not in envinfo.available_envs:
         print(f"No environment for this name exists: {args.env_name}")
-        if available_envs:
+        if envinfo.available_envs:
             print("Available environments:")
-            for available_env in sorted(available_envs):
+            for available_env in sorted(envinfo.available_envs):
                 print(f"- {available_env} ({envinfo.get_dir(available_env)})")
             exit_with_no_action("Choose one of the above environment using the --env option.")
         else:
@@ -244,12 +251,22 @@ def main():
                 f"No environments found at all.\n"
                 f"You need to have at least one {envinfo.dir}.{{ENV_NAME}} directory setup.")
 
-    env_dir = envinfo.get_dir(args.env_name)
+    args.env_dir = envinfo.get_dir(args.env_name)
     print(f"Setting up 4dn-cloud-infra local custom config directory for environment: {args.env_name}")
-    print(f"Your AWS credentials directory: {env_dir}")
+    print(f"Your AWS credentials directory: {args.env_dir}")
 
-    # Determine the custom directory; make sure it doesn't already exist.
+    if args.debug:
+        print(f"DEBUG: Selected AWS environment: {args.env_name}")
+        print(f"DEBUG: Selected AWS directory: {args.env_dir}")
 
+
+def check_custom_dir(args) -> None:
+    """
+    Checks the command-line args related to the given custom directory name.
+    May prompt for input if not set and may exit on error.
+    Uses these args: custom_dir
+    Note side-efect: We may reset some of the related args values (custom_dir).
+    """
     args.custom_dir = args.custom_dir.strip()
     if not args.custom_dir:
         exit_with_no_action("You must specify a custom output directory using the --out option.")
@@ -261,18 +278,32 @@ def main():
 
     print(f"Using custom directory: {args.custom_dir}")
 
-    # Check/gather all the inputs.
 
+def check_account_number(args) -> None:
+    """
+    Checks the command-line args related to the given custom directory name.
+    May prompt for input if not set and may exit on error.
+    Uses these args: account_number, env_dir
+    Note side-efect: We may reset some of the related args values.
+    """
     if not args.account_number:
         if args.debug:
-            print(f"DEBUG: Trying to get account number from: {Files.get_test_creds_script_file(env_dir)}")
-        args.account_number = get_fallback_account_number(env_dir)
+            print(f"DEBUG: Trying to get account number from: {InfraFiles.get_test_creds_script_file(args.env_dir)}")
+        args.account_number = get_fallback_account_number(args.env_dir)
         if not args.account_number:
             args.account_number = input("Or enter your account number: ").strip()
             if not args.account_number:
                 exit_with_no_action(f"You must specify an account number. Use the --account option.")
     print(f"Using account number: {args.account_number}")
 
+
+def check_deploying_iam_user(args) -> None:
+    """
+    Checks the command-line args related to the given deploying IAM username.
+    May prompt for input if not set and may exit on error.
+    Uses these args: deploying_iam_user
+    Note side-efect: We may reset some of the related args values (deploying_iam_user).
+    """
     if not args.deploying_iam_user:
         args.deploying_iam_user = get_fallback_deploying_iam_user()
         if not args.deploying_iam_user:
@@ -281,9 +312,14 @@ def main():
                 exit_with_no_action(f"You must specify a deploying IAM username. Use the --username option.")
     print(f"Using deploying IAM username: {args.deploying_iam_user}")
 
-    # TODO
-    # Display better name than 'identity' for this ... GAC name?
 
+def check_identity(args) -> None:
+    """
+    Checks the command-line args related to the given identity (i.e. the GAC name).
+    May prompt for input if not set and may exit on error.
+    Uses these args: identity
+    Note side-efect: We may reset some of the related args values (identity).
+    """
     if not args.identity:
         args.identity = get_fallback_identity(args.env_name)
         if not args.identity:
@@ -293,12 +329,28 @@ def main():
                     f"You must specify a global application configuration secret name. Use the --identity option.")
     print(f"Using identity: {args.identity}")
 
+
+def check_s3_bucket_org(args) -> None:
+    """
+    Checks the command-line args related to the given S3 bucket organization name.
+    May prompt for input if not set and may exit on error.
+    Uses these args: s3_bucket_org
+    Note side-efect: We may reset some of the related args values (s3_bucket_org).
+    """
     if not args.s3_bucket_org:
         args.s3_bucket_org = input("Or enter your S3 bucket organization name: ").strip()
         if not args.s3_bucket_org:
             exit_with_no_action(f"You must specify an S3 bucket organization. Use the --s3org option.")
     print(f"Using S3 bucket organization name: {args.s3_bucket_org}")
 
+
+def check_auth0(args) -> None:
+    """
+    Checks the command-line args related to the given Auth0 client and secret.
+    May prompt for input if not set and may exit on error.
+    Uses these args: auth0_client, auth0_secret
+    Note side-efect: We may reset some of the related args values (auth0_client, auth0_secret).
+    """
     if not args.auth0_client:
         print("You must specify a Auth0 client ID using the --auth0client option.")
         args.auth0_client = input("Or enter your Auth0 client ID: ").strip()
@@ -315,33 +367,26 @@ def main():
     else:
         print(f"Using Auth0 secret: {obfuscate(args.auth0_secret)}")
 
+
+def check_re_captcha(args) -> None:
+    """
+    Checks the command-line args related to the given CATPCH key and secret.
+    Uses these args: re_captcha_key, re_captcha_secret
+    """
     if args.re_captcha_key:
         print(f"Using reCaptchaKey: {args.re_captcha_key}")
     if args.re_captcha_secret:
         print(f"Using reCaptchaSecret: {obfuscate(args.re_captcha_secret)}")
 
-    # Generate S3 encryption key.
-    # Though we will NOT overwrite s3_encrypt_key.txt if it already exists, below.
 
-    s3_encrypt_key = generate_s3_encrypt_key()
-    print(f"Generating S3 encryption key: {obfuscate(s3_encrypt_key)}")
-
-    # Confirm with the user the everything looks okay.
-
-    if not args.yes and not confirm_with_user("Confirm the above. Continue with setup?"):
-        exit_with_no_action()
-
-    # Confirmed.
-    # First create the custom directory itself (already checked it does not yet exist).
-
-    print(f"Creating directory: {os.path.abspath(args.custom_dir)}")
-    os.makedirs(args.custom_dir)
-
-    # Create the config.json file from the template and the inputs.
-    # TODO: Okay if template file is relative to this script directory?
-
-    config_template_file = Files.get_config_template_file()
-    config_file = Files.get_config_file(args.custom_dir)
+def write_config_json_file(args) -> None:
+    """
+    Writes the config.json file (in the custom directory) based on our template and inputs.
+    May exit on error.
+    Uses these args: env_name, custom_dir, account_number, deploying_iam_user, identity, s3_bucket_org
+    """
+    config_template_file = InfraFiles.get_config_template_file()
+    config_file = InfraFiles.get_config_file(args.custom_dir)
 
     if args.debug:
         print(f"DEBUG: Config template file: {config_template_file}")
@@ -357,11 +402,15 @@ def main():
         ConfigTemplateVars.ENCODED_ENV_NAME: args.env_name
     })
 
-    # Create the secrets.json file from the template and the inputs.
-    # TODO: template file relative to this script directory?
 
-    secrets_template_file = Files.get_secrets_template_file()
-    secrets_file = Files.get_secrets_file(args.custom_dir)
+def write_secrets_json_file(args) -> None:
+    """
+    Writes the secrets.json file (in the custom directory) based on our template and inputs.
+    May exit on error.
+    Uses these args: custom_dir, auth0_client, auth0_secret, re_captcha_key, re_captcha_secret
+    """
+    secrets_template_file = InfraFiles.get_secrets_template_file()
+    secrets_file = InfraFiles.get_secrets_file(args.custom_dir)
 
     if args.debug:
         print(f"DEBUG: Secrets template file: {secrets_template_file}")
@@ -376,25 +425,85 @@ def main():
         SecretsTemplateVars.RE_CAPTCHA_SECRET: args.re_captcha_secret
     })
 
-    # Create the symlink from custom/aws_creds to ~/.aws_test.ENV_NAME.
 
-    custom_aws_creds_dir = Directories.get_custom_aws_creds_dir(args.custom_dir)
-    print(f"Creating symlink: {custom_aws_creds_dir} -> {env_dir} ")
-    os.symlink(env_dir, custom_aws_creds_dir)
-
-    # Create the S3 encrypt key file (with mode 400).
-    # We will NOT overwrite this if it already exists.
-
-    s3_encrypt_key_file = Files.get_s3_encrypt_key_file(args.custom_dir)
+def write_s3_encrypt_key_file(args, s3_encrypt_key) -> None:
+    """
+    Writes the s3_encrypt_key.txt file (in the custom/aws_creds directory) with the given value.
+    Will NOT overwrite if this file already exists!
+    May exit on error.
+    Uses these args: custom_dir
+    """
+    s3_encrypt_key_file = InfraFiles.get_s3_encrypt_key_file(args.custom_dir)
     if os.path.exists(s3_encrypt_key_file):
         print(f"S3 encrypt file already exists: {s3_encrypt_key_file}")
-        print("Will NOT overwrite this file! Newly generated S3 encryption key not used.")
+        print("Will NOT overwrite this file! Generated S3 encryption key not used.")
     else:
         print(f"Creating S3 encrypt file: {s3_encrypt_key_file}")
         with io.open(s3_encrypt_key_file, "w") as s3_encrypt_key_f:
             s3_encrypt_key_f.write(s3_encrypt_key)
             s3_encrypt_key_f.write("\n")
         os.chmod(s3_encrypt_key_file, stat.S_IRUSR)
+
+
+def main():
+
+    signal.signal(signal.SIGINT, lambda *_: exit_with_no_action("\nCTRL-C"))
+
+    # Parse arguments.
+
+    args = main_parse_args()
+
+    if args.debug:
+        print(f"DEBUG: Current directory: {os.getcwd()}")
+        print(f"DEBUG: Current username: {os.environ.get('USER')}")
+        print(f"DEBUG: Script directory: {InfraDirectories.THIS_SCRIPT_DIR}")
+
+    # Check/gather all the inputs.
+
+    check_env(args)
+    check_custom_dir(args)
+    check_account_number(args)
+    check_deploying_iam_user(args)
+    check_identity(args)
+    check_s3_bucket_org(args)
+    check_auth0(args)
+    check_re_captcha(args)
+
+    # Generate S3 encryption key.
+    # Though we will NOT overwrite s3_encrypt_key.txt if it already exists, below.
+
+    s3_encrypt_key = generate_s3_encrypt_key()
+    print(f"Generating S3 encryption key: {obfuscate(s3_encrypt_key)}")
+
+    # Confirm with the user that everything looks okay.
+
+    if not args.yes and not confirm_with_user("Confirm the above. Continue with setup?"):
+        exit_with_no_action()
+
+    # Confirmed.
+    # First create the custom directory itself (already checked it does not yet exist).
+
+    print(f"Creating directory: {os.path.abspath(args.custom_dir)}")
+    os.makedirs(args.custom_dir)
+
+    # Create the config.json file from the template and the inputs.
+
+    write_config_json_file(args)
+
+    # Create the secrets.json file from the template and the inputs.
+
+    write_secrets_json_file(args)
+
+    # Create the symlink from custom/aws_creds to ~/.aws_test.ENV_NAME.
+
+    custom_aws_creds_dir = InfraDirectories.get_custom_aws_creds_dir(args.custom_dir)
+    print(f"Creating symlink: {custom_aws_creds_dir}@ -> {args.env_dir} ")
+    os.symlink(args.env_dir, custom_aws_creds_dir)
+
+    # Create the S3 encrypt key file (with mode 400).
+    # We will NOT overwrite this if it already exists.
+
+    write_s3_encrypt_key_file(args, s3_encrypt_key)
 
     # Done. Summarize.
 

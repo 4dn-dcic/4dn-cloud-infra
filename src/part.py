@@ -1,6 +1,3 @@
-# dmichaels/2022-06-06
-# Factored out C4Name class into c4name.py.
-
 import logging
 import os
 
@@ -57,8 +54,7 @@ class C4Account:
         os.system(command_with_creds)
 
 
-# dmichaels/2022-06-06
-# Factored out C4Name class into c4name.py.
+# dmichaels/2022-06-06: Factored out C4Name class into c4name.py.
 
 
 class StackNameMixin:
@@ -86,11 +82,9 @@ class StackNameMixin:
                                         options=list(cls._SHARING_QUALIFIERS.keys()))
         return cls._SHARING_QUALIFIERS[sharing]
 
-    # dmichaels/2022-06-06
-    # Refactored to use Names.suggest_stack_name in names.py.
-    #
     @classmethod
     def suggest_stack_name(cls, name=None):
+        # dmichaels/2022-06-06: Refactored to use Names.suggest_stack_name in names.py.
         title_token = cls.stack_title_token()
         name_token = cls.STACK_NAME_TOKEN
         qualifier = cls.suggest_sharing_qualifier()
