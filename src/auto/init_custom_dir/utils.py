@@ -107,6 +107,7 @@ def confirm_with_user(message: str) -> bool:
     Prompts the user with the given message and asks for yes or no.
     Returns True if "yes" (exactly, trimmed, case-insensitive) otherwise False.
     :param message: Message to print for the user prompt.
+    :return: True if the user answers "yes" otherwise False. 
     """
     return input(message + " (yes|no) ").strip().lower() == "yes"
 

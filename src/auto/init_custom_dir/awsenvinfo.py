@@ -54,6 +54,7 @@ class AwsEnvInfo:
     def __get_dirs(self) -> list:
         """
         Returns the list of ~/.aws_test.{ENV_NAME} directories which actually exist.
+        :return: The list of directories or empty list of none.
         """
         dirs = []
         for dirname in glob.glob(self.__aws_dir + ".*"):
@@ -65,6 +66,7 @@ class AwsEnvInfo:
         """
         Returns the ENV_NAME from the given ~/.aws_test.{ENV_NAME} path.
         :param path: The path from which to extract the ENV_NAME.
+        :return: The environment name from the path.
         """
         if path:
             basename = os.path.basename(path)
@@ -75,7 +77,8 @@ class AwsEnvInfo:
     @property
     def dir(self) -> str:
         """
-        :return: Full path to the ~/.aws_test (__aws_dir) directory (from constructor).
+        Returns the full path to the ~/.aws_test (__aws_dir) directory (from constructor).
+        :return: The path to the base AWS directory.
         """
         return self.__aws_dir
 
@@ -84,7 +87,7 @@ class AwsEnvInfo:
         """
         Returns a list of available AWS environments based on directory
         names of the form ~/.aws_test.{ENV_NAME} that actually exist.
-        :return: List of available AWS environments or None if none found.
+        :return: The list of available AWS environments or None if none found.
         """
         return [self.__get_env_name_from_path(path) for path in self.__get_dirs()]
 
