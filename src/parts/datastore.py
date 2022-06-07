@@ -347,7 +347,7 @@ class C4Datastore(C4Part):
         # bucket_name_parts = bucket_name.split('-')
         # resource_name = ''.join(bucket_name_parts),  # Name != BucketName
         res = camelize(COMMON_STACK_PREFIX + 'bucket-' + bucket_name)
-        # print(f"bucket {bucket_name} => {res}")
+        print(f"bucket {bucket_name} => {res}")
         return res
 
     @staticmethod
