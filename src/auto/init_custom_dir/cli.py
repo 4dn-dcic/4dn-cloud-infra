@@ -154,7 +154,7 @@ def get_fallback_identity(env_name: str) -> str:
     return identity_value
 
 
-def parse_args():
+def parse_args(argv = None):
     """
     The main args parser for this CLI script.
     :return: The args as returned by argparse.ArgumentParser.parse_args().
@@ -187,7 +187,7 @@ def parse_args():
                       help="Turn on debugging for this script")
     argp.add_argument("--yes", dest="yes", action="store_true", required=False,
                       help="Answer yes for confirmation prompts for this script")
-    return argp.parse_args()
+    return argp.parse_args(argv)
 
 
 def check_env(args) -> None:
@@ -201,6 +201,7 @@ def check_env(args) -> None:
     """
     # Since we allow the base ~/.aws_test to be changed via --awsdir
     # we best check that it is not passed as empty.
+    # Note the default args.aws_dir comes from InfraDirectories.AWS_DIR in parse_args.
 
     args.aws_dir = args.aws_dir.strip()
     if not args.aws_dir:
@@ -210,7 +211,7 @@ def check_env(args) -> None:
 
     envinfo = None
     try:
-        envinfo = AwsEnvInfo(InfraDirectories.AWS_DIR)
+        envinfo = AwsEnvInfo(args.aws_dir)
     except (Exception,) as e:
         exit_with_no_action(str(e))
 
@@ -445,7 +446,7 @@ def write_s3_encrypt_key_file(args, s3_encrypt_key: str) -> None:
         os.chmod(s3_encrypt_key_file, stat.S_IRUSR)
 
 
-def main():
+def main(argv = None):
 
     signal.signal(signal.SIGINT, lambda *_: exit_with_no_action("\nCTRL-C"))
 
@@ -512,4 +513,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
