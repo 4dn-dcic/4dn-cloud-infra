@@ -91,12 +91,15 @@
 #     - os.symlink
 #   - shell via:
 #     - subprocess.check_output (to execute test_cred.sh)
+#   - command-line arguments via:
+#     os.argv
 
 import argparse
 import io
 import os
 import signal
 import stat
+import sys
 
 from .awsenvinfo import AwsEnvInfo
 from .utils import (
@@ -452,7 +455,7 @@ def main(argv = None):
 
     # Parse arguments.
 
-    args = parse_args()
+    args = parse_args(argv)
 
     if args.debug:
         print(f"DEBUG: Current directory: {os.getcwd()}")
