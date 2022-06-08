@@ -121,7 +121,7 @@ def exit_with_no_action(message: str = "", status: int = 1) -> None:
 def print_directory_tree(directory: str) -> None:
     """
     Prints the given directory as a tree structure. Taken/adapted from:
-    https://stackoverflow.com/questions/9727673/list-directory-tree-structure-in-python
+    Reference: https://stackoverflow.com/questions/9727673/list-directory-tree-structure-in-python
     :param directory: The directory name whose tree structure to print.
     """
     def tree_generator(dirname: str, prefix: str = ""):
