@@ -37,11 +37,10 @@
 #   Use this to specify the (required) 'deploying_iam_user' for the config.json file.
 #   If not specifed we try to get it from the os.getlogin() environment variable.
 #
-# --identity gac-name
+# --identity global-application-configuration-name
 #   Use this to specify the (required) 'identity' for the config.json file,
 #   e.g. C4DatastoreCgapSupertestApplicationConfiguration.
-#   If not specified we try to get it from the application_configuration_secret
-#   function on stacks.alpha_stacks.create_c4_alpha_stack.
+#   If not specified we try to get it from the C4Datastore.application_configuration_secret.
 #
 # --s3org s3-bucket-org
 #   Use this to specify the (required) 's3.bucket.org' for the config.json file.
