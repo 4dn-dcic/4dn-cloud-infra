@@ -397,7 +397,7 @@ def write_config_json_file(args) -> None:
     if not os.path.isfile(config_template_file):
         exit_with_no_action(f"ERROR: Cannot find config template file! {config_template_file}")
 
-    print(f"Creating config file: {os.path.abspath(config_file)}")
+    print(f"Creating config file: {config_file}")
     expand_json_template_file(config_template_file, config_file, {
         ConfigTemplateVars.ACCOUNT_NUMBER: args.account_number,
         ConfigTemplateVars.DEPLOYING_IAM_USER: args.deploying_iam_user,
@@ -487,7 +487,7 @@ def main(argv = None):
     # Confirmed.
     # First create the custom directory itself (already checked it does not yet exist).
 
-    print(f"Creating directory: {os.path.abspath(args.custom_dir)}")
+    print(f"Creating directory: {args.custom_dir}")
     os.makedirs(args.custom_dir)
 
     # Create the config.json file from the template and the inputs.
