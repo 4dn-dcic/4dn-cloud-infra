@@ -154,7 +154,7 @@ def get_fallback_identity(env_name: str) -> str:
     return identity_value
 
 
-def main_parse_args():
+def parse_args():
     """
     The main args parser for this CLI script.
     :return: The args as returned by argparse.ArgumentParser.parse_args().
@@ -451,7 +451,7 @@ def main():
 
     # Parse arguments.
 
-    args = main_parse_args()
+    args = parse_args()
 
     if args.debug:
         print(f"DEBUG: Current directory: {os.getcwd()}")
