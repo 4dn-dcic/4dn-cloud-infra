@@ -146,7 +146,7 @@ def get_fallback_deploying_iam_user() -> str:
 
 def get_fallback_identity(env_name: str) -> str:
     """
-    Obtains/returns the 'identity', i.e. the global application configuration secret name using
+    Obtains/returns the 'identity', i.e. the global application configuration name using
     the same code that 4dn-cloud-infra code does (see C4Datastore.application_configuration_secret).
     Had to do some refactoring to get this working (see names.py).
 
@@ -324,6 +324,7 @@ def check_deploying_iam_user(deploying_iam_user: str) -> str:
     if not deploying_iam_user:
         deploying_iam_user = get_fallback_deploying_iam_user()
         if not deploying_iam_user:
+            PRINT("Cannot determine deploying IAM username. Use the --username option.")
             deploying_iam_user = input("Or enter your deploying IAM username: ").strip()
             if not deploying_iam_user:
                 exit_with_no_action(f"You must specify a deploying IAM username. Use the --username option.")
@@ -343,11 +344,12 @@ def check_identity(identity: str, env_name: str) -> str:
     if not identity:
         identity = get_fallback_identity(env_name)
         if not identity:
-            identity = input("Or enter your global application configuration secret name: ").strip()
+            PRINT("Cannot determine global application configuration name. Use the --identity option.")
+            identity = input("Or enter your global application configuration name: ").strip()
             if not identity:
                 exit_with_no_action(
-                    f"You must specify a global application configuration secret name. Use the --identity option.")
-    PRINT(f"Using identity: {identity}")
+                    f"You must specify a global application configuration name. Use the --identity option.")
+    PRINT(f"Using global application configuration name: {identity}")
     return identity
 
 
@@ -360,6 +362,7 @@ def check_s3_bucket_org(s3_bucket_org: str) -> str:
     :return: S3 bucket organization value.
     """
     if not s3_bucket_org:
+        PRINT("You must specify an S3 bucket organization name. Use the --s3org option.")
         s3_bucket_org = input("Or enter your S3 bucket organization name: ").strip()
         if not s3_bucket_org:
             exit_with_no_action(f"You must specify an S3 bucket organization. Use the --s3org option.")
@@ -377,7 +380,7 @@ def check_auth0(auth0_client: str, auth0_secret: str) -> (str, str):
     :return: Tuple with Auth0 client and secret values.
     """
     if not auth0_client:
-        PRINT("You must specify a Auth0 client ID using the --auth0client option.")
+        PRINT("You must specify an Auth0 client ID using the --auth0client option.")
         auth0_client = input("Or enter your Auth0 client ID: ").strip()
         if not auth0_client:
             exit_with_no_action(f"You must specify an Auth0 client. Use the --auth0client option.")
