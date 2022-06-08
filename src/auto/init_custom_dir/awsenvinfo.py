@@ -71,6 +71,7 @@ class AwsEnvInfo:
     def _get_env_name_from_path(self, path: str) -> str:
         """
         Returns the ENV_NAME from the given ~/.aws_test.{ENV_NAME} path.
+
         :param path: The path from which to extract the ENV_NAME.
         :return: The environment name from the path.
         """

@@ -139,6 +139,7 @@ def get_fallback_account_number(env_dir: str) -> str:
 def get_fallback_deploying_iam_user() -> str:
     """
     Obtains/returns fallback deploying_iam_user value, simply from the OS environment.
+
     :return: Username as found by os.getlogin().
     """
     return os.getlogin()
@@ -160,7 +161,7 @@ def get_fallback_identity(env_name: str) -> str:
     return identity_value
 
 
-def parse_args(argv: list = None) -> object:
+def parse_args(argv: list = None):
     """
     The main args parser for this CLI script.
     :return: The args as returned by argparse.ArgumentParser.parse_args().
