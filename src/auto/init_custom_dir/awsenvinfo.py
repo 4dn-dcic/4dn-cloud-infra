@@ -56,7 +56,6 @@ class AwsEnvInfo:
         if not os.path.isdir(parent_of_aws_dir):
             raise NotADirectoryError(f"Parent of the AWS base directory does not even exist: {parent_of_aws_dir}")
 
-
     def _get_dirs(self) -> list:
         """
         Returns the list of ~/.aws_test.{ENV_NAME} directories which actually exist.
