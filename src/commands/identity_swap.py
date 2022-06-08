@@ -22,7 +22,7 @@ class FFIdentitySwap:
     """ Implements utilities necessary to identity swap 4DN production.
         Note that the orchestration of 4DN data/staging is specialized and will not generalize to
         standard use cases.
-        If we would like to support blue/green for CGAP, a new infra layers will need to be created
+        If we would like to support blue/green for CGAP, new infra layers will need to be created
         and this command will need to be reimplemented.
 
         The identity swap for FF is not exactly a symmetric operation. Due to details of the ECS orchestration and
@@ -84,7 +84,10 @@ class FFIdentitySwap:
 
     @classmethod
     def _resolve_target_service_type(cls, current_task_definition: str) -> str:
-        """ Helper that determines the 'type' of the service (WRT our application) """
+        """ Helper that determines the 'type' of the service (WRT our application)
+            Note that this utility relies on the fact that services are not ambiguous ie: PortalIndexerService
+            would be ambiguous in our scenario
+        """
         for service_type in cls.SERVICE_TYPES:
             if service_type in current_task_definition:
                 return service_type
@@ -102,6 +105,10 @@ class FFIdentitySwap:
 
     @classmethod
     def _resolve_task_definition(cls, current_task_definition: str, all_task_definitions: List[str]) -> str:
+        """ Figures out what the corresponding "opposite" task definition is from the set of task definitions.
+            Precondition: all_task_definitions has been filtered to include only those relevant for the swap
+                          scenario, meaning the caller must know whether we are doing a 'mirror' or 'prod' swap.
+        """
         if 'blue' in current_task_definition:
             target_identity = 'green'
         elif 'green' in current_task_definition:
@@ -126,7 +133,6 @@ class FFIdentitySwap:
                                          f' and should be repaired manually.')
         return cls._resolve_task_definition(current_task_definition, all_task_definitions)
 
-
     @classmethod
     def _determine_mirror_swap_plan(cls, service_mapping: dict, task_definitions: List[str]) -> dict:
         """ Determines the swap plan in the case we are doing a mirror swap. """
@@ -137,7 +143,7 @@ class FFIdentitySwap:
 
     @staticmethod
     def _validate_service_state_is_mirror(service_mapping: dict) -> None:
-        """ Helper that ensures no mirror definitions are linked in the service map. """
+        """ Helper that ensures no prod definitions are linked in the service map. """
         for service, task_definition in service_mapping.items():
             if 'Mirror' not in task_definition:
                 raise IdentitySwapSetupError(f'Attempted to do a prod swap, but current service_map contains'
@@ -178,8 +184,8 @@ class FFIdentitySwap:
     def _determine_swap_plan(cls, *, ecs: boto3.client, task_definitions: List[str], blue_cluster: str,
                              blue_services: List[str], green_cluster: str, green_services: List[str],
                              mirror=False) -> dict:
-        """ Creates a dictionary mapping services to their current task definitions and the new desired task
-            definition implementing the swap.
+        """ Resolves a dictionary mapping services to their current task definitions and returns a new dictionary
+            mapping the new desired task state based on the current state and whether 'mirror' is set.
         """
         service_mapping = cls._determine_service_mapping(ecs, blue_cluster, blue_services, green_cluster,
                                                          green_services)
