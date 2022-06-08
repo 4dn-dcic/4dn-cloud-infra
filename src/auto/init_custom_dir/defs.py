@@ -57,18 +57,18 @@ class InfraFiles:
 
 
 class ConfigTemplateVars:
-    ACCOUNT_NUMBER = "__TEMPLATE_ACCOUNT_NUMBER__"
-    DEPLOYING_IAM_USER = "__TEMPLATE_DEPLOYING_IAM_USER__"
-    IDENTITY = "__TEMPLATE_IDENTITY__"
-    ENCODED_ENV_NAME = "__TEMPLATE_ENCODED_ENV_NAME__"
-    S3_BUCKET_ORG = "__TEMPLATE_VALUE_S3_BUCKET_ORG__"
+    ACCOUNT_NUMBER = "<account-number>"
+    DEPLOYING_IAM_USER = "<deploying-iam-user>"
+    IDENTITY = "<identity>"
+    ENCODED_ENV_NAME = "<encoded-env-name>"
+    S3_BUCKET_ORG = "<s3-bucket-org>"
 
 
 class SecretsTemplateVars:
-    AUTH0_CLIENT = "__TEMPLATE_VALUE_AUTH0_CLIENT__"
-    AUTH0_SECRET = "__TEMPLATE_VALUE_AUTH0_SECRET__"
-    RE_CAPTCHA_KEY = "__TEMPLATE_VALUE_RE_CAPTCHA_KEY__"
-    RE_CAPTCHA_SECRET = "__TEMPLATE_VALUE_RE_CAPTCHA_SECRET__"
+    AUTH0_CLIENT = "<auth0-client>"
+    AUTH0_SECRET = "<auth0-secret>"
+    RE_CAPTCHA_KEY = "<re-captcha-key>"
+    RE_CAPTCHA_SECRET = "<re-captcha-secret>"
 
 
 class EnvVars:

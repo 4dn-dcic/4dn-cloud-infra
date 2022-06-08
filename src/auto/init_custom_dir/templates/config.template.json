@@ -1,8 +1,8 @@
 {
-    "account_number": "__TEMPLATE_ACCOUNT_NUMBER__",
-    "deploying_iam_user": "__TEMPLATE_DEPLOYING_IAM_USER__",
-    "identity": "__TEMPLATE_IDENTITY__",
-    "ENCODED_ENV_NAME": "__TEMPLATE_ENCODED_ENV_NAME__",
+    "account_number": "<account-number>",
+    "deploying_iam_user": "<deploying-iam-user>",
+    "identity": "<identity>",
+    "ENCODED_ENV_NAME": "<encoded-env-name>",
 
     "app.kind": "cgap",
     "app.deploy": "standalone",
@@ -29,5 +29,5 @@
     "rds.instance_size": "db.t3.medium",
     "rds.storage_size": "50",
 
-    "s3.bucket.org": "__TEMPLATE_VALUE_S3_BUCKET_ORG__"
+    "s3.bucket.org": "<s3-bucket-org>"
 }

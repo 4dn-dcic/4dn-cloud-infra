@@ -59,6 +59,7 @@ class AwsEnvInfo:
     def _get_dirs(self) -> list:
         """
         Returns the list of ~/.aws_test.{ENV_NAME} directories which actually exist.
+
         :return: The list of directories or empty list of none.
         """
         dirs = []
@@ -83,7 +84,8 @@ class AwsEnvInfo:
     def dir(self) -> str:
         """
         Returns the full path to the ~/.aws_test (_aws_dir) directory (from constructor).
-        :return: The path to the base AWS directory.
+
+        :return: Full path to the base AWS directory.
         """
         return self._aws_dir
 
@@ -92,7 +94,8 @@ class AwsEnvInfo:
         """
         Returns a list of available AWS environments based on directory
         names of the form ~/.aws_test.{ENV_NAME} that actually exist.
-        :return: The list of available AWS environments or None if none found.
+
+        :return: List of available AWS environments; empty list if none found.
         """
         return [self._get_env_name_from_path(path) for path in self._get_dirs()]
 
@@ -101,18 +104,19 @@ class AwsEnvInfo:
         """
         Returns current the AWS environment name as represented by the ENV_NAME portion of
         the actual ~/.aws_test.{ENV_NAME} symlink target of the ~/.aws_test directory itself.
-        Returns None if not set.
-        :return: The current AWS environment name as symlinked to by ~/.aws_test.
+
+        :return: Current AWS environment name as symlinked to by ~/.aws_test or None.
         """
         symlink_target = os.readlink(self._aws_dir) if os.path.islink(self._aws_dir) else None
         return self._get_env_name_from_path(symlink_target)
 
     def get_dir(self, env_name: str) -> str:
         """
-        Returns a full directory path name of the form ~/.aws_test.{ENV_NAME}
+        Returns a full directory path name of the form ~/.aws_test.{env_name}
         for the given :param:`env_name`. This directory does NOT have to exist.
-        :param env_name: The AWS environment name.
-        :return: The ~/.aws_test.ENV_NAMe for the given environment name.
+
+        :param env_name: AWS environment name.
+        :return: Full directory path for given AWS environment name (e.g. ~/.aws_test.{env_name}).
         """
         if env_name:
             return self._aws_dir + "." + env_name

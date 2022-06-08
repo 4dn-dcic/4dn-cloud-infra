@@ -23,6 +23,7 @@ import subprocess
 from typing import Optional
 
 from dcicutils.misc_utils import json_leaf_subst as expand_json_template
+from dcicutils.misc_utils import PRINT
 from .defs import InfraFiles
 
 
@@ -44,11 +45,12 @@ def expand_json_template_file(template_file: str, output_file: str, template_sub
 
 
 def generate_s3_encrypt_key() -> str:
-    """ Generate a cryptographically secure encryption key suitable for AWS S3 encryption.
-        References:
-        https://cryptobook.nakov.com/symmetric-key-ciphers/aes-encrypt-decrypt-examples#password-to-key-derivation
-        https://docs.python.org/3/library/secrets.html#recipes-and-best-practices
-        :return: A cryptographically secure encryption key.
+    """
+    Generate a cryptographically secure encryption key suitable for AWS S3 encryption.
+    References:
+    https://cryptobook.nakov.com/symmetric-key-ciphers/aes-encrypt-decrypt-examples#password-to-key-derivation
+    https://docs.python.org/3/library/secrets.html#recipes-and-best-practices
+    :return: Cryptographically secure encryption key.
     """
     def generate_password() -> str:
         # Will suggests using a password from some (4) random words.
@@ -113,8 +115,8 @@ def exit_with_no_action(message: str = "", status: int = 1) -> None:
     :param status: The exit status code.
     """
     if message:
-        print(message)
-    print("Exiting without doing anything.")
+        PRINT(message)
+    PRINT("Exiting without doing anything.")
     exit(status)
 
 
@@ -138,6 +140,6 @@ def print_directory_tree(directory: str) -> None:
             if os.path.isdir(path):
                 extension = branch if pointer == tee else space
                 yield from tree_generator(path, prefix=prefix+extension)
-    print("└─ " + directory)
+    PRINT("└─ " + directory)
     for line in tree_generator(directory, prefix="   "):
-        print(line)
+        PRINT(line)
