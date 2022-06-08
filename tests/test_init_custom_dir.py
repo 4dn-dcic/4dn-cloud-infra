@@ -22,12 +22,12 @@ class TestInitCustomDir(unittest.TestCase):
     def setup_filesystem(self, env_name: str, custom_dir: str = "custom", account_number: str = None):
         """
         Sets up our directories to use in a system temporary directory, which gets
-        totally cleaned up after the with-context which this returns is finished.
-        Returns a tuple with the full path names of:
+        totally cleaned up after the with-context in which this is used.
+        Returns (yields) a tuple with the full path names of:
         - The created base temporary directory (just FYI).
         - The created AWS base directory (e.g. representing /my-home/.aws_test)
         - The created AWS environment directory (e.g. representing /my-home/.aws_test.my-test)
-        - The not-created custom directory (e.g. representing /my-repos/4dn-cloud-infra/custom)
+        - The NOT-created custom directory (e.g. representing /my-repos/4dn-cloud-infra/custom)
         If account_number is specified then also creates:
         - A test_creds.sh with an export for ACCOUNT_NUMBER will be created,
           e.g. representing /my-home/.aws_test.my-test/test_creds.sh
