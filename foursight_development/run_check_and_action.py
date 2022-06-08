@@ -29,7 +29,7 @@ def run_check_and_action(check, action):
         action_run = app_utils.check_handler.run_check_or_action(
             connection, action, action_parameters
         )
-        result = json.dumps(action_run, ident=4)
+        result = json.dumps(action_run, indent=4)
         print(result)
 
 
