@@ -34,8 +34,16 @@ class TestMain(unittest.TestCase):
         s3_encrypt_key = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         dummy_json_content = "{\"dummy\": \"<dummy-content>\" }"
 
+    def _get_standard_main_args(self, aws_dir: str, env_name: str, custom_dir: str) -> list:
+        return ["--awsdir", aws_dir,
+                "--env", env_name,
+                "--out", custom_dir,
+                "--s3org", self.Inputs.s3_bucket_org,
+                "--auth0client", self.Inputs.auth0_client, "--auth0secret", self.Inputs.auth0_secret,
+                "--captchakey", self.Inputs.captcha_key, "--captchasecret", self.Inputs.captcha_secret]
+
     @contextmanager
-    def setup_filesystem(self, env_name: str, account_number: str = None):
+    def _setup_filesystem(self, env_name: str, account_number: str = None):
         """
         Sets up our directories to use in a system temporary directory,
         which gets totally cleaned up after the with-context where this is used.
@@ -62,22 +70,16 @@ class TestMain(unittest.TestCase):
                     test_creds_script_f.write(f"export ACCOUNT_NUMBER={account_number}\n")
             yield aws_dir, env_dir, custom_dir
 
-    def test_sanity(self):
-        assert len(InfraDirectories.AWS_DIR) > 0
-        assert os.path.isfile(InfraFiles.get_config_template_file())
-        assert os.path.isfile(InfraFiles.get_secrets_template_file())
-        assert re.search("\\*+$", obfuscate("ABCDEFGHI")[1:])
+    def _call_main(self, pre_existing_s3_encrypt_key_file: bool = True):
 
-    def call_main(self, pre_existing_s3_encrypt_key_file: bool = True):
-
-        with self.setup_filesystem(TestMain.Inputs.env_name, TestMain.Inputs.account_number)\
+        with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number)\
                 as (aws_dir, env_dir, custom_dir), \
              mock.patch('src.auto.init_custom_dir.cli.os.getlogin') as mock_os_getlogin, \
              mock.patch('src.auto.init_custom_dir.cli.PRINT') as mock_cli_print, \
              mock.patch('src.auto.init_custom_dir.utils.PRINT'), \
              mock.patch("builtins.input") as mock_input:
 
-            mock_os_getlogin.return_value = TestMain.Inputs.deploying_iam_user
+            mock_os_getlogin.return_value = self.Inputs.deploying_iam_user
             mock_input.return_value = "yes"
 
             # This is the directory structure we are simulating;
@@ -98,16 +100,11 @@ class TestMain(unittest.TestCase):
 
             if pre_existing_s3_encrypt_key_file:
                 with io.open(s3_encrypt_key_file, "w") as s3_encrypt_key_f:
-                    s3_encrypt_key_f.write(TestMain.Inputs.s3_encrypt_key)
+                    s3_encrypt_key_f.write(self.Inputs.s3_encrypt_key)
 
             # Call the script function.
 
-            argv = ["--awsdir", aws_dir,
-                    "--env", TestMain.Inputs.env_name,
-                    "--out", custom_dir,
-                    "--s3org", TestMain.Inputs.s3_bucket_org,
-                    "--auth0client", TestMain.Inputs.auth0_client, "--auth0secret", TestMain.Inputs.auth0_secret,
-                    "--captchakey", TestMain.Inputs.captcha_key, "--captchasecret", TestMain.Inputs.captcha_secret]
+            argv = self._get_standard_main_args(aws_dir, self.Inputs.env_name, custom_dir)
 
             # Normal case where custom directory does not already exist.
 
@@ -118,21 +115,21 @@ class TestMain(unittest.TestCase):
             assert os.path.isfile(config_json_file)
             with io.open(config_json_file, "r") as config_json_f:
                 config_json = json.load(config_json_f)
-                assert config_json["account_number"] == TestMain.Inputs.account_number
-                assert config_json["s3.bucket.org"] == TestMain.Inputs.s3_bucket_org
-                assert config_json["deploying_iam_user"] == TestMain.Inputs.deploying_iam_user
+                assert config_json["account_number"] == self.Inputs.account_number
+                assert config_json["s3.bucket.org"] == self.Inputs.s3_bucket_org
+                assert config_json["deploying_iam_user"] == self.Inputs.deploying_iam_user
                 assert config_json["identity"] == "C4DatastoreMyTestApplicationConfiguration"
-                assert config_json["ENCODED_ENV_NAME"] == TestMain.Inputs.env_name
+                assert config_json["ENCODED_ENV_NAME"] == self.Inputs.env_name
 
             # Verify existence/contents of secrets.json file (e.g. in /my-repos/4dn-cloud-infra/custom/secrets.json).
 
             assert os.path.isfile(secrets_json_file)
             with io.open(secrets_json_file, "r") as secrets_json_f:
                 secrets_json = json.load(secrets_json_f)
-                assert secrets_json["Auth0Client"] == TestMain.Inputs.auth0_client
-                assert secrets_json["Auth0Secret"] == TestMain.Inputs.auth0_secret
-                assert secrets_json["reCaptchaKey"] == TestMain.Inputs.captcha_key
-                assert secrets_json["reCaptchaSecret"] == TestMain.Inputs.captcha_secret
+                assert secrets_json["Auth0Client"] == self.Inputs.auth0_client
+                assert secrets_json["Auth0Secret"] == self.Inputs.auth0_secret
+                assert secrets_json["reCaptchaKey"] == self.Inputs.captcha_key
+                assert secrets_json["reCaptchaSecret"] == self.Inputs.captcha_secret
 
             # Verify that we have custom/aws_creds directory (e.g. in /my-repos/4dn-cloud-infra/custom/config.json).
             # And that it is actually a symlink to the AWS environment directory (e.g. to /my-home/.aws_test.my-test).
@@ -150,7 +147,7 @@ class TestMain(unittest.TestCase):
             with io.open(s3_encrypt_key_file, "r") as s3_encrypt_key_f:
                 s3_encrypt_key = s3_encrypt_key_f.read()
                 if pre_existing_s3_encrypt_key_file:
-                    assert s3_encrypt_key == TestMain.Inputs.s3_encrypt_key
+                    assert s3_encrypt_key == self.Inputs.s3_encrypt_key
                 else:
                     s3_encrypt_key_file_mode = os.stat(s3_encrypt_key_file).st_mode
                     # Check that the created file mode is 400.
@@ -167,13 +164,19 @@ class TestMain(unittest.TestCase):
                     if re.search(".*using.*secret.*:", arg, re.IGNORECASE):
                         assert arg.endswith('******')
 
+    def test_sanity(self):
+        assert len(InfraDirectories.AWS_DIR) > 0
+        assert os.path.isfile(InfraFiles.get_config_template_file())
+        assert os.path.isfile(InfraFiles.get_secrets_template_file())
+        assert re.search("\\*+$", obfuscate("ABCDEFGHI")[1:])
+
     def test_main(self):
-        self.call_main(pre_existing_s3_encrypt_key_file=False)
+        self._call_main(pre_existing_s3_encrypt_key_file=False)
 
     def test_main_with_pre_existing_s3_encrypt_key_file(self):
-        self.call_main(pre_existing_s3_encrypt_key_file=True)
+        self._call_main(pre_existing_s3_encrypt_key_file=True)
 
-    def call_function_and_assert_exit_with_no_action(self, f):
+    def _call_function_and_assert_exit_with_no_action(self, f):
         with mock.patch('builtins.exit') as mock_exit, \
              mock.patch('src.auto.init_custom_dir.utils.PRINT') as mock_utils_print:
             mock_exit.side_effect = Exception()
@@ -188,7 +191,7 @@ class TestMain(unittest.TestCase):
 
     def test_main_with_pre_existing_custom_dir(self):
 
-        with self.setup_filesystem(TestMain.Inputs.env_name, TestMain.Inputs.account_number)\
+        with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number)\
                 as (aws_dir, env_dir, custom_dir), \
              mock.patch('src.auto.init_custom_dir.cli.PRINT'), \
              mock.patch('src.auto.init_custom_dir.utils.PRINT'):
@@ -213,45 +216,34 @@ class TestMain(unittest.TestCase):
 
             os.makedirs(custom_dir)
             with io.open(config_json_file, "w") as config_json_f:
-                config_json_f.write(TestMain.Inputs.dummy_json_content)
+                config_json_f.write(self.Inputs.dummy_json_content)
             with io.open(secrets_json_file, "w") as secrets_json_f:
-                secrets_json_f.write(TestMain.Inputs.dummy_json_content)
+                secrets_json_f.write(self.Inputs.dummy_json_content)
 
             # Call the script function.
 
-            argv = ["--awsdir", aws_dir,
-                    "--env", TestMain.Inputs.env_name,
-                    "--out", custom_dir,
-                    "--s3org", TestMain.Inputs.s3_bucket_org,
-                    "--auth0client", TestMain.Inputs.auth0_client, "--auth0secret", TestMain.Inputs.auth0_secret,
-                    "--captchakey", TestMain.Inputs.captcha_key, "--captchasecret", TestMain.Inputs.captcha_secret]
+            argv = self._get_standard_main_args(aws_dir, self.Inputs.env_name, custom_dir)
 
             # Test case if the custom directory already exists.
             # Check that we exit without doing anything.
 
-            self.call_function_and_assert_exit_with_no_action(lambda: main(argv))
+            self._call_function_and_assert_exit_with_no_action(lambda: main(argv))
 
             with io.open(config_json_file, "r") as config_json_f:
-                assert config_json_f.read() == TestMain.Inputs.dummy_json_content
+                assert config_json_f.read() == self.Inputs.dummy_json_content
             with io.open(secrets_json_file, "r") as secrets_json_f:
-                assert secrets_json_f.read() == TestMain.Inputs.dummy_json_content
+                assert secrets_json_f.read() == self.Inputs.dummy_json_content
 
     def test_main_with_no_existing_env_dir(self):
 
-        with self.setup_filesystem(TestMain.Inputs.env_name, TestMain.Inputs.account_number) \
-                as (aws_dir, env_dir, custom_dir), \
+        with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number) as (aws_dir, env_dir, custom_dir), \
              mock.patch('src.auto.init_custom_dir.cli.PRINT'), \
              mock.patch('src.auto.init_custom_dir.utils.PRINT'):
 
             # Call the script function with an env-name for which a env-dir does not exist.
 
-            argv = ["--awsdir", aws_dir,
-                    "--env", "env-name-with-no-associated-env-dir",
-                    "--out", custom_dir,
-                    "--s3org", TestMain.Inputs.s3_bucket_org,
-                    "--auth0client", TestMain.Inputs.auth0_client, "--auth0secret", TestMain.Inputs.auth0_secret,
-                    "--captchakey", TestMain.Inputs.captcha_key, "--captchasecret", TestMain.Inputs.captcha_secret]
+            argv = self._get_standard_main_args(aws_dir, "env-name-with-no-associated-env-dir", custom_dir)
 
-            self.call_function_and_assert_exit_with_no_action(lambda: main(argv))
+            self._call_function_and_assert_exit_with_no_action(lambda: main(argv))
 
             assert not os.path.exists(custom_dir)
