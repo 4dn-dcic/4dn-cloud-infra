@@ -515,6 +515,9 @@ def main(argv: list = None):
 
     # Confirmed.
     # First create the custom directory itself (already checked it does not yet exist).
+    # Catch interrupt during actual setup though it is so quick this is EXTREMELY unlikely.
+
+    signal.signal(signal.SIGINT, lambda *_: print("\nCTRL-C during setup! Please wait."))
 
     PRINT(f"Creating directory: {custom_dir}")
     os.makedirs(custom_dir)
