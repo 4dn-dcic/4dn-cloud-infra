@@ -513,11 +513,12 @@ def main(argv: list = None):
     if not args.yes and not confirm_with_user("Confirm the above. Continue with setup?"):
         exit_with_no_action()
 
-    # Confirmed.
-    # First create the custom directory itself (already checked it does not yet exist).
+    # Confirmed. Perform the setup steps.
     # Catch interrupt during actual setup though it is so quick this is EXTREMELY unlikely.
 
     signal.signal(signal.SIGINT, lambda *_: print("\nCTRL-C during setup! Please wait."))
+
+    # Create the custom directory itself (already checked it does not yet exist).
 
     PRINT(f"Creating directory: {custom_dir}")
     os.makedirs(custom_dir)
