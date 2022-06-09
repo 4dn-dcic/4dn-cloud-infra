@@ -74,7 +74,7 @@ class TestMain(unittest.TestCase):
                 as (aws_dir, env_dir, custom_dir), \
              mock.patch('src.auto.init_custom_dir.cli.os.getlogin') as mock_os_getlogin, \
              mock.patch('src.auto.init_custom_dir.cli.PRINT') as mock_cli_print, \
-             mock.patch('src.auto.init_custom_dir.utils.PRINT') as mock_utils_print, \
+             mock.patch('src.auto.init_custom_dir.utils.PRINT'), \
              mock.patch("builtins.input") as mock_input:
 
             mock_os_getlogin.return_value = TestMain.Inputs.deploying_iam_user
