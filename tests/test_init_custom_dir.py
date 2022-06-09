@@ -14,6 +14,7 @@ from contextlib import contextmanager
 
 from src.auto.init_custom_dir.cli import main
 from src.auto.init_custom_dir.defs import InfraDirectories, InfraFiles
+from src.auto.init_custom_dir.utils import obfuscate
 
 
 class TestMain(unittest.TestCase):
@@ -65,6 +66,7 @@ class TestMain(unittest.TestCase):
         assert len(InfraDirectories.AWS_DIR) > 0
         assert os.path.isfile(InfraFiles.get_config_template_file())
         assert os.path.isfile(InfraFiles.get_secrets_template_file())
+        assert re.search("\\*+$", obfuscate("ABCDEFGHI")[1:])
 
     def call_main(self, pre_existing_s3_encrypt_key_file: bool = True):
 
