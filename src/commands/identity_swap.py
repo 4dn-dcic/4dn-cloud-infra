@@ -13,12 +13,18 @@ class IdentitySwapSetupError(Exception):
     pass
 
 
-class CGAPIdentitySwap:
+class C4IdentitySwap:
+    # Put methods here that would be common to both Fourfront and CGAP identity swaps
+    # if both of them actually had that concept.
+    pass
+
+
+class CGAPIdentitySwap(C4IdentitySwap):
     """ Not implemented, as we do not do blue/green for CGAP. """
     pass
 
 
-class FFIdentitySwap:
+class FFIdentitySwap(C4IdentitySwap):
     """ Implements utilities necessary to identity swap 4DN production.
         Note that the orchestration of 4DN data/staging is specialized and will not generalize to
         standard use cases.
@@ -55,8 +61,8 @@ class FFIdentitySwap:
         try:
             [identified_cluster] = [c for c in available_clusters if cls._clean_identifier(identifier) in c.lower()]
         except ValueError as e:
-            raise IdentitySwapSetupError(f'Identifier {identifier} resolved ambiguous cluster! Try a more specific'
-                                         f' identifier. Error: {e}')
+            raise IdentitySwapSetupError(f'Identifier {identifier} resolved ambiguous cluster!'
+                                         f' Try a more specific identifier. Error: {e}')
         except Exception as e:
             raise IdentitySwapSetupError(f'Unknown error occurred acquiring clusters! Error: {e}')
         return identified_cluster
@@ -91,17 +97,18 @@ class FFIdentitySwap:
         for service_type in cls.SERVICE_TYPES:
             if service_type in current_task_definition:
                 return service_type
-        raise IdentitySwapSetupError(f'Could not resolve service type for {current_task_definition}, valid types'
-                                     f' include: {cls.SERVICE_TYPES}')
+        raise IdentitySwapSetupError(f'Could not resolve service type for {current_task_definition}.'
+                                     f' Valid types are {conjoined_list(cls.SERVICE_TYPES)}.')
 
     @staticmethod
     def _validate_service_state_is_prod(service_mapping: dict) -> None:
         """ Helper that ensures no mirror definitions are linked in the service map. """
         for service, task_definition in service_mapping.items():
             if 'Mirror' in task_definition:
-                raise IdentitySwapSetupError(f'Attempted to do a mirror swap, but current service_map contains'
-                                             f' mirror task definitions! Rerun without --mirror. Service mapping:\n'
-                                             f'{service_mapping}')
+                raise IdentitySwapSetupError(f'Attempted to do a mirror swap,'
+                                             f' but current service_map contains mirror task definitions!'
+                                             f' Rerun without --mirror.'
+                                             f' Service mapping:\n{service_mapping}')
 
     @classmethod
     def _resolve_task_definition(cls, current_task_definition: str, all_task_definitions: List[str]) -> str:
@@ -254,8 +261,8 @@ class FFIdentitySwap:
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Does an in-place task swap for all services in the given two FF'
-                                                 ' envs.')
+    parser = argparse.ArgumentParser(
+        description='Does an in-place task swap for all services in the given two FF envs.')
     parser.add_argument('blue', help='First env we are swapping', type=str)
     parser.add_argument('green', help='Second env we are swapping', type=str)
     parser.add_argument('--mirror', help='Whether or not we are doing a mirror swap.', action='store_true',
