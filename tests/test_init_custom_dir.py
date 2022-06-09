@@ -194,9 +194,9 @@ class TestMain(unittest.TestCase):
             config_json_file = os.path.join(custom_dir, "config.json")
             secrets_json_file = os.path.join(custom_dir, "secrets.json")
 
-            # If we want to create a pre-existing custom directory, and therefore
-            # cause this process not to move forward, then create it and also create dummy
-            # config.json and secrets.json files and then make sure we did not overwrite these.
+            # For this test case we create a pre-existing custom directory, and therefore
+            # cause this process not to move forward; create it and also create dummy
+            # config.json and secrets.json files and make sure we did not overwrite them.
 
             os.makedirs(custom_dir)
             with io.open(config_json_file, "w") as config_json_f:
