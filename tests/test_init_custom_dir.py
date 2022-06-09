@@ -243,7 +243,7 @@ class TestMain(unittest.TestCase):
              mock.patch('src.auto.init_custom_dir.cli.PRINT'), \
              mock.patch('src.auto.init_custom_dir.utils.PRINT'):
 
-            # Call the script function.
+            # Call the script function with an env-name for which a env-dir does not exist.
 
             argv = ["--awsdir", aws_dir,
                     "--env", "env-name-with-no-associated-env-dir",
@@ -252,6 +252,6 @@ class TestMain(unittest.TestCase):
                     "--auth0client", TestMain.Inputs.auth0_client, "--auth0secret", TestMain.Inputs.auth0_secret,
                     "--captchakey", TestMain.Inputs.captcha_key, "--captchasecret", TestMain.Inputs.captcha_secret]
 
-            # Normal case where custom directory does not already exist.
-
             self.call_function_and_assert_exit_with_no_action(lambda: main(argv))
+
+            assert not os.path.exists(custom_dir)
