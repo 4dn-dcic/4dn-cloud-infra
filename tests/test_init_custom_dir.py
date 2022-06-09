@@ -164,18 +164,6 @@ class TestMain(unittest.TestCase):
                     if re.search(".*using.*secret.*:", arg, re.IGNORECASE):
                         assert arg.endswith('******')
 
-    def test_sanity(self):
-        assert len(InfraDirectories.AWS_DIR) > 0
-        assert os.path.isfile(InfraFiles.get_config_template_file())
-        assert os.path.isfile(InfraFiles.get_secrets_template_file())
-        assert re.search("\\*+$", obfuscate("ABCDEFGHI")[1:])
-
-    def test_main(self):
-        self._call_main(pre_existing_s3_encrypt_key_file=False)
-
-    def test_main_with_pre_existing_s3_encrypt_key_file(self):
-        self._call_main(pre_existing_s3_encrypt_key_file=True)
-
     def _call_function_and_assert_exit_with_no_action(self, f):
         with mock.patch('builtins.exit') as mock_exit, \
              mock.patch('src.auto.init_custom_dir.utils.PRINT') as mock_utils_print:
@@ -188,6 +176,18 @@ class TestMain(unittest.TestCase):
             # Kinda lame.
             last_print_arg = mock_utils_print.call_args.args[0]
             assert re.search(".*exit.*without.*doing*", last_print_arg, re.IGNORECASE)
+
+    def test_sanity(self):
+        assert len(InfraDirectories.AWS_DIR) > 0
+        assert os.path.isfile(InfraFiles.get_config_template_file())
+        assert os.path.isfile(InfraFiles.get_secrets_template_file())
+        assert re.search("\\*+$", obfuscate("ABCDEFGHI")[1:])
+
+    def test_main(self):
+        self._call_main(pre_existing_s3_encrypt_key_file=False)
+
+    def test_main_with_pre_existing_s3_encrypt_key_file(self):
+        self._call_main(pre_existing_s3_encrypt_key_file=True)
 
     def test_main_with_pre_existing_custom_dir(self):
 
