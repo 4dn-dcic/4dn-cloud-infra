@@ -65,8 +65,8 @@ class TestMain(unittest.TestCase):
         with self.setup_filesystem(TestMain.Inputs.env_name, TestMain.Inputs.account_number)\
                 as (aws_dir, env_dir, custom_dir), \
              mock.patch('src.auto.init_custom_dir.cli.os.getlogin') as mock_os_getlogin, \
-             mock.patch('src.auto.init_custom_dir.cli.PRINT'), \
-             mock.patch('src.auto.init_custom_dir.utils.PRINT'), \
+             mock.patch('src.auto.init_custom_dir.cli.PRINT') as mock_cli_print, \
+             mock.patch('src.auto.init_custom_dir.utils.PRINT') as mock_utils_print, \
              mock.patch("builtins.input") as mock_input:
 
             mock_os_getlogin.return_value = TestMain.Inputs.deploying_iam_user
@@ -149,6 +149,15 @@ class TestMain(unittest.TestCase):
                     # FYI: stat.S_IFREG means regular file and stat.S_IRUSR means read access for user/owner.
                     assert s3_encrypt_key_file_mode == stat.S_IFREG | stat.S_IRUSR
                     assert 32 <= len(s3_encrypt_key) <= 128
+
+            # Check that any secrets printed out look like they've been obfuscated.
+
+            for call in mock_cli_print.call_args_list:
+                args, kwargs = call
+                if len(args) == 1:
+                    arg = args[0]
+                    if re.search(".*using.*secret.*:", arg, re.IGNORECASE):
+                        assert arg.endswith('******')
 
     def test_main(self):
         self.call_main(pre_existing_s3_encrypt_key_file=False)
