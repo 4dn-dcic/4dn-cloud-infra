@@ -18,12 +18,9 @@ For example::
 
     pyenv install 3.7.12
     pyenv virtualenv 3.7.12 4dn-cloud-infra37
-    pip install --upgrade wheel
-    pip install --upgrade pip
-    curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
-    brew install libevent libmagic libxml2 libxslt openssl graphviz
-    brew install freetype libjpeg libtiff littlecms webp
     make build
+
+For more details on the build commands, see the ``Makefile``.
 
 ----------------------
 Access To Test Account

@@ -4,6 +4,7 @@ from typing import List
 
 from ..base import ConfigManager
 from ..base import Settings
+from dcicutils.lang_utils import conjoined_list
 from dcicutils.beanstalk_utils import _create_foursight_new
 from dcicutils.secrets_utils import assume_identity
 from dcicutils.ecs_utils import ECSUtils
@@ -47,10 +48,11 @@ class FFIdentitySwap(C4IdentitySwap):
     SERVICE_TYPES = [PORTAL, INDEXER]  # note caps are intentional and this set determines the valid services to swap
 
     @staticmethod
-    def _clean_identifier(identifier: str) -> str:
-        """ Removes -, _ and lowercases the identifier so it will approximately match something in the
+    def unseparate(identifier: str) -> str:
+        """ Removes -, _ and lowercases the identifier, so it will approximately match something in the
             generates names for ECS clusters
         """
+        # TODO: refactor into dcicutils.cloudformation_utils
         return identifier.replace('-', '').replace('_', '').lower()
 
     @classmethod
@@ -59,7 +61,7 @@ class FFIdentitySwap(C4IdentitySwap):
             based on that identifier.
         """
         try:
-            [identified_cluster] = [c for c in available_clusters if cls._clean_identifier(identifier) in c.lower()]
+            [identified_cluster] = [c for c in available_clusters if cls.unseparate(identifier) in c.lower()]
         except ValueError as e:
             raise IdentitySwapSetupError(f'Identifier {identifier} resolved ambiguous cluster!'
                                          f' Try a more specific identifier. Error: {e}')
@@ -69,9 +71,8 @@ class FFIdentitySwap(C4IdentitySwap):
 
     @staticmethod
     def describe_services(ecs, cluster, services):
-        """ Describes metadata on the given cluster, service pair
-            TODO: refactor into dcicutils
-        """
+        """ Describes metadata on the given cluster, service pair """
+        # TODO: refactor into dcicutils.ecs_utils
         result = ecs.client.describe_services(cluster=cluster, services=services)
         if result.get('failures', None):
             raise IdentitySwapSetupError(f'Got an error retrieving services for cluster {cluster}, response: {result}')
@@ -79,9 +80,8 @@ class FFIdentitySwap(C4IdentitySwap):
 
     @staticmethod
     def update_service(ecs, cluster, service, new_task_definition):
-        """ Updates the given service configuration to utilize the new task definition
-            TODO: refactor into dcicutils
-        """
+        """ Updates the given service configuration to utilize the new task definition """
+        # TODO: refactor into dcicutils.ecs_utils
         return ecs.client.update_service(
             cluster=cluster,
             service=service,
@@ -101,10 +101,17 @@ class FFIdentitySwap(C4IdentitySwap):
                                      f' Valid types are {conjoined_list(cls.SERVICE_TYPES)}.')
 
     @staticmethod
-    def _validate_service_state_is_prod(service_mapping: dict) -> None:
+    def _is_mirror_task(task_definition: str) -> bool:
+        """ Returns True if this task_definition is a Mirror task.
+            Right now just checks if the identifier 'Mirror' is in the task_definition.
+        """
+        return 'Mirror' in task_definition
+
+    @classmethod
+    def _validate_service_state_is_prod(cls, service_mapping: dict) -> None:
         """ Helper that ensures no mirror definitions are linked in the service map. """
         for service, task_definition in service_mapping.items():
-            if 'Mirror' in task_definition:
+            if cls._is_mirror_task(task_definition):
                 raise IdentitySwapSetupError(f'Attempted to do a mirror swap,'
                                              f' but current service_map contains mirror task definitions!'
                                              f' Rerun without --mirror.'
@@ -134,7 +141,7 @@ class FFIdentitySwap(C4IdentitySwap):
         """ Helper that figures out what the corresponding 'mirror' task definition is given one to look for
             and the set of all task definitions.
         """
-        if 'Mirror' in current_task_definition:
+        if cls._is_mirror_task(current_task_definition):
             raise IdentitySwapSetupError(f'Found a current_task_definition in a mirror swap that is configured'
                                          f' to use a mirror task definition! Cluster may be in an inconsistent state'
                                          f' and should be repaired manually.')
@@ -148,11 +155,11 @@ class FFIdentitySwap(C4IdentitySwap):
             swap_plan[service] = cls._resolve_mirror_task_definition(task_definition, task_definitions)
         return swap_plan
 
-    @staticmethod
-    def _validate_service_state_is_mirror(service_mapping: dict) -> None:
+    @classmethod
+    def _validate_service_state_is_mirror(cls, service_mapping: dict) -> None:
         """ Helper that ensures no prod definitions are linked in the service map. """
         for service, task_definition in service_mapping.items():
-            if 'Mirror' not in task_definition:
+            if not cls._is_mirror_task(task_definition):
                 raise IdentitySwapSetupError(f'Attempted to do a prod swap, but current service_map contains'
                                              f' prod task definitions! Rerun with --mirror. Service mapping:\n'
                                              f'{service_mapping}')
@@ -162,7 +169,7 @@ class FFIdentitySwap(C4IdentitySwap):
         """ Helper that figures out what the corresponding 'prod' task definition is given one to look for
             and the set of all task definitions.
         """
-        if 'Mirror' not in current_task_definition:
+        if not cls._is_mirror_task(current_task_definition):
             raise IdentitySwapSetupError(f'Found a current_task_definition in a prod swap that is not configured'
                                          f' to use a mirror task definition! Cluster may be in an inconsistent state'
                                          f' and should be repaired manually.')

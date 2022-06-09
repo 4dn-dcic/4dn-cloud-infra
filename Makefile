@@ -9,9 +9,6 @@ configure:
 	brew install libevent libmagic libxml2 libxslt openssl graphviz
 	brew install freetype libjpeg libtiff littlecms webp
 
-macbuild:
-
-
 build:
 	make configure
 	poetry install

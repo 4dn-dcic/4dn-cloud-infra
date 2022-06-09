@@ -254,6 +254,7 @@ class C4Datastore(C4Part):
             'reCaptchaKey': ConfigManager.get_config_secret(Secrets.RECAPTCHA_KEY, default=None),
             'reCaptchaSecret': ConfigManager.get_config_secret(Secrets.RECAPTCHA_SECRET, default=None),
         })
+        # print("application_configuration_template() => %s" % json.dumps(result, indent=2))
         return result
 
     def build_template(self, template: Template) -> Template:
