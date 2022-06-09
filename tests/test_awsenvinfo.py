@@ -1,15 +1,8 @@
 # IN PROGRESS: dmichaels/2022-06-08
 
-import io
-import json
-import mock
 import os
-import re
-import stat
 import tempfile
 import unittest
-
-from contextlib import contextmanager
 
 # TODO
 # What is proper way to import these ... surely not like this?
@@ -63,4 +56,3 @@ class TestAwsEnvInfo(unittest.TestCase):
             # Make sure we construct the full path to the env dir correctly; does not have to exist.
 
             assert awsenvinfo.get_dir('foo-bar') == aws_dir + ".foo-bar"
-
