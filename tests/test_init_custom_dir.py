@@ -102,12 +102,10 @@ class TestMain(unittest.TestCase):
                 with io.open(s3_encrypt_key_file, "w") as s3_encrypt_key_f:
                     s3_encrypt_key_f.write(self.Inputs.s3_encrypt_key)
 
-            # Call the script function.
-
-            argv = self._get_standard_main_args(aws_dir, self.Inputs.env_name, custom_dir)
-
+            # Call the main script function.
             # Normal case where custom directory does not already exist.
 
+            argv = self._get_standard_main_args(aws_dir, self.Inputs.env_name, custom_dir)
             main(argv)
 
             # Verify existence/contents of config.json file (e.g. in /my-repos/4dn-cloud-infra/custom/config.json).
