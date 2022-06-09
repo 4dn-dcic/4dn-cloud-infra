@@ -6,12 +6,7 @@ import re
 import stat
 import tempfile
 import unittest
-
 from contextlib import contextmanager
-
-# TODO
-# What is proper way to import these ... surely not like this?
-
 from src.auto.init_custom_dir.cli import main
 from src.auto.init_custom_dir.defs import InfraDirectories, InfraFiles
 from src.auto.init_custom_dir.utils import obfuscate
@@ -28,8 +23,8 @@ class TestMain(unittest.TestCase):
         s3_bucket_org = "prufrock"
         auth0_client = "0A39E193F7B74218A3F176872197D895"
         auth0_secret = "126EBFCAC9C74CD5B2CBAD7B3DCB3314"
-        captcha_key = "5449963A45A4E9DAEDA36062405DDBE"
-        captcha_secret = "08DEBE6BE73D49549B18CE9641D80DC5"
+        re_captcha_key = "5449963A45A4E9DAEDA36062405DDBE"
+        re_captcha_secret = "08DEBE6BE73D49549B18CE9641D80DC5"
         deploying_iam_user = "someuser"
         s3_encrypt_key = "8F383EBE093941B5B927279F361C3002"
         dummy_json_content = "{\"dummy\": \"<dummy-content>\" }"
@@ -40,7 +35,7 @@ class TestMain(unittest.TestCase):
                 "--out", custom_dir,
                 "--s3org", self.Inputs.s3_bucket_org,
                 "--auth0client", self.Inputs.auth0_client, "--auth0secret", self.Inputs.auth0_secret,
-                "--captchakey", self.Inputs.captcha_key, "--captchasecret", self.Inputs.captcha_secret]
+                "--recaptchakey", self.Inputs.re_captcha_key, "--recaptchasecret", self.Inputs.re_captcha_secret]
 
     @contextmanager
     def _setup_filesystem(self, env_name: str, account_number: str = None):
@@ -126,8 +121,8 @@ class TestMain(unittest.TestCase):
                 secrets_json = json.load(secrets_json_f)
                 assert secrets_json["Auth0Client"] == self.Inputs.auth0_client
                 assert secrets_json["Auth0Secret"] == self.Inputs.auth0_secret
-                assert secrets_json["reCaptchaKey"] == self.Inputs.captcha_key
-                assert secrets_json["reCaptchaSecret"] == self.Inputs.captcha_secret
+                assert secrets_json["reCaptchaKey"] == self.Inputs.re_captcha_key
+                assert secrets_json["reCaptchaSecret"] == self.Inputs.re_captcha_secret
 
             # Verify that we have custom/aws_creds directory (e.g. in /my-repos/4dn-cloud-infra/custom/config.json).
             # And that it is actually a symlink to the AWS environment directory (e.g. to /my-home/.aws_test.my-test).

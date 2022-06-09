@@ -21,7 +21,6 @@ import pbkdf2
 import secrets
 import subprocess
 from typing import Optional
-
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import json_leaf_subst as expand_json_template
 from dcicutils.misc_utils import PRINT

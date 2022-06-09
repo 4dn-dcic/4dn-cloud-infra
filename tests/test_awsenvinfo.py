@@ -1,10 +1,6 @@
 import os
 import tempfile
 import unittest
-
-# TODO
-# What is proper way to import these ... surely not like this?
-
 from src.auto.init_custom_dir.awsenvinfo import AwsEnvInfo
 
 

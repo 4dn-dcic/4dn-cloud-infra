@@ -75,5 +75,4 @@ class EnvVars:
 
     # This is used only to get this environment variable from the test_creds.sh file,
     # as a default/fallback in case it is not specified on command-line.
-
     ACCOUNT_NUMBER = "ACCOUNT_NUMBER"

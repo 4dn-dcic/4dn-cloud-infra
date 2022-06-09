@@ -37,7 +37,6 @@ class AwsEnvInfo:
     # We're probably going to change this default directory name ~/.aws_test
     # to something like ~/.aws_cgap or something; when we do we can change
     # this, and/or can pass this into the AwsEnvInfo constructor.
-
     _DEFAULT_AWS_DIR = InfraDirectories.AWS_DIR
 
     def __init__(self, aws_dir: str = None):
@@ -45,24 +44,19 @@ class AwsEnvInfo:
             aws_dir = AwsEnvInfo._DEFAULT_AWS_DIR
 
         # Make sure we didn't get pass, say, "~/.aws_test/" which would mess things up.
-
         aws_dir = aws_dir.rstrip("/")
 
         if not aws_dir:
-
             # Here, it means only slashes were given.
             # Odd state of affairs. Think it's okay to just default to the default.
-
             aws_dir = AwsEnvInfo._DEFAULT_AWS_DIR
 
         # FYI: os.path.expanduser expands tilde (~) even on Windows.
-
         self._aws_dir = os.path.expanduser(aws_dir)
 
         # Though the ~/.aws_test directory itself does not need to exist,
         # let's check that it's the parent does exist, just to make sure
         # someone didn't pass in some kind of garbage.
-
         parent_of_aws_dir = os.path.dirname(self._aws_dir)
         if not os.path.isdir(parent_of_aws_dir):
             raise NotADirectoryError(f"Parent of the AWS base directory does not even exist: {parent_of_aws_dir}")
