@@ -247,3 +247,8 @@ class TestMain(unittest.TestCase):
             self._call_function_and_assert_exit_with_no_action(lambda: main(argv))
 
             assert not os.path.exists(custom_dir)
+
+    def test_main_with_missing_required_inputs(self):
+        # Not yet implemented.
+        # In the case of missing required inputs we actually we prompt for them
+        pass
