@@ -25,13 +25,13 @@ class TestMain(unittest.TestCase):
     class Inputs:
         env_name = "my-test"
         account_number = "1234567890"
-        s3_bucket_org = "kmp"
+        s3_bucket_org = "prufrock"
         auth0_client = "0A39E193F7B74218A3F176872197D895"
         auth0_secret = "126EBFCAC9C74CD5B2CBAD7B3DCB3314"
         captcha_key = "5449963A45A4E9DAEDA36062405DDBE"
         captcha_secret = "08DEBE6BE73D49549B18CE9641D80DC5"
         deploying_iam_user = "someuser"
-        s3_encrypt_key = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        s3_encrypt_key = "8F383EBE093941B5B927279F361C3002"
         dummy_json_content = "{\"dummy\": \"<dummy-content>\" }"
 
     def _get_standard_main_args(self, aws_dir: str, env_name: str, custom_dir: str) -> list:
