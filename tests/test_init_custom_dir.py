@@ -173,12 +173,25 @@ class TestMain(unittest.TestCase):
     def test_main_with_pre_existing_s3_encrypt_key_file(self):
         self.call_main(pre_existing_s3_encrypt_key_file=True)
 
+    def call_function_and_assert_exit_with_no_action(self, f):
+        with mock.patch('builtins.exit') as mock_exit, \
+             mock.patch('src.auto.init_custom_dir.utils.PRINT') as mock_utils_print:
+            mock_exit.side_effect = Exception()
+            with self.assertRaises(Exception):
+                f()
+            assert mock_exit.called is True
+            assert mock_exit.call_count == 1
+            # Check the message from the last print which should be something like: Exiting without doing anything.
+            # Kinda lame.
+            last_print_arg = mock_utils_print.call_args.args[0]
+            assert re.search(".*exit.*without.*doing*", last_print_arg, re.IGNORECASE)
+
     def test_main_with_pre_existing_custom_dir(self):
 
         with self.setup_filesystem(TestMain.Inputs.env_name, TestMain.Inputs.account_number)\
                 as (aws_dir, env_dir, custom_dir), \
              mock.patch('src.auto.init_custom_dir.cli.PRINT'), \
-             mock.patch('src.auto.init_custom_dir.utils.PRINT') as mock_utils_print:
+             mock.patch('src.auto.init_custom_dir.utils.PRINT'):
 
             # This is the directory structure we are simulating;
             # well, actually creating, within a temporary directory.
@@ -216,28 +229,29 @@ class TestMain(unittest.TestCase):
             # Test case if the custom directory already exists.
             # Check that we exit without doing anything.
 
-            with mock.patch('builtins.exit') as mock_exit:
+            self.call_function_and_assert_exit_with_no_action(lambda: main(argv))
 
-                # Wasn't quite sure how to do this.
-                # Patching exit will cause the main script to not actually exit;
-                # we'd like it just to return to this test on exit so raising exception.
+            with io.open(config_json_file, "r") as config_json_f:
+                assert config_json_f.read() == TestMain.Inputs.dummy_json_content
+            with io.open(secrets_json_file, "r") as secrets_json_f:
+                assert secrets_json_f.read() == TestMain.Inputs.dummy_json_content
 
-                mock_exit.side_effect = Exception()
-                with self.assertRaises(Exception):
-                    main(argv)
-                assert mock_exit.called is True
-                assert mock_exit.call_count == 1
+    def test_main_with_no_existing_env_dir(self):
 
-                # Check the message from the last print which should be something like: Exiting without doing anything.
-                # Kinda lame.
+        with self.setup_filesystem(TestMain.Inputs.env_name, TestMain.Inputs.account_number) \
+                as (aws_dir, env_dir, custom_dir), \
+             mock.patch('src.auto.init_custom_dir.cli.PRINT'), \
+             mock.patch('src.auto.init_custom_dir.utils.PRINT'):
 
-                last_print_arg = mock_utils_print.call_args.args[0]
-                assert re.search(".*exit.*without.*doing*", last_print_arg, re.IGNORECASE)
+            # Call the script function.
 
-                # Verify that we didn't overwrite the pre-existing config.json or secrets.json
-                # files created above for this test case.
+            argv = ["--awsdir", aws_dir,
+                    "--env", "env-name-with-no-associated-env-dir",
+                    "--out", custom_dir,
+                    "--s3org", TestMain.Inputs.s3_bucket_org,
+                    "--auth0client", TestMain.Inputs.auth0_client, "--auth0secret", TestMain.Inputs.auth0_secret,
+                    "--captchakey", TestMain.Inputs.captcha_key, "--captchasecret", TestMain.Inputs.captcha_secret]
 
-                with io.open(config_json_file, "r") as config_json_f:
-                    assert config_json_f.read() == TestMain.Inputs.dummy_json_content
-                with io.open(secrets_json_file, "r") as secrets_json_f:
-                    assert secrets_json_f.read() == TestMain.Inputs.dummy_json_content
+            # Normal case where custom directory does not already exist.
+
+            self.call_function_and_assert_exit_with_no_action(lambda: main(argv))
