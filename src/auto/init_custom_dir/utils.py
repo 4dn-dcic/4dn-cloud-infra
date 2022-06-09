@@ -22,6 +22,7 @@ import secrets
 import subprocess
 from typing import Optional
 
+from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import json_leaf_subst as expand_json_template
 from dcicutils.misc_utils import PRINT
 from .defs import InfraFiles
@@ -105,7 +106,7 @@ def confirm_with_user(message: str) -> bool:
     :param message: Message to print for the user prompt.
     :return: True if the user answers "yes" otherwise False. 
     """
-    return input(message + " (yes|no) ").strip().lower() == "yes"
+    return yes_or_no(message)
 
 
 def exit_with_no_action(message: str = "", status: int = 1) -> None:

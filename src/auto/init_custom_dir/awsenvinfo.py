@@ -44,6 +44,17 @@ class AwsEnvInfo:
         if not aws_dir:
             aws_dir = AwsEnvInfo._DEFAULT_AWS_DIR
 
+        # Make sure we didn't get pass, say, "~/.aws_test/" which would mess things up.
+
+        aws_dir = aws_dir.rstrip("/")
+
+        if not aws_dir:
+
+            # Here, it means only slashes were given.
+            # Odd state of affairs. Think it's okay to just default to the default.
+
+            aws_dir = AwsEnvInfo._DEFAULT_AWS_DIR
+
         # FYI: os.path.expanduser expands tilde (~) even on Windows.
 
         self._aws_dir = os.path.expanduser(aws_dir)
