@@ -5,8 +5,7 @@ from typing import List
 from ..base import ConfigManager
 from ..base import Settings
 from dcicutils.lang_utils import conjoined_list
-from dcicutils.beanstalk_utils import _create_foursight_new
-from dcicutils.secrets_utils import assume_identity
+from dcicutils.misc_utils import PRINT
 from dcicutils.ecs_utils import ECSUtils
 
 
@@ -15,34 +14,7 @@ class IdentitySwapSetupError(Exception):
 
 
 class C4IdentitySwap:
-    # Put methods here that would be common to both Fourfront and CGAP identity swaps
-    # if both of them actually had that concept.
-    pass
-
-
-class CGAPIdentitySwap(C4IdentitySwap):
-    """ Not implemented, as we do not do blue/green for CGAP. """
-    pass
-
-
-class FFIdentitySwap(C4IdentitySwap):
-    """ Implements utilities necessary to identity swap 4DN production.
-        Note that the orchestration of 4DN data/staging is specialized and will not generalize to
-        standard use cases.
-        If we would like to support blue/green for CGAP, new infra layers will need to be created
-        and this command will need to be reimplemented.
-
-        The identity swap for FF is not exactly a symmetric operation. Due to details of the ECS orchestration and
-        limitations on ECS, mirror definitions exist that must be swapped in. So we define two semantically different
-        operations that implement the swap in each direction.
-            * Prod --> Mirror, where current task definitions match the cluster ie: cluster fourfront-production-green
-              is associated with identity fourfront-production-green, in which case we would do a "mirror" swap to make
-              cluster fourfront-production-green run the fourfront-production-blue mirror tasks.
-            * Mirror --> Prod, where current task definitions mirror that of the cluster ie: cluster
-              fourfront-production-green is associated with identity fourfront-production-blue via linking the services
-              to the fourfront-production-blue mirror tasks, in which case we do a "prod" swap to return cluster
-              fourfront-production-green to its original state where the task definitions match up.
-    """
+    """ Methods and variables common to an identity swap procedure for both FF and CGAP are here """
     PORTAL = 'Portal'
     INDEXER = 'Indexer'
     SERVICE_TYPES = [PORTAL, INDEXER]  # note caps are intentional and this set determines the valid services to swap
@@ -100,6 +72,30 @@ class FFIdentitySwap(C4IdentitySwap):
         raise IdentitySwapSetupError(f'Could not resolve service type for {current_task_definition}.'
                                      f' Valid types are {conjoined_list(cls.SERVICE_TYPES)}.')
 
+
+class CGAPIdentitySwap(C4IdentitySwap):
+    """ Not implemented, as we do not do blue/green for CGAP. """
+    pass
+
+
+class FFIdentitySwap(C4IdentitySwap):
+    """ Implements utilities necessary to identity swap 4DN production.
+        Note that the orchestration of 4DN data/staging is specialized and will not generalize to
+        standard use cases.
+        If we would like to support blue/green for CGAP, new infra layers will need to be created
+        and this command will need to be reimplemented.
+
+        The identity swap for FF is not exactly a symmetric operation. Due to details of the ECS orchestration and
+        limitations on ECS, mirror definitions exist that must be swapped in. So we define two semantically different
+        operations that implement the swap in each direction.
+            * Prod --> Mirror, where current task definitions match the cluster ie: cluster fourfront-production-green
+              is associated with identity fourfront-production-green, in which case we would do a "mirror" swap to make
+              cluster fourfront-production-green run the fourfront-production-blue mirror tasks.
+            * Mirror --> Prod, where current task definitions mirror that of the cluster ie: cluster
+              fourfront-production-green is associated with identity fourfront-production-blue via linking the services
+              to the fourfront-production-blue mirror tasks, in which case we do a "prod" swap to return cluster
+              fourfront-production-green to its original state where the task definitions match up.
+    """
     @staticmethod
     def _is_mirror_task(task_definition: str) -> bool:
         """ Returns True if this task_definition is a Mirror task.
@@ -218,11 +214,11 @@ class FFIdentitySwap(C4IdentitySwap):
     @staticmethod
     def _pretty_print_swap_plan(swap_plan: dict) -> None:
         """ Helper that prints the swap_plan in a more readable format for manual review. """
-        print(f'New Service Mapping:')
+        PRINT(f'New Service Mapping:')
         for service, task_definition in swap_plan.items():
             short_service_name = service.split('/')[-1]
             short_task_name = task_definition.split('/')[-1]
-            print(f'    {short_service_name} -----> {short_task_name}')
+            PRINT(f'    {short_service_name} -----> {short_task_name}')
 
     @classmethod
     def _execute_swap_plan(cls, ecs, blue_cluster, green_cluster, swap_plan):
