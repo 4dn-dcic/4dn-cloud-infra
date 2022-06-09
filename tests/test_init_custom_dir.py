@@ -189,7 +189,7 @@ class TestMain(unittest.TestCase):
 
     def test_main_with_pre_existing_custom_dir(self):
 
-        with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number)\
+        with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number) \
                 as (aws_dir, env_dir, custom_dir), \
              mock.patch('src.auto.init_custom_dir.cli.PRINT'), \
              mock.patch('src.auto.init_custom_dir.utils.PRINT'):
@@ -234,7 +234,8 @@ class TestMain(unittest.TestCase):
 
     def test_main_with_no_existing_env_dir(self):
 
-        with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number) as (aws_dir, env_dir, custom_dir), \
+        with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number) \
+                as (aws_dir, env_dir, custom_dir), \
              mock.patch('src.auto.init_custom_dir.cli.PRINT'), \
              mock.patch('src.auto.init_custom_dir.utils.PRINT'):
 
