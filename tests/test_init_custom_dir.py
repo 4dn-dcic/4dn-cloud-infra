@@ -13,6 +13,7 @@ from contextlib import contextmanager
 # What is proper way to import these ... surely not like this?
 
 from src.auto.init_custom_dir.cli import main
+from src.auto.init_custom_dir.defs import InfraDirectories, InfraFiles
 
 
 class TestMain(unittest.TestCase):
@@ -59,6 +60,11 @@ class TestMain(unittest.TestCase):
                     # test_creds_script_file represents: /my-home/.aws_test.my-test/test_creds.sh
                     test_creds_script_f.write(f"export ACCOUNT_NUMBER={account_number}\n")
             yield aws_dir, env_dir, custom_dir
+
+    def test_sanity(self):
+        assert len(InfraDirectories.AWS_DIR) > 0
+        assert os.path.isfile(InfraFiles.get_config_template_file())
+        assert os.path.isfile(InfraFiles.get_secrets_template_file())
 
     def call_main(self, pre_existing_s3_encrypt_key_file: bool = True):
 
