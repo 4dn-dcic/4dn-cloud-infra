@@ -116,6 +116,7 @@ COMMON_STACK_PREFIX_CAMEL_CASE = "C4"
 
 # dmichaels/2022-06-06: Factored out from datastore.py.
 
-DATASTORE_STACK_NAME_TOKEN = "datastore"
-DATASTORE_STACK_TITLE_TOKEN = "Datastore"
-DATASTORE_APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = 'ApplicationConfiguration'
+class C4DatastoreBase:
+    STACK_NAME_TOKEN = "datastore"
+    STACK_TITLE_TOKEN = "Datastore"
+    APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = 'ApplicationConfiguration'

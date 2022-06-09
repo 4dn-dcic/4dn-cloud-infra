@@ -25,7 +25,7 @@ from troposphere.s3 import (
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
 from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX
-from ..constants import Settings, Secrets, DATASTORE_APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX, DATASTORE_STACK_NAME_TOKEN, DATASTORE_STACK_TITLE_TOKEN
+from ..constants import Settings, Secrets, C4DatastoreBase
 from ..exports import C4Exports
 from ..part import C4Part
 from .network import C4NetworkExports
@@ -109,14 +109,16 @@ class C4DatastoreExports(C4Exports):
         super().__init__(parameter)
 
 
-class C4Datastore(C4Part):
+class C4Datastore(C4DatastoreBase, C4Part):
     """ Defines the datastore stack - see resources created in build_template method. """
 
-    STACK_NAME_TOKEN = DATASTORE_STACK_NAME_TOKEN
-    STACK_TITLE_TOKEN = DATASTORE_STACK_TITLE_TOKEN
+    # dmichaels/2022-06-09: Refactored these into C4DatastoreBase in constants.py.
+    # STACK_NAME_TOKEN = "datastore"
+    # STACK_TITLE_TOKEN = "Datastore"
+    # APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = "ApplicationConfiguration"
+
     SHARING = 'env'
 
-    APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = DATASTORE_APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX
     DEFAULT_RDS_DB_NAME = 'ebdb'
     DEFAULT_RDS_DB_PORT = '5432'
     DEFAULT_RDS_DB_USERNAME = 'postgresql'
