@@ -248,5 +248,5 @@ class TestMain(unittest.TestCase):
 
     def test_main_with_missing_required_inputs(self):
         # Not yet implemented.
-        # In the case of missing required inputs we actually we prompt for them
+        # In the case of missing required inputs we actually we prompt for them.
         pass
