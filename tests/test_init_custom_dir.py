@@ -1,5 +1,3 @@
-# IN PROGRESS: dmichaels/2022-06-08
-
 import io
 import json
 import mock
