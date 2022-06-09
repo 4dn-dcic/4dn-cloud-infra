@@ -116,7 +116,7 @@ class TestMain(unittest.TestCase):
             # Verify existence/contents of config.json file (e.g. in /my-repos/4dn-cloud-infra/custom/config.json).
 
             assert os.path.isfile(config_json_file)
-            with io.open(config_json_file) as config_json_f:
+            with io.open(config_json_file, "r") as config_json_f:
                 config_json = json.load(config_json_f)
                 assert config_json["account_number"] == TestMain.Inputs.account_number
                 assert config_json["s3.bucket.org"] == TestMain.Inputs.s3_bucket_org
@@ -127,7 +127,7 @@ class TestMain(unittest.TestCase):
             # Verify existence/contents of secrets.json file (e.g. in /my-repos/4dn-cloud-infra/custom/secrets.json).
 
             assert os.path.isfile(secrets_json_file)
-            with io.open(secrets_json_file) as secrets_json_f:
+            with io.open(secrets_json_file, "r") as secrets_json_f:
                 secrets_json = json.load(secrets_json_f)
                 assert secrets_json["Auth0Client"] == TestMain.Inputs.auth0_client
                 assert secrets_json["Auth0Secret"] == TestMain.Inputs.auth0_secret
@@ -147,7 +147,7 @@ class TestMain(unittest.TestCase):
             # Otherwise, just check that it has some reasonable content, and that it is mode 400.
 
             assert os.path.isfile(s3_encrypt_key_file)
-            with io.open(s3_encrypt_key_file) as s3_encrypt_key_f:
+            with io.open(s3_encrypt_key_file, "r") as s3_encrypt_key_f:
                 s3_encrypt_key = s3_encrypt_key_f.read()
                 if pre_existing_s3_encrypt_key_file:
                     assert s3_encrypt_key == TestMain.Inputs.s3_encrypt_key
