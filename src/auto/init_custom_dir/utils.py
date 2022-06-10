@@ -104,7 +104,7 @@ def confirm_with_user(message: str) -> bool:
     Prompts the user with the given message and asks for yes or no.
     Returns True if "yes" (exactly, trimmed, case-insensitive) otherwise False.
     :param message: Message to print for the user prompt.
-    :return: True if the user answers "yes" otherwise False. 
+    :return: True if the user answers "yes" otherwise False.
     """
     return yes_or_no(message)
 
@@ -157,8 +157,8 @@ def setup_and_action():
         def note_action_start(self):
             self.status = 'action'
 
-        def note_interrupt(self, e):
-            if isinstance(e, KeyboardInterrupt):
+        def note_interrupt(self, exception):
+            if isinstance(exception, KeyboardInterrupt):
                 PRINT(f"\nInterrupt!")
             else:
                 PRINT(f"\nException!")
@@ -172,7 +172,7 @@ def setup_and_action():
     try:
         try:
             yield state
-        except (KeyboardInterrupt) as e:
+        except KeyboardInterrupt as e:
             state.note_interrupt(e)
     except (Exception,) as e:
         state.note_interrupt(e)

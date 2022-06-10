@@ -44,14 +44,27 @@ class TestMain(unittest.TestCase):
         return argv
 
     @staticmethod
-    def _rummage_for_print_message(mock_print, regular_expression):
+    def _rummage_for_print_message(mock_print, regular_expression, predicate=None):
+        """
+        Searches the given mock for the/a print function for the given regular expression
+        and returns True if it finds one that matches. Or if a predicate function is given
+        then it makes sure that each/every match of the regular expression passes the predicate
+        test, and if so then returns True, otherewise returns False.
+        """
         for call in mock_print.call_args_list:
-            args, kwargs = call
+            args, _ = call
             if len(args) == 1:
                 arg = args[0]
                 if re.search(regular_expression, arg, re.IGNORECASE):
-                    return True
-        return False
+                    if predicate:
+                        if not predicate(arg):
+                            return False
+                    else:
+                        return True
+        if predicate:
+            return True
+        else:
+            return False
 
     @contextmanager
     def _setup_filesystem(self, env_name: str, account_number: str = None):
@@ -166,12 +179,8 @@ class TestMain(unittest.TestCase):
 
             # Check that any secrets printed out look like they"ve been obfuscated.
 
-            for call in mock_cli_print.call_args_list:
-                args, kwargs = call
-                if len(args) == 1:
-                    arg = args[0]
-                    if re.search(".*using.*secret.*:", arg, re.IGNORECASE):
-                        assert arg.endswith("******")
+            assert self._rummage_for_print_message(
+                mock_cli_print, ".*using.*secret.*", lambda arg: arg.endswith("*******"))
 
     def _call_function_and_assert_exit_with_no_action(self, f, interrupt: bool = False):
         with mock.patch("builtins.exit") as mock_exit, \
