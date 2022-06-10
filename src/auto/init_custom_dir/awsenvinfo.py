@@ -40,6 +40,9 @@ class AwsEnvInfo:
     _DEFAULT_AWS_DIR = InfraDirectories.AWS_DIR
 
     def __init__(self, aws_dir: str = None):
+        """
+        :param aws_dir: Alternate base AWS directory; default from InfraDirectories.AWS_DIR.
+        """
         if not aws_dir:
             aws_dir = AwsEnvInfo._DEFAULT_AWS_DIR
 
@@ -65,7 +68,7 @@ class AwsEnvInfo:
         """
         Returns the list of ~/.aws_test.{ENV_NAME} directories which actually exist.
 
-        :return: The list of directories or empty list of none.
+        :return: List of directories or empty list of none.
         """
         dirs = []
         for dirname in glob.glob(self._aws_dir + ".*"):
@@ -77,8 +80,8 @@ class AwsEnvInfo:
         """
         Returns the ENV_NAME from the given ~/.aws_test.{ENV_NAME} path.
 
-        :param path: The path from which to extract the ENV_NAME.
-        :return: The environment name from the path.
+        :param path: Path from which to extract the ENV_NAME.
+        :return: Environment name from the path.
         """
         if path:
             basename = os.path.basename(path)
