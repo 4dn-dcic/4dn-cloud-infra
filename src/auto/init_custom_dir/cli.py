@@ -405,7 +405,7 @@ def write_s3_encrypt_key_file(custom_dir: str, s3_encrypt_key: str) -> None:
 
 def init_custom_dir(args):
 
-    with setup_and_action() as state:
+    with setup_and_action() as setup_and_action_state:
 
         if args.debug:
             PRINT(f"DEBUG: Current directory: {os.getcwd()}")
@@ -432,8 +432,7 @@ def init_custom_dir(args):
             exit_with_no_action()
 
         # Confirmed. Proceed with the actual setup steps.
-
-        state.note_action_start()
+        setup_and_action_state.note_action_start()
 
         # Create the custom directory itself (already checked it does not yet exist).
         PRINT(f"Creating directory: {custom_dir}")
