@@ -36,15 +36,22 @@ class TestMain(unittest.TestCase):
                 "--s3org", self.Inputs.s3_bucket_org,
                 "--auth0client", self.Inputs.auth0_client, "--auth0secret", self.Inputs.auth0_secret,
                 "--recaptchakey", self.Inputs.re_captcha_key, "--recaptchasecret", self.Inputs.re_captcha_secret]
-        if omit_arg:
-            try:
-                arg_index = argv.index(omit_arg)
-                if 0 <= arg_index < len(argv) - 1:
-                    del argv[arg_index + 1]
-                    del argv[arg_index]
-            except (Exception,):
-                pass
+        if omit_arg and omit_arg in argv:
+            arg_index = argv.index(omit_arg)
+            if 0 <= arg_index < len(argv) - 1:
+                del argv[arg_index + 1]
+                del argv[arg_index]
         return argv
+
+    @staticmethod
+    def _rummage_for_print_message(mock_print, regular_expression):
+        for call in mock_print.call_args_list:
+            args, kwargs = call
+            if len(args) == 1:
+                arg = args[0]
+                if re.search(regular_expression, arg, re.IGNORECASE):
+                    return True
+        return False
 
     @contextmanager
     def _setup_filesystem(self, env_name: str, account_number: str = None):
@@ -166,17 +173,18 @@ class TestMain(unittest.TestCase):
                     if re.search(".*using.*secret.*:", arg, re.IGNORECASE):
                         assert arg.endswith("******")
 
-    def _call_function_and_assert_exit_with_no_action(self, f):
+    def _call_function_and_assert_exit_with_no_action(self, f, interrupt: bool = False):
         with mock.patch("builtins.exit") as mock_exit, \
              mock.patch("src.auto.init_custom_dir.utils.PRINT") as mock_utils_print:
             mock_exit.side_effect = Exception()
             with self.assertRaises(Exception):
                 f()
+            if interrupt:
+                assert self._rummage_for_print_message(mock_utils_print, ".*interrupt.*") is True
             assert mock_exit.called is True
             # Check the message from the last print which should be something like: Exiting without doing anything.
             # Kinda lame.
-            last_print_arg = mock_utils_print.call_args.args[0]
-            assert re.search(".*exit.*without.*doing*", last_print_arg, re.IGNORECASE)
+            assert self._rummage_for_print_message(mock_utils_print, ".*exit.*without.*doing*") is True
 
     def test_sanity(self):
         assert len(InfraDirectories.AWS_DIR) > 0
@@ -289,6 +297,17 @@ class TestMain(unittest.TestCase):
 
     def test_main_exit_with_no_action_on_missing_required_input_account(self):
         self._call_main_exit_with_no_action_on_missing_required_input("--account")
+
+    def test_main_with_keyboard_interrupt(self):
+        with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number) \
+                as (aws_dir, env_dir, custom_dir), \
+             mock.patch("src.auto.init_custom_dir.cli.PRINT"), \
+             mock.patch("src.auto.init_custom_dir.utils.PRINT"), \
+             mock.patch("builtins.input") as mock_input:
+            mock_input.side_effect = [KeyboardInterrupt]
+            argv = self._get_standard_main_argv(aws_dir, self.Inputs.env_name, custom_dir)
+            self._call_function_and_assert_exit_with_no_action(lambda: main(argv), interrupt=True)
+            assert not os.path.exists(custom_dir)
 
     def test_what_else_i_think_we_have_most_important_cases_covered(self):
         # Not yet implemented.

@@ -157,21 +157,25 @@ def setup_and_action():
         def note_action_start(self):
             self.status = 'action'
 
-        def note_interrupt(self):
-            PRINT(f"\nInterrupt!")
+        def note_interrupt(self, e):
+            if isinstance(e, KeyboardInterrupt):
+                PRINT(f"\nInterrupt!")
+            else:
+                PRINT(f"\nException!")
             if self.status != 'setup':
                 exit_with_partial_action()
             else:
                 exit_with_no_action()
             exit(1)
+
     state = ActionState()
     try:
         try:
             yield state
-        except KeyboardInterrupt:
-            state.note_interrupt()
-    except (Exception,) as _:
-        state.note_interrupt()
+        except (KeyboardInterrupt) as e:
+            state.note_interrupt(e)
+    except (Exception,) as e:
+        state.note_interrupt(e)
 
 
 def print_directory_tree(directory: str) -> None:
