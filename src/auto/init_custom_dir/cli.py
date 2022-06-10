@@ -412,7 +412,7 @@ def init_custom_dir(args):
             PRINT(f"DEBUG: Current username: {os.environ.get('USER')}")
             PRINT(f"DEBUG: Script directory: {InfraDirectories.THIS_SCRIPT_DIR}")
 
-        # Check/gather all the inputs.
+        # Validate/gather all the inputs.
         env_name, env_dir = validate_env(args.aws_dir, args.env_name, args.yes, args.debug)
         custom_dir = validate_custom_dir(args.custom_dir)
         account_number = validate_account_number(args.account_number, env_dir, args.debug)
