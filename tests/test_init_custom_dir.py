@@ -69,9 +69,9 @@ class TestMain(unittest.TestCase):
 
         with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number)\
                 as (aws_dir, env_dir, custom_dir), \
-             mock.patch('src.auto.init_custom_dir.cli.os.getlogin') as mock_os_getlogin, \
-             mock.patch('src.auto.init_custom_dir.cli.PRINT') as mock_cli_print, \
-             mock.patch('src.auto.init_custom_dir.utils.PRINT'), \
+             mock.patch("src.auto.init_custom_dir.cli.os.getlogin") as mock_os_getlogin, \
+             mock.patch("src.auto.init_custom_dir.cli.PRINT") as mock_cli_print, \
+             mock.patch("src.auto.init_custom_dir.utils.PRINT"), \
              mock.patch("builtins.input") as mock_input:
 
             mock_os_getlogin.return_value = self.Inputs.deploying_iam_user
@@ -148,18 +148,18 @@ class TestMain(unittest.TestCase):
                     assert s3_encrypt_key_file_mode == stat.S_IFREG | stat.S_IRUSR
                     assert 32 <= len(s3_encrypt_key) <= 128
 
-            # Check that any secrets printed out look like they've been obfuscated.
+            # Check that any secrets printed out look like they"ve been obfuscated.
 
             for call in mock_cli_print.call_args_list:
                 args, kwargs = call
                 if len(args) == 1:
                     arg = args[0]
                     if re.search(".*using.*secret.*:", arg, re.IGNORECASE):
-                        assert arg.endswith('******')
+                        assert arg.endswith("******")
 
     def _call_function_and_assert_exit_with_no_action(self, f):
-        with mock.patch('builtins.exit') as mock_exit, \
-             mock.patch('src.auto.init_custom_dir.utils.PRINT') as mock_utils_print:
+        with mock.patch("builtins.exit") as mock_exit, \
+             mock.patch("src.auto.init_custom_dir.utils.PRINT") as mock_utils_print:
             mock_exit.side_effect = Exception()
             with self.assertRaises(Exception):
                 f()
@@ -186,8 +186,8 @@ class TestMain(unittest.TestCase):
 
         with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number) \
                 as (aws_dir, env_dir, custom_dir), \
-             mock.patch('src.auto.init_custom_dir.cli.PRINT'), \
-             mock.patch('src.auto.init_custom_dir.utils.PRINT'):
+             mock.patch("src.auto.init_custom_dir.cli.PRINT"), \
+             mock.patch("src.auto.init_custom_dir.utils.PRINT"):
 
             # This is the directory structure we are simulating;
             # well, actually creating, within a temporary directory.
@@ -231,15 +231,26 @@ class TestMain(unittest.TestCase):
 
         with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number) \
                 as (aws_dir, env_dir, custom_dir), \
-             mock.patch('src.auto.init_custom_dir.cli.PRINT'), \
-             mock.patch('src.auto.init_custom_dir.utils.PRINT'):
+             mock.patch("src.auto.init_custom_dir.cli.PRINT"), \
+             mock.patch("src.auto.init_custom_dir.utils.PRINT"):
 
             # Call the script function with an env-name for which a env-dir does not exist.
 
             argv = self._get_standard_main_args(aws_dir, "env-name-with-no-associated-env-dir", custom_dir)
-
             self._call_function_and_assert_exit_with_no_action(lambda: main(argv))
+            assert not os.path.exists(custom_dir)
 
+    def test_main_when_answering_no_to_confirmation_prompt(self):
+
+        with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number) \
+                as (aws_dir, env_dir, custom_dir), \
+             mock.patch("src.auto.init_custom_dir.cli.PRINT"), \
+             mock.patch("src.auto.init_custom_dir.utils.PRINT"), \
+             mock.patch("builtins.input") as mock_input:
+
+            mock_input.return_value = 'no'
+            argv = self._get_standard_main_args(aws_dir, self.Inputs.env_name, custom_dir)
+            self._call_function_and_assert_exit_with_no_action(lambda: main(argv))
             assert not os.path.exists(custom_dir)
 
     def test_main_prompt_when_missing_required_inputs(self):
