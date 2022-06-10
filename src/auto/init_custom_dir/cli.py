@@ -218,7 +218,7 @@ def validate_account_number(account_number: str, env_dir: str, debug: bool = Fal
     """
     if not account_number:
         if debug:
-            PRINT(f"DEBUG: Trying to get account number from: {InfraFiles.get_test_creds_script_file(env_dir)}")
+            PRINT(f"DEBUG: Trying to read {EnvVars.ACCOUNT_NUMBER} from: {InfraFiles.get_test_creds_script_file(env_dir)}")
         account_number = get_fallback_account_number(env_dir)
         if not account_number:
             account_number = input("Or enter your account number: ").strip()
@@ -414,7 +414,7 @@ def init_custom_dir(args):
     # Check/gather all the inputs.
     env_name, env_dir = validate_env(args.aws_dir, args.env_name, args.yes, args.debug)
     custom_dir = validate_custom_dir(args.custom_dir)
-    account_number = validate_account_number(args.account_number, env_dir)
+    account_number = validate_account_number(args.account_number, env_dir, args.debug)
     deploying_iam_user = validate_deploying_iam_user(args.deploying_iam_user)
     identity = validate_identity(args.identity, env_name)
     s3_bucket_org = validate_s3_bucket_org(args.s3_bucket_org)

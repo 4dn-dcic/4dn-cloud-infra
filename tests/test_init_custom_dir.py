@@ -29,13 +29,19 @@ class TestMain(unittest.TestCase):
         s3_encrypt_key = "8F383EBE093941B5B927279F361C3002"
         dummy_json_content = "{\"dummy\": \"<dummy-content>\" }"
 
-    def _get_standard_main_args(self, aws_dir: str, env_name: str, custom_dir: str) -> list:
-        return ["--awsdir", aws_dir,
+    def _get_standard_main_argv(self, aws_dir: str, env_name: str, custom_dir: str, omit_arg: str = None) -> list:
+        argv = ["--awsdir", aws_dir,
                 "--env", env_name,
                 "--out", custom_dir,
                 "--s3org", self.Inputs.s3_bucket_org,
                 "--auth0client", self.Inputs.auth0_client, "--auth0secret", self.Inputs.auth0_secret,
                 "--recaptchakey", self.Inputs.re_captcha_key, "--recaptchasecret", self.Inputs.re_captcha_secret]
+        if omit_arg:
+            arg_index = argv.index(omit_arg)
+            assert 0 <= arg_index < len(argv) - 1
+            del argv[arg_index + 1]
+            del argv[arg_index]
+        return argv
 
     @contextmanager
     def _setup_filesystem(self, env_name: str, account_number: str = None):
@@ -100,7 +106,7 @@ class TestMain(unittest.TestCase):
             # Call the main script function.
             # Normal case where custom directory does not already exist.
 
-            argv = self._get_standard_main_args(aws_dir, self.Inputs.env_name, custom_dir)
+            argv = self._get_standard_main_argv(aws_dir, self.Inputs.env_name, custom_dir)
             main(argv)
 
             # Verify existence/contents of config.json file (e.g. in /my-repos/4dn-cloud-infra/custom/config.json).
@@ -215,7 +221,7 @@ class TestMain(unittest.TestCase):
 
             # Call the script function.
 
-            argv = self._get_standard_main_args(aws_dir, self.Inputs.env_name, custom_dir)
+            argv = self._get_standard_main_argv(aws_dir, self.Inputs.env_name, custom_dir)
 
             # Test case if the custom directory already exists.
             # Check that we exit without doing anything.
@@ -236,7 +242,7 @@ class TestMain(unittest.TestCase):
 
             # Call the script function with an env-name for which a env-dir does not exist.
 
-            argv = self._get_standard_main_args(aws_dir, "env-name-with-no-associated-env-dir", custom_dir)
+            argv = self._get_standard_main_argv(aws_dir, "env-name-with-no-associated-env-dir", custom_dir)
             self._call_function_and_assert_exit_with_no_action(lambda: main(argv))
             assert not os.path.exists(custom_dir)
 
@@ -249,14 +255,33 @@ class TestMain(unittest.TestCase):
              mock.patch("builtins.input") as mock_input:
 
             mock_input.return_value = 'no'
-            argv = self._get_standard_main_args(aws_dir, self.Inputs.env_name, custom_dir)
+            argv = self._get_standard_main_argv(aws_dir, self.Inputs.env_name, custom_dir)
             self._call_function_and_assert_exit_with_no_action(lambda: main(argv))
             assert not os.path.exists(custom_dir)
 
-    def test_main_prompt_when_missing_required_inputs(self):
-        # Not yet implemented.
-        # In the case of missing required inputs we actually we prompt for them.
+    def _call_main_prompt_with_missing_required_input(self, omit_required_arg: str):
+        # When a required input is missing we prompt for it and if still not specified (empty)
+        # then we exit with no action. Test for this case here.
+        with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number) \
+                as (aws_dir, env_dir, custom_dir), \
+             mock.patch("builtins.input") as mock_input:
+            argv = self._get_standard_main_argv(aws_dir, self.Inputs.env_name, custom_dir, omit_arg=omit_required_arg)
+            mock_input.side_effect = [ "" ] # return value for prompt for required arg
+            self._call_function_and_assert_exit_with_no_action(lambda: main(argv))
+            print(argv)
         pass
+
+    def test_main_prompt_when_missing_required_input(self):
+        self._call_main_prompt_with_missing_required_input("--s3org")
+
+    def test_main_prompt_when_missing_required_input(self):
+        self._call_main_prompt_with_missing_required_input("--auth0client")
+
+    def test_main_prompt_when_missing_required_input(self):
+        self._call_main_prompt_with_missing_required_input("--auth0secret")
+
+    def test_main_prompt_when_missing_required_input(self):
+        self._call_main_prompt_with_missing_required_input("--auth0secret")
 
     def test_main_exit_when_missing_required_inputs(self):
         # Not yet implemented.
