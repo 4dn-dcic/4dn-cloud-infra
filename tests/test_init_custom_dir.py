@@ -37,10 +37,13 @@ class TestMain(unittest.TestCase):
                 "--auth0client", self.Inputs.auth0_client, "--auth0secret", self.Inputs.auth0_secret,
                 "--recaptchakey", self.Inputs.re_captcha_key, "--recaptchasecret", self.Inputs.re_captcha_secret]
         if omit_arg:
-            arg_index = argv.index(omit_arg)
-            assert 0 <= arg_index < len(argv) - 1
-            del argv[arg_index + 1]
-            del argv[arg_index]
+            try:
+                arg_index = argv.index(omit_arg)
+                if 0 <= arg_index < len(argv) - 1:
+                    del argv[arg_index + 1]
+                    del argv[arg_index]
+            except Exception:
+                pass
         return argv
 
     @contextmanager
@@ -262,7 +265,11 @@ class TestMain(unittest.TestCase):
     def _call_main_exit_with_no_action_on_missing_required_input(self, omit_required_arg: str):
         # When a required input is missing we prompt for it and if still not specified (empty)
         # then we exit with no action. Test for this case here.
-        with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number) \
+        account_number = self.Inputs.account_number
+        if omit_required_arg == "--account":
+            # If we are omitting account number then do not create test_creds.sh with ACCOUNT_NUMBER.
+            account_number = None
+        with self._setup_filesystem(self.Inputs.env_name, account_number) \
                 as (aws_dir, env_dir, custom_dir), \
              mock.patch("src.auto.init_custom_dir.cli.PRINT"), \
              mock.patch("src.auto.init_custom_dir.utils.PRINT"), \
@@ -280,6 +287,9 @@ class TestMain(unittest.TestCase):
 
     def test_main_exit_with_no_action_on_missing_required_input_auth0secret(self):
         self._call_main_exit_with_no_action_on_missing_required_input("--auth0secret")
+
+    def test_main_exit_with_no_action_on_missing_required_input_auth0secret(self):
+        self._call_main_exit_with_no_action_on_missing_required_input("--account")
 
     def test_main_exit_when_missing_required_inputs(self):
         # Not yet implemented.
