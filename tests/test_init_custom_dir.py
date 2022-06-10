@@ -48,8 +48,8 @@ class TestMain(unittest.TestCase):
         """
         Searches the given mock for the/a print function for the given regular expression
         and returns True if it finds one that matches. Or if a predicate function is given
-        then it makes sure that each/every match of the regular expression passes the predicate
-        test, and if so then returns True, otherewise returns False.
+        then it makes sure that each/every match of the regular expression passes the
+        predicate test, and if so then returns True, otherwise returns False.
         """
         for call in mock_print.call_args_list:
             args, _ = call
