@@ -14,6 +14,7 @@
 #     - subprocess.check_output (to execute test_cred.sh)
 
 import binascii
+import contextlib
 import io
 import json
 import os
@@ -110,7 +111,8 @@ def confirm_with_user(message: str) -> bool:
 
 def exit_with_no_action(message: str = "", status: int = 1) -> None:
     """
-    Prints the given message (if any) and exits with the given status.
+    Prints the given message (if any), and another message indicating
+    no action was taken. Exits with the given status.
     :param message: Message to print before exit.
     :param status: The exit status code.
     """
@@ -118,6 +120,58 @@ def exit_with_no_action(message: str = "", status: int = 1) -> None:
         PRINT(message)
     PRINT("Exiting without doing anything.")
     exit(status)
+
+
+def exit_with_partial_action(message: str = "", status: int = 1) -> None:
+    """
+    Prints the given message (if any), and another message indicating
+    actions were partially taken. Exits with the given status.
+    :param message: Message to print before exit.
+    :param status: The exit status code.
+    :param message: Message to print before exit.
+    :param status: The exit status code.
+    """
+    if message:
+        PRINT(message)
+    PRINT("WARNING: Exiting mid-action!")
+    exit(status)
+
+
+@contextlib.contextmanager
+def setup_and_action():
+    """
+    Context manager to catch (keyboard) interrupt for code which does (read-only)
+    setup followed by (read-write) actions. Exits in either case, but prints
+    warning if interrupt during the actions. Usage like this:
+
+    with setup_and_action() as state:
+        do_setup_here()
+        state.note_action_start()
+        do_actions_here()
+
+    """
+    class ActionState:
+        def __init__(self):
+            self.status = 'setup'
+
+        def note_action_start(self):
+            self.status = 'action'
+
+        def note_interrupt(self):
+            PRINT(f"\nInterrupt!")
+            if self.status != 'setup':
+                exit_with_partial_action()
+            else:
+                exit_with_no_action()
+            exit(1)
+    state = ActionState()
+    try:
+        try:
+            yield state
+        except KeyboardInterrupt:
+            state.note_interrupt()
+    except (Exception,) as _:
+        state.note_interrupt()
 
 
 def print_directory_tree(directory: str) -> None:

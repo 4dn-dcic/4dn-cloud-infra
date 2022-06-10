@@ -49,7 +49,6 @@
 import argparse
 import io
 import os
-import signal
 import stat
 import sys
 from dcicutils.misc_utils import PRINT
@@ -61,7 +60,8 @@ from .utils import (
     generate_s3_encrypt_key,
     obfuscate,
     print_directory_tree,
-    read_env_variable_from_subshell
+    read_env_variable_from_subshell,
+    setup_and_action
 )
 from .defs import (
     ConfigTemplateVars,
@@ -405,69 +405,69 @@ def write_s3_encrypt_key_file(custom_dir: str, s3_encrypt_key: str) -> None:
 
 def init_custom_dir(args):
 
-    signal.signal(signal.SIGINT, lambda *_: exit_with_no_action("\nCTRL-C"))
+    with setup_and_action() as state:
 
-    if args.debug:
-        PRINT(f"DEBUG: Current directory: {os.getcwd()}")
-        PRINT(f"DEBUG: Current username: {os.environ.get('USER')}")
-        PRINT(f"DEBUG: Script directory: {InfraDirectories.THIS_SCRIPT_DIR}")
+        if args.debug:
+            PRINT(f"DEBUG: Current directory: {os.getcwd()}")
+            PRINT(f"DEBUG: Current username: {os.environ.get('USER')}")
+            PRINT(f"DEBUG: Script directory: {InfraDirectories.THIS_SCRIPT_DIR}")
 
-    # Check/gather all the inputs.
-    env_name, env_dir = validate_env(args.aws_dir, args.env_name, args.yes, args.debug)
-    custom_dir = validate_custom_dir(args.custom_dir)
-    account_number = validate_account_number(args.account_number, env_dir, args.debug)
-    deploying_iam_user = validate_deploying_iam_user(args.deploying_iam_user)
-    identity = validate_identity(args.identity, env_name)
-    s3_bucket_org = validate_s3_bucket_org(args.s3_bucket_org)
-    auth0_client, auth0_secret = validate_auth0(args.auth0_client, args.auth0_secret)
-    re_captcha_key, re_captcha_secret = validate_re_captcha(args.re_captcha_key, args.re_captcha_secret)
+        # Check/gather all the inputs.
+        env_name, env_dir = validate_env(args.aws_dir, args.env_name, args.yes, args.debug)
+        custom_dir = validate_custom_dir(args.custom_dir)
+        account_number = validate_account_number(args.account_number, env_dir, args.debug)
+        deploying_iam_user = validate_deploying_iam_user(args.deploying_iam_user)
+        identity = validate_identity(args.identity, env_name)
+        s3_bucket_org = validate_s3_bucket_org(args.s3_bucket_org)
+        auth0_client, auth0_secret = validate_auth0(args.auth0_client, args.auth0_secret)
+        re_captcha_key, re_captcha_secret = validate_re_captcha(args.re_captcha_key, args.re_captcha_secret)
 
-    # Generate S3 encryption key.
-    # Though we will NOT overwrite s3_encrypt_key.txt if it already exists, below.
-    s3_encrypt_key = generate_s3_encrypt_key()
-    PRINT(f"Generating S3 encryption key: {obfuscate(s3_encrypt_key)}")
+        # Generate S3 encryption key.
+        # Though we will NOT overwrite s3_encrypt_key.txt if it already exists, below.
+        s3_encrypt_key = generate_s3_encrypt_key()
+        PRINT(f"Generating S3 encryption key: {obfuscate(s3_encrypt_key)}")
 
-    # Confirm with the user that everything looks okay.
-    if not args.yes and not confirm_with_user("Confirm the above. Continue with setup?"):
-        exit_with_no_action()
+        # Confirm with the user that everything looks okay.
+        if not args.yes and not confirm_with_user("Confirm the above. Continue with setup?"):
+            exit_with_no_action()
 
-    # Confirmed. Proceed with the actual setup steps.
+        # Confirmed. Proceed with the actual setup steps.
 
-    signal.signal(signal.SIGINT, lambda *_: print("\nCTRL-C while doing setup!") or exit(1))
+        state.note_action_start()
 
-    # Create the custom directory itself (already checked it does not yet exist).
-    PRINT(f"Creating directory: {custom_dir}")
-    os.makedirs(custom_dir)
+        # Create the custom directory itself (already checked it does not yet exist).
+        PRINT(f"Creating directory: {custom_dir}")
+        os.makedirs(custom_dir)
 
-    # Create the config.json file from the template and the inputs.
-    write_config_json_file(custom_dir, {
-        ConfigTemplateVars.ACCOUNT_NUMBER: account_number,
-        ConfigTemplateVars.DEPLOYING_IAM_USER: deploying_iam_user,
-        ConfigTemplateVars.IDENTITY: identity,
-        ConfigTemplateVars.S3_BUCKET_ORG: s3_bucket_org,
-        ConfigTemplateVars.ENCODED_ENV_NAME: env_name
-    })
+        # Create the config.json file from the template and the inputs.
+        write_config_json_file(custom_dir, {
+            ConfigTemplateVars.ACCOUNT_NUMBER: account_number,
+            ConfigTemplateVars.DEPLOYING_IAM_USER: deploying_iam_user,
+            ConfigTemplateVars.IDENTITY: identity,
+            ConfigTemplateVars.S3_BUCKET_ORG: s3_bucket_org,
+            ConfigTemplateVars.ENCODED_ENV_NAME: env_name
+        })
 
-    # Create the secrets.json file from the template and the inputs.
-    write_secrets_json_file(custom_dir, {
-        SecretsTemplateVars.AUTH0_CLIENT: auth0_client,
-        SecretsTemplateVars.AUTH0_SECRET: auth0_secret,
-        SecretsTemplateVars.RE_CAPTCHA_KEY: re_captcha_key,
-        SecretsTemplateVars.RE_CAPTCHA_SECRET: re_captcha_secret
-    })
+        # Create the secrets.json file from the template and the inputs.
+        write_secrets_json_file(custom_dir, {
+            SecretsTemplateVars.AUTH0_CLIENT: auth0_client,
+            SecretsTemplateVars.AUTH0_SECRET: auth0_secret,
+            SecretsTemplateVars.RE_CAPTCHA_KEY: re_captcha_key,
+            SecretsTemplateVars.RE_CAPTCHA_SECRET: re_captcha_secret
+        })
 
-    # Create the symlink from custom/aws_creds to ~/.aws_test.{ENV_NAME}.
-    custom_aws_creds_dir = InfraDirectories.get_custom_aws_creds_dir(custom_dir)
-    PRINT(f"Creating symlink: {custom_aws_creds_dir}@ -> {env_dir} ")
-    os.symlink(env_dir, custom_aws_creds_dir)
+        # Create the symlink from custom/aws_creds to ~/.aws_test.{ENV_NAME}.
+        custom_aws_creds_dir = InfraDirectories.get_custom_aws_creds_dir(custom_dir)
+        PRINT(f"Creating symlink: {custom_aws_creds_dir}@ -> {env_dir} ")
+        os.symlink(env_dir, custom_aws_creds_dir)
 
-    # Create the S3 encrypt key file (with mode 400).
-    # We will NOT overwrite this if it already exists.
-    write_s3_encrypt_key_file(custom_dir, s3_encrypt_key)
+        # Create the S3 encrypt key file (with mode 400).
+        # We will NOT overwrite this if it already exists.
+        write_s3_encrypt_key_file(custom_dir, s3_encrypt_key)
 
-    # Done. Summarize.
-    PRINT("Here is your new local custom config directory:")
-    print_directory_tree(custom_dir)
+        # Done. Summarize.
+        PRINT("Here is your new local custom config directory:")
+        print_directory_tree(custom_dir)
 
 
 def main(argv: list = None):
@@ -475,6 +475,7 @@ def main(argv: list = None):
     The main function and args parser for this CLI script.
     Calls into init_custom_dir to do the real work.
     """
+
     argp = argparse.ArgumentParser()
     argp.add_argument("--env", dest="env_name", type=str, required=True,
                       help=f"The name of your AWS environment,"
@@ -503,7 +504,9 @@ def main(argv: list = None):
                       help="Turn on debugging for this script")
     argp.add_argument("--yes", dest="yes", action="store_true", required=False,
                       help="Answer yes for confirmation prompts for this script")
-    init_custom_dir(argp.parse_args(argv))
+    args = argp.parse_args(argv)
+
+    init_custom_dir(args)
 
 
 if __name__ == "__main__":

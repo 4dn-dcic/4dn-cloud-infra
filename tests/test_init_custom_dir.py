@@ -173,7 +173,6 @@ class TestMain(unittest.TestCase):
             with self.assertRaises(Exception):
                 f()
             assert mock_exit.called is True
-            assert mock_exit.call_count == 1
             # Check the message from the last print which should be something like: Exiting without doing anything.
             # Kinda lame.
             last_print_arg = mock_utils_print.call_args.args[0]
