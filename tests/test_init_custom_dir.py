@@ -291,8 +291,6 @@ class TestMain(unittest.TestCase):
     def test_main_exit_with_no_action_on_missing_required_input_auth0secret(self):
         self._call_main_exit_with_no_action_on_missing_required_input("--account")
 
-    def test_main_exit_when_missing_required_inputs(self):
+    def test_what_else_i_think_we_have_most_important_cases_covered(self):
         # Not yet implemented.
-        # In the case of missing required inputs,
-        # even after prompting, if not given then exit with no action.
         pass
