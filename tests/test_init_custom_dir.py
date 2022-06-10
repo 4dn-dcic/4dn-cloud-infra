@@ -278,7 +278,7 @@ class TestMain(unittest.TestCase):
             self._call_function_and_assert_exit_with_no_action(lambda: main(argv))
             assert not os.path.exists(custom_dir)
 
-    def _call_main_exit_with_no_action_on_missing_required_input(self, omit_required_arg: str):
+    def _test_main_exit_with_no_action_on_missing_required_input(self, omit_required_arg: str):
         # When a required input is missing we prompt for it and if still not specified (empty)
         # then we exit with no action. Test for this case here.
         account_number = self.Inputs.account_number
@@ -296,16 +296,16 @@ class TestMain(unittest.TestCase):
         pass
 
     def test_main_exit_with_no_action_on_missing_required_input_s3org(self):
-        self._call_main_exit_with_no_action_on_missing_required_input("--s3org")
+        self._test_main_exit_with_no_action_on_missing_required_input("--s3org")
 
     def test_main_exit_with_no_action_on_missing_required_input_auth0client(self):
-        self._call_main_exit_with_no_action_on_missing_required_input("--auth0client")
+        self._test_main_exit_with_no_action_on_missing_required_input("--auth0client")
 
     def test_main_exit_with_no_action_on_missing_required_input_auth0secret(self):
-        self._call_main_exit_with_no_action_on_missing_required_input("--auth0secret")
+        self._test_main_exit_with_no_action_on_missing_required_input("--auth0secret")
 
     def test_main_exit_with_no_action_on_missing_required_input_account(self):
-        self._call_main_exit_with_no_action_on_missing_required_input("--account")
+        self._test_main_exit_with_no_action_on_missing_required_input("--account")
 
     def test_main_with_keyboard_interrupt(self):
         with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number) \
