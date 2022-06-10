@@ -73,7 +73,7 @@ class TestMain(unittest.TestCase):
 
     def _call_main(self, pre_existing_s3_encrypt_key_file: bool = True):
 
-        with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number)\
+        with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number) \
                 as (aws_dir, env_dir, custom_dir), \
              mock.patch("src.auto.init_custom_dir.cli.os.getlogin") as mock_os_getlogin, \
              mock.patch("src.auto.init_custom_dir.cli.PRINT") as mock_cli_print, \
@@ -259,29 +259,27 @@ class TestMain(unittest.TestCase):
             self._call_function_and_assert_exit_with_no_action(lambda: main(argv))
             assert not os.path.exists(custom_dir)
 
-    def _call_main_prompt_with_missing_required_input(self, omit_required_arg: str):
+    def _call_main_exit_with_no_action_on_missing_required_input(self, omit_required_arg: str):
         # When a required input is missing we prompt for it and if still not specified (empty)
         # then we exit with no action. Test for this case here.
         with self._setup_filesystem(self.Inputs.env_name, self.Inputs.account_number) \
                 as (aws_dir, env_dir, custom_dir), \
+             mock.patch("src.auto.init_custom_dir.cli.PRINT"), \
+             mock.patch("src.auto.init_custom_dir.utils.PRINT"), \
              mock.patch("builtins.input") as mock_input:
             argv = self._get_standard_main_argv(aws_dir, self.Inputs.env_name, custom_dir, omit_arg=omit_required_arg)
             mock_input.side_effect = [ "" ] # return value for prompt for required arg
             self._call_function_and_assert_exit_with_no_action(lambda: main(argv))
-            print(argv)
         pass
 
-    def test_main_prompt_when_missing_required_input(self):
-        self._call_main_prompt_with_missing_required_input("--s3org")
+    def test_main_exit_with_no_action_on_missing_required_input_s3org(self):
+        self._call_main_exit_with_no_action_on_missing_required_input("--s3org")
 
-    def test_main_prompt_when_missing_required_input(self):
-        self._call_main_prompt_with_missing_required_input("--auth0client")
+    def test_main_exit_with_no_action_on_missing_required_input_auth0client(self):
+        self._call_main_exit_with_no_action_on_missing_required_input("--auth0client")
 
-    def test_main_prompt_when_missing_required_input(self):
-        self._call_main_prompt_with_missing_required_input("--auth0secret")
-
-    def test_main_prompt_when_missing_required_input(self):
-        self._call_main_prompt_with_missing_required_input("--auth0secret")
+    def test_main_exit_with_no_action_on_missing_required_input_auth0secret(self):
+        self._call_main_exit_with_no_action_on_missing_required_input("--auth0secret")
 
     def test_main_exit_when_missing_required_inputs(self):
         # Not yet implemented.
