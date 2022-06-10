@@ -242,7 +242,13 @@ class TestMain(unittest.TestCase):
 
             assert not os.path.exists(custom_dir)
 
-    def test_main_with_missing_required_inputs(self):
+    def test_main_prompt_when_missing_required_inputs(self):
         # Not yet implemented.
         # In the case of missing required inputs we actually we prompt for them.
+        pass
+
+    def test_main_exit_when_missing_required_inputs(self):
+        # Not yet implemented.
+        # In the case of missing required inputs,
+        # even after prompting, if not given then exit with no action.
         pass
