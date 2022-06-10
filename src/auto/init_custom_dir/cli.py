@@ -218,7 +218,8 @@ def validate_account_number(account_number: str, env_dir: str, debug: bool = Fal
     """
     if not account_number:
         if debug:
-            PRINT(f"DEBUG: Trying to read {EnvVars.ACCOUNT_NUMBER} from: {InfraFiles.get_test_creds_script_file(env_dir)}")
+            PRINT(f"DEBUG: Trying to read {EnvVars.ACCOUNT_NUMBER} from:"
+                  f"{InfraFiles.get_test_creds_script_file(env_dir)}")
         account_number = get_fallback_account_number(env_dir)
         if not account_number:
             account_number = input("Or enter your account number: ").strip()

@@ -42,7 +42,7 @@ class TestMain(unittest.TestCase):
                 if 0 <= arg_index < len(argv) - 1:
                     del argv[arg_index + 1]
                     del argv[arg_index]
-            except Exception:
+            except (Exception,):
                 pass
         return argv
 
@@ -275,7 +275,7 @@ class TestMain(unittest.TestCase):
              mock.patch("src.auto.init_custom_dir.utils.PRINT"), \
              mock.patch("builtins.input") as mock_input:
             argv = self._get_standard_main_argv(aws_dir, self.Inputs.env_name, custom_dir, omit_arg=omit_required_arg)
-            mock_input.side_effect = [ "" ] # return value for prompt for required arg
+            mock_input.side_effect = [""]  # return value for prompt for required arg
             self._call_function_and_assert_exit_with_no_action(lambda: main(argv))
         pass
 
@@ -288,7 +288,7 @@ class TestMain(unittest.TestCase):
     def test_main_exit_with_no_action_on_missing_required_input_auth0secret(self):
         self._call_main_exit_with_no_action_on_missing_required_input("--auth0secret")
 
-    def test_main_exit_with_no_action_on_missing_required_input_auth0secret(self):
+    def test_main_exit_with_no_action_on_missing_required_input_account(self):
         self._call_main_exit_with_no_action_on_missing_required_input("--account")
 
     def test_what_else_i_think_we_have_most_important_cases_covered(self):
