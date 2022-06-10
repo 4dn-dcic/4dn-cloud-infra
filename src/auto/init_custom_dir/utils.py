@@ -81,7 +81,7 @@ def read_env_variable_from_subshell(shell_script_file: str, env_variable_name: s
     try:
         if not os.path.isfile(shell_script_file):
             return None
-        command = f"source {shell_script_file} ; echo ${env_variable_name}"
+        command = f"unset {env_variable_name} ; source {shell_script_file} ; echo ${env_variable_name}"
         command_output = str(subprocess.check_output(
             command, shell=True, stderr=subprocess.STDOUT).decode("utf-8")).strip()
         return command_output
