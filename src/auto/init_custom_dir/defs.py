@@ -17,6 +17,11 @@ class InfraDirectories:
     THIS_SCRIPT_DIR = os.path.dirname(__file__)
 
     @staticmethod
+    def get_custom_dir(custom_dir: str) -> str:
+        # Note this returns the given directory relative to the CURRENT directory.
+        return os.path.abspath(os.path.expanduser(custom_dir))
+
+    @staticmethod
     def get_custom_aws_creds_dir(custom_dir: str) -> str:
         return os.path.abspath(os.path.join(custom_dir, InfraDirectories.CUSTOM_AWS_CREDS_DIR))
 

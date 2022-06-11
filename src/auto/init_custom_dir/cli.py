@@ -195,7 +195,7 @@ def validate_custom_dir(custom_dir: str) -> str:
     if not custom_dir:
         exit_with_no_action("You must specify a custom output directory using the --out option.")
 
-    custom_dir = os.path.abspath(os.path.expanduser(custom_dir))
+    custom_dir = InfraDirectories.get_custom_dir(custom_dir)
     if os.path.exists(custom_dir):
         exit_with_no_action(
             f"A custom {'directory' if os.path.isdir(custom_dir) else 'file'} already exists: {custom_dir}")

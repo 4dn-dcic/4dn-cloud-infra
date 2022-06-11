@@ -166,7 +166,7 @@ def setup_and_action():
             if isinstance(exception, KeyboardInterrupt):
                 PRINT(f"\nInterrupt!")
             else:
-                PRINT(f"\nException!")
+                PRINT(f"\nException! " + str(e))
             if self.status != 'setup':
                 exit_with_partial_action()
             else:
