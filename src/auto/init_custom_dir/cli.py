@@ -79,8 +79,8 @@ def get_fallback_account_number(env_dir: str) -> str:
     file for the chosen environment (in a sub-shell) and grabbing the value
     of the ACCOUNT_NUMBER environment value which is likely to be set there.
 
-    :param env_dir: The AWS envronment directory path.
-    :return: The account number from test_creds.sh if found otherwise None.
+    :param env_dir: AWS envronment directory path.
+    :return: Account number from test_creds.sh if found otherwise None.
     """
     test_creds_script_file = InfraFiles.get_test_creds_script_file(env_dir)
     return read_env_variable_from_subshell(test_creds_script_file, EnvVars.ACCOUNT_NUMBER)
@@ -102,7 +102,7 @@ def get_fallback_identity(env_name: str) -> str:
     Had to do some refactoring to get this working (see names.py).
 
     :param env_name: AWS environment name (e.g. cgap-supertest).
-    :return: The identity as gotten from the main 4dn-cloud-infra code.
+    :return: Identity (global application configuration name) as gotten from the main 4dn-cloud-infra code.
     """
     try:
         identity_value = Names.application_configuration_secret(env_name)

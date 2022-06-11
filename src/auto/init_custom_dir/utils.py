@@ -80,11 +80,12 @@ def read_env_variable_from_subshell(shell_script_file: str, env_variable_name: s
 
     :param shell_script_file: Shell script file to execute.
     :param env_variable_name: Environment variable name to read.
-    :return: value of given environment variable name from the executed given shell script or None.
+    :return: Value of given environment variable name from the executed given shell script or None.
     """
     try:
         if not os.path.isfile(shell_script_file):
             return None
+        # If we don't do unset first it inherits from any current environment variable of the name.
         command = f"unset {env_variable_name} ; source {shell_script_file} ; echo ${env_variable_name}"
         command_output = str(subprocess.check_output(
             command, shell=True, stderr=subprocess.STDOUT).decode("utf-8")).strip()
