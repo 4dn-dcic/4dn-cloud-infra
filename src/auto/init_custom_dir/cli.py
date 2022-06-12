@@ -51,10 +51,10 @@ import io
 import os
 import stat
 import sys
+from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
 from .awsenvinfo import AwsEnvInfo
 from .utils import (
-    confirm_with_user,
     exit_with_no_action,
     expand_json_template_file,
     generate_s3_encrypt_key,
@@ -163,7 +163,7 @@ def validate_env(aws_dir: str, env_name: str, confirm: bool = True, debug: bool 
             env_name = envinfo.current_env
             PRINT(f"No environment specified. Use the --env option to specify this.")
             PRINT(f"Though it looks like your current environment is: {envinfo.current_env}")
-            if not confirm_with_user(f"Do you want to use this ({envinfo.current_env})?"):
+            if not yes_or_no(f"Do you want to use this ({envinfo.current_env})?"):
                 print_available_envs()
                 exit_with_no_action()
 
@@ -435,7 +435,7 @@ def init_custom_dir(aws_dir, env_name, custom_dir, account_number,
         PRINT(f"Generating S3 encryption key: {obfuscate(s3_encrypt_key)}")
 
         # Confirm with the user that everything looks okay.
-        if confirm and not confirm_with_user("Confirm the above. Continue with setup?"):
+        if confirm and not yes_or_no("Confirm the above. Continue with setup?"):
             exit_with_no_action()
 
         # Confirmed. Proceed with the actual setup steps.

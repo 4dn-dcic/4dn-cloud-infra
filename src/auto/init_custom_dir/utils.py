@@ -22,7 +22,6 @@ import pbkdf2
 import secrets
 import subprocess
 from typing import Optional
-from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import json_leaf_subst as expand_json_template
 from dcicutils.misc_utils import PRINT
 from .defs import InfraFiles
@@ -102,17 +101,6 @@ def obfuscate(value: str) -> str:
     :return: Obfuscated value or empty string if not a string or empty.
     """
     return value[0] + "********" if isinstance(value, str) else ""
-
-
-def confirm_with_user(message: str) -> bool:
-    """
-    Prompts the user with the given message and asks for yes or no.
-    Returns True if "yes" (exactly, trimmed, case-insensitive) otherwise False.
-
-    :param message: Message to print for the user prompt.
-    :return: True if the user answers "yes" otherwise False.
-    """
-    return yes_or_no(message)
 
 
 def exit_with_no_action(*messages, status: int = 1) -> None:
