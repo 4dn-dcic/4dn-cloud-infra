@@ -115,27 +115,26 @@ def confirm_with_user(message: str) -> bool:
     return yes_or_no(message)
 
 
-def exit_with_no_action(*messages: tuple, status: int = 1) -> None:
+def exit_with_no_action(*messages, status: int = 1) -> None:
     """
     Prints the given message (if any), and another message indicating
     no action was taken. Exits with the given status.
 
-    :param message: Message to print before exit.
+    :param messages: Zero or more messages to print before exit.
     :param status: Exit status code.
     """
-    #if message:
     for message in messages:
         PRINT(message)
     PRINT("Exiting without doing anything.")
     exit(status)
 
 
-def exit_with_partial_action(*messages: tuple, status: int = 1) -> None:
+def exit_with_partial_action(*messages, status: int = 1) -> None:
     """
     Prints the given message (if any), and another message indicating
     actions were partially taken. Exits with the given status.
 
-    :param message: Message to print before exit.
+    :param messages: Zero or more messages to print before exit.
     :param status: Exit status code.
     """
     for message in messages:

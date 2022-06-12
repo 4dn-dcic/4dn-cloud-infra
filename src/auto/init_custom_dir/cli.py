@@ -321,21 +321,21 @@ def validate_auth0(auth0_client: str, auth0_secret: str) -> (str, str):
     return auth0_client, auth0_secret
 
 
-def validate_re_captcha(re_captcha_key: str, re_captcha_secret: str) -> (str, str):
+def validate_recaptcha(recaptcha_key: str, recaptcha_secret: str) -> (str, str):
     """
     Validates the given reCAPTCHA key/secret and returns them if/when set.
     Does not prompt for this value if not set as not required.
     So this really just prints these values if given.
 
-    :param re_captcha_key: reCAPTCHA key value.
-    :param re_captcha_secret: reCAPTCHA secret value.
+    :param recaptcha_key: reCAPTCHA key value.
+    :param recaptcha_secret: reCAPTCHA secret value.
     :return: Tuple with reCAPTCHA key and secret values.
     """
-    if re_captcha_key:
-        PRINT(f"Using CAPTCHA key: {re_captcha_key}")
-    if re_captcha_secret:
-        PRINT(f"Using reCAPTCHA secret: {obfuscate(re_captcha_secret)}")
-    return re_captcha_key, re_captcha_secret
+    if recaptcha_key:
+        PRINT(f"Using CAPTCHA key: {recaptcha_key}")
+    if recaptcha_secret:
+        PRINT(f"Using reCAPTCHA secret: {obfuscate(recaptcha_secret)}")
+    return recaptcha_key, recaptcha_secret
 
 
 def write_json_file(output_file: str, template_file: str, substitutions: dict, debug: bool = False) -> None:
@@ -408,24 +408,26 @@ def write_s3_encrypt_key_file(custom_dir: str, s3_encrypt_key: str) -> None:
         os.chmod(s3_encrypt_key_file, stat.S_IRUSR)
 
 
-def init_custom_dir(args):
+def init_custom_dir(aws_dir, env_name, custom_dir, account_number,
+                    deploying_iam_user, identity, s3_bucket_org, auth0_client, auth0_secret,
+                    recaptcha_key, recaptcha_secret, confirm, debug):
 
     with setup_and_action() as setup_and_action_state:
 
-        if args.debug:
+        if debug:
             PRINT(f"DEBUG: Current directory: {os.getcwd()}")
             PRINT(f"DEBUG: Current username: {os.environ.get('USER')}")
             PRINT(f"DEBUG: Script directory: {InfraDirectories.THIS_SCRIPT_DIR}")
 
         # Validate/gather all the inputs.
-        env_name, env_dir = validate_env(args.aws_dir, args.env_name, args.confirm, args.debug)
-        custom_dir = validate_custom_dir(args.custom_dir)
-        account_number = validate_account_number(args.account_number, env_dir, args.debug)
-        deploying_iam_user = validate_deploying_iam_user(args.deploying_iam_user)
-        identity = validate_identity(args.identity, env_name)
-        s3_bucket_org = validate_s3_bucket_org(args.s3_bucket_org)
-        auth0_client, auth0_secret = validate_auth0(args.auth0_client, args.auth0_secret)
-        re_captcha_key, re_captcha_secret = validate_re_captcha(args.re_captcha_key, args.re_captcha_secret)
+        env_name, env_dir = validate_env(aws_dir, env_name, confirm, debug)
+        custom_dir = validate_custom_dir(custom_dir)
+        account_number = validate_account_number(account_number, env_dir, debug)
+        deploying_iam_user = validate_deploying_iam_user(deploying_iam_user)
+        identity = validate_identity(identity, env_name)
+        s3_bucket_org = validate_s3_bucket_org(s3_bucket_org)
+        auth0_client, auth0_secret = validate_auth0(auth0_client, auth0_secret)
+        recaptcha_key, recaptcha_secret = validate_recaptcha(recaptcha_key, recaptcha_secret)
 
         # Generate S3 encryption key.
         # Though we will NOT overwrite s3_encrypt_key.txt if it already exists, below.
@@ -433,7 +435,7 @@ def init_custom_dir(args):
         PRINT(f"Generating S3 encryption key: {obfuscate(s3_encrypt_key)}")
 
         # Confirm with the user that everything looks okay.
-        if args.confirm and not confirm_with_user("Confirm the above. Continue with setup?"):
+        if confirm and not confirm_with_user("Confirm the above. Continue with setup?"):
             exit_with_no_action()
 
         # Confirmed. Proceed with the actual setup steps.
@@ -456,8 +458,8 @@ def init_custom_dir(args):
         write_secrets_json_file(custom_dir, {
             SecretsTemplateVars.AUTH0_CLIENT: auth0_client,
             SecretsTemplateVars.AUTH0_SECRET: auth0_secret,
-            SecretsTemplateVars.RE_CAPTCHA_KEY: re_captcha_key,
-            SecretsTemplateVars.RE_CAPTCHA_SECRET: re_captcha_secret
+            SecretsTemplateVars.RECAPTCHA_KEY: recaptcha_key,
+            SecretsTemplateVars.RECAPTCHA_SECRET: recaptcha_secret
         })
 
         # Create the symlink from custom/aws_creds to ~/.aws_test.<env-name>
@@ -500,9 +502,9 @@ def main(argv: list = None):
                       help="Behave as if all confirmation questions were answered yes.")
     argp.add_argument("--out", "-o", dest="custom_dir", type=str, required=False, default=InfraDirectories.CUSTOM_DIR,
                       help=f"Alternate directory to default: {InfraDirectories.CUSTOM_DIR}")
-    argp.add_argument("--recaptchakey", "-rk", dest="re_captcha_key", type=str, required=False,
+    argp.add_argument("--recaptchakey", "-rk", dest="recaptcha_key", type=str, required=False,
                       help="Your reCAPTCHA key")
-    argp.add_argument("--recaptchasecret", "-rs", dest="re_captcha_secret", type=str, required=False,
+    argp.add_argument("--recaptchasecret", "-rs", dest="recaptcha_secret", type=str, required=False,
                       help="Your reCAPTCHA secret")
     argp.add_argument("--s3org", "-n", dest="s3_bucket_org", type=str, required=False,
                       help="Your S3 bucket organization name")
@@ -510,7 +512,9 @@ def main(argv: list = None):
                       help="Your deploying IAM username")
     args = argp.parse_args(argv)
 
-    init_custom_dir(args)
+    init_custom_dir(args.aws_dir, args.env_name, args.custom_dir, args.account_number,
+                    args.deploying_iam_user, args.identity, args.s3_bucket_org, args.auth0_client, args.auth0_secret,
+                    args.recaptcha_key, args.recaptcha_secret, args.confirm, args.debug)
 
 
 if __name__ == "__main__":

@@ -72,8 +72,8 @@ class ConfigTemplateVars:
 class SecretsTemplateVars:
     AUTH0_CLIENT = "<auth0-client>"
     AUTH0_SECRET = "<auth0-secret>"
-    RE_CAPTCHA_KEY = "<re-captcha-key>"
-    RE_CAPTCHA_SECRET = "<re-captcha-secret>"
+    RECAPTCHA_KEY = "<recaptcha-key>"
+    RECAPTCHA_SECRET = "<recaptcha-secret>"
 
 
 class EnvVars:

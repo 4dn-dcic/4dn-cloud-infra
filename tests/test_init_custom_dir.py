@@ -20,8 +20,8 @@ class Inputs:
     s3_bucket_org = "prufrock"
     auth0_client = "0A39E193F7B74218A3F176872197D895"
     auth0_secret = "126EBFCAC9C74CD5B2CBAD7B3DCB3314"
-    re_captcha_key = "5449963A45A4E9DAEDA36062405DDBE"
-    re_captcha_secret = "08DEBE6BE73D49549B18CE9641D80DC5"
+    recaptcha_key = "5449963A45A4E9DAEDA36062405DDBE"
+    recaptcha_secret = "08DEBE6BE73D49549B18CE9641D80DC5"
     deploying_iam_user = "someuser"
     s3_encrypt_key = "8F383EBE093941B5B927279F361C3002"
     dummy_json_content = "{\"dummy\": \"<dummy-content>\" }"
@@ -33,7 +33,7 @@ def _get_standard_main_argv(aws_dir: str, env_name: str, custom_dir: str, omit_a
             "--out", custom_dir,
             "--s3org", Inputs.s3_bucket_org,
             "--auth0client", Inputs.auth0_client, "--auth0secret", Inputs.auth0_secret,
-            "--recaptchakey", Inputs.re_captcha_key, "--recaptchasecret", Inputs.re_captcha_secret]
+            "--recaptchakey", Inputs.recaptcha_key, "--recaptchasecret", Inputs.recaptcha_secret]
     if omit_arg and omit_arg in argv:
         arg_index = argv.index(omit_arg)
         if 0 <= arg_index < len(argv) - 1:
@@ -150,8 +150,8 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True):
             secrets_json = json.load(secrets_json_fp)
             assert secrets_json["Auth0Client"] == Inputs.auth0_client
             assert secrets_json["Auth0Secret"] == Inputs.auth0_secret
-            assert secrets_json["reCaptchaKey"] == Inputs.re_captcha_key
-            assert secrets_json["reCaptchaSecret"] == Inputs.re_captcha_secret
+            assert secrets_json["reCaptchaKey"] == Inputs.recaptcha_key
+            assert secrets_json["reCaptchaSecret"] == Inputs.recaptcha_secret
 
         # Verify that we have custom/aws_creds directory (e.g. in /my-repos/4dn-cloud-infra/custom/config.json).
         # And that it is actually a symlink to the AWS environment directory (e.g. to /my-home/.aws_test.my-test).
