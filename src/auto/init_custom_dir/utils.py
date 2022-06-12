@@ -38,12 +38,12 @@ def expand_json_template_file(template_file: str, output_file: str, template_sub
     :param output_file: Output file path name.
     :param template_substitutions: Dictionary of substitution keys/values.
     """
-    with io.open(template_file, "r") as template_f:
-        template_file_json = json.load(template_f)
+    with io.open(template_file, "r") as template_fp:
+        template_file_json = json.load(template_fp)
     expanded_template_json = expand_json_template(template_file_json, template_substitutions)
-    with io.open(output_file, "w") as output_f:
-        json.dump(expanded_template_json, output_f, indent=2)
-        output_f.write("\n")
+    with io.open(output_file, "w") as output_fp:
+        json.dump(expanded_template_json, output_fp, indent=2)
+        output_fp.write("\n")
 
 
 def generate_s3_encrypt_key() -> str:
@@ -60,10 +60,10 @@ def generate_s3_encrypt_key() -> str:
         password = ""
         if os.path.isfile(InfraFiles.SYSTEM_WORDS_DICTIONARY_FILE):
             try:
-                with open(InfraFiles.SYSTEM_WORDS_DICTIONARY_FILE) as system_words_f:
-                    words = [word.strip() for word in system_words_f]
+                with open(InfraFiles.SYSTEM_WORDS_DICTIONARY_FILE) as system_words_fp:
+                    words = [word.strip() for word in system_words_fp]
                     password = "".join(secrets.choice(words) for _ in range(4))
-            except (Exception,) as _:
+            except Exception:
                 pass
         # As fallback for the words thing, and in any case, tack on a random token.
         return password + secrets.token_hex(16)
@@ -90,7 +90,7 @@ def read_env_variable_from_subshell(shell_script_file: str, env_variable_name: s
         command_output = str(subprocess.check_output(
             command, shell=True, stderr=subprocess.STDOUT).decode("utf-8")).strip()
         return command_output
-    except (Exception,) as _:
+    except Exception:
         return None
 
 
@@ -115,7 +115,7 @@ def confirm_with_user(message: str) -> bool:
     return yes_or_no(message)
 
 
-def exit_with_no_action(message: str = "", status: int = 1) -> None:
+def exit_with_no_action(*messages: tuple, status: int = 1) -> None:
     """
     Prints the given message (if any), and another message indicating
     no action was taken. Exits with the given status.
@@ -123,13 +123,14 @@ def exit_with_no_action(message: str = "", status: int = 1) -> None:
     :param message: Message to print before exit.
     :param status: Exit status code.
     """
-    if message:
+    #if message:
+    for message in messages:
         PRINT(message)
     PRINT("Exiting without doing anything.")
     exit(status)
 
 
-def exit_with_partial_action(message: str = "", status: int = 1) -> None:
+def exit_with_partial_action(*messages: tuple, status: int = 1) -> None:
     """
     Prints the given message (if any), and another message indicating
     actions were partially taken. Exits with the given status.
@@ -137,7 +138,7 @@ def exit_with_partial_action(message: str = "", status: int = 1) -> None:
     :param message: Message to print before exit.
     :param status: Exit status code.
     """
-    if message:
+    for message in messages:
         PRINT(message)
     PRINT("WARNING: Exiting mid-action!")
     exit(status)
@@ -165,13 +166,13 @@ def setup_and_action():
 
         def note_interrupt(self, exception) -> None:
             if isinstance(exception, KeyboardInterrupt):
-                PRINT(f"\nInterrupt!")
+                message = "Interrupt!"
             else:
-                PRINT(f"\nException! " + str(e))
+                message = "Exception! " + str(e)
             if self.status != 'setup':
-                exit_with_partial_action()
+                exit_with_partial_action("\n", message)
             else:
-                exit_with_no_action()
+                exit_with_no_action("\n", message)
             exit(1)
 
     state = SetupActionState()
@@ -180,7 +181,7 @@ def setup_and_action():
             yield state
         except KeyboardInterrupt as e:
             state.note_interrupt(e)
-    except (Exception,) as e:
+    except Exception as e:
         state.note_interrupt(e)
 
 

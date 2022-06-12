@@ -21,15 +21,15 @@ class AwsEnvInfo:
     Class to gather/dispense info about the ~/.aws_test directories
     ala use_test_creds, i.e. what AWS credentials enviroment is currently
     active (based on what ~/.aws_test is symlinked to), and the list
-    of available environments (based on what ~/.aws_test.{ENV_NAME}
+    of available environments (based on what ~/.aws_test.<env-name>
     directories actually exist).
 
-    Looks for set of directories of the form ~/.aws_test.{ENV_NAME} where ENV_NAME can
+    Looks for set of directories of the form ~/.aws_test.<env-name> where ENV_NAME can
     be anything; and the directory ~/.aws_test can by symlinked to any or none of them.
 
     The current_env property returns the ENV_NAME for the one currently symlinked
     to, if any. The available_envs property returns a list of available
-    ENV_NAMEs each of the ~/.aws_test.{ENV_NAME} directories which actually exist.
+    ENV_NAMEs each of the ~/.aws_test.<env-name> directories which actually exist.
 
     May pass constructor a base directory name other than ~/.aws_test if desired.
     """
@@ -66,19 +66,19 @@ class AwsEnvInfo:
 
     def _get_dirs(self) -> list:
         """
-        Returns the list of ~/.aws_test.{ENV_NAME} directories which actually exist.
+        Returns the list of ~/.aws_test.<env-name> directories which actually exist.
 
         :return: List of directories or empty list of none.
         """
         dirs = []
-        for dirname in glob.glob(self._aws_dir + ".*"):
+        for dirname in glob.glob(f"{self._aws_dir}.*"):
             if os.path.isdir(dirname):
                 dirs.append(dirname)
         return dirs
 
     def _get_env_name_from_path(self, path: str) -> str:
         """
-        Returns the ENV_NAME from the given ~/.aws_test.{ENV_NAME} path.
+        Returns the ENV_NAME from the given ~/.aws_test.<env-name> path.
 
         :param path: Path from which to extract the ENV_NAME.
         :return: Environment name from the path.
@@ -86,7 +86,7 @@ class AwsEnvInfo:
         if path:
             basename = os.path.basename(path)
             aws_dir_basename = os.path.basename(self._aws_dir)
-            if basename.startswith(aws_dir_basename + "."):
+            if basename.startswith(f"{aws_dir_basename}."):
                 return basename[len(aws_dir_basename) + 1:]
 
     @property
@@ -102,7 +102,7 @@ class AwsEnvInfo:
     def available_envs(self) -> list:
         """
         Returns a list of available AWS environments based on directory
-        names of the form ~/.aws_test.{ENV_NAME} that actually exist.
+        names of the form ~/.aws_test.<env-name> that actually exist.
 
         :return: List of available AWS environments; empty list if none found.
         """
@@ -112,7 +112,7 @@ class AwsEnvInfo:
     def current_env(self) -> str:
         """
         Returns current the AWS environment name as represented by the ENV_NAME portion of
-        the actual ~/.aws_test.{ENV_NAME} symlink target of the ~/.aws_test directory itself.
+        the actual ~/.aws_test.<env-name> symlink target of the ~/.aws_test directory itself.
 
         :return: Current AWS environment name as symlinked to by ~/.aws_test or None.
         """
@@ -128,4 +128,4 @@ class AwsEnvInfo:
         :return: Full directory path for given AWS environment name (e.g. ~/.aws_test.{env_name}).
         """
         if env_name:
-            return self._aws_dir + "." + env_name
+            return f"{self._aws_dir}.{env_name}"

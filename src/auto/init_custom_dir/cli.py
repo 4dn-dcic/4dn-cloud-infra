@@ -106,12 +106,12 @@ def get_fallback_identity(env_name: str) -> str:
     """
     try:
         identity_value = Names.application_configuration_secret(env_name)
-    except (Exception,) as _:
+    except Exception:
         identity_value = None
     return identity_value
 
 
-def validate_env(aws_dir: str, env_name: str, yes: bool = False, debug: bool = False) -> (str, str):
+def validate_env(aws_dir: str, env_name: str, confirm: bool = True, debug: bool = False) -> (str, str):
     """
     Validates the given AWS directory and AWS environment name and returns
     the AWS environment name and full path to the associated AWS directory.
@@ -120,7 +120,7 @@ def validate_env(aws_dir: str, env_name: str, yes: bool = False, debug: bool = F
 
     :param aws_dir: Specified AWS base directory (default: ~/.aws_test from InfraDirectories.AWS_DIR).
     :param env_name: Specified AWS environment name.
-    :param yes: True to automatically answer yes to confirmation prompts.
+    :param confirm: False to NOT interactively confirm yes/no to confirmation prompts.
     :param debug: True for debugging output.
     :return: Tuple with AWS environment name and full path to associated AWS directory.
     """
@@ -137,7 +137,7 @@ def validate_env(aws_dir: str, env_name: str, yes: bool = False, debug: bool = F
     envinfo = None
     try:
         envinfo = AwsEnvInfo(aws_dir)
-    except (Exception,) as e:
+    except Exception as e:
         exit_with_no_action(str(e))
 
     if debug:
@@ -145,13 +145,18 @@ def validate_env(aws_dir: str, env_name: str, yes: bool = False, debug: bool = F
         PRINT(f"DEBUG: AWS environments: {envinfo.available_envs}")
         PRINT(f"DEBUG: AWS current environment: {envinfo.current_env}")
 
+    def print_available_envs():
+        PRINT("Available environments:")
+        for available_env in sorted(envinfo.available_envs):
+            PRINT(f"* {available_env} -> {envinfo.get_dir(available_env)}")
+
     # Make sure the AWS environment name given is good.
     # Required but just in case not set anyways, check current
     # environment, if set, and ask them if they want to use that.
-    # But don't do this interactive thing if --yes option given,
+    # But don't do this interactive thing if --no-confirm option given,
     # rather just error out on the text if statement after this below.
     env_name = env_name.strip()
-    if not env_name and not yes:
+    if not env_name and confirm:
         if not envinfo.current_env:
             exit_with_no_action("No environment specified. Use the --env option to specify this.")
         else:
@@ -159,21 +164,20 @@ def validate_env(aws_dir: str, env_name: str, yes: bool = False, debug: bool = F
             PRINT(f"No environment specified. Use the --env option to specify this.")
             PRINT(f"Though it looks like your current environment is: {envinfo.current_env}")
             if not confirm_with_user(f"Do you want to use this ({envinfo.current_env})?"):
+                print_available_envs()
                 exit_with_no_action()
 
     # Make sure the environment specified
-    # actually exists as a ~/.aws_test.{ENV_NAME} directory.
+    # actually exists as a ~/.aws_test.<env-name> directory.
     if not env_name or env_name not in envinfo.available_envs:
         PRINT(f"No environment for this name exists: {env_name}")
         if envinfo.available_envs:
-            PRINT("Available environments:")
-            for available_env in sorted(envinfo.available_envs):
-                PRINT(f"* {available_env} -> {envinfo.get_dir(available_env)}")
+            print_available_envs()
             exit_with_no_action("Choose one of the above environment using the --env option.")
         else:
             exit_with_no_action(
-                f"No environments found at all.\n"
-                f"You need to have at least one {envinfo.dir}.{{ENV_NAME}} directory setup.")
+                f"No environments found at all.",
+                f"You need to have at least one {envinfo.dir}.<env-name> directory setup.")
 
     env_dir = envinfo.get_dir(env_name)
 
@@ -197,8 +201,9 @@ def validate_custom_dir(custom_dir: str) -> str:
 
     custom_dir = InfraDirectories.get_custom_dir(custom_dir)
     if os.path.exists(custom_dir):
+        file_or_directory = 'directory' if os.path.isdir(custom_dir) else 'file'
         exit_with_no_action(
-            f"A custom {'directory' if os.path.isdir(custom_dir) else 'file'} already exists: {custom_dir}")
+            f"A custom {file_or_directory} already exists: {custom_dir}")
 
     PRINT(f"Using custom directory: {custom_dir}")
     return custom_dir
@@ -397,9 +402,9 @@ def write_s3_encrypt_key_file(custom_dir: str, s3_encrypt_key: str) -> None:
         PRINT("Will NOT overwrite this file! Generated S3 encryption key not used.")
     else:
         PRINT(f"Creating S3 encrypt file: {s3_encrypt_key_file}")
-        with io.open(s3_encrypt_key_file, "w") as s3_encrypt_key_f:
-            s3_encrypt_key_f.write(s3_encrypt_key)
-            s3_encrypt_key_f.write("\n")
+        with io.open(s3_encrypt_key_file, "w") as s3_encrypt_key_fp:
+            s3_encrypt_key_fp.write(s3_encrypt_key)
+            s3_encrypt_key_fp.write("\n")
         os.chmod(s3_encrypt_key_file, stat.S_IRUSR)
 
 
@@ -413,7 +418,7 @@ def init_custom_dir(args):
             PRINT(f"DEBUG: Script directory: {InfraDirectories.THIS_SCRIPT_DIR}")
 
         # Validate/gather all the inputs.
-        env_name, env_dir = validate_env(args.aws_dir, args.env_name, args.yes, args.debug)
+        env_name, env_dir = validate_env(args.aws_dir, args.env_name, args.confirm, args.debug)
         custom_dir = validate_custom_dir(args.custom_dir)
         account_number = validate_account_number(args.account_number, env_dir, args.debug)
         deploying_iam_user = validate_deploying_iam_user(args.deploying_iam_user)
@@ -428,7 +433,7 @@ def init_custom_dir(args):
         PRINT(f"Generating S3 encryption key: {obfuscate(s3_encrypt_key)}")
 
         # Confirm with the user that everything looks okay.
-        if not args.yes and not confirm_with_user("Confirm the above. Continue with setup?"):
+        if args.confirm and not confirm_with_user("Confirm the above. Continue with setup?"):
             exit_with_no_action()
 
         # Confirmed. Proceed with the actual setup steps.
@@ -455,7 +460,7 @@ def init_custom_dir(args):
             SecretsTemplateVars.RE_CAPTCHA_SECRET: re_captcha_secret
         })
 
-        # Create the symlink from custom/aws_creds to ~/.aws_test.{ENV_NAME}.
+        # Create the symlink from custom/aws_creds to ~/.aws_test.<env-name>
         custom_aws_creds_dir = InfraDirectories.get_custom_aws_creds_dir(custom_dir)
         PRINT(f"Creating symlink: {custom_aws_creds_dir}@ -> {env_dir} ")
         os.symlink(env_dir, custom_aws_creds_dir)
@@ -476,37 +481,37 @@ def main(argv: list = None):
     """
 
     argp = argparse.ArgumentParser()
-    argp.add_argument("--env", dest="env_name", type=str, required=True,
+    argp.add_argument("--account", "-a", dest="account_number", type=str, required=False,
+                      help="Your AWS account number")
+    argp.add_argument("--auth0client", "-ac", dest="auth0_client", type=str, required=False,
+                      help="Your Auth0 client identifier (required)")
+    argp.add_argument("--auth0secret", "-as", dest="auth0_secret", type=str, required=False,
+                      help="Your Auth0 secret (required)")
+    argp.add_argument("--awsdir", "-d", dest="aws_dir", type=str, required=False, default=InfraDirectories.AWS_DIR,
+                      help=f"Alternate directory to default: {InfraDirectories.AWS_DIR}")
+    argp.add_argument("--env", "-e", dest="env_name", type=str, required=True,
                       help=f"The name of your AWS environment,"
                            f"e.g. ENV_NAME from {InfraDirectories.AWS_DIR}.ENV_NAME")
-    argp.add_argument("--awsdir", dest="aws_dir", type=str, required=False, default=InfraDirectories.AWS_DIR,
-                      help=f"Alternate directory to default: {InfraDirectories.AWS_DIR}")
-    argp.add_argument("--out", dest="custom_dir", type=str, required=False, default=InfraDirectories.CUSTOM_DIR,
-                      help=f"Alternate directory to default: {InfraDirectories.CUSTOM_DIR}")
-    argp.add_argument("--account", dest="account_number", type=str, required=False,
-                      help="Your AWS account number")
-    argp.add_argument("--username", dest="deploying_iam_user", type=str, required=False,
-                      help="Your deploying IAM username")
-    argp.add_argument("--identity", dest="identity", type=str, required=False,
-                      help="The global application configuration secrets name (generated by default)")
-    argp.add_argument("--s3org", dest="s3_bucket_org", type=str, required=False,
-                      help="Your S3 bucket organization name")
-    argp.add_argument("--auth0client", dest="auth0_client", type=str, required=False,
-                      help="Your Auth0 client identifier (required)")
-    argp.add_argument("--auth0secret", dest="auth0_secret", type=str, required=False,
-                      help="Your Auth0 secret (required)")
-    argp.add_argument("--recaptchakey", dest="re_captcha_key", type=str, required=False,
-                      help="Your reCAPTCHA key")
-    argp.add_argument("--recaptchasecret", dest="re_captcha_secret", type=str, required=False,
-                      help="Your reCAPTCHA secret")
     argp.add_argument("--debug", dest="debug", action="store_true", required=False,
                       help="Turn on debugging for this script")
-    argp.add_argument("--yes", dest="yes", action="store_true", required=False,
-                      help="Answer yes for confirmation prompts for this script")
+    argp.add_argument("--identity", "-i", dest="identity", type=str, required=False,
+                      help="The global application configuration secrets name (generated by default)")
+    argp.add_argument("--no-confirm", dest="confirm", action="store_false", required=False,
+                      help="Behave as if all confirmation questions were answered yes.")
+    argp.add_argument("--out", "-o", dest="custom_dir", type=str, required=False, default=InfraDirectories.CUSTOM_DIR,
+                      help=f"Alternate directory to default: {InfraDirectories.CUSTOM_DIR}")
+    argp.add_argument("--recaptchakey", "-rk", dest="re_captcha_key", type=str, required=False,
+                      help="Your reCAPTCHA key")
+    argp.add_argument("--recaptchasecret", "-rs", dest="re_captcha_secret", type=str, required=False,
+                      help="Your reCAPTCHA secret")
+    argp.add_argument("--s3org", "-n", dest="s3_bucket_org", type=str, required=False,
+                      help="Your S3 bucket organization name")
+    argp.add_argument("--username", "-u", dest="deploying_iam_user", type=str, required=False,
+                      help="Your deploying IAM username")
     args = argp.parse_args(argv)
 
     init_custom_dir(args)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main(sys.argv)

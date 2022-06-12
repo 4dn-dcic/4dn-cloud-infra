@@ -88,9 +88,10 @@ def _setup_filesystem(env_name: str, account_number: str = None):
         # env_dir represents: /my-home/.aws_test.my-test
         os.makedirs(env_dir)
         if account_number:
-            with io.open(test_creds_script_file, "w") as test_creds_script_f:
+            with io.open(test_creds_script_file, "w") as test_creds_script_fp:
                 # test_creds_script_file represents: /my-home/.aws_test.my-test/test_creds.sh
-                test_creds_script_f.write(f"export ACCOUNT_NUMBER={account_number}\n")
+                test_creds_script_fp.write(f"export ACCOUNT_NUMBER={account_number}")
+                test_creds_script_fp.write(f"\n")
         yield aws_dir, env_dir, custom_dir
 
 
@@ -122,8 +123,8 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True):
         s3_encrypt_key_file = os.path.join(env_dir, "s3_encrypt_key.txt")
 
         if pre_existing_s3_encrypt_key_file:
-            with io.open(s3_encrypt_key_file, "w") as s3_encrypt_key_f:
-                s3_encrypt_key_f.write(Inputs.s3_encrypt_key)
+            with io.open(s3_encrypt_key_file, "w") as s3_encrypt_key_fp:
+                s3_encrypt_key_fp.write(Inputs.s3_encrypt_key)
 
         # Call the main script function.
         # Normal case where custom directory does not already exist.
@@ -134,8 +135,8 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True):
         # Verify existence/contents of config.json file (e.g. in /my-repos/4dn-cloud-infra/custom/config.json).
 
         assert os.path.isfile(config_json_file)
-        with io.open(config_json_file, "r") as config_json_f:
-            config_json = json.load(config_json_f)
+        with io.open(config_json_file, "r") as config_json_fp:
+            config_json = json.load(config_json_fp)
             assert config_json["account_number"] == Inputs.account_number
             assert config_json["s3.bucket.org"] == Inputs.s3_bucket_org
             assert config_json["deploying_iam_user"] == Inputs.deploying_iam_user
@@ -145,8 +146,8 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True):
         # Verify existence/contents of secrets.json file (e.g. in /my-repos/4dn-cloud-infra/custom/secrets.json).
 
         assert os.path.isfile(secrets_json_file)
-        with io.open(secrets_json_file, "r") as secrets_json_f:
-            secrets_json = json.load(secrets_json_f)
+        with io.open(secrets_json_file, "r") as secrets_json_fp:
+            secrets_json = json.load(secrets_json_fp)
             assert secrets_json["Auth0Client"] == Inputs.auth0_client
             assert secrets_json["Auth0Secret"] == Inputs.auth0_secret
             assert secrets_json["reCaptchaKey"] == Inputs.re_captcha_key
@@ -165,8 +166,8 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True):
         # Otherwise, just check that it has some reasonable content, and that it is mode 400.
 
         assert os.path.isfile(s3_encrypt_key_file)
-        with io.open(s3_encrypt_key_file, "r") as s3_encrypt_key_f:
-            s3_encrypt_key = s3_encrypt_key_f.read()
+        with io.open(s3_encrypt_key_file, "r") as s3_encrypt_key_fp:
+            s3_encrypt_key = s3_encrypt_key_fp.read()
             if pre_existing_s3_encrypt_key_file:
                 assert s3_encrypt_key == Inputs.s3_encrypt_key
             else:
@@ -203,7 +204,7 @@ def test_sanity():
     assert re.search("\\*+$", obfuscate("ABCDEFGHI")[1:])
 
 
-def test_main():
+def test_main_vanilla():
     _call_main(pre_existing_s3_encrypt_key_file=False)
 
 
@@ -236,10 +237,10 @@ def test_main_with_pre_existing_custom_dir():
         # config.json and secrets.json files and make sure we did not overwrite them.
 
         os.makedirs(custom_dir)
-        with io.open(config_json_file, "w") as config_json_f:
-            config_json_f.write(Inputs.dummy_json_content)
-        with io.open(secrets_json_file, "w") as secrets_json_f:
-            secrets_json_f.write(Inputs.dummy_json_content)
+        with io.open(config_json_file, "w") as config_json_fp:
+            config_json_fp.write(Inputs.dummy_json_content)
+        with io.open(secrets_json_file, "w") as secrets_json_fp:
+            secrets_json_fp.write(Inputs.dummy_json_content)
 
         # Call the script function.
 
@@ -250,10 +251,10 @@ def test_main_with_pre_existing_custom_dir():
 
         _call_function_and_assert_exit_with_no_action(lambda: main(argv))
 
-        with io.open(config_json_file, "r") as config_json_f:
-            assert config_json_f.read() == Inputs.dummy_json_content
-        with io.open(secrets_json_file, "r") as secrets_json_f:
-            assert secrets_json_f.read() == Inputs.dummy_json_content
+        with io.open(config_json_file, "r") as config_json_fp:
+            assert config_json_fp.read() == Inputs.dummy_json_content
+        with io.open(secrets_json_file, "r") as secrets_json_fp:
+            assert secrets_json_fp.read() == Inputs.dummy_json_content
 
 
 def test_main_with_no_existing_env_dir():
