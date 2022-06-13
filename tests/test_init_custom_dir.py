@@ -44,7 +44,7 @@ def _get_standard_main_argv(aws_dir: str, env_name: str, custom_dir: str, omit_a
 
 def _rummage_for_print_message(mock_print, regular_expression):
     """
-    Searches the given mock for the/a print function whose arguments matches
+    Searches the given print mock for the/a print call whose arguments matches
     the given regular expression, and returns True if it finds (just) one
     that matches, otherwise returns False.
     """
@@ -59,7 +59,7 @@ def _rummage_for_print_message(mock_print, regular_expression):
 
 def _rummage_for_print_message_all(mock_print, regular_expression, predicate):
     """
-    Searches the given mock for the/a print function whose argument matches
+    Searches the given print mock for the/a call whose argument matches
     the given regular expression and returns True iff each/every match also
     passes (gets a True return value from) the given predicate function
     with that argument, otherwise returns False.
