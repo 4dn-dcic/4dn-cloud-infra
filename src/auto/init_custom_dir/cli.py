@@ -25,7 +25,6 @@
 #     - glob.glob
 #     - io.open
 #     - os.chmod
-#     - os.environ.get
 #     - os.getcwd
 #     - os.getlogin
 #     - os.listdir
@@ -416,7 +415,7 @@ def init_custom_dir(aws_dir, env_name, custom_dir, account_number,
 
         if debug:
             PRINT(f"DEBUG: Current directory: {os.getcwd()}")
-            PRINT(f"DEBUG: Current username: {os.environ.get('USER')}")
+            PRINT(f"DEBUG: Current username: {os.getlogin()}")
             PRINT(f"DEBUG: Script directory: {InfraDirectories.THIS_SCRIPT_DIR}")
 
         # Validate/gather all the inputs.
