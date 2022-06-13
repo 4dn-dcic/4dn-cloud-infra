@@ -7,7 +7,7 @@ import re
 import stat
 import tempfile
 from contextlib import contextmanager
-from src.auto.init_custom_dir.cli import main
+from src.auto.init_custom_dir.cli import (get_fallback_identity, main)
 from src.auto.init_custom_dir.defs import InfraDirectories, InfraFiles
 from src.auto.init_custom_dir.utils import obfuscate
 
@@ -344,6 +344,10 @@ def test_main_with_keyboard_interrupt():
         argv = _get_standard_main_argv(aws_dir, Input.env_name, custom_dir)
         _call_function_and_assert_exit_with_no_action(lambda: main(argv), interrupt=True)
         assert not os.path.exists(custom_dir)
+
+
+def test_get_fallback_identity():
+    assert get_fallback_identity("your-test-env") == "C4DatastoreYourTestEnvApplicationConfiguration"
 
 
 def test_what_else_i_think_we_have_most_important_cases_covered():
