@@ -492,7 +492,7 @@ def main(argv: list = None):
                       help=f"Alternate directory to default: {InfraDirectories.AWS_DIR}")
     argp.add_argument("--env", "-e", dest="env_name", type=str, required=True,
                       help=f"The name of your AWS environment,"
-                           f"e.g. ENV_NAME from {InfraDirectories.AWS_DIR}.ENV_NAME")
+                           f"e.g. <env-name> from {InfraDirectories.AWS_DIR}.<env-name>")
     argp.add_argument("--debug", dest="debug", action="store_true", required=False,
                       help="Turn on debugging for this script")
     argp.add_argument("--identity", "-i", dest="identity", type=str, required=False,

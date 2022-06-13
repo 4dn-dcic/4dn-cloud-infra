@@ -24,12 +24,12 @@ class AwsEnvInfo:
     of available environments (based on what ~/.aws_test.<env-name>
     directories actually exist).
 
-    Looks for set of directories of the form ~/.aws_test.<env-name> where ENV_NAME can
+    Looks for set of directories of the form ~/.aws_test.<env-name> where <env-name> can
     be anything; and the directory ~/.aws_test can by symlinked to any or none of them.
 
-    The current_env property returns the ENV_NAME for the one currently symlinked
+    The current_env property returns the <env-name> for the one currently symlinked
     to, if any. The available_envs property returns a list of available
-    ENV_NAMEs each of the ~/.aws_test.<env-name> directories which actually exist.
+    <env-name>s each of the ~/.aws_test.<env-name> directories which actually exist.
 
     May pass constructor a base directory name other than ~/.aws_test if desired.
     """
@@ -78,9 +78,9 @@ class AwsEnvInfo:
 
     def _get_env_name_from_path(self, path: str) -> str:
         """
-        Returns the ENV_NAME from the given ~/.aws_test.<env-name> path.
+        Returns the <env-name> from the given ~/.aws_test.<env-name> path.
 
-        :param path: Path from which to extract the ENV_NAME.
+        :param path: Path from which to extract the <env-name>.
         :return: Environment name from the path.
         """
         if path:
@@ -111,7 +111,7 @@ class AwsEnvInfo:
     @property
     def current_env(self) -> str:
         """
-        Returns current the AWS environment name as represented by the ENV_NAME portion of
+        Returns current the AWS environment name as represented by the <env-name> portion of
         the actual ~/.aws_test.<env-name> symlink target of the ~/.aws_test directory itself.
 
         :return: Current AWS environment name as symlinked to by ~/.aws_test or None.
