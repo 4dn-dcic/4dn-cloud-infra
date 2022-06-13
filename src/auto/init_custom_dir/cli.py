@@ -116,7 +116,7 @@ def validate_env(aws_dir: str, env_name: str, confirm: bool = True, debug: bool 
     Validates the given AWS directory and AWS environment name and returns
     the AWS environment name and full path to the associated AWS directory.
     If the environment name is not given and there is a current one in
-    effect effect then we prompt/ask if they want to use that one; exit on error.
+    effect effect then we prompt/ask if they want to use that one; exit on error (if not set).
 
     :param aws_dir: Specified AWS base directory (default: ~/.aws_test from InfraDirectories.AWS_DIR).
     :param env_name: Specified AWS environment name.
@@ -190,7 +190,7 @@ def validate_env(aws_dir: str, env_name: str, confirm: bool = True, debug: bool 
 def validate_custom_dir(custom_dir: str) -> str:
     """
     Validates the given custom directory and returns its full path.
-    Prompts for this value if not set; exit on error.
+    Prompts for this value if not set; exit on error (if not set).
 
     :param custom_dir: Specified custom directory.
     :return: Full path to custom directory.
@@ -213,7 +213,7 @@ def validate_account_number(account_number: str, env_dir: str, debug: bool = Fal
     """
     Validates the given account number (if specified), and returns it if/when set.
     If not specified we try to get it from test_creds.sh.
-    Prompts for this value if not set; exit on error.
+    Prompts for this value if not set; exit on error (if not set).
     We get the default/fallback value for this from test_creds.sh if present.
 
     :param account_number: Account number value.
@@ -237,7 +237,7 @@ def validate_account_number(account_number: str, env_dir: str, debug: bool = Fal
 def validate_deploying_iam_user(deploying_iam_user: str) -> str:
     """
     Validates the given deploying IAM username and returns it if/when set.
-    Prompts for this value if not set; exit on error.
+    Prompts for this value if not set; exit on error (if not set).
     We get the default/fallabck value from the current system username.
 
     :param deploying_iam_user: Deploying IAM username value.
@@ -257,7 +257,7 @@ def validate_deploying_iam_user(deploying_iam_user: str) -> str:
 def validate_identity(identity: str, env_name: str) -> str:
     """
     Validates the given identity (i.e. GAC name) and returns it if/when set.
-    Prompts for this value if not set; exit on error.
+    Prompts for this value if not set; exit on error (if not set).
     We get the default value from this from 4dn-cloud-infra code.
 
     :param identity: Identity (i.e. GAC name) value.
@@ -279,7 +279,7 @@ def validate_identity(identity: str, env_name: str) -> str:
 def validate_s3_bucket_org(s3_bucket_org: str) -> str:
     """
     Validates the given S3 bucket organization name and returns it if/when set.
-    Prompts for this value if not set; exit on error.
+    Prompts for this value if not set; exit on error (if not set).
 
     :param s3_bucket_org: S3 bucket organization value.
     :return: S3 bucket organization value.
@@ -296,7 +296,7 @@ def validate_s3_bucket_org(s3_bucket_org: str) -> str:
 def validate_auth0(auth0_client: str, auth0_secret: str) -> (str, str):
     """
     Validates the given Auth0 client/secret and returns them if/when set.
-    Prompts for this value if not set; exit on error.
+    Prompts for this value if not set; exit on error (if not set).
 
     :param auth0_client: Auth0 client value.
     :param auth0_secret: Auth0 secret value.
