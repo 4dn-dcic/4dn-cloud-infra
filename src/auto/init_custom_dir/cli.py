@@ -153,7 +153,7 @@ def validate_env(aws_dir: str, env_name: str, confirm: bool = True, debug: bool 
     # Required but just in case not set anyways, check current
     # environment, if set, and ask them if they want to use that.
     # But don't do this interactive thing if --no-confirm option given,
-    # rather just error out on the text if statement after this below.
+    # rather just error out on the next if statement after this below.
     env_name = env_name.strip()
     if not env_name and confirm:
         if not envinfo.current_env:
