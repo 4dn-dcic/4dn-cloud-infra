@@ -45,7 +45,8 @@ def expand_json_template_file(template_file: str, output_file: str, template_sub
         output_fp.write("\n")
 
 
-def write_json_file_from_template(output_file: str, template_file: str, substitutions: dict, debug: bool = False) -> None:
+def write_json_file_from_template (
+        output_file: str, template_file: str, substitutions: dict, debug: bool = False) -> None:
     """
     Writes to the given JSON file the contents of the given
     template JSON file with the given substitutions expanded.
