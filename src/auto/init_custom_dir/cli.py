@@ -383,6 +383,7 @@ def write_s3_encrypt_key_file(custom_dir: str, s3_encrypt_key: str) -> None:
     else:
         PRINT(f"Creating S3 encrypt file: {s3_encrypt_key_file}")
         with io.open(s3_encrypt_key_file, "w") as s3_encrypt_key_fp:
+            # TODO: PRINT(s3_encrypt_key, file=s3_encrypt_key_fp)
             s3_encrypt_key_fp.write(s3_encrypt_key)
             s3_encrypt_key_fp.write("\n")
         os.chmod(s3_encrypt_key_file, stat.S_IRUSR)
@@ -456,7 +457,7 @@ def init_custom_dir(aws_dir, env_name, custom_dir, account_number,
         print_directory_tree(custom_dir)
 
 
-def main(argv: list = None):
+def main(override_argv = None):
     """
     The main function and args parser for this CLI script.
     Calls into init_custom_dir to do the real work.
@@ -490,7 +491,7 @@ def main(argv: list = None):
                       help="Your S3 bucket organization name")
     argp.add_argument("--username", "-u", dest="deploying_iam_user", type=str, required=False,
                       help="Your deploying IAM username")
-    args = argp.parse_args(argv)
+    args = argp.parse_args(override_argv) # will get from sys.argv
 
     init_custom_dir(args.aws_dir, args.env_name, args.custom_dir, args.account_number,
                     args.deploying_iam_user, args.identity, args.s3_bucket_org, args.auth0_client, args.auth0_secret,
@@ -498,4 +499,4 @@ def main(argv: list = None):
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()
