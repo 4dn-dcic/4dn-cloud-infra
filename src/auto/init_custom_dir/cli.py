@@ -60,7 +60,8 @@ from .utils import (
     obfuscate,
     print_directory_tree,
     read_env_variable_from_subshell,
-    setup_and_action
+    setup_and_action,
+    write_json_file_from_template
 )
 from .defs import (
     ConfigTemplateVars,
@@ -337,26 +338,6 @@ def validate_recaptcha(recaptcha_key: str, recaptcha_secret: str) -> (str, str):
     return recaptcha_key, recaptcha_secret
 
 
-def write_json_file(output_file: str, template_file: str, substitutions: dict, debug: bool = False) -> None:
-    """
-    Writes to the given JSON file the contents of the given
-    template JSON file with the given substitutions expanded.
-    Uses the dcicutils.misc_utils.json_leaf_subst (from utils.expand_json_template_file) for this.
-    May exit on error.
-
-    :param output_file: Full path to the output JSON file.
-    :param template_file: Full path to the input template JSON file.
-    :param substitutions: Substitutions to use in template expansion.
-    :param debug: True for debugging output.
-    """
-    if debug:
-        PRINT(f"DEBUG: Expanding template file: {template_file}")
-    if not os.path.isfile(template_file):
-        exit_with_no_action(f"ERROR: Cannot find template file! {template_file}")
-    PRINT(f"Creating file: {output_file}")
-    expand_json_template_file(template_file, output_file, substitutions)
-
-
 def write_config_json_file(custom_dir: str, substitutions: dict, debug: bool = False) -> None:
     """
     Writes the config.json file in given custom directory based on our template and given substitutions.
@@ -369,7 +350,7 @@ def write_config_json_file(custom_dir: str, substitutions: dict, debug: bool = F
     """
     config_file = InfraFiles.get_config_file(custom_dir)
     config_template_file = InfraFiles.get_config_template_file()
-    write_json_file(config_file, config_template_file, substitutions, debug)
+    write_json_file_from_template(config_file, config_template_file, substitutions, debug)
 
 
 def write_secrets_json_file(custom_dir: str, substitutions: dict, debug: bool = False) -> None:
@@ -384,7 +365,7 @@ def write_secrets_json_file(custom_dir: str, substitutions: dict, debug: bool = 
     """
     secrets_file = InfraFiles.get_secrets_file(custom_dir)
     secrets_template_file = InfraFiles.get_secrets_template_file()
-    write_json_file(secrets_file, secrets_template_file, substitutions, debug)
+    write_json_file_from_template(secrets_file, secrets_template_file, substitutions, debug)
 
 
 def write_s3_encrypt_key_file(custom_dir: str, s3_encrypt_key: str) -> None:
