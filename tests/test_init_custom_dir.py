@@ -218,7 +218,7 @@ def test_paths():
         assert InfraFiles.get_test_creds_script_file(env_dir) == os.path.join(env_dir, "test_creds.sh")
         assert InfraFiles.get_config_file(custom_dir) == os.path.join(custom_dir, "config.json")
         assert InfraFiles.get_secrets_file(custom_dir) == os.path.join(custom_dir, "secrets.json")
-        assert InfraFiles.get_s3_encrypt_key_file(custom_dir) ==\
+        assert InfraFiles.get_s3_encrypt_key_file(custom_dir) == \
                os.path.join(custom_dir, "aws_creds/s3_encrypt_key.txt")
         assert InfraDirectories.get_custom_aws_creds_dir(custom_dir) == os.path.join(custom_dir, "aws_creds")
 
