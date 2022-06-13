@@ -119,13 +119,13 @@ class AwsEnvInfo:
         symlink_target = os.readlink(self._aws_dir) if os.path.islink(self._aws_dir) else None
         return self._get_env_name_from_path(symlink_target)
 
-    def get_dir(self, env_name: str) -> str:
+    def get_dir(self, aws_credentials_name: str) -> str:
         """
-        Returns a full directory path name of the form ~/.aws_test.{env_name}
-        for the given :param:`env_name`. This directory does NOT have to exist.
+        Returns a full directory path name of the form ~/.aws_test.{aws-credentials-name}
+        for the given :param:`aws_credentials_name`. This directory does NOT have to exist.
 
-        :param env_name: AWS environment name.
-        :return: Full directory path for given AWS environment name (e.g. ~/.aws_test.{env_name}).
+        :param aws_credentials_name: AWS credentials name.
+        :return: Full directory path for given AWS environment name (e.g. ~/.aws_test.{aws-credentials-name}).
         """
-        if env_name:
-            return f"{self._aws_dir}.{env_name}"
+        if aws_credentials_name:
+            return f"{self._aws_dir}.{aws_credentials_name}"

@@ -510,7 +510,7 @@ def main(override_argv: Optional[list] = None):
                       help="Your S3 bucket organization name")
     argp.add_argument("--username", "-u", dest="deploying_iam_user", type=str, required=False,
                       help="Your deploying IAM username")
-    args = argp.parse_args(override_argv) # will get from sys.argv
+    args = argp.parse_args(override_argv)
 
     init_custom_dir(args.aws_dir, args.env_name, args.custom_dir, args.account_number,
                     args.deploying_iam_user, args.identity, args.s3_bucket_org, args.auth0_client, args.auth0_secret,

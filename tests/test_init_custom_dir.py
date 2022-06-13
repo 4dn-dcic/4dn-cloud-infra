@@ -62,7 +62,6 @@ def _rummage_for_print_message_all(mocked_print, regular_expression, predicate):
     passes (gets a True return value from) the given predicate function
     with that argument, otherwise returns False.
     """
-    return True
     for value in mocked_print.lines:
         if re.search(regular_expression, value, re.IGNORECASE):
             if not predicate(value):
