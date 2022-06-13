@@ -236,11 +236,13 @@ class ConfigManager:
             # At some point, we can & should get rid of the use of os.environ
             # and just get this straight from the config.
             if default is _MISSING:
+                print(f"dmichaels:xyzzy:1: {var} -> {os.environ[var]}")
                 return os.environ[var]
             else:
                 # Note that this is different defaulting behavior than os.environ.get
                 # We treat missing or empty as equivalent, and prefer the default in that case.
                 # Use has_config_setting in the rare case of it being necessary to distinguish empty from missing.
+                print(f"dmichaels:xyzzy:2: {var} -> {os.environ.get(var)}")
                 found = os.environ.get(var)
                 if found:
                     return found
@@ -364,6 +366,7 @@ def check_environment_variable_consistency(checker=None, verbose_success=False):
     if checker is None:
 
         def checker(*, env_var, failure_message, success_message, expected_value=None, expected_hash=None):
+            print(f"dmichaels:xyzzy:3: {env_var} -> {os.environ.get(env_var, '')}")
             actual = os.environ.get(env_var, "")
             context = " (in Python)"
             if expected_hash:

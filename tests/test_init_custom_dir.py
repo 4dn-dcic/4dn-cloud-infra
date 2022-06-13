@@ -42,27 +42,36 @@ def _get_standard_main_argv(aws_dir: str, env_name: str, custom_dir: str, omit_a
     return argv
 
 
-def _rummage_for_print_message(mock_print, regular_expression, predicate=None):
+def _rummage_for_print_message(mock_print, regular_expression):
     """
-    Searches the given mock for the/a print function for the given regular expression
-    and returns True if it finds one that matches. Or if a predicate function is given
-    then it makes sure that each/every match of the regular expression passes the
-    predicate test, and if so then returns True, otherwise returns False.
+    Searches the given mock for the/a print function whose arguments matches
+    the given regular expression, and returns True if it finds (just) one
+    that matches, otherwise returns False.
     """
     for call in mock_print.call_args_list:
         args, _ = call
         if len(args) == 1:
             arg = args[0]
             if re.search(regular_expression, arg, re.IGNORECASE):
-                if predicate:
-                    if not predicate(arg):
-                        return False
-                else:
-                    return True
-    if predicate:
-        return True
-    else:
-        return False
+                return True
+    return False
+
+
+def _rummage_for_print_message_all(mock_print, regular_expression, predicate):
+    """
+    Searches the given mock for the/a print function whose argument matches
+    the given regular expression and returns True iff each/every match also
+    passes (gets a True return value from) the given predicate function
+    with that argument, otherwise returns False.
+    """
+    for call in mock_print.call_args_list:
+        args, _ = call
+        if len(args) == 1:
+            arg = args[0]
+            if re.search(regular_expression, arg, re.IGNORECASE):
+                if not predicate(arg):
+                    return False
+    return True
 
 
 @contextmanager
@@ -179,7 +188,7 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True):
 
         # Check that any secrets printed out look like they"ve been obfuscated.
 
-        assert _rummage_for_print_message(
+        assert _rummage_for_print_message_all(
             mock_cli_print, ".*using.*secret.*", lambda arg: arg.endswith("*******"))
 
 
