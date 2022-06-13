@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from src.auto.init_custom_dir.cli import (get_fallback_identity, main)
 from src.auto.init_custom_dir.defs import InfraDirectories, InfraFiles
 from src.auto.init_custom_dir.utils import obfuscate
+from dcicutils.qa_utils import printed_output as mock_print
 
 # Tests for the main init-custom-dir script.
 
@@ -42,35 +43,30 @@ def _get_standard_main_argv(aws_dir: str, env_name: str, custom_dir: str, omit_a
     return argv
 
 
-def _rummage_for_print_message(mock_print, regular_expression):
+def _rummage_for_print_message(mocked_print, regular_expression):
     """
     Searches the given print mock for the/a print call whose arguments matches
     the given regular expression, and returns True if it finds (just) one
     that matches, otherwise returns False.
     """
-    for call in mock_print.call_args_list:
-        args, _ = call
-        if len(args) == 1:
-            arg = args[0]
-            if re.search(regular_expression, arg, re.IGNORECASE):
-                return True
+    for value in mocked_print.lines:
+        if re.search(regular_expression, value, re.IGNORECASE):
+            return True
     return False
 
 
-def _rummage_for_print_message_all(mock_print, regular_expression, predicate):
+def _rummage_for_print_message_all(mocked_print, regular_expression, predicate):
     """
     Searches the given print mock for the/a call whose argument matches
     the given regular expression and returns True iff each/every match also
     passes (gets a True return value from) the given predicate function
     with that argument, otherwise returns False.
     """
-    for call in mock_print.call_args_list:
-        args, _ = call
-        if len(args) == 1:
-            arg = args[0]
-            if re.search(regular_expression, arg, re.IGNORECASE):
-                if not predicate(arg):
-                    return False
+    return True
+    for value in mocked_print.lines:
+        if re.search(regular_expression, value, re.IGNORECASE):
+            if not predicate(value):
+                return False
     return True
 
 
@@ -107,9 +103,8 @@ def _setup_filesystem(env_name: str, account_number: str = None):
 def _call_main(pre_existing_s3_encrypt_key_file: bool = True):
 
     with _setup_filesystem(Input.env_name, Input.account_number) as (aws_dir, env_dir, custom_dir), \
+         mock_print() as mocked_print, \
          mock.patch("src.auto.init_custom_dir.cli.os.getlogin") as mock_os_getlogin, \
-         mock.patch("src.auto.init_custom_dir.cli.PRINT") as mock_cli_print, \
-         mock.patch("src.auto.init_custom_dir.utils.PRINT"), \
          mock.patch("builtins.input") as mock_input:
 
         mock_os_getlogin.return_value = Input.deploying_iam_user
@@ -189,21 +184,21 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True):
         # Check that any secrets printed out look like they"ve been obfuscated.
 
         assert _rummage_for_print_message_all(
-            mock_cli_print, ".*using.*secret.*", lambda arg: arg.endswith("*******"))
+            mocked_print, ".*using.*secret.*", lambda arg: arg.endswith("*******"))
 
 
 def _call_function_and_assert_exit_with_no_action(f, interrupt: bool = False):
-    with mock.patch("builtins.exit") as mock_exit, \
-         mock.patch("src.auto.init_custom_dir.utils.PRINT") as mock_utils_print:
+    with mock_print() as mocked_print, \
+         mock.patch("builtins.exit") as mock_exit:
         mock_exit.side_effect = Exception()
         with pytest.raises(Exception):
             f()
         if interrupt:
-            assert _rummage_for_print_message(mock_utils_print, ".*interrupt.*") is True
+            assert _rummage_for_print_message(mocked_print, ".*interrupt.*") is True
         assert mock_exit.called is True
         # Check the message from the last print which should be something like: Exiting without doing anything.
         # Kinda lame.
-        assert _rummage_for_print_message(mock_utils_print, ".*exit.*without.*doing*") is True
+        assert _rummage_for_print_message(mocked_print, ".*exit.*without.*doing*") is True
 
 
 def test_sanity():
@@ -233,9 +228,7 @@ def test_main_with_pre_existing_s3_encrypt_key_file():
 
 def test_main_with_pre_existing_custom_dir():
 
-    with _setup_filesystem(Input.env_name, Input.account_number) as (aws_dir, env_dir, custom_dir), \
-         mock.patch("src.auto.init_custom_dir.cli.PRINT"), \
-         mock.patch("src.auto.init_custom_dir.utils.PRINT"):
+    with _setup_filesystem(Input.env_name, Input.account_number) as (aws_dir, env_dir, custom_dir):
 
         # This is the directory structure we are simulating;
         # well, actually creating, within a temporary directory.
@@ -278,9 +271,7 @@ def test_main_with_pre_existing_custom_dir():
 
 def test_main_with_no_existing_env_dir():
 
-    with _setup_filesystem(Input.env_name, Input.account_number) as (aws_dir, env_dir, custom_dir), \
-         mock.patch("src.auto.init_custom_dir.cli.PRINT"), \
-         mock.patch("src.auto.init_custom_dir.utils.PRINT"):
+    with _setup_filesystem(Input.env_name, Input.account_number) as (aws_dir, env_dir, custom_dir):
 
         # Call the script function with an env-name for which a env-dir does not exist.
 
@@ -292,10 +283,7 @@ def test_main_with_no_existing_env_dir():
 def test_main_when_answering_no_to_confirmation_prompt():
 
     with _setup_filesystem(Input.env_name, Input.account_number) as (aws_dir, env_dir, custom_dir), \
-         mock.patch("src.auto.init_custom_dir.cli.PRINT"), \
-         mock.patch("src.auto.init_custom_dir.utils.PRINT"), \
          mock.patch("builtins.input") as mock_input:
-
         mock_input.return_value = 'no'
         argv = _get_standard_main_argv(aws_dir, Input.env_name, custom_dir)
         _call_function_and_assert_exit_with_no_action(lambda: main(argv))
@@ -310,8 +298,6 @@ def _test_main_exit_with_no_action_on_missing_required_input(omit_required_arg: 
         # If we are omitting account number then do not create test_creds.sh with ACCOUNT_NUMBER.
         account_number = None
     with _setup_filesystem(Input.env_name, account_number) as (aws_dir, env_dir, custom_dir), \
-         mock.patch("src.auto.init_custom_dir.cli.PRINT"), \
-         mock.patch("src.auto.init_custom_dir.utils.PRINT"), \
          mock.patch("builtins.input") as mock_input:
         argv = _get_standard_main_argv(aws_dir, Input.env_name, custom_dir, omit_arg=omit_required_arg)
         mock_input.side_effect = [""]  # return value for prompt for required arg
@@ -337,8 +323,6 @@ def test_main_exit_with_no_action_on_missing_required_input_account():
 
 def test_main_with_keyboard_interrupt():
     with _setup_filesystem(Input.env_name, Input.account_number) as (aws_dir, env_dir, custom_dir), \
-         mock.patch("src.auto.init_custom_dir.cli.PRINT"), \
-         mock.patch("src.auto.init_custom_dir.utils.PRINT"), \
          mock.patch("builtins.input") as mock_input:
         mock_input.side_effect = [KeyboardInterrupt]
         argv = _get_standard_main_argv(aws_dir, Input.env_name, custom_dir)

@@ -50,6 +50,7 @@ import io
 import os
 import stat
 import sys
+from typing import Optional
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
 from .awsenvinfo import AwsEnvInfo
@@ -60,8 +61,7 @@ from .utils import (
     obfuscate,
     print_directory_tree,
     read_env_variable_from_subshell,
-    setup_and_action,
-    write_json_file_from_template
+    setup_and_action
 )
 from .defs import (
     ConfigTemplateVars,
@@ -338,6 +338,27 @@ def validate_recaptcha(recaptcha_key: str, recaptcha_secret: str) -> (str, str):
     return recaptcha_key, recaptcha_secret
 
 
+def write_json_file_from_template(
+        output_file: str, template_file: str, substitutions: dict, debug: bool = False) -> None:
+    """
+    Writes to the given JSON file the contents of the given
+    template JSON file with the given substitutions expanded.
+    Uses the dcicutils.misc_utils.json_leaf_subst (from utils.expand_json_template_file) for this.
+    May exit on error.
+
+    :param output_file: Full path to the output JSON file.
+    :param template_file: Full path to the input template JSON file.
+    :param substitutions: Substitutions to use in template expansion.
+    :param debug: True for debugging output.
+    """
+    if debug:
+        PRINT(f"DEBUG: Expanding template file: {template_file}")
+    if not os.path.isfile(template_file):
+        exit_with_no_action(f"ERROR: Cannot find template file! {template_file}")
+    PRINT(f"Creating file: {output_file}")
+    expand_json_template_file(template_file, output_file, substitutions)
+
+
 def write_config_json_file(custom_dir: str, substitutions: dict, debug: bool = False) -> None:
     """
     Writes the config.json file in given custom directory based on our template and given substitutions.
@@ -383,9 +404,7 @@ def write_s3_encrypt_key_file(custom_dir: str, s3_encrypt_key: str) -> None:
     else:
         PRINT(f"Creating S3 encrypt file: {s3_encrypt_key_file}")
         with io.open(s3_encrypt_key_file, "w") as s3_encrypt_key_fp:
-            # TODO: PRINT(s3_encrypt_key, file=s3_encrypt_key_fp)
-            s3_encrypt_key_fp.write(s3_encrypt_key)
-            s3_encrypt_key_fp.write("\n")
+            PRINT(s3_encrypt_key, file=s3_encrypt_key_fp)
         os.chmod(s3_encrypt_key_file, stat.S_IRUSR)
 
 
@@ -457,7 +476,7 @@ def init_custom_dir(aws_dir, env_name, custom_dir, account_number,
         print_directory_tree(custom_dir)
 
 
-def main(override_argv = None):
+def main(override_argv: Optional[list] = None):
     """
     The main function and args parser for this CLI script.
     Calls into init_custom_dir to do the real work.

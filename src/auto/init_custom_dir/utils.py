@@ -45,27 +45,6 @@ def expand_json_template_file(template_file: str, output_file: str, template_sub
         output_fp.write("\n")
 
 
-def write_json_file_from_template(
-        output_file: str, template_file: str, substitutions: dict, debug: bool = False) -> None:
-    """
-    Writes to the given JSON file the contents of the given
-    template JSON file with the given substitutions expanded.
-    Uses the dcicutils.misc_utils.json_leaf_subst (from utils.expand_json_template_file) for this.
-    May exit on error.
-
-    :param output_file: Full path to the output JSON file.
-    :param template_file: Full path to the input template JSON file.
-    :param substitutions: Substitutions to use in template expansion.
-    :param debug: True for debugging output.
-    """
-    if debug:
-        PRINT(f"DEBUG: Expanding template file: {template_file}")
-    if not os.path.isfile(template_file):
-        exit_with_no_action(f"ERROR: Cannot find template file! {template_file}")
-    PRINT(f"Creating file: {output_file}")
-    expand_json_template_file(template_file, output_file, substitutions)
-
-
 def generate_s3_encrypt_key() -> str:
     """
     Generate a cryptographically secure encryption key suitable for AWS S3 encryption.
