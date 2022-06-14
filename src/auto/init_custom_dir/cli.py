@@ -148,7 +148,8 @@ def validate_aws_credentials_info(
     def print_available_aws_credentials_names():
         PRINT("Available credentials names:")
         for available_credentials_name in sorted(aws_credentials_info.available_credentials_names):
-            PRINT(f"* {available_credentials_name} -> {aws_credentials_info.get_credentials_dir(available_credentials_name)}")
+            PRINT(f"* {available_credentials_name} ->"
+                  f"{aws_credentials_info.get_credentials_dir(available_credentials_name)}")
 
     # Make sure the given AWS credentials name is good. Required but just in case
     # not set anyways, check current credentials, and if set, and ask them if they
@@ -420,8 +421,8 @@ def init_custom_dir(aws_dir, aws_credentials_name, custom_dir, account_number,
             PRINT(f"DEBUG: Script directory: {InfraDirectories.THIS_SCRIPT_DIR}")
 
         # Validate/gather all the inputs.
-        aws_credentials_name, aws_credentials_dir = \
-            validate_aws_credentials_info(aws_dir, aws_credentials_name, confirm, debug)
+        aws_credentials_name, aws_credentials_dir \
+            = validate_aws_credentials_info(aws_dir, aws_credentials_name, confirm, debug)
         custom_dir = validate_custom_dir(custom_dir)
         account_number = validate_account_number(account_number, aws_credentials_dir, debug)
         deploying_iam_user = validate_deploying_iam_user(deploying_iam_user)

@@ -16,7 +16,7 @@ from dcicutils.qa_utils import printed_output as mock_print
 
 
 class Input:
-    aws_credentials_name = "your-aws-credentials-name"
+    aws_credentials_name = "your-credentials-name"
     account_number = "1234567890"
     s3_bucket_org = "prufrock"
     auth0_client = "0A39E193F7B74218A3F176872197D895"
@@ -76,11 +76,11 @@ def _setup_filesystem(aws_credentials_name: str, account_number: str = None):
     which gets totally cleaned up after the with-context where this is used.
     Returns (yields) a tuple with the full path names of:
     - The created AWS base directory (e.g. representing /your-home/.aws_test)
-    - The created AWS credentials directory (e.g. representing /your-home/.aws_test.<your-aws-credentials-name>)
+    - The created AWS credentials directory (e.g. representing /your-home/.aws_test.<your-credentials-name>)
     - The NOT-created custom directory (e.g. representing /your-repos/4dn-cloud-infra/custom)
     If account_number is specified then also creates:
     - A test_creds.sh with an export for ACCOUNT_NUMBER will be created,
-      e.g. representing /your-home/.aws_test.<your-aws-credentials-name>/test_creds.sh
+      e.g. representing /your-home/.aws_test.<your-credentials-name>/test_creds.sh
     """
     with tempfile.TemporaryDirectory() as tmp_dir:
         aws_dir = os.path.join(tmp_dir, ".aws_test")
@@ -89,11 +89,11 @@ def _setup_filesystem(aws_credentials_name: str, account_number: str = None):
         test_creds_script_file = os.path.join(aws_credentials_dir, "test_creds.sh")
         # aws_dir represents: /your-home/.aws_test
         os.makedirs(aws_dir)
-        # aws_credentials_dir represents: /your-home/.aws_test.<your-aws-credentials-name>
+        # aws_credentials_dir represents: /your-home/.aws_test.<your-credentials-name>
         os.makedirs(aws_credentials_dir)
         if account_number:
             with io.open(test_creds_script_file, "w") as test_creds_script_fp:
-                # test_creds_script_file represents: /your-home/.aws_test.<your-aws-credentials-name>/test_creds.sh
+                # test_creds_script_file represents: /your-home/.aws_test.<your-credentials-name>/test_creds.sh
                 test_creds_script_fp.write(f"export ACCOUNT_NUMBER={account_number}")
                 test_creds_script_fp.write(f"\n")
         yield aws_dir, aws_credentials_dir, custom_dir
@@ -101,7 +101,8 @@ def _setup_filesystem(aws_credentials_name: str, account_number: str = None):
 
 def _call_main(pre_existing_s3_encrypt_key_file: bool = True):
 
-    with _setup_filesystem(Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
+    with _setup_filesystem(Input.aws_credentials_name, Input.account_number) \
+            as (aws_dir, aws_credentials_dir, custom_dir), \
          mock_print() as mocked_print, \
          mock.patch("src.auto.init_custom_dir.cli.os.getlogin") as mock_os_getlogin, \
          mock.patch("builtins.input") as mock_input:
@@ -114,7 +115,7 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True):
         # Variable names used for each (below) in parenthesis.
         #
         #   /your-repos/4dn-cloud-infra/custom (custom_dir)
-        #     ├── aws_creds@ -> /your-home/.aws_test.<your-aws-credentials-name> (custom_aws_cred_dir, aws_credentials_dir)
+        #     ├── aws_creds@ -> /your-home/.aws_test.<your-credentials-name> (custom_aws_cred_dir, aws_credentials_dir)
         #     │   ├── s3_encrypt_key.txt (s3_encrypt_key_file)
         #     │   └── test_creds.sh
         #     ├── config.json (config_json_file)
@@ -143,7 +144,7 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True):
             assert config_json["account_number"] == Input.account_number
             assert config_json["s3.bucket.org"] == Input.s3_bucket_org
             assert config_json["deploying_iam_user"] == Input.deploying_iam_user
-            assert config_json["identity"] == "C4DatastoreYourAwsCredentialsNameApplicationConfiguration"
+            assert config_json["identity"] == "C4DatastoreYourCredentialsNameApplicationConfiguration"
             assert config_json["ENCODED_ENV_NAME"] == Input.aws_credentials_name
 
         # Verify existence/contents of secrets.json file (e.g. in /your-repos/4dn-cloud-infra/custom/secrets.json).
@@ -157,7 +158,8 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True):
             assert secrets_json["reCaptchaSecret"] == Input.recaptcha_secret
 
         # Verify that we have custom/aws_creds directory (e.g. in /your-repos/4dn-cloud-infra/custom/config.json).
-        # And that it is actually a symlink to the AWS credentials directory (e.g. to /your-home/.aws_test.<your-aws-credentials-name>).
+        # And that it is actually a symlink to the AWS credentials
+        # directory, e.g. to /your-home/.aws_test.<your-credentials-name>.
 
         assert os.path.isdir(custom_aws_creds_dir)
         assert os.path.islink(custom_aws_creds_dir)
@@ -208,8 +210,10 @@ def test_paths():
     assert len(InfraDirectories.AWS_DIR) > 0
     assert os.path.isfile(InfraFiles.get_config_template_file())
     assert os.path.isfile(InfraFiles.get_secrets_template_file())
-    with _setup_filesystem(Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir):
-        assert InfraFiles.get_test_creds_script_file(aws_credentials_dir) == os.path.join(aws_credentials_dir, "test_creds.sh")
+    with _setup_filesystem(Input.aws_credentials_name, Input.account_number) as \
+            (aws_dir, aws_credentials_dir, custom_dir):
+        assert InfraFiles.get_test_creds_script_file(aws_credentials_dir) == \
+               os.path.join(aws_credentials_dir, "test_creds.sh")
         assert InfraFiles.get_config_file(custom_dir) == os.path.join(custom_dir, "config.json")
         assert InfraFiles.get_secrets_file(custom_dir) == os.path.join(custom_dir, "secrets.json")
         assert InfraFiles.get_s3_encrypt_key_file(custom_dir) == \
@@ -227,14 +231,15 @@ def test_main_with_pre_existing_s3_encrypt_key_file():
 
 def test_main_with_pre_existing_custom_dir():
 
-    with _setup_filesystem(Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir):
+    with _setup_filesystem(Input.aws_credentials_name, Input.account_number) \
+            as (aws_dir, aws_credentials_dir, custom_dir):
 
         # This is the directory structure we are simulating;
         # well, actually creating, within a temporary directory.
         # Variable names used for each (below) in parenthesis.
         #
         #   /your-repos/4dn-cloud-infra/custom (custom_dir)
-        #     ├── aws_creds@ -> /your-home/.aws_test.<your-aws-credentials-name> (custom_aws_cred_dir, aws_credentials_dir)
+        #     ├── aws_creds@ -> /your-home/.aws_test.<your-credentials-name> (custom_aws_cred_dir, aws_credentials_dir)
         #     │   ├── s3_encrypt_key.txt (s3_encrypt_key_file)
         #     │   └── test_creds.sh
         #     ├── config.json (config_json_file)
@@ -270,7 +275,8 @@ def test_main_with_pre_existing_custom_dir():
 
 def test_main_with_no_existing_aws_credentials_dir():
 
-    with _setup_filesystem(Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir):
+    with _setup_filesystem(Input.aws_credentials_name, Input.account_number) \
+            as (aws_dir, aws_credentials_dir, custom_dir):
 
         # Call the script function with an aws_credentials_name for which an aws_credentials_dir does not exist.
 
@@ -281,7 +287,8 @@ def test_main_with_no_existing_aws_credentials_dir():
 
 def test_main_when_answering_no_to_confirmation_prompt():
 
-    with _setup_filesystem(Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
+    with _setup_filesystem(Input.aws_credentials_name, Input.account_number) \
+            as (aws_dir, aws_credentials_dir, custom_dir), \
          mock.patch("builtins.input") as mock_input:
         mock_input.return_value = 'no'
         argv = _get_standard_main_argv(aws_dir, Input.aws_credentials_name, custom_dir)
@@ -321,7 +328,8 @@ def test_main_exit_with_no_action_on_missing_required_input_account():
 
 
 def test_main_with_keyboard_interrupt():
-    with _setup_filesystem(Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
+    with _setup_filesystem(Input.aws_credentials_name, Input.account_number) \
+            as(aws_dir, aws_credentials_dir, custom_dir), \
          mock.patch("builtins.input") as mock_input:
         mock_input.side_effect = [KeyboardInterrupt]
         argv = _get_standard_main_argv(aws_dir, Input.aws_credentials_name, custom_dir)
