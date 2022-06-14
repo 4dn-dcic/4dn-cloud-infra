@@ -6,6 +6,7 @@ import pytest
 import re
 import stat
 import tempfile
+from typing import Callable
 from contextlib import contextmanager
 from src.auto.init_custom_dir.cli import (get_fallback_identity, main)
 from src.auto.init_custom_dir.defs import InfraDirectories, InfraFiles
@@ -43,7 +44,7 @@ def _get_standard_main_argv(aws_dir: str, aws_credentials_name: str, custom_dir:
     return argv
 
 
-def _rummage_for_print_message(mocked_print, regular_expression):
+def _rummage_for_print_message(mocked_print, regular_expression: str):
     """
     Searches the given print mock for the/a print call whose arguments matches
     the given regular expression, and returns True if it finds (just) one
@@ -55,7 +56,7 @@ def _rummage_for_print_message(mocked_print, regular_expression):
     return False
 
 
-def _rummage_for_print_message_all(mocked_print, regular_expression, predicate):
+def _rummage_for_print_message_all(mocked_print, regular_expression: str, predicate: Callable):
     """
     Searches the given print mock for the/a call whose argument matches
     the given regular expression and returns True iff each/every match also
@@ -99,7 +100,7 @@ def _setup_filesystem(aws_credentials_name: str, account_number: str = None):
         yield aws_dir, aws_credentials_dir, custom_dir
 
 
-def _call_main(pre_existing_s3_encrypt_key_file: bool = True):
+def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
 
     with _setup_filesystem(Input.aws_credentials_name, Input.account_number) \
             as (aws_dir, aws_credentials_dir, custom_dir), \
@@ -188,7 +189,7 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True):
             mocked_print, ".*using.*secret.*", lambda arg: arg.endswith("*******"))
 
 
-def _call_function_and_assert_exit_with_no_action(f, interrupt: bool = False):
+def _call_function_and_assert_exit_with_no_action(f, interrupt: bool = False) -> None:
     with mock_print() as mocked_print, \
          mock.patch("builtins.exit") as mock_exit:
         mock_exit.side_effect = Exception()
@@ -202,11 +203,11 @@ def _call_function_and_assert_exit_with_no_action(f, interrupt: bool = False):
         assert _rummage_for_print_message(mocked_print, ".*exit.*without.*doing*") is True
 
 
-def test_sanity():
+def test_sanity() -> None:
     assert re.search("\\*+$", obfuscate("ABCDEFGHI")[1:])
 
 
-def test_paths():
+def test_paths() -> None:
     assert len(InfraDirectories.AWS_DIR) > 0
     assert os.path.isfile(InfraFiles.get_config_template_file())
     assert os.path.isfile(InfraFiles.get_secrets_template_file())
@@ -221,15 +222,15 @@ def test_paths():
         assert InfraDirectories.get_custom_aws_creds_dir(custom_dir) == os.path.join(custom_dir, "aws_creds")
 
 
-def test_main_vanilla():
+def test_main_vanilla() -> None:
     _call_main(pre_existing_s3_encrypt_key_file=False)
 
 
-def test_main_with_pre_existing_s3_encrypt_key_file():
+def test_main_with_pre_existing_s3_encrypt_key_file() -> None:
     _call_main(pre_existing_s3_encrypt_key_file=True)
 
 
-def test_main_with_pre_existing_custom_dir():
+def test_main_with_pre_existing_custom_dir() -> None:
 
     with _setup_filesystem(Input.aws_credentials_name, Input.account_number) \
             as (aws_dir, aws_credentials_dir, custom_dir):
@@ -273,7 +274,7 @@ def test_main_with_pre_existing_custom_dir():
             assert secrets_json_fp.read() == Input.dummy_json_content
 
 
-def test_main_with_no_existing_aws_credentials_dir():
+def test_main_with_no_existing_aws_credentials_dir() -> None:
 
     with _setup_filesystem(Input.aws_credentials_name, Input.account_number) \
             as (aws_dir, aws_credentials_dir, custom_dir):
@@ -285,7 +286,7 @@ def test_main_with_no_existing_aws_credentials_dir():
         assert not os.path.exists(custom_dir)
 
 
-def test_main_when_answering_no_to_confirmation_prompt():
+def test_main_when_answering_no_to_confirmation_prompt() -> None:
 
     with _setup_filesystem(Input.aws_credentials_name, Input.account_number) \
             as (aws_dir, aws_credentials_dir, custom_dir), \
@@ -296,7 +297,7 @@ def test_main_when_answering_no_to_confirmation_prompt():
         assert not os.path.exists(custom_dir)
 
 
-def _test_main_exit_with_no_action_on_missing_required_input(omit_required_arg: str):
+def _test_main_exit_with_no_action_on_missing_required_input(omit_required_arg: str) -> None:
     # When a required input is missing we prompt for it and if still not specified (empty)
     # then we exit with no action. Test for this case here.
     account_number = Input.account_number
@@ -311,23 +312,23 @@ def _test_main_exit_with_no_action_on_missing_required_input(omit_required_arg: 
     pass
 
 
-def test_main_exit_with_no_action_on_missing_required_input_s3org():
+def test_main_exit_with_no_action_on_missing_required_input_s3org() -> None:
     _test_main_exit_with_no_action_on_missing_required_input("--s3org")
 
 
-def test_main_exit_with_no_action_on_missing_required_input_auth0client():
+def test_main_exit_with_no_action_on_missing_required_input_auth0client() -> None:
     _test_main_exit_with_no_action_on_missing_required_input("--auth0client")
 
 
-def test_main_exit_with_no_action_on_missing_required_input_auth0secret():
+def test_main_exit_with_no_action_on_missing_required_input_auth0secret() -> None:
     _test_main_exit_with_no_action_on_missing_required_input("--auth0secret")
 
 
-def test_main_exit_with_no_action_on_missing_required_input_account():
+def test_main_exit_with_no_action_on_missing_required_input_account() -> None:
     _test_main_exit_with_no_action_on_missing_required_input("--account")
 
 
-def test_main_with_keyboard_interrupt():
+def test_main_with_keyboard_interrupt() -> None:
     with _setup_filesystem(Input.aws_credentials_name, Input.account_number) \
             as(aws_dir, aws_credentials_dir, custom_dir), \
          mock.patch("builtins.input") as mock_input:
@@ -337,10 +338,10 @@ def test_main_with_keyboard_interrupt():
         assert not os.path.exists(custom_dir)
 
 
-def test_get_fallback_identity():
+def test_get_fallback_identity() -> None:
     assert get_fallback_identity("your-test") == "C4DatastoreYourTestApplicationConfiguration"
 
 
-def test_what_else_i_think_we_have_most_important_cases_covered():
+def test_what_else_i_think_we_have_most_important_cases_covered() -> None:
     # Not yet implemented.
     pass

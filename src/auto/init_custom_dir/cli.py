@@ -409,9 +409,9 @@ def write_s3_encrypt_key_file(custom_dir: str, s3_encrypt_key: str) -> None:
         os.chmod(s3_encrypt_key_file, stat.S_IRUSR)
 
 
-def init_custom_dir(aws_dir, aws_credentials_name, custom_dir, account_number,
-                    deploying_iam_user, identity, s3_bucket_org, auth0_client, auth0_secret,
-                    recaptcha_key, recaptcha_secret, confirm, debug):
+def init_custom_dir(aws_dir: str, aws_credentials_name: str, custom_dir: str, account_number: str,
+                    deploying_iam_user: str, identity: str, s3_bucket_org: str, auth0_client: str, auth0_secret: str,
+                    recaptcha_key: str, recaptcha_secret: str, confirm: bool, debug: bool) -> None:
 
     with setup_and_action() as setup_and_action_state:
 
@@ -478,7 +478,7 @@ def init_custom_dir(aws_dir, aws_credentials_name, custom_dir, account_number,
         print_directory_tree(custom_dir)
 
 
-def main(override_argv: Optional[list] = None):
+def main(override_argv: Optional[list] = None) -> None:
     """
     The main function and args parser for this CLI script.
     Calls into init_custom_dir to do the real work.

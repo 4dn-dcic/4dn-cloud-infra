@@ -40,7 +40,7 @@ class AwsCredentialsInfo:
     # this, and/or can pass this into the AwsCredentialsInfo constructor.
     _DEFAULT_AWS_DIR = InfraDirectories.AWS_DIR
 
-    def __init__(self, aws_dir: str = None):
+    def __init__(self, aws_dir: str = None) -> None:
         """
         :param aws_dir: Alternate base AWS directory; default from InfraDirectories.AWS_DIR.
         """
