@@ -30,7 +30,7 @@ class Input:
 
 def _get_standard_main_argv(aws_dir: str, env_name: str, custom_dir: str, omit_arg: str = None) -> list:
     argv = ["--awsdir", aws_dir,
-            "--env", env_name,
+            "--awscredentials", env_name,
             "--out", custom_dir,
             "--s3org", Input.s3_bucket_org,
             "--auth0client", Input.auth0_client, "--auth0secret", Input.auth0_secret,
