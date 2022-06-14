@@ -105,11 +105,11 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
     with _setup_filesystem(Input.aws_credentials_name, Input.account_number) \
             as (aws_dir, aws_credentials_dir, custom_dir), \
          mock_print() as mocked_print, \
-         mock.patch("src.auto.init_custom_dir.cli.os.getlogin") as mock_os_getlogin, \
-         mock.patch("builtins.input") as mock_input:
+         mock.patch("src.auto.init_custom_dir.cli.os.getlogin") as mocked_os_getlogin, \
+         mock.patch("builtins.input") as mocked_input:
 
-        mock_os_getlogin.return_value = Input.deploying_iam_user
-        mock_input.return_value = "yes"
+        mocked_os_getlogin.return_value = Input.deploying_iam_user
+        mocked_input.return_value = "yes"
 
         # This is the directory structure we are simulating;
         # well, actually creating, within a temporary directory.
@@ -187,17 +187,20 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
 
         assert _rummage_for_print_message_all(
             mocked_print, ".*using.*secret.*", lambda arg: arg.endswith("*******"))
+        assert _rummage_for_print_message_all(
+            mocked_print, ".*using.*secret.*",
+            lambda arg: Input.auth0_secret not in arg and Input.recaptcha_secret not in arg)
 
 
 def _call_function_and_assert_exit_with_no_action(f, interrupt: bool = False) -> None:
     with mock_print() as mocked_print, \
-         mock.patch("builtins.exit") as mock_exit:
-        mock_exit.side_effect = Exception()
+         mock.patch("builtins.exit") as mocked_exit:
+        mocked_exit.side_effect = Exception()
         with pytest.raises(Exception):
             f()
         if interrupt:
             assert _rummage_for_print_message(mocked_print, ".*interrupt.*") is True
-        assert mock_exit.called is True
+        assert mocked_exit.called is True
         # Check the message from the last print which should be something like: Exiting without doing anything.
         # Kinda lame.
         assert _rummage_for_print_message(mocked_print, ".*exit.*without.*doing*") is True
@@ -207,7 +210,7 @@ def test_sanity() -> None:
     assert re.search("\\*+$", obfuscate("ABCDEFGHI")[1:])
 
 
-def test_paths() -> None:
+def test_directories_and_files() -> None:
     assert len(InfraDirectories.AWS_DIR) > 0
     assert os.path.isfile(InfraFiles.get_config_template_file())
     assert os.path.isfile(InfraFiles.get_secrets_template_file())
@@ -290,8 +293,8 @@ def test_main_when_answering_no_to_confirmation_prompt() -> None:
 
     with _setup_filesystem(Input.aws_credentials_name, Input.account_number) \
             as (aws_dir, aws_credentials_dir, custom_dir), \
-         mock.patch("builtins.input") as mock_input:
-        mock_input.return_value = 'no'
+         mock.patch("builtins.input") as mocked_input:
+        mocked_input.return_value = 'no'
         argv = _get_standard_main_argv(aws_dir, Input.aws_credentials_name, custom_dir)
         _call_function_and_assert_exit_with_no_action(lambda: main(argv))
         assert not os.path.exists(custom_dir)
@@ -305,11 +308,10 @@ def _test_main_exit_with_no_action_on_missing_required_input(omit_required_arg: 
         # If we are omitting account number then do not create test_creds.sh with ACCOUNT_NUMBER.
         account_number = None
     with _setup_filesystem(Input.aws_credentials_name, account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
-         mock.patch("builtins.input") as mock_input:
+         mock.patch("builtins.input") as mocked_input:
         argv = _get_standard_main_argv(aws_dir, Input.aws_credentials_name, custom_dir, omit_arg=omit_required_arg)
-        mock_input.side_effect = [""]  # return value for prompt for required arg
+        mocked_input.side_effect = [""]  # return value for prompt for required arg
         _call_function_and_assert_exit_with_no_action(lambda: main(argv))
-    pass
 
 
 def test_main_exit_with_no_action_on_missing_required_input_s3org() -> None:
@@ -328,11 +330,21 @@ def test_main_exit_with_no_action_on_missing_required_input_account() -> None:
     _test_main_exit_with_no_action_on_missing_required_input("--account")
 
 
+def test_main_exit_with_no_action_on_missing_required_input_identity() -> None:
+    # This tests failure of get_identity_fallback.
+    with _setup_filesystem(Input.aws_credentials_name, Input.account_number) \
+            as (aws_dir, aws_credentials_dir, custom_dir), \
+         mock.patch("src.auto.init_custom_dir.cli.get_fallback_identity") as mocked_get_fallback_identity:
+        mocked_get_fallback_identity.return_value = None
+        argv = _get_standard_main_argv(aws_dir, Input.aws_credentials_name, custom_dir)
+        _call_function_and_assert_exit_with_no_action(lambda: main(argv))
+
+
 def test_main_with_keyboard_interrupt() -> None:
     with _setup_filesystem(Input.aws_credentials_name, Input.account_number) \
             as(aws_dir, aws_credentials_dir, custom_dir), \
-         mock.patch("builtins.input") as mock_input:
-        mock_input.side_effect = [KeyboardInterrupt]
+         mock.patch("builtins.input") as mocked_input:
+        mocked_input.side_effect = [KeyboardInterrupt]
         argv = _get_standard_main_argv(aws_dir, Input.aws_credentials_name, custom_dir)
         _call_function_and_assert_exit_with_no_action(lambda: main(argv), interrupt=True)
         assert not os.path.exists(custom_dir)

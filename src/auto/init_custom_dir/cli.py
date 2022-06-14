@@ -258,7 +258,7 @@ def validate_deploying_iam_user(deploying_iam_user: str) -> str:
 def validate_identity(identity: str, aws_credentials_name: str) -> str:
     """
     Validates the given identity (i.e. GAC name) and returns it if/when set.
-    Prompts for this value if not set; exit on error (if not set).
+    Does NOT rompt for this value if not set; exit on error (if not set).
     We get the default value from this from 4dn-cloud-infra code.
 
     :param identity: Identity (i.e. GAC name) value.
@@ -268,11 +268,9 @@ def validate_identity(identity: str, aws_credentials_name: str) -> str:
     if not identity:
         identity = get_fallback_identity(aws_credentials_name)
         if not identity:
-            PRINT("Cannot determine global application configuration name. Use the --identity option.")
-            identity = input("Or enter your global application configuration name: ").strip()
-            if not identity:
-                exit_with_no_action(
-                    f"You must specify a global application configuration name. Use the --identity option.")
+            PRINT("Cannot determine global application configuration name. Should NOT happen!")
+            exit_with_no_action(
+                f"You must specify a global application configuration name. Use the --identity option.")
     PRINT(f"Using global application configuration name: {identity}")
     return identity
 
