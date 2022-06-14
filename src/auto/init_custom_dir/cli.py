@@ -78,7 +78,7 @@ def get_fallback_account_number(aws_credentials_dir: str) -> str:
     file for the chosen AWS credentials (in a sub-shell) and grabbing the value
     of the ACCOUNT_NUMBER environment value which is likely to be set there.
 
-    :param aws_credentials_dir: AWS credentials directory path.
+    :param aws_credentials_dir: Full path to AWS credentials directory.
     :return: Account number from test_creds.sh if found otherwise None.
     """
     test_creds_script_file = InfraFiles.get_test_creds_script_file(aws_credentials_dir)
@@ -152,7 +152,7 @@ def validate_aws_credentials_info(
                   f"{aws_credentials_info.get_credentials_dir(available_credentials_name)}")
 
     # Make sure the given AWS credentials name is good. Required but just in case
-    # not set anyways, check current credentials, and if set, and ask them if they
+    # not set anyways, check current AWS credentials, and if set, and ask if they
     # want to use that. But don't do this interactive thing if --no-confirm option
     # given, rather just error out on the next if statement after this one below.
     aws_credentials_name = aws_credentials_name.strip()
