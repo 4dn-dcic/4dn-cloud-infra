@@ -16,7 +16,7 @@ import glob
 from .defs import InfraDirectories
 
 
-class AwsEnvInfo:
+class AwsCredentialsInfo:
     """
     Class to gather/dispense info about the ~/.aws_test directories
     ala use_test_creds, i.e. what AWS credentials enviroment is currently
@@ -44,7 +44,7 @@ class AwsEnvInfo:
         :param aws_dir: Alternate base AWS directory; default from InfraDirectories.AWS_DIR.
         """
         if not aws_dir:
-            aws_dir = AwsEnvInfo._DEFAULT_AWS_DIR
+            aws_dir = AwsCredentialsInfo._DEFAULT_AWS_DIR
 
         # Make sure we didn't get pass, say, "~/.aws_test/" which would mess things up.
         aws_dir = aws_dir.rstrip("/")
@@ -52,7 +52,7 @@ class AwsEnvInfo:
         if not aws_dir:
             # Here, it means only slashes were given.
             # Odd state of affairs. Think it's okay to just default to the default.
-            aws_dir = AwsEnvInfo._DEFAULT_AWS_DIR
+            aws_dir = AwsCredentialsInfo._DEFAULT_AWS_DIR
 
         # FYI: os.path.expanduser expands tilde (~) even on Windows.
         self._aws_dir = os.path.expanduser(aws_dir)
@@ -64,19 +64,19 @@ class AwsEnvInfo:
         if not os.path.isdir(parent_of_aws_dir):
             raise NotADirectoryError(f"Parent of the AWS base directory does not even exist: {parent_of_aws_dir}")
 
-    def _get_dirs(self) -> list:
+    def _get_credentials_dirs(self) -> list:
         """
         Returns the list of ~/.aws_test.<env-name> directories which actually exist.
 
         :return: List of directories or empty list of none.
         """
         dirs = []
-        for dirname in glob.glob(f"{self._aws_dir}.*"):
-            if os.path.isdir(dirname):
-                dirs.append(dirname)
+        for path in glob.glob(f"{self._aws_dir}.*"):
+            if os.path.isdir(path):
+                dirs.append(path)
         return dirs
 
-    def _get_env_name_from_path(self, path: str) -> str:
+    def _get_credentials_names_from_dir(self, path: str) -> str:
         """
         Returns the <env-name> from the given ~/.aws_test.<env-name> path.
 
@@ -99,17 +99,17 @@ class AwsEnvInfo:
         return self._aws_dir
 
     @property
-    def available_envs(self) -> list:
+    def available_credentials_names(self) -> list:
         """
         Returns a list of available AWS environments based on directory
         names of the form ~/.aws_test.<env-name> that actually exist.
 
         :return: List of available AWS environments; empty list if none found.
         """
-        return [self._get_env_name_from_path(path) for path in self._get_dirs()]
+        return [self._get_credentials_names_from_dir(path) for path in self._get_credentials_dirs()]
 
     @property
-    def current_env(self) -> str:
+    def selected_credentials_name(self) -> str:
         """
         Returns current the AWS environment name as represented by the <env-name> portion of
         the actual ~/.aws_test.<env-name> symlink target of the ~/.aws_test directory itself.
@@ -117,9 +117,9 @@ class AwsEnvInfo:
         :return: Current AWS environment name as symlinked to by ~/.aws_test or None.
         """
         symlink_target = os.readlink(self._aws_dir) if os.path.islink(self._aws_dir) else None
-        return self._get_env_name_from_path(symlink_target)
+        return self._get_credentials_names_from_dir(symlink_target)
 
-    def get_dir(self, aws_credentials_name: str) -> str:
+    def get_credentials_dir(self, aws_credentials_name: str) -> str:
         """
         Returns a full directory path name of the form ~/.aws_test.{aws-credentials-name}
         for the given :param:`aws_credentials_name`. This directory does NOT have to exist.

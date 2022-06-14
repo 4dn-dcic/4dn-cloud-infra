@@ -36,8 +36,8 @@ class InfraFiles:
     SYSTEM_WORDS_DICTIONARY_FILE = "/usr/share/dict/words"
 
     @staticmethod
-    def get_test_creds_script_file(env_dir: str) -> str:
-        return os.path.abspath(os.path.join(env_dir, InfraFiles.TEST_CREDS_SCRIPT_FILE))
+    def get_test_creds_script_file(aws_credentials_dir: str) -> str:
+        return os.path.abspath(os.path.join(aws_credentials_dir, InfraFiles.TEST_CREDS_SCRIPT_FILE))
 
     @staticmethod
     def get_config_file(custom_dir: str) -> str:

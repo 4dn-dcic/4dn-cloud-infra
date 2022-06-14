@@ -49,11 +49,10 @@ import argparse
 import io
 import os
 import stat
-import sys
 from typing import Optional
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
-from .awsenvinfo import AwsEnvInfo
+from .aws_credentials_info import AwsCredentialsInfo
 from .utils import (
     exit_with_no_action,
     expand_json_template_file,
@@ -73,16 +72,16 @@ from .defs import (
 from ...names import Names
 
 
-def get_fallback_account_number(env_dir: str) -> str:
+def get_fallback_account_number(aws_credentials_dir: str) -> str:
     """
     Obtains/returns fallback account_number value by executing the test_creds.sh
-    file for the chosen environment (in a sub-shell) and grabbing the value
+    file for the chosen AWS credentials (in a sub-shell) and grabbing the value
     of the ACCOUNT_NUMBER environment value which is likely to be set there.
 
-    :param env_dir: AWS envronment directory path.
+    :param aws_credentials_dir: AWS credentials directory path.
     :return: Account number from test_creds.sh if found otherwise None.
     """
-    test_creds_script_file = InfraFiles.get_test_creds_script_file(env_dir)
+    test_creds_script_file = InfraFiles.get_test_creds_script_file(aws_credentials_dir)
     return read_env_variable_from_subshell(test_creds_script_file, EnvVars.ACCOUNT_NUMBER)
 
 
@@ -95,34 +94,35 @@ def get_fallback_deploying_iam_user() -> str:
     return os.getlogin()
 
 
-def get_fallback_identity(env_name: str) -> str:
+def get_fallback_identity(aws_credentials_name: str) -> str:
     """
     Obtains/returns the 'identity', i.e. the global application configuration name using
     the same code that 4dn-cloud-infra code does (see C4Datastore.application_configuration_secret).
     Had to do some refactoring to get this working (see names.py).
 
-    :param env_name: AWS environment name (e.g. cgap-supertest).
+    :param aws_credentials_name: AWS credentials name (e.g. cgap-supertest).
     :return: Identity (global application configuration name) as gotten from the main 4dn-cloud-infra code.
     """
     try:
-        identity_value = Names.application_configuration_secret(env_name)
+        identity_value = Names.application_configuration_secret(aws_credentials_name)
     except Exception:
         identity_value = None
     return identity_value
 
 
-def validate_env(aws_dir: str, env_name: str, confirm: bool = True, debug: bool = False) -> (str, str):
+def validate_aws_credentials_info(
+        aws_dir: str, aws_credentials_name: str, confirm: bool = True, debug: bool = False) -> (str, str):
     """
-    Validates the given AWS directory and AWS environment name and returns
-    the AWS environment name and full path to the associated AWS directory.
-    If the environment name is not given and there is a current one in
-    effect effect then we prompt/ask if they want to use that one; exit on error (if not set).
+    Validates the given AWS directory and AWS credentials name and returns
+    the AWS credentials name and full path to the associated AWS credentials directory.
+    If the AWS credentials name is not given and there is a current one in
+    effect then we prompt/ask if they want to use that one; exit on error (if not set).
 
     :param aws_dir: Specified AWS base directory (default: ~/.aws_test from InfraDirectories.AWS_DIR).
-    :param env_name: Specified AWS environment name.
+    :param aws_credentials_name: Specified AWS credentials name.
     :param confirm: False to NOT interactively confirm yes/no to confirmation prompts.
     :param debug: True for debugging output.
-    :return: Tuple with AWS environment name and full path to associated AWS directory.
+    :return: Tuple with AWS credentials name and full path to associated AWS credentials directory.
     """
 
     # Since we allow the base ~/.aws_test to be changed
@@ -132,59 +132,59 @@ def validate_env(aws_dir: str, env_name: str, confirm: bool = True, debug: bool 
     if not aws_dir:
         exit_with_no_action(f"An ~/.aws directory must be specified; default is: {InfraDirectories.AWS_DIR}")
 
-    # Get basic AWS environment info.
+    # Get basic AWS credentials info.
 
-    envinfo = None
+    aws_credentials_info = None
     try:
-        envinfo = AwsEnvInfo(aws_dir)
+        aws_credentials_info = AwsCredentialsInfo(aws_dir)
     except Exception as e:
         exit_with_no_action(str(e))
 
     if debug:
-        PRINT(f"DEBUG: AWS base directory: {envinfo.dir}")
-        PRINT(f"DEBUG: AWS environments: {envinfo.available_envs}")
-        PRINT(f"DEBUG: AWS current environment: {envinfo.current_env}")
+        PRINT(f"DEBUG: AWS base directory: {aws_credentials_info.dir}")
+        PRINT(f"DEBUG: Available AWS credentials names: {aws_credentials_info.available_credentials_names}")
+        PRINT(f"DEBUG: Current AWS credentials name: {aws_credentials_info.selected_credentials_name}")
 
-    def print_available_envs():
-        PRINT("Available environments:")
-        for available_env in sorted(envinfo.available_envs):
-            PRINT(f"* {available_env} -> {envinfo.get_dir(available_env)}")
+    def print_available_aws_credentials_names():
+        PRINT("Available credentials names:")
+        for available_credentials_name in sorted(aws_credentials_info.available_credentials_names):
+            PRINT(f"* {available_credentials_name} -> {aws_credentials_info.get_credentials_dir(available_credentials_name)}")
 
-    # Make sure the AWS environment name given is good.
-    # Required but just in case not set anyways, check current
-    # environment, if set, and ask them if they want to use that.
-    # But don't do this interactive thing if --no-confirm option given,
-    # rather just error out on the next if statement after this below.
-    env_name = env_name.strip()
-    if not env_name and confirm:
-        if not envinfo.current_env:
-            exit_with_no_action("No environment specified. Use the --env option to specify this.")
+    # Make sure the given AWS credentials name is good. Required but just in case
+    # not set anyways, check current credentials, and if set, and ask them if they
+    # want to use that. But don't do this interactive thing if --no-confirm option
+    # given, rather just error out on the next if statement after this one below.
+    aws_credentials_name = aws_credentials_name.strip()
+    if not aws_credentials_name and confirm:
+        if not aws_credentials_info.selected_credentials_name:
+            exit_with_no_action("No AWS credentials name specified. Use the --env option to specify this.")
         else:
-            env_name = envinfo.current_env
-            PRINT(f"No environment specified. Use the --env option to specify this.")
-            PRINT(f"Though it looks like your current environment is: {envinfo.current_env}")
-            if not yes_or_no(f"Do you want to use this ({envinfo.current_env})?"):
-                print_available_envs()
+            aws_credentials_name = aws_credentials_info.selected_credentials_name
+            PRINT(f"No AWS credentials name specified. Use the --env option to specify this.")
+            PRINT(f"Though it looks like your current AWS credentials name is:"
+                  f"{aws_credentials_info.selected_credentials_name}")
+            if not yes_or_no(f"Do you want to use this ({aws_credentials_info.selected_credentials_name})?"):
+                print_available_aws_credentials_names()
                 exit_with_no_action()
 
-    # Make sure the environment specified
-    # actually exists as a ~/.aws_test.<env-name> directory.
-    if not env_name or env_name not in envinfo.available_envs:
-        PRINT(f"No environment for this name exists: {env_name}")
-        if envinfo.available_envs:
-            print_available_envs()
-            exit_with_no_action("Choose one of the above environment using the --env option.")
+    # Make sure the given AWS credentials name actually
+    # exists as a ~/.aws_test.<aws-credentials-name> directory.
+    if not aws_credentials_name or aws_credentials_name not in aws_credentials_info.available_credentials_names:
+        PRINT(f"No AWS credentials for this name exists: {aws_credentials_name}")
+        if aws_credentials_info.available_credentials_names:
+            print_available_aws_credentials_names()
+            exit_with_no_action("Choose one of the above AWS credentials using the --env option.")
         else:
             exit_with_no_action(
-                f"No environments found at all.",
-                f"You need to have at least one {envinfo.dir}.<env-name> directory setup.")
+                f"No AWS credentials names/directories found at all.",
+                f"You need to have at least one {aws_credentials_info.dir}.<aws-credentials-name> directory setup.")
 
-    env_dir = envinfo.get_dir(env_name)
+    aws_credentials_dir = aws_credentials_info.get_credentials_dir(aws_credentials_name)
 
-    PRINT(f"Setting up 4dn-cloud-infra local custom config directory for environment: {env_name}")
-    PRINT(f"Your AWS environment directory: {env_dir}")
+    PRINT(f"Setting up 4dn-cloud-infra local custom config directory for AWS credentials: {aws_credentials_name}")
+    PRINT(f"Your AWS credentials directory: {aws_credentials_dir}")
 
-    return env_name, env_dir
+    return aws_credentials_name, aws_credentials_dir
 
 
 def validate_custom_dir(custom_dir: str) -> str:
@@ -209,7 +209,7 @@ def validate_custom_dir(custom_dir: str) -> str:
     return custom_dir
 
 
-def validate_account_number(account_number: str, env_dir: str, debug: bool = False) -> str:
+def validate_account_number(account_number: str, aws_credentials_dir: str, debug: bool = False) -> str:
     """
     Validates the given account number (if specified), and returns it if/when set.
     If not specified we try to get it from test_creds.sh.
@@ -217,15 +217,15 @@ def validate_account_number(account_number: str, env_dir: str, debug: bool = Fal
     We get the default/fallback value for this from test_creds.sh if present.
 
     :param account_number: Account number value.
-    :param env_dir: Full path to AWS environment directory.
+    :param aws_credentials_dir: Full path to AWS credentials directory.
     :param debug: True for debugging output.
     :return: Account number value.
     """
     if not account_number:
         if debug:
             PRINT(f"DEBUG: Trying to read {EnvVars.ACCOUNT_NUMBER} from:"
-                  f"{InfraFiles.get_test_creds_script_file(env_dir)}")
-        account_number = get_fallback_account_number(env_dir)
+                  f"{InfraFiles.get_test_creds_script_file(aws_credentials_dir)}")
+        account_number = get_fallback_account_number(aws_credentials_dir)
         if not account_number:
             account_number = input("Or enter your account number: ").strip()
             if not account_number:
@@ -254,18 +254,18 @@ def validate_deploying_iam_user(deploying_iam_user: str) -> str:
     return deploying_iam_user
 
 
-def validate_identity(identity: str, env_name: str) -> str:
+def validate_identity(identity: str, aws_credentials_name: str) -> str:
     """
     Validates the given identity (i.e. GAC name) and returns it if/when set.
     Prompts for this value if not set; exit on error (if not set).
     We get the default value from this from 4dn-cloud-infra code.
 
     :param identity: Identity (i.e. GAC name) value.
-    :param env_name: AWS environment name (e.g. cgap-supertest).
+    :param aws_credentials_name: AWS environment name (e.g. cgap-supertest).
     :return: Identity (i.e. GAC name) value.
     """
     if not identity:
-        identity = get_fallback_identity(env_name)
+        identity = get_fallback_identity(aws_credentials_name)
         if not identity:
             PRINT("Cannot determine global application configuration name. Use the --identity option.")
             identity = input("Or enter your global application configuration name: ").strip()
@@ -408,7 +408,7 @@ def write_s3_encrypt_key_file(custom_dir: str, s3_encrypt_key: str) -> None:
         os.chmod(s3_encrypt_key_file, stat.S_IRUSR)
 
 
-def init_custom_dir(aws_dir, env_name, custom_dir, account_number,
+def init_custom_dir(aws_dir, aws_credentials_name, custom_dir, account_number,
                     deploying_iam_user, identity, s3_bucket_org, auth0_client, auth0_secret,
                     recaptcha_key, recaptcha_secret, confirm, debug):
 
@@ -420,11 +420,12 @@ def init_custom_dir(aws_dir, env_name, custom_dir, account_number,
             PRINT(f"DEBUG: Script directory: {InfraDirectories.THIS_SCRIPT_DIR}")
 
         # Validate/gather all the inputs.
-        env_name, env_dir = validate_env(aws_dir, env_name, confirm, debug)
+        aws_credentials_name, aws_credentials_dir = \
+            validate_aws_credentials_info(aws_dir, aws_credentials_name, confirm, debug)
         custom_dir = validate_custom_dir(custom_dir)
-        account_number = validate_account_number(account_number, env_dir, debug)
+        account_number = validate_account_number(account_number, aws_credentials_dir, debug)
         deploying_iam_user = validate_deploying_iam_user(deploying_iam_user)
-        identity = validate_identity(identity, env_name)
+        identity = validate_identity(identity, aws_credentials_name)
         s3_bucket_org = validate_s3_bucket_org(s3_bucket_org)
         auth0_client, auth0_secret = validate_auth0(auth0_client, auth0_secret)
         recaptcha_key, recaptcha_secret = validate_recaptcha(recaptcha_key, recaptcha_secret)
@@ -451,7 +452,7 @@ def init_custom_dir(aws_dir, env_name, custom_dir, account_number,
             ConfigTemplateVars.DEPLOYING_IAM_USER: deploying_iam_user,
             ConfigTemplateVars.IDENTITY: identity,
             ConfigTemplateVars.S3_BUCKET_ORG: s3_bucket_org,
-            ConfigTemplateVars.ENCODED_ENV_NAME: env_name
+            ConfigTemplateVars.ENCODED_ENV_NAME: aws_credentials_name
         })
 
         # Create the secrets.json file from the template and the inputs.
@@ -462,10 +463,10 @@ def init_custom_dir(aws_dir, env_name, custom_dir, account_number,
             SecretsTemplateVars.RECAPTCHA_SECRET: recaptcha_secret
         })
 
-        # Create the symlink from custom/aws_creds to ~/.aws_test.<env-name>
+        # Create the symlink from custom/aws_creds to ~/.aws_test.<aws-credentials-name>
         custom_aws_creds_dir = InfraDirectories.get_custom_aws_creds_dir(custom_dir)
-        PRINT(f"Creating symlink: {custom_aws_creds_dir}@ -> {env_dir} ")
-        os.symlink(env_dir, custom_aws_creds_dir)
+        PRINT(f"Creating symlink: {custom_aws_creds_dir}@ -> {aws_credentials_dir} ")
+        os.symlink(aws_credentials_dir, custom_aws_creds_dir)
 
         # Create the S3 encrypt key file (with mode 400).
         # We will NOT overwrite this if it already exists.
@@ -491,9 +492,9 @@ def main(override_argv: Optional[list] = None):
                       help="Your Auth0 secret (required)")
     argp.add_argument("--awsdir", "-d", dest="aws_dir", type=str, required=False, default=InfraDirectories.AWS_DIR,
                       help=f"Alternate directory to default: {InfraDirectories.AWS_DIR}")
-    argp.add_argument("--env", "-e", dest="env_name", type=str, required=True,
-                      help=f"The name of your AWS environment,"
-                           f"e.g. <env-name> from {InfraDirectories.AWS_DIR}.<env-name>")
+    argp.add_argument("--awscredentials", "-c", dest="aws_credentials_name", type=str, required=True,
+                      help=f"The name of your AWS credentials,"
+                           f"e.g. <aws-credentials-name> from {InfraDirectories.AWS_DIR}.<aws-credentials-name>")
     argp.add_argument("--debug", dest="debug", action="store_true", required=False,
                       help="Turn on debugging for this script")
     argp.add_argument("--identity", "-i", dest="identity", type=str, required=False,
@@ -512,7 +513,7 @@ def main(override_argv: Optional[list] = None):
                       help="Your deploying IAM username")
     args = argp.parse_args(override_argv)
 
-    init_custom_dir(args.aws_dir, args.env_name, args.custom_dir, args.account_number,
+    init_custom_dir(args.aws_dir, args.aws_credentials_name, args.custom_dir, args.account_number,
                     args.deploying_iam_user, args.identity, args.s3_bucket_org, args.auth0_client, args.auth0_secret,
                     args.recaptcha_key, args.recaptcha_secret, args.confirm, args.debug)
 
