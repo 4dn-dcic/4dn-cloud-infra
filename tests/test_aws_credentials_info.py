@@ -10,11 +10,11 @@ def test_aws_credentials_info():
     with tempfile.TemporaryDirectory() as tmp_dir:
 
         aws_dir = os.path.join(tmp_dir, ".aws_test")
-        aws_credentials_dir_abc = os.path.join(tmp_dir, ".aws_test.your-env-abc")
+        aws_credentials_dir_abc = os.path.join(tmp_dir, ".aws_test.your-abc")
         os.makedirs(aws_credentials_dir_abc)
-        aws_credentials_dir_def = os.path.join(tmp_dir, ".aws_test.your-env-def")
+        aws_credentials_dir_def = os.path.join(tmp_dir, ".aws_test.your-def")
         os.makedirs(aws_credentials_dir_def)
-        aws_credentials_dir_ghi = os.path.join(tmp_dir, ".aws_test.your-env-ghi")
+        aws_credentials_dir_ghi = os.path.join(tmp_dir, ".aws_test.your-ghi")
         os.makedirs(aws_credentials_dir_ghi)
 
         aws_credentials_info = AwsCredentialsInfo(aws_dir)
@@ -23,27 +23,27 @@ def test_aws_credentials_info():
 
         assert aws_credentials_info.dir == aws_dir
 
-        # Check the available envs (each of the abc, def, ghi test cases/directories above).
+        # Check the available credentials names (each of the abc, def, ghi test cases/directories above).
 
         assert sorted(aws_credentials_info.available_credentials_names) == \
-               ['your-env-abc', 'your-env-def', 'your-env-ghi']
+               ['your-abc', 'your-def', 'your-ghi']
 
-        # Current env not yet set, i.e. ~/..aws_test not symlinked to any specific directory.
+        # Current AWS credentials name not yet set, i.e. ~/.aws_test not symlinked to any specific directory.
         assert not aws_credentials_info.selected_credentials_name
 
-        # Symlink ~/.aws_test to each of test cases and check current_env.
+        # Symlink ~/.aws_test to each of test cases and check selected_credentials_name.
 
         os.symlink(aws_credentials_dir_abc, aws_dir)
-        assert aws_credentials_info.selected_credentials_name == "your-env-abc"
+        assert aws_credentials_info.selected_credentials_name == "your-abc"
 
         os.unlink(aws_dir)
         os.symlink(aws_credentials_dir_def, aws_dir)
-        assert aws_credentials_info.selected_credentials_name == "your-env-def"
+        assert aws_credentials_info.selected_credentials_name == "your-def"
 
         os.unlink(aws_dir)
         os.symlink(aws_credentials_dir_ghi, aws_dir)
-        assert aws_credentials_info.selected_credentials_name == "your-env-ghi"
+        assert aws_credentials_info.selected_credentials_name == "your-ghi"
 
-        # Make sure we construct the full path to the env dir correctly; does not have to exist.
+        # Make sure we construct the full path to the AWS credentials dir correctly; does not have to exist.
 
         assert aws_credentials_info.get_credentials_dir('foo-bar') == aws_dir + ".foo-bar"

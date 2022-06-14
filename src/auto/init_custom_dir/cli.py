@@ -157,10 +157,10 @@ def validate_aws_credentials_info(
     aws_credentials_name = aws_credentials_name.strip()
     if not aws_credentials_name and confirm:
         if not aws_credentials_info.selected_credentials_name:
-            exit_with_no_action("No AWS credentials name specified. Use the --env option to specify this.")
+            exit_with_no_action("No AWS credentials name specified. Use the --credentials option to specify this.")
         else:
             aws_credentials_name = aws_credentials_info.selected_credentials_name
-            PRINT(f"No AWS credentials name specified. Use the --env option to specify this.")
+            PRINT(f"No AWS credentials name specified. Use the --credentials option to specify this.")
             PRINT(f"Though it looks like your current AWS credentials name is:"
                   f"{aws_credentials_info.selected_credentials_name}")
             if not yes_or_no(f"Do you want to use this ({aws_credentials_info.selected_credentials_name})?"):
@@ -173,7 +173,7 @@ def validate_aws_credentials_info(
         PRINT(f"No AWS credentials for this name exists: {aws_credentials_name}")
         if aws_credentials_info.available_credentials_names:
             print_available_aws_credentials_names()
-            exit_with_no_action("Choose one of the above AWS credentials using the --env option.")
+            exit_with_no_action("Choose one of the above AWS credentials using the --credentials option.")
         else:
             exit_with_no_action(
                 f"No AWS credentials names/directories found at all.",
@@ -261,7 +261,7 @@ def validate_identity(identity: str, aws_credentials_name: str) -> str:
     We get the default value from this from 4dn-cloud-infra code.
 
     :param identity: Identity (i.e. GAC name) value.
-    :param aws_credentials_name: AWS environment name (e.g. cgap-supertest).
+    :param aws_credentials_name: AWS credentials name (e.g. cgap-supertest).
     :return: Identity (i.e. GAC name) value.
     """
     if not identity:
@@ -492,7 +492,7 @@ def main(override_argv: Optional[list] = None):
                       help="Your Auth0 secret (required)")
     argp.add_argument("--awsdir", "-d", dest="aws_dir", type=str, required=False, default=InfraDirectories.AWS_DIR,
                       help=f"Alternate directory to default: {InfraDirectories.AWS_DIR}")
-    argp.add_argument("--awscredentials", "-c", dest="aws_credentials_name", type=str, required=True,
+    argp.add_argument("--credentials", "-c", dest="aws_credentials_name", type=str, required=True,
                       help=f"The name of your AWS credentials,"
                            f"e.g. <aws-credentials-name> from {InfraDirectories.AWS_DIR}.<aws-credentials-name>")
     argp.add_argument("--debug", dest="debug", action="store_true", required=False,

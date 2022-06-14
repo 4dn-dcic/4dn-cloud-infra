@@ -1,5 +1,5 @@
-# Module/class (AwsEnvInfo) to gather/dispense info about the ~/.aws_test directories.
-# Most notable the current_env and available_envs properties.
+# Module/class (AwsCredentialsInfo) to gather/dispense info about the ~/.aws_test directories.
+# Most notable the selected_credentials_name and available_credentials_names properties.
 #
 # Testing notes:
 # - External resources accesed by this module:
@@ -18,25 +18,26 @@ from .defs import InfraDirectories
 
 class AwsCredentialsInfo:
     """
-    Class to gather/dispense info about the ~/.aws_test directories
-    ala use_test_creds, i.e. what AWS credentials enviroment is currently
-    active (based on what ~/.aws_test is symlinked to), and the list
-    of available environments (based on what ~/.aws_test.<env-name>
-    directories actually exist).
+    Class to gather/dispense info about the ~/.aws_test directories ala use_test_creds,
+    i.e. what AWS credentials name is currently active (based on what ~/.aws_test
+    is symlinked to), and the list of available credentials names (based on
+    what ~/.aws_test.<aws-credentials-name> directories actually exist).
 
-    Looks for set of directories of the form ~/.aws_test.<env-name> where <env-name> can
-    be anything; and the directory ~/.aws_test can by symlinked to any or none of them.
+    Looks for set of directories of the form ~/.aws_test.<aws-credentials-name>
+    where <aws-credentials-name> can be anything; and the directory ~/.aws_test
+    can by symlinked to any or none of those.
 
-    The current_env property returns the <env-name> for the one currently symlinked
-    to, if any. The available_envs property returns a list of available
-    <env-name>s each of the ~/.aws_test.<env-name> directories which actually exist.
+    The selected_credentials_name property returns the <aws-credentials-name>
+    for the one currently symlinked to, if any. The available_credentials_names
+    property returns a list of available <aws-credentials-name>s for each of
+    the ~/.aws_test.<aws-credentials-name> directories which actually exist.
 
-    May pass constructor a base directory name other than ~/.aws_test if desired.
+    May pass constructor an AWS base directory name other than ~/.aws_test if desired.
     """
 
     # We're probably going to change this default directory name ~/.aws_test
     # to something like ~/.aws_cgap or something; when we do we can change
-    # this, and/or can pass this into the AwsEnvInfo constructor.
+    # this, and/or can pass this into the AwsCredentialsInfo constructor.
     _DEFAULT_AWS_DIR = InfraDirectories.AWS_DIR
 
     def __init__(self, aws_dir: str = None):
@@ -66,7 +67,7 @@ class AwsCredentialsInfo:
 
     def _get_credentials_dirs(self) -> list:
         """
-        Returns the list of ~/.aws_test.<env-name> directories which actually exist.
+        Returns the list of ~/.aws_test.<aws-credentials-name> directories which actually exist.
 
         :return: List of directories or empty list of none.
         """
@@ -78,10 +79,10 @@ class AwsCredentialsInfo:
 
     def _get_credentials_names_from_dir(self, path: str) -> str:
         """
-        Returns the <env-name> from the given ~/.aws_test.<env-name> path.
+        Returns the <aws-credentials-name> from the given ~/.aws_test.<aws-credentials-name> path.
 
-        :param path: Path from which to extract the <env-name>.
-        :return: Environment name from the path.
+        :param path: Path from which to extract the <aws-credentials-name>.
+        :return: AWS credentials name from the path.
         """
         if path:
             basename = os.path.basename(path)
@@ -101,20 +102,20 @@ class AwsCredentialsInfo:
     @property
     def available_credentials_names(self) -> list:
         """
-        Returns a list of available AWS environments based on directory
-        names of the form ~/.aws_test.<env-name> that actually exist.
+        Returns a list of available AWS AWS credentials names based on directory
+        names of the form ~/.aws_test.<aws-credentials-name> that actually exist.
 
-        :return: List of available AWS environments; empty list if none found.
+        :return: List of available AWS credentials names; empty list if none found.
         """
         return [self._get_credentials_names_from_dir(path) for path in self._get_credentials_dirs()]
 
     @property
     def selected_credentials_name(self) -> str:
         """
-        Returns current the AWS environment name as represented by the <env-name> portion of
-        the actual ~/.aws_test.<env-name> symlink target of the ~/.aws_test directory itself.
+        Returns current the AWS credentials name as represented by the <aws-credentials-name> portion
+        of the actual ~/.aws_test.<aws-credentials-name> symlink target of the ~/.aws_test directory itself.
 
-        :return: Current AWS environment name as symlinked to by ~/.aws_test or None.
+        :return: Current AWS credentials name as symlinked to by ~/.aws_test or None.
         """
         symlink_target = os.readlink(self._aws_dir) if os.path.islink(self._aws_dir) else None
         return self._get_credentials_names_from_dir(symlink_target)
@@ -125,7 +126,7 @@ class AwsCredentialsInfo:
         for the given :param:`aws_credentials_name`. This directory does NOT have to exist.
 
         :param aws_credentials_name: AWS credentials name.
-        :return: Full directory path for given AWS environment name (e.g. ~/.aws_test.{aws-credentials-name}).
+        :return: Full directory path for given AWS credentials name (e.g. ~/.aws_test.{aws-credentials-name}).
         """
         if aws_credentials_name:
             return f"{self._aws_dir}.{aws_credentials_name}"
