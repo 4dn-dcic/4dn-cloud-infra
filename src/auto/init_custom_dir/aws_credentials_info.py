@@ -47,7 +47,7 @@ class AwsCredentialsInfo:
         if not aws_dir:
             aws_dir = AwsCredentialsInfo._DEFAULT_AWS_DIR
 
-        # Make sure we didn't get pass, say, "~/.aws_test/" which would mess things up.
+        # Make sure we didn't get passed, say, "~/.aws_test/" which would mess things up.
         aws_dir = aws_dir.rstrip("/")
 
         if not aws_dir:
