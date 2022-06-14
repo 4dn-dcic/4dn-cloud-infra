@@ -20,11 +20,9 @@ def test_aws_credentials_info():
         aws_credentials_info = AwsCredentialsInfo(aws_dir)
 
         # Assure the directory supplied is what AwsCredentialsInfo uses.
-
         assert aws_credentials_info.dir == aws_dir
 
         # Check the available credentials names (each of the abc, def, ghi test cases/directories above).
-
         assert sorted(aws_credentials_info.available_credentials_names) == \
                ['your-abc', 'your-def', 'your-ghi']
 
@@ -32,7 +30,6 @@ def test_aws_credentials_info():
         assert not aws_credentials_info.selected_credentials_name
 
         # Symlink ~/.aws_test to each of test cases and check selected_credentials_name.
-
         os.symlink(aws_credentials_dir_abc, aws_dir)
         assert aws_credentials_info.selected_credentials_name == "your-abc"
 
@@ -45,5 +42,4 @@ def test_aws_credentials_info():
         assert aws_credentials_info.selected_credentials_name == "your-ghi"
 
         # Make sure we construct the full path to the AWS credentials dir correctly; does not have to exist.
-
         assert aws_credentials_info.get_credentials_dir('foo-bar') == aws_dir + ".foo-bar"

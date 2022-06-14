@@ -133,7 +133,6 @@ def validate_aws_credentials_info(
         exit_with_no_action(f"An ~/.aws directory must be specified; default is: {InfraDirectories.AWS_DIR}")
 
     # Get basic AWS credentials info.
-
     aws_credentials_info = None
     try:
         aws_credentials_info = AwsCredentialsInfo(aws_dir)
@@ -331,7 +330,7 @@ def validate_recaptcha(recaptcha_key: str, recaptcha_secret: str) -> (str, str):
     :return: Tuple with reCAPTCHA key and secret values.
     """
     if recaptcha_key:
-        PRINT(f"Using CAPTCHA key: {recaptcha_key}")
+        PRINT(f"Using reCAPTCHA key: {recaptcha_key}")
     if recaptcha_secret:
         PRINT(f"Using reCAPTCHA secret: {obfuscate(recaptcha_secret)}")
     return recaptcha_key, recaptcha_secret
