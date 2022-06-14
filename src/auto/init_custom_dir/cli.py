@@ -406,9 +406,15 @@ def write_s3_encrypt_key_file(custom_dir: str, s3_encrypt_key: str) -> None:
         os.chmod(s3_encrypt_key_file, stat.S_IRUSR)
 
 
-def init_custom_dir(aws_dir: str, aws_credentials_name: str, custom_dir: str, account_number: str,
-                    deploying_iam_user: str, identity: str, s3_bucket_org: str, auth0_client: str, auth0_secret: str,
-                    recaptcha_key: str, recaptcha_secret: str, confirm: bool, debug: bool) -> None:
+def init_custom_dir(aws_dir: str, aws_credentials_name: str,
+                    custom_dir: str,
+                    account_number: str,
+                    deploying_iam_user: str,
+                    identity: str,
+                    s3_bucket_org: str, s3_bucket_encryption: bool,
+                    auth0_client: str, auth0_secret: str,
+                    recaptcha_key: str, recaptcha_secret: str,
+                    confirm: bool, debug: bool) -> None:
 
     with setup_and_action() as setup_and_action_state:
 
@@ -427,6 +433,8 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str, custom_dir: str, ac
         s3_bucket_org = validate_s3_bucket_org(s3_bucket_org)
         auth0_client, auth0_secret = validate_auth0(auth0_client, auth0_secret)
         recaptcha_key, recaptcha_secret = validate_recaptcha(recaptcha_key, recaptcha_secret)
+
+        PRINT(f"Using S3 bucket encryption: {'Yes' if s3_bucket_encryption else 'No'}")
 
         # Generate S3 encryption key.
         # Though we will NOT overwrite s3_encrypt_key.txt if it already exists, below.
@@ -450,6 +458,7 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str, custom_dir: str, ac
             ConfigTemplateVars.DEPLOYING_IAM_USER: deploying_iam_user,
             ConfigTemplateVars.IDENTITY: identity,
             ConfigTemplateVars.S3_BUCKET_ORG: s3_bucket_org,
+            ConfigTemplateVars.S3_BUCKET_ENCRYPTION: True if s3_bucket_encryption else False,
             ConfigTemplateVars.ENCODED_ENV_NAME: aws_credentials_name
         })
 
@@ -507,13 +516,20 @@ def main(override_argv: Optional[list] = None) -> None:
                       help="Your reCAPTCHA secret")
     argp.add_argument("--s3org", "-n", dest="s3_bucket_org", type=str, required=False,
                       help="Your S3 bucket organization name")
+    argp.add_argument("--s3encrypt", "-e", dest="s3_bucket_encryption", action="store_true", default=False, required=False,
+                      help="To encrypt S3 buckets")
     argp.add_argument("--username", "-u", dest="deploying_iam_user", type=str, required=False,
                       help="Your deploying IAM username")
     args = argp.parse_args(override_argv)
 
-    init_custom_dir(args.aws_dir, args.aws_credentials_name, args.custom_dir, args.account_number,
-                    args.deploying_iam_user, args.identity, args.s3_bucket_org, args.auth0_client, args.auth0_secret,
-                    args.recaptcha_key, args.recaptcha_secret, args.confirm, args.debug)
+    init_custom_dir(args.aws_dir, args.aws_credentials_name, args.custom_dir,
+                    args.account_number,
+                    args.deploying_iam_user,
+                    args.identity,
+                    args.s3_bucket_org, args.s3_bucket_encryption,
+                    args.auth0_client, args.auth0_secret,
+                    args.recaptcha_key, args.recaptcha_secret,
+                    args.confirm, args.debug)
 
 
 if __name__ == "__main__":

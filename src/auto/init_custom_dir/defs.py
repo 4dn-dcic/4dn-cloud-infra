@@ -67,6 +67,7 @@ class ConfigTemplateVars:
     IDENTITY = "<identity>"
     ENCODED_ENV_NAME = "<encoded-env-name>"
     S3_BUCKET_ORG = "<s3-bucket-org>"
+    S3_BUCKET_ENCRYPTION = "<s3-bucket-encryption>"
 
 
 class SecretsTemplateVars:

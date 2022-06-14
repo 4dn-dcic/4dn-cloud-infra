@@ -26,6 +26,7 @@ class Input:
     recaptcha_secret = "08DEBE6BE73D49549B18CE9641D80DC5"
     deploying_iam_user = "someuser"
     s3_encrypt_key = "8F383EBE093941B5B927279F361C3002"
+    s3_bucket_encryption = True
     dummy_json_content = "{\"dummy\": \"<dummy-content>\" }"
 
 
@@ -34,6 +35,7 @@ def _get_standard_main_argv(aws_dir: str, aws_credentials_name: str, custom_dir:
             "--credentials", aws_credentials_name,
             "--out", custom_dir,
             "--s3org", Input.s3_bucket_org,
+            "--s3encrypt",
             "--auth0client", Input.auth0_client, "--auth0secret", Input.auth0_secret,
             "--recaptchakey", Input.recaptcha_key, "--recaptchasecret", Input.recaptcha_secret]
     if omit_arg and omit_arg in argv:
@@ -144,6 +146,7 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
             assert config_json["deploying_iam_user"] == Input.deploying_iam_user
             assert config_json["identity"] == "C4DatastoreYourCredentialsNameApplicationConfiguration"
             assert config_json["ENCODED_ENV_NAME"] == Input.aws_credentials_name
+            assert config_json["s3.bucket.encryption"] == Input.s3_bucket_encryption
 
         # Verify existence/contents of secrets.json file (e.g. in /your-repos/4dn-cloud-infra/custom/secrets.json).
         assert os.path.isfile(secrets_json_file)

@@ -29,5 +29,6 @@
     "rds.instance_size": "db.t3.medium",
     "rds.storage_size": "50",
 
+    "s3.bucket.encryption": "<s3-bucket-encryption>",
     "s3.bucket.org": "<s3-bucket-org>"
 }
