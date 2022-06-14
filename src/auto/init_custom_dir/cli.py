@@ -152,7 +152,7 @@ def validate_aws_credentials_info(
                   f"{aws_credentials_info.get_credentials_dir(available_credentials_name)}")
 
     # Make sure the given AWS credentials name is good. Required but just in case
-    # not set anyways, check current AWS credentials, and if set, and ask if they
+    # it is still not, check current AWS credentials, and if set, and ask if they
     # want to use that. But don't do this interactive thing if --no-confirm option
     # given, rather just error out on the next if statement after this one below.
     aws_credentials_name = aws_credentials_name.strip()
@@ -257,8 +257,8 @@ def validate_deploying_iam_user(deploying_iam_user: str) -> str:
 
 def validate_identity(identity: str, aws_credentials_name: str) -> str:
     """
-    Validates the given identity (i.e. GAC name) and returns it if/when set.
-    Does NOT rompt for this value if not set; exit on error (if not set).
+    Validates the given identity (i.e. GAC name) and returns it if set.
+    Does NOT prompt for this value if not set; exit on error (if not set).
     We get the default value from this from 4dn-cloud-infra code.
 
     :param identity: Identity (i.e. GAC name) value.
