@@ -18,7 +18,7 @@ from .defs import InfraDirectories
 
 class AwsCredentialsInfo:
     """
-    Class to gather/dispense info about the ~/.aws_test directories ala use_test_creds,
+    Class to gather/dispense info about the ~/.aws_test directories, ala use_test_creds,
     i.e. what AWS credentials name is currently active (based on what ~/.aws_test
     is symlinked to), and the list of available credentials names (based on
     what ~/.aws_test.<aws-credentials-name> directories actually exist).
