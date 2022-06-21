@@ -91,6 +91,10 @@ def get_fallback_deploying_iam_user() -> str:
 
     :return: Username as found by os.getlogin().
     """
+    # TODO: This is really no good. Need to use the AWS user name.
+    # And in fact it seems like we actualy need the AWS ARN for the user;
+    # e.g. arn:aws:iam::466564410312:user/david.michaels, though unclear why
+    # we didn't need this before (e.g. it seemed to work with david.michaels).
     return os.getlogin()
 
 

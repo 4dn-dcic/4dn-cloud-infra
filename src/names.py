@@ -29,3 +29,13 @@ class Names:
             qualifier = env_name
             c4name = cls.suggest_stack_name(title_token, name_token, qualifier)
         return c4name.logical_id(camelize(env_name) + C4DatastoreBase.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
+
+    # dmichaels/2022-06-21: Factored out from C4Datastore.rds_secret_logical_id() in datastore.py.
+    @classmethod
+    def rds_secret_logical_id(cls, env_name: str, c4name: C4Name = None) -> str:
+        if not c4name:
+            title_token = C4DatastoreBase.STACK_TITLE_TOKEN  # Datastore (in constants.py, from C4Datastore.STACK_TITLE_TOKEN)
+            name_token = C4DatastoreBase.STACK_NAME_TOKEN    # datastore (in constants.py, from C4Datastore.STACK_NAME_TOKEN)
+            qualifier = env_name
+            c4name = cls.suggest_stack_name(title_token, name_token, qualifier)
+        return c4name.logical_id(camelize(env_name) + C4DatastoreBase.RDS_SECRET_NAME_SUFFIX, context='rds_secret_logical_id')
