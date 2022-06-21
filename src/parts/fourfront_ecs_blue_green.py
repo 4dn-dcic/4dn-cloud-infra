@@ -9,7 +9,7 @@ from troposphere.ecs import (
     Environment, CapacityProviderStrategyItem, SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
 from dcicutils.cloudformation_utils import camelize
-from ..base import ConfigManager
+from ..base import ConfigManager, APP_DEPLOYMENT
 from ..constants import Settings, DeploymentParadigm
 from .ecs import C4ECSApplicationExports, C4ECSApplication
 from .network import C4NetworkExports
@@ -26,11 +26,14 @@ class FourfrontECSBlueGreen(C4ECSApplication):
     PORTAL_CONTAINER_DEFINITION = 'Portal'
     INDEXER_CONTAINER_DEFINITION = 'Indexer'
     DEPLOYMENT_CONTAINER_DEFINITION = 'DeploymentAction'
+    #
+    # New at suggestion from Kent 2022-05-17 @ 2:15pm
+    #
+    SHARING = 'account'
 
     def build_template(self, template: Template) -> Template:
         """ Builds the template containing two ECS environments. """
-        if ConfigManager.get_config_setting(Settings.APP_DEPLOYMENT,
-                                            default=DeploymentParadigm.STANDALONE) != DeploymentParadigm.BLUE_GREEN:
+        if APP_DEPLOYMENT != DeploymentParadigm.BLUE_GREEN:
             raise Exception('Tried to build Fourfront blue/green but APP_DEPLOYMENT '
                             'is not "blue/green"!')
 

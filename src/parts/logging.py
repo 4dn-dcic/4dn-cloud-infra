@@ -1,7 +1,7 @@
 from troposphere import logs, Template, Output, Ref
 from dcicutils.cloudformation_utils import dehyphenate
 from ..constants import DeploymentParadigm
-from ..base import ConfigManager, Settings
+from ..base import ConfigManager, Settings, APP_DEPLOYMENT
 from ..part import C4Part
 from ..exports import C4Exports
 
@@ -27,7 +27,7 @@ class C4Logging(C4Part):
         """ Builds the Docker log group and outputs it. Also builds a VPC flow log group.
             Will build 2 if the 'blue/green' deployment setting is on.
         """
-        if ConfigManager.get_config_setting(Settings.APP_DEPLOYMENT) == DeploymentParadigm.BLUE_GREEN:
+        if APP_DEPLOYMENT == DeploymentParadigm.BLUE_GREEN:
             blue_lg = self.build_log_group(
                 identifier=f'{dehyphenate(ConfigManager.get_config_setting(Settings.ENV_NAME))}'
                            f'DockerLogs{DeploymentParadigm.BLUE.capitalize()}',

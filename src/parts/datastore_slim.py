@@ -8,7 +8,7 @@ from troposphere.elasticsearch import (
 )
 from dcicutils.cloudformation_utils import camelize, dehyphenate
 from ..base import (
-    ConfigManager, Settings,
+    ConfigManager, Settings, APP_DEPLOYMENT,
 )
 from ..constants import DeploymentParadigm
 from .datastore import C4Datastore, C4DatastoreExports
@@ -47,7 +47,7 @@ class C4DatastoreSlim(C4Datastore):
         template.add_output(self.output_rds_port(rds))
 
         # Elasticsearch
-        if ConfigManager.get_config_setting(Settings.APP_DEPLOYMENT) == DeploymentParadigm.BLUE_GREEN:
+        if APP_DEPLOYMENT == DeploymentParadigm.BLUE_GREEN:
             for env, export in {
                 f'-{DeploymentParadigm.BLUE}': C4DatastoreExports.BLUE_ES_URL,
                 f'-{DeploymentParadigm.GREEN}': C4DatastoreExports.GREEN_ES_URL

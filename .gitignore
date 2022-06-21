@@ -42,6 +42,8 @@ token.pickle
 secrets.*
 config.json
 config.*.json
+!secrets.template.json
+!config.template.json
 .s3_encrypt_key.txt
 s3_encrypt_key.txt
 custom

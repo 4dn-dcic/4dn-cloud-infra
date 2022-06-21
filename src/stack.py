@@ -97,6 +97,21 @@ class BaseC4FoursightStack(BaseC4Stack, StackNameMixin):
         raise NotImplementedError(f"{class_name} does not implement required method 'package_foursight_stack'.")
 
 
+def get_trial_creds(env_name: str):
+    # dmichaels/2022-06-08: Factored out of C4FoursightCGAPStack.__init__() and C4FoursightFourfrontStack.__init__().
+    return {
+        'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY),
+        'CLIENT_ID': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT),
+        'CLIENT_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET),
+        'DEV_SECRET': '',  # Better not to set this. ConfigManager.get_config_secret(Secrets.ENCODED_SECRET),
+        'ES_HOST': ConfigManager.get_config_setting(Settings.FOURSIGHT_ES_URL, default=None) or
+                   C4DatastoreExports.get_es_url() + ":443",
+        'ENV_NAME': env_name,
+        'RDS_NAME': ConfigManager.get_config_setting(Settings.RDS_NAME, default=None) or f"rds-{env_name}",
+        'S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
+    }
+
+
 class C4FoursightCGAPStack(BaseC4FoursightStack):
 
     STACK_NAME_TOKEN = "foursight"
@@ -111,17 +126,8 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
             self.security_ids = C4NetworkExports.get_security_ids()
             self.subnet_ids = C4NetworkExports.get_subnet_ids()
             self.global_env_bucket = C4DatastoreExports.get_env_bucket()
-            self.trial_creds = {
-                'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY),
-                'CLIENT_ID': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT),
-                'CLIENT_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET),
-                'DEV_SECRET': '',  # Better not to set this. ConfigManager.get_config_secret(Secrets.ENCODED_SECRET),
-                'ES_HOST': ConfigManager.get_config_setting(Settings.FOURSIGHT_ES_URL, default=None) or
-                           C4DatastoreExports.get_es_url() + ":443",
-                'ENV_NAME': ConfigManager.get_config_setting(Settings.ENV_NAME),
-                'RDS_NAME': ConfigManager.get_config_setting(Settings.RDS_NAME),
-                'S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
-            }
+            env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+            self.trial_creds = get_trial_creds(env_name)
         super().__init__(description, name, tags, account)
 
     def package_foursight_stack(self, args):
@@ -173,17 +179,8 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
             self.security_ids = C4NetworkExports.get_security_ids()
             self.subnet_ids = C4NetworkExports.get_subnet_ids()
             self.global_env_bucket = C4DatastoreExports.get_env_bucket()
-            self.trial_creds = {
-                'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY),
-                'CLIENT_ID': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT),
-                'CLIENT_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET),
-                'DEV_SECRET': '',  # Better not to set this. ConfigManager.get_config_secret(Secrets.ENCODED_SECRET),
-                'ES_HOST': ConfigManager.get_config_setting(Settings.FOURSIGHT_ES_URL, default=None) or
-                           C4DatastoreExports.get_es_url() + ":443",
-                'ENV_NAME': ConfigManager.get_config_setting(Settings.ENV_NAME),
-                'RDS_NAME': ConfigManager.get_config_setting(Settings.RDS_NAME),
-                'S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
-            }
+            env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+            self.trial_creds = get_trial_creds(env_name)
         super().__init__(description, name, tags, account)
 
     def package_foursight_stack(self, args):

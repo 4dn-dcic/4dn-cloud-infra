@@ -1,0 +1,34 @@
+{
+    "account_number": "<account-number>",
+    "deploying_iam_user": "<deploying-iam-user>",
+    "identity": "<identity>",
+    "ENCODED_ENV_NAME": "<encoded-env-name>",
+
+    "app.kind": "cgap",
+    "app.deploy": "standalone",
+
+    "ecs.indexer.count": "4",
+    "ecs.indexer.cpu": "256",
+    "ecs.indexer.memory": "512",
+
+    "ecs.ingester.count": "1",
+    "ecs.ingester.cpu": "512",
+    "ecs.ingester.memory": "1024",
+
+    "ecs.wsgi.count": "1",
+    "ecs.wsgi.cpu": "4096",
+    "ecs.wsgi.memory": "8192",
+
+    "elasticsearch.data_node_count": "1",
+    "elasticsearch.data_node_type": "c5.large.elasticsearch",
+    "elasticsearch.master_node_count": "3",
+    "elasticsearch.master_node_type": "c5.large.elasticsearch",
+    "elasticsearch.volume_size": "50",
+
+    "rds.az": "us-east-1a",
+    "rds.instance_size": "db.t3.medium",
+    "rds.storage_size": "50",
+
+    "s3.bucket.encryption": "<s3-bucket-encryption>",
+    "s3.bucket.org": "<s3-bucket-org>"
+}
