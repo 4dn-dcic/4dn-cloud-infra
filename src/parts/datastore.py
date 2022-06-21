@@ -136,7 +136,8 @@ class C4Datastore(C4DatastoreBase, C4Part):
     @classmethod
     def rds_postgres_major_version(cls):
         return cls.rds_postgres_version().split('.')[0]
-    RDS_SECRET_NAME_SUFFIX = 'RDSSecret'  # Used as logical id suffix in resource names
+    # dmichaels/2022-06-21: Factored out to C4DatastoreBase in constants.py
+    # RDS_SECRET_NAME_SUFFIX = 'RDSSecret'  # Used as logical id suffix in resource names
     EXPORTS = C4DatastoreExports()
     NETWORK_EXPORTS = C4NetworkExports()
     IAM_EXPORTS = C4IAMExports()
@@ -482,7 +483,9 @@ class C4Datastore(C4DatastoreBase, C4Part):
 
     def rds_secret_logical_id(self):
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        return self.name.logical_id(camelize(env_name) + self.RDS_SECRET_NAME_SUFFIX, context='rds_secret_logical_id')
+        # dmichaels/2022-06-21: Refactored to use Names.rds_secret_logical_id() in names.py.
+        # return self.name.logical_id(camelize(env_name) + self.RDS_SECRET_NAME_SUFFIX, context='rds_secret_logical_id')
+        return Names.rds_secret_logical_id(env_name, self.name)
 
     @classmethod
     def rds_db_username(cls):
@@ -539,8 +542,11 @@ class C4Datastore(C4DatastoreBase, C4Part):
                         'Effect': 'Allow',
                         'Principal': {'AWS': [
                             Join('', ['arn:aws:iam::', AccountId, ':user/',
-                                      self.IAM_EXPORTS.import_value(C4IAMExports.S3_IAM_USER)])
-                        ]},
+                                      self.IAM_EXPORTS.import_value(C4IAMExports.S3_IAM_USER)]),
+                            # dmichaels/2022-06-17: Added to ECS_ASSUMED_IAM_ROLE to allow access to S3 with encrypted account.
+                            Join('', ['arn:aws:iam::', AccountId, ':user/',
+                                      self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)])
+        ]},
                         'Action': [
                             'kms:Encrypt',
                             'kms:Decrypt',

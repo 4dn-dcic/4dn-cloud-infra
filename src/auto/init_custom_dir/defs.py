@@ -17,12 +17,16 @@ class InfraDirectories:
     THIS_SCRIPT_DIR = os.path.dirname(__file__)
 
     @staticmethod
-    def get_custom_dir(custom_dir: str) -> str:
+    def get_custom_dir(custom_dir: str = None) -> str:
         # Note this returns the given directory relative to the CURRENT directory.
+        if not custom_dir:
+            custom_dir = InfraDirectories.CUSTOM_DIR
         return os.path.abspath(os.path.expanduser(custom_dir))
 
     @staticmethod
-    def get_custom_aws_creds_dir(custom_dir: str) -> str:
+    def get_custom_aws_creds_dir(custom_dir: str = None) -> str:
+        if not custom_dir:
+            custom_dir = InfraDirectories.get_custom_dir()
         return os.path.abspath(os.path.join(custom_dir, InfraDirectories.CUSTOM_AWS_CREDS_DIR))
 
 
@@ -40,11 +44,15 @@ class InfraFiles:
         return os.path.abspath(os.path.join(aws_credentials_dir, InfraFiles.TEST_CREDS_SCRIPT_FILE))
 
     @staticmethod
-    def get_config_file(custom_dir: str) -> str:
+    def get_config_file(custom_dir: str = None) -> str:
+        if not custom_dir:
+            custom_dir = InfraDirectories.get_custom_dir()
         return os.path.abspath(os.path.join(custom_dir, InfraFiles.CONFIG_FILE))
 
     @staticmethod
-    def get_secrets_file(custom_dir: str) -> str:
+    def get_secrets_file(custom_dir: str = None) -> str:
+        if not custom_dir:
+            custom_dir = InfraDirectories.get_custom_dir()
         return os.path.abspath(os.path.join(custom_dir, InfraFiles.SECRETS_FILE))
 
     @staticmethod
@@ -57,6 +65,8 @@ class InfraFiles:
 
     @staticmethod
     def get_s3_encrypt_key_file(custom_dir: str) -> str:
+        if not custom_dir:
+            custom_dir = InfraDirectories.get_custom_dir()
         return os.path.abspath(
             os.path.join(InfraDirectories.get_custom_aws_creds_dir(custom_dir), InfraFiles.S3_ENCRYPT_KEY_FILE))
 
