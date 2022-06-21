@@ -32,7 +32,7 @@ class Settings:
 
     ACCOUNT_NUMBER = 'account_number'
     DEPLOYING_IAM_USER = 'deploying_iam_user'
-    ENV_NAME = 'ENCODED_BS_ENV'  # probably should just be 'env.name'
+    ENV_NAME = 'ENCODED_ENV_NAME'  # probably should just be 'env.name'
 
     # We no longer use this setting. Now we do C4DatastoreExports.get_env_bucket()
     # GLOBAL_ENV_BUCKET = 'GLOBAL_ENV_BUCKET'
@@ -107,3 +107,18 @@ class Settings:
 
     # S3 KMS ServerSide Encryption Key
     S3_ENCRYPT_KEY_ID = 's3.encrypt_key_id'
+
+
+# dmichaels/2022-06-06: Factored out from base.py.
+COMMON_STACK_PREFIX = "c4-"
+COMMON_STACK_PREFIX_CAMEL_CASE = "C4"
+
+
+# dmichaels/2022-06-06: Factored out from datastore.py.
+class C4DatastoreBase:
+    """
+    Factored out of C4Datastore to to generate names before orchestration (e.g. init-custom-dir).
+    """
+    STACK_NAME_TOKEN = "datastore"
+    STACK_TITLE_TOKEN = "Datastore"
+    APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = 'ApplicationConfiguration'

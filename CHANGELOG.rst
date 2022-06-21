@@ -6,6 +6,11 @@
 Change Log
 ----------
 
+3.2.0
+=====
+* Added ``init-custom-dir`` poetry script target to automated the creation of the local ``custom`` configuration directory
+  implementation in src/auto/init_custom_dir.
+
 2.0.1
 =====
 

@@ -117,7 +117,7 @@ Step Four: Fill out any remaining application secrets
   * Go to the Secrets Manager
 
   * There are two secrets. Information from the RDS secret will be needed in this action, but we'll start in the
-    one with a longer name, like ``C4DatastoreApplicationConfigurationCgapSupertest``, where ``CgapSupertest``
+    one with a longer name, like ``C4DatastoreCgapSupertestApplicationConfiguration``, where ``CgapSupertest``
     is what in this example corresponded to a ``cgap-supertest`` environment. You may have named your environment
     differently, so the name you see will vary.  Click into the environment-related resource.
 

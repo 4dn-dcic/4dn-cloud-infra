@@ -15,7 +15,7 @@ from dcicutils.misc_utils import (
 )
 from dcicutils.s3_utils import s3Utils
 from .exceptions import CLIException
-from .constants import Secrets, Settings
+from .constants import Secrets, Settings, DeploymentParadigm
 
 
 _MISSING = object()
@@ -468,3 +468,6 @@ if not DEPLOYING_IAM_USER:
     raise ValueError(f"A setting for {Settings.DEPLOYING_IAM_USER} is required.")
 
 ECOSYSTEM = ConfigManager.get_config_setting(Settings.S3_BUCKET_ECOSYSTEM, default=DEFAULT_ECOSYSTEM)
+
+APP_DEPLOYMENT = ConfigManager.get_config_setting(Settings.APP_DEPLOYMENT,
+                                                  default=DeploymentParadigm.STANDALONE)

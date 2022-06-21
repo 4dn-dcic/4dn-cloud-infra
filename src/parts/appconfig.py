@@ -14,7 +14,7 @@ except ImportError:
     def DomainEndpointOptions(*args, **kwargs):  # noQA
         raise NotImplementedError('DomainEndpointOptions')
 from troposphere.secretsmanager import Secret
-from ..base import ConfigManager
+from ..base import ConfigManager, APP_DEPLOYMENT
 from ..constants import Settings, Secrets, DeploymentParadigm
 from ..exports import C4Exports
 from ..part import C4Part
@@ -111,7 +111,7 @@ class C4AppConfig(C4Part):
 
     def build_template(self, template: Template) -> Template:
         """ Builds the appconfig template - builds GACs for blue/green if APP_DEPLOYMENT == blue/green """
-        if ConfigManager.get_config_setting(Settings.APP_DEPLOYMENT) == DeploymentParadigm.BLUE_GREEN:
+        if APP_DEPLOYMENT == DeploymentParadigm.BLUE_GREEN:
             gac_blue = self.application_configuration_secret(postfix='Blue')
             template.add_resource(gac_blue)
             template.add_output(self.output_configuration_secret(gac_blue, deployment_type='Blue'))

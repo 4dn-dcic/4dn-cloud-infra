@@ -25,11 +25,12 @@ from troposphere.s3 import (
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
 from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX
-from ..constants import Settings, Secrets
+from ..constants import Settings, Secrets, C4DatastoreBase
 from ..exports import C4Exports
 from ..part import C4Part
 from .network import C4NetworkExports
 from .iam import C4IAMExports
+from ..names import Names
 
 
 class C4DatastoreExports(C4Exports):
@@ -108,13 +109,16 @@ class C4DatastoreExports(C4Exports):
         super().__init__(parameter)
 
 
-class C4Datastore(C4Part):
+class C4Datastore(C4DatastoreBase, C4Part):
     """ Defines the datastore stack - see resources created in build_template method. """
-    STACK_NAME_TOKEN = "datastore"
-    STACK_TITLE_TOKEN = "Datastore"
+
+    # dmichaels/2022-06-09: Refactored these into C4DatastoreBase in constants.py.
+    # STACK_NAME_TOKEN = "datastore"
+    # STACK_TITLE_TOKEN = "Datastore"
+    # APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = "ApplicationConfiguration"
+
     SHARING = 'env'
 
-    APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = 'ApplicationConfiguration'
     DEFAULT_RDS_DB_NAME = 'ebdb'
     DEFAULT_RDS_DB_PORT = '5432'
     DEFAULT_RDS_DB_USERNAME = 'postgresql'
@@ -210,7 +214,7 @@ class C4Datastore(C4Part):
         # print("env_name=", repr(env_name))
         result = cls.add_placeholders({
             'deploying_iam_user': ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER),  # required
-            'ACCOUNT_NUMBER': AccountId,
+            'ACCOUNT_NUMBER': cls.CONFIGURATION_PLACEHOLDER,
             'S3_AWS_ACCESS_KEY_ID': None,
             'S3_AWS_SECRET_ACCESS_KEY': None,
             'ENCODED_AUTH0_CLIENT': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
@@ -558,7 +562,12 @@ class C4Datastore(C4Part):
         """
         identity = ConfigManager.get_config_setting(Settings.IDENTITY)  # will use setting from config
         if not identity:
-            identity = self.name.logical_id(camelize(ConfigManager.get_config_setting(Settings.ENV_NAME)) + self.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
+            # dmichaels/2022-06-06: Refactored to use Names.application_configuration_secret() in names.py.
+            # identity = self.name.logical_id(camelize(
+            #                ConfigManager.get_config_setting(Settings.ENV_NAME)) +
+            #                    self.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
+            identity = Names.application_configuration_secret(
+                ConfigManager.get_config_setting(Settings.ENV_NAME), self.name)
         return Secret(
             identity,
             Name=identity,
@@ -601,7 +610,7 @@ class C4Datastore(C4Part):
                                                                               default=self.DEFAULT_RDS_INSTANCE_SIZE),
             Engine='postgres',
             EngineVersion=postgres_version or self.DEFAULT_RDS_POSTGRES_VERSION,
-            DBInstanceIdentifier=ConfigManager.get_config_setting(Settings.RDS_NAME) or f"rds-{env_name}",  # was logical_id,
+            DBInstanceIdentifier=ConfigManager.get_config_setting(Settings.RDS_NAME, default=None) or f"rds-{env_name}",  # was logical_id,
             DBName=db_name or ConfigManager.get_config_setting(Settings.RDS_DB_NAME, default=self.DEFAULT_RDS_DB_NAME),
             DBParameterGroupName=Ref(self.rds_parameter_group()),
             DBSubnetGroupName=Ref(self.rds_subnet_group()),
