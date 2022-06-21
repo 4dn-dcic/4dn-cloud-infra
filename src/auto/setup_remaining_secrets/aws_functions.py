@@ -1,18 +1,29 @@
+<<<<<<< HEAD
 # TODO: Probably should factor out into some common utils somewhere.
 import boto3
 import json
 import re
 from typing import Optional
+=======
+import boto3
+import json
+import re
+>>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
 from .aws_context import AwsContext
 from .utils import (obfuscate, should_obfuscate)
 
+<<<<<<< HEAD
 
 class AwsFunctions(AwsContext):
 
     _DEACTIVATED_PREFIX = "DEACTIVATED:"
 
+=======
+class AwsFunctions(AwsContext):
+
+>>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
     def get_secret_value(self, secret_name: str, secret_key_name: str) -> str:
         """
         Returns the value of the given secret key name
@@ -39,11 +50,16 @@ class AwsFunctions(AwsContext):
         If the given secret key value does not yet exist it will be created.
         If the given secret key value is None then the given secret key will be "deactivated",
         where this means that its old value will be prepended with the string "DEACTIVATED:".
+<<<<<<< HEAD
         This is a command-line INTERACTIVE process, prompting the user for info/confirmation.
+=======
+        This is a command-line interactive process, prompting the user for info/confirmation.
+>>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
 
         :param secret_name: AWS secret name.
         :param secret_key_name: AWS secret key name to update.
         :param secret_key_value: AWS secret key value to update to; if None secret key will be deactivated.
+<<<<<<< HEAD
         :param show: True to show any displayed sensitive values in plaintext.
         :return: True if succeeded otherwise false.
         """
@@ -61,6 +77,28 @@ class AwsFunctions(AwsContext):
                     PRINT(f"{prefix} value of AWS secret {name}.{key_name}{suffix}: {obfuscate(key_value)}")
             else:
                 PRINT(f"{prefix} value of AWS secret {name}.{key_name}{suffix}: {key_value}")
+=======
+        :param show: True to show in plaintext any displayed secret values. 
+        :return: True if succeeded otherwise false.
+        """
+
+        DEACTIVATED_PREFIX = "DEACTIVATED:"
+
+        def print_secret(prefix: str,  secret_name: str, secret_key_name: str, secret_key_value: str, show: bool) -> None:
+            if not secret_key_value:
+                PRINT(f"{prefix} value of AWS secret {secret_name}.{secret_key_name} has no value.")
+                return
+            suffix = " is deactivated" if secret_key_value.startswith(DEACTIVATED_PREFIX) else ""
+            if should_obfuscate(secret_key_name) and not show:
+                PRINT(f"{prefix} value of AWS secret looks like it is sensitive: {secret_name}.{secret_key_name}")
+                yes = yes_or_no("Show in plaintext?")
+                if yes:
+                    PRINT(f"{prefix} value of AWS secret {secret_name}.{secret_key_name}{suffix}: {secret_key_value}")
+                else:
+                    PRINT(f"{prefix} value of AWS secret {secret_name}.{secret_key_name}{suffix}: {obfuscate(secret_key_value)}")
+            else:
+                PRINT(f"{prefix} value of AWS secret {secret_name}.{secret_key_name}{suffix}: {secret_key_value}")
+>>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
 
         with super().establish_credentials():
             secrets_manager = boto3.client('secretsmanager')
@@ -81,11 +119,19 @@ class AwsFunctions(AwsContext):
                     if secret_key_value_current is None:
                         PRINT(f"AWS secret {secret_name}.{secret_key_name} does not exist. Nothing to deactivate.")
                         return False
+<<<<<<< HEAD
                     print_secret("Current", secret_name, secret_key_name, secret_key_value_current)
                     if secret_key_value_current.startswith(self._DEACTIVATED_PREFIX):
                         PRINT(f"AWS secret {secret_name}.{secret_key_name} is already deactivated. Nothing to do.")
                         return False
                     secret_key_value = self._DEACTIVATED_PREFIX + secret_key_value_current
+=======
+                    print_secret("Current", secret_name, secret_key_name, secret_key_value_current, show)
+                    if secret_key_value_current.startswith(DEACTIVATED_PREFIX):
+                        PRINT(f"AWS secret {secret_name}.{secret_key_name} is already deactivated. Nothing to do.")
+                        return False
+                    secret_key_value = DEACTIVATED_PREFIX + secret_key_value_current
+>>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
                     action = "deactivate"
                 else:
                     if secret_key_value_current is None:
@@ -94,6 +140,7 @@ class AwsFunctions(AwsContext):
                         action = "create"
                     else:
                         # Updating existing secret key value.
+<<<<<<< HEAD
                         print_secret("Current", secret_name, secret_key_name, secret_key_value_current)
                         action = "update"
                         if secret_key_value_current == secret_key_value:
@@ -101,6 +148,14 @@ class AwsFunctions(AwsContext):
                                   f"Nothing to update.")
                             return False
                     print_secret("New", secret_name, secret_key_name, secret_key_value)
+=======
+                        print_secret("Current", secret_name, secret_key_name, secret_key_value_current, show)
+                        action = "update"
+                        if secret_key_value_current == secret_key_value:
+                            PRINT(f"New value of AWS secret ({secret_name}.{secret_key_name}) same as current one. Nothing to update.")
+                            return False
+                    print_secret("New", secret_name, secret_key_name, secret_key_value, show)
+>>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
                 yes = yes_or_no(f"Are you sure you want to {action} AWS secret {secret_name}.{secret_key_name}?")
                 if yes:
                     secret_value_json[secret_key_name] = secret_key_value
@@ -110,7 +165,11 @@ class AwsFunctions(AwsContext):
                 PRINT(f"EXCEPTION: {str(e)}")
             return False
 
+<<<<<<< HEAD
     def find_iam_user_name(self, user_name_pattern: str) -> Optional[str]:
+=======
+    def find_iam_user_name(self, user_name_pattern: str) -> str:
+>>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
         """
         Returns the first AWS IAM user name in which
         matches the given (regular expression) pattern.
@@ -121,6 +180,7 @@ class AwsFunctions(AwsContext):
         with super().establish_credentials():
             iam = boto3.resource('iam')
             users = iam.users.all()
+<<<<<<< HEAD
             for user in sorted(users, key=lambda value: value.name):
                 user_name = user.name
                 if re.match(user_name_pattern, user_name):
@@ -128,6 +188,15 @@ class AwsFunctions(AwsContext):
         return None
 
     def get_customer_managed_kms_keys(self) -> list:
+=======
+            for user in sorted(users, key=lambda user: user.name):
+                user_name = user.name
+                if re.search(user_name_pattern, user_name):
+                    return user_name
+        return None
+
+    def get_customer_managed_kms_keys(self):
+>>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
         """
         Returns the customer managed AWS KMS key IDs.
 
@@ -142,12 +211,19 @@ class AwsFunctions(AwsContext):
                 key_metadata = key_description["KeyMetadata"]
                 key_manager = key_metadata["KeyManager"]
                 if key_manager == "CUSTOMER":
+<<<<<<< HEAD
                     # TODO: If multiple keys (for some reason) silently pick the most recently created one (?)
                     # key_creation_date = key_metadata["CreationDate"]
                     kms_keys.append(key_id)
         return kms_keys
 
     def get_elasticsearch_endpoint(self, aws_credentials_name: str) -> Optional[str]:
+=======
+                    kms_keys.append(key_id)
+        return kms_keys
+
+    def get_opensearch_endpoint(self, aws_credentials_name: str):
+>>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
         """
         Returns the endpoint (host:port) for the ElasticSearch instance associated
         with the given AWS credentials name (e.g. cgap-supertest).
@@ -157,6 +233,7 @@ class AwsFunctions(AwsContext):
         """
         with super().establish_credentials():
             # TODO: Get this name from somewhere in 4dn-cloud-infra.
+<<<<<<< HEAD
             elasticsearch_instance_name = f"es-{aws_credentials_name}"
             elasticsearch = boto3.client('opensearch')
             domain_names = elasticsearch.list_domain_names()["DomainNames"]
@@ -166,11 +243,25 @@ class AwsFunctions(AwsContext):
                 return None
             domain_name = domain_name[0]["DomainName"]
             domain_description = elasticsearch.describe_domain(DomainName=domain_name)
+=======
+            opensearch_instance_name = f"es-{aws_credentials_name}"
+            opensearch = boto3.client('opensearch')
+            domain_names = opensearch.list_domain_names()["DomainNames"]
+            domain_name = [domain_name for domain_name in domain_names if domain_name["DomainName"] == opensearch_instance_name]
+            if domain_name is None or len(domain_name) != 1:
+                return None
+            domain_name = domain_name[0]["DomainName"]
+            domain_description = opensearch.describe_domain(DomainName=domain_name)
+>>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
             domain_status = domain_description["DomainStatus"]
             domain_endpoints = domain_status["Endpoints"]
             domain_endpoint_options = domain_status["DomainEndpointOptions"]
             domain_endpoint_vpc = domain_endpoints["vpc"]
+<<<<<<< HEAD
             # NOTE: This EnforceHTTPS is from datastore.py/elasticsearch_instance.
+=======
+            # TODO: This EnforceHTTPS is from datastore.py/elasticsearch_instance.
+>>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
             domain_endpoint_https = domain_endpoint_options["EnforceHTTPS"]
             if domain_endpoint_https:
                 domain_endpoint = f"{domain_endpoint_vpc}:443"
@@ -178,6 +269,7 @@ class AwsFunctions(AwsContext):
                 domain_endpoint = f"{domain_endpoint_vpc}:80"
             return domain_endpoint
 
+<<<<<<< HEAD
     def create_user_access_key(self, user_name: str, show: bool = False) -> [str, str]:
         """
         Create an AWS security access key pair for the given IAM user name.
@@ -186,6 +278,15 @@ class AwsFunctions(AwsContext):
 
         :param user_name: AWS IAM user name.
         :param show: True to show any displayed sensitive values in plaintext.
+=======
+    def create_user_access_key(self, user_name: str, show: bool = False) -> [str,str]:
+        """
+        Create an AWS security access key pair for the given IAM user name.
+        This is a command-line interactive process, prompting the user for info/confirmation.
+        because this is the only time it will ever be available.
+
+        :param user_name: AWS IAM user name.
+>>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
         :return: Tuple containing the access key ID and associated secret.
         """
         with super().establish_credentials():
@@ -202,23 +303,34 @@ class AwsFunctions(AwsContext):
             if existing_keys:
                 existing_keys = existing_keys.get("AccessKeyMetadata")
                 if existing_keys and len(existing_keys) > 0:
+<<<<<<< HEAD
                     if len(existing_keys) == 1:
+=======
+                    if len(existing_keys) ==  1:
+>>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
                         PRINT(f"AWS IAM user ({user.name}) already has an access key defined:")
                     else:
                         PRINT(f"AWS IAM user ({user.name}) already has {len(existing_keys)} access keys defined:")
                     for existing_key in existing_keys:
                         existing_access_key_id = existing_key["AccessKeyId"]
                         existing_access_key_create_date = existing_key["CreateDate"]
+<<<<<<< HEAD
                         PRINT(f"- {existing_access_key_id} (created:"
                               f" {existing_access_key_create_date.astimezone().strftime('%Y-%m-%d %H:%M:%S')})")
                     yes = yes_or_no("Do you still want to create a new access key?")
                     if not yes:
+=======
+                        PRINT(f"- {existing_access_key_id} (created: {existing_access_key_create_date.astimezone().strftime('%Y-%m-%d %H:%M:%S')})")
+                    yes = yes_or_no("Do you still want to create a new access key?")
+                    if yes:
+>>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
                         return None, None
             PRINT(f"Creating AWS security access key pair for AWS IAM user: {user.name}")
             yes = yes_or_no(f"Continue?")
             if yes:
                 key_pair = user.create_access_key_pair()
                 PRINT(f"- Created AWS Access Key ID ({user.name}): {key_pair.id}")
+<<<<<<< HEAD
                 PRINT(f"- Created AWS Secret Access Key ({user.name}): {obfuscate(key_pair.secret, show)}")
                 return key_pair.id, key_pair.secret
             return None, None
@@ -304,3 +416,8 @@ class AwsFunctions(AwsContext):
                     key_policy_string = json.dumps(key_policy_json)
                     kms.put_key_policy(KeyId=key_id, Policy=key_policy_string, PolicyName="default")
         return nadded
+=======
+                PRINT(f"- Created AWS Secret Access Key ({user.name}): {obfuscate(key_pair.secret)}")
+                return key_pair.id, key_pair.secret
+            return None, None
+>>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
