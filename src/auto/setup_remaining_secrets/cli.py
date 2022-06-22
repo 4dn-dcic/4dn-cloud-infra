@@ -242,10 +242,6 @@ def validate_s3_encrypt_key_id(s3_encrypt_key_id: str, config_file: str, aws: Aw
     return s3_encrypt_key_id
 
 
-def get_foursight_iam_roles(aws: AwsFunctions, role_name_pattern: str) -> list:
-    return aws.find_iam_role_names(role_name_pattern)
-
-
 def validate_s3_access_key_pair(s3_access_key_id: str, s3_secret_access_key: str, federated_user_name: str, aws: AwsFunctions, show: bool = False) -> [str,str]:
     if not s3_access_key_id or not s3_secret_access_key:
         s3_access_key_id, s3_secret_access_key = aws.create_user_access_key(federated_user_name, show)
