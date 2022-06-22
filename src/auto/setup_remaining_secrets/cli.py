@@ -125,6 +125,30 @@ def validate_aws_credentials_dir(aws_credentials_dir: str, custom_dir: str) -> s
     return aws_credentials_dir
 
 
+def validate_aws_credentials(access_key_id: str, secret_access_key: str, default_region, credentials_dir: str, show: bool = False) -> [AwsFunctions,object]:
+
+    if not access_key_id or not secret_access_key:
+        credentials_dir_symlink_target = os.readlink(credentials_dir) if os.path.islink(credentials_dir) else None
+        if credentials_dir_symlink_target:
+            PRINT(f"Your AWS credentials directory (link): {credentials_dir}@ ->")
+            PRINT(f"Your AWS credentials directory (real): {credentials_dir_symlink_target}")
+        else:
+            PRINT(f"Your AWS credentials directory: {credentials_dir}")
+
+    # Get AWS credentials context object.
+    aws = AwsFunctions(credentials_dir, access_key_id, secret_access_key, default_region)
+
+    # Verify the AWS credentials context and get the associated AWS credentials number.
+    with aws.establish_credentials() as credentials:
+        PRINT(f"Your AWS account number: {credentials.account_number}")
+        PRINT(f"Your AWS access key: {credentials.access_key_id}")
+        PRINT(f"Your AWS access secret: {credentials.secret_access_key if show else obfuscate(credentials.secret_access_key)}")
+        PRINT(f"Your AWS default region: {credentials.default_region}")
+        PRINT(f"Your AWS account number: {credentials.account_number}")
+        PRINT(f"Your AWS account user ARN: {credentials.user_arn}")
+        return aws, credentials
+
+
 def validate_gac_secret_name(gac_secret_name: str, aws_credentials_name: str) -> str:
     """
     Obtains/returns the 'identity', i.e. the global application configuration secret name using
@@ -161,30 +185,6 @@ def validate_rds_secret_name(rds_secret_name: str, aws_credentials_name: str) ->
         if not rds_secret_name:
             exit_with_no_action(f"ERROR: AWS RDS application secret name cannot be determined.")
     return rds_secret_name
-
-
-def validate_aws_credentials(access_key_id: str, secret_access_key: str, default_region, credentials_dir: str, show: bool = False) -> [AwsFunctions,object]:
-
-    if not access_key_id or not secret_access_key:
-        credentials_dir_symlink_target = os.readlink(credentials_dir) if os.path.islink(credentials_dir) else None
-        if credentials_dir_symlink_target:
-            PRINT(f"Your AWS credentials directory (link): {credentials_dir}@ ->")
-            PRINT(f"Your AWS credentials directory (real): {credentials_dir_symlink_target}")
-        else:
-            PRINT(f"Your AWS credentials directory: {credentials_dir}")
-
-    # Get AWS credentials context object.
-    aws = AwsFunctions(credentials_dir, access_key_id, secret_access_key, default_region)
-
-    # Verify the AWS credentials context and get the associated AWS credentials number.
-    with aws.establish_credentials() as credentials:
-        PRINT(f"Your AWS account number: {credentials.account_number}")
-        PRINT(f"Your AWS access key: {credentials.access_key_id}")
-        PRINT(f"Your AWS access secret: {credentials.secret_access_key if show else obfuscate(credentials.secret_access_key)}")
-        PRINT(f"Your AWS default region: {credentials.default_region}")
-        PRINT(f"Your AWS account number: {credentials.account_number}")
-        PRINT(f"Your AWS account user ARN: {credentials.user_arn}")
-        return aws, credentials
 
 
 def validate_account_number(account_number: str, config_file: str, aws: AwsFunctions, aws_credentials: object) -> str:
