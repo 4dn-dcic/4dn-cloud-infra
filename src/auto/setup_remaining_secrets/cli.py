@@ -88,7 +88,7 @@ from .aws_functions import AwsFunctions
 from .utils import (exit_with_no_action, obfuscate, print_dictionary_as_table, should_obfuscate)
     
 
-def get_config_file_value(name: str, config_file: str = None, fallback: str = None):
+def get_config_file_value(name: str, config_file: str, fallback: str = None):
     with io.open(config_file, "r") as config_fp:
         config_json = json.load(config_fp)
         value = config_json.get(name)
@@ -116,7 +116,7 @@ def validate_aws_credentials_name(aws_credentials_name: str, config_file: str) -
     return aws_credentials_name
 
 
-def validate_aws_credentials_dir(aws_credentials_dir: str = None, custom_dir: str = None):
+def validate_aws_credentials_dir(aws_credentials_dir: str, custom_dir):
     if not aws_credentials_dir:
         aws_credentials_dir = InfraDirectories.get_custom_aws_creds_dir(custom_dir)
     if aws_credentials_dir:
@@ -257,7 +257,7 @@ def validate_rds_host_and_password(rds_host: str, rds_password: str, rds_secret_
     return rds_host, rds_password
 
 
-def summarize_secrets_to_update(gac_secret_name: str, secrets_to_update: dict, show: bool) -> None:
+def summarize_secrets_to_update(gac_secret_name: str, secrets_to_update: dict, show: bool = False) -> None:
     PRINT()
     PRINT(f"Secret keys/values to be set in AWS secrets manager for secret: {gac_secret_name}")
     def secret_display_value(key: str, value: str) -> str:
@@ -267,7 +267,7 @@ def summarize_secrets_to_update(gac_secret_name: str, secrets_to_update: dict, s
             return obfuscate(value)
         else:
             return value
-    print_dictionary_as_table("Secret Name", "Secret Value", secrets_to_update, secret_display_value, True)
+    print_dictionary_as_table("Secret Name", "Secret Value", secrets_to_update, secret_display_value)
 
 
 def update_secrets(gac_secret_name: str, secrets_to_update: dict, aws: AwsFunctions, show: bool = False) -> None:
