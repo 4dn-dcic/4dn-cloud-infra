@@ -7,6 +7,7 @@ from dcicutils.misc_utils import remove_prefix
 from troposphere import Tag, Tags, Template
 from .base import ENV_NAME, ECOSYSTEM
 from .c4name import C4Name
+from .constants import StackNameMixinBase
 from .names import Names
 
 
@@ -57,18 +58,19 @@ class C4Account:
 # dmichaels/2022-06-06: Factored out C4Name class into c4name.py.
 
 
-class StackNameMixin:
+class StackNameMixin(StackNameMixinBase):
 
     STACK_NAME_TOKEN = None
     STACK_TITLE_TOKEN = None
     STACK_TAGS = None
-    SHARING = 'env'
 
-    _SHARING_QUALIFIERS = {
-        'env': f"{ENV_NAME}",
-        'ecosystem': f"{ECOSYSTEM}",
-        'account': "",
-    }
+    # dmichaels/2022-06-22: Factored out into StackNameMixinBase in constants.py.
+    # SHARING = 'env'
+    # _SHARING_QUALIFIERS = {
+    #     'env': f"{ENV_NAME}",
+    #     'ecosystem': f"{ECOSYSTEM}",
+    #     'account': "",
+    # }
 
     @classmethod
     def stack_title_token(cls):
@@ -76,15 +78,17 @@ class StackNameMixin:
 
     @classmethod
     def suggest_sharing_qualifier(cls):
-        sharing = cls.SHARING
-        if sharing not in cls._SHARING_QUALIFIERS:
-            raise InvalidParameterError(parameter=f'{cls}.SHARING', value=sharing,
-                                        options=list(cls._SHARING_QUALIFIERS.keys()))
-        return cls._SHARING_QUALIFIERS[sharing]
+        # dmichaels/2022-06-22: Factored out into Names.suggest_sharing_qualifier() in names.py.
+        # sharing = cls.SHARING
+        # if sharing not in cls._SHARING_QUALIFIERS:
+        #     raise InvalidParameterError(parameter=f'{cls}.SHARING', value=sharing,
+        #                                 options=list(cls._SHARING_QUALIFIERS.keys()))
+        # return cls._SHARING_QUALIFIERS[sharing]
+        return Names.suggest_sharing_qualifier(cls.SHARING, ENV_NAME, ECOSYSTEM)
 
     @classmethod
     def suggest_stack_name(cls, name=None):
-        # dmichaels/2022-06-06: Refactored to use Names.suggest_stack_name in names.py.
+        # dmichaels/2022-06-06: Refactored to use Names.suggest_stack_name() in names.py.
         title_token = cls.stack_title_token()
         name_token = cls.STACK_NAME_TOKEN
         qualifier = cls.suggest_sharing_qualifier()

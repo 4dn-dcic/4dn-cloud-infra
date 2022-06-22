@@ -100,7 +100,8 @@ def obfuscate(value: str) -> str:
     :param value: Value to obfuscate.
     :return: Obfuscated value or empty string if not a string or empty.
     """
-    return value[0] + "********" if isinstance(value, str) else ""
+    # return value[0] + "********" if isinstance(value, str) else ""
+    return len(value) * "*"
 
 
 def exit_with_no_action(*messages, status: int = 1) -> None:

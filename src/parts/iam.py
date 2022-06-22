@@ -8,8 +8,10 @@ from awacs.ecr import (
 from troposphere import Region, AccountId, Template, Ref, Output, Join
 from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey, ManagedPolicy
 from ..base import exportify, ConfigManager, Settings
+from ..constants import C4IAMBase
 from ..part import C4Part
 from ..exports import C4Exports
+from ..names import Names
 
 
 class C4IAMExports(C4Exports):
@@ -28,7 +30,7 @@ class C4IAMExports(C4Exports):
         super().__init__(parameter)
 
 
-class C4IAM(C4Part):
+class C4IAM(C4IAMBase, C4Part):
     """ Contains IAM Role configuration for CGAP/FF.
         Both apps have the same permission sets needed (for now) so the roles are used interchangably.
         If this changes, feel free to extend this class and override as needed.
@@ -42,9 +44,8 @@ class C4IAM(C4Part):
     AUTOSCALING_ROLE_NAME = ConfigManager.app_case(if_cgap='CGAPECSAutoscalingRole',
                                                    if_ff='FFECSAutoscalingRole')
     EXPORTS = C4IAMExports()
-    STACK_NAME_TOKEN = "iam"
-    STACK_TITLE_TOKEN = "IAM"
-    SHARING = 'ecosystem'
+    # dmichaels/2022-06-22: Factored out into C4IAMBase in constants.py
+    # SHARING = 'ecosystem'
 
     def build_template(self, template: Template) -> Template:
         """ Builds current IAM template, currently just the ECS assumed IAM role
@@ -518,7 +519,9 @@ class C4IAM(C4Part):
 
     def ecs_s3_iam_user(self) -> User:
         """ Builds an IAM user for federating access to S3 files. """
-        logical_id = self.name.logical_id('ApplicationS3Federator')
+        # dmichaels/2022-06-22: Factored out into Names.ecs_s3_iam_user_logical_id() in names.py.
+        # logical_id = self.name.logical_id('ApplicationS3Federator')
+        logical_id = Names.ecs_s3_iam_user_logical_id(self.name)
         return User(
             logical_id,
             Policies=[
