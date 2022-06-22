@@ -329,14 +329,14 @@ def setup_remaining_secrets(args) -> None:
     secrets_to_update["RDS_HOST"] = rds_host
     secrets_to_update["RDS_PASSWORD"] = rds_password
 
-    # Validate/get the S3 encryption key ID from KMS (iff s3.bucket.encryption is true in config file) .
+    # Validate/get the S3 encryption key ID from KMS (iff s3.bucket.encryption is true in config file).
     s3_encrypt_key_id = validate_s3_encrypt_key_id(args.s3_encrypt_key_id, config_file, aws)
     secrets_to_update["ENCODED_S3_ENCRYPT_KEY_ID"] = s3_encrypt_key_id
 
     # Get the federated user name (needed to create the security access key pair, below).
     federated_user_name = validate_federated_user_name(args.federated_user_name, aws_credentials_name, config_file, aws)
 
-    # Create the security access key/secret pair for the IAM "federated" user.
+    # Create the security access key/secret pair for the IAM federated user.
     s3_access_key_id, s3_secret_access_key = validate_s3_access_key_pair(args.s3_access_key_id, args.s3_secret_access_key, federated_user_name, aws, args.show)
     secrets_to_update["S3_AWS_ACCESS_KEY_ID"] = s3_access_key_id
     secrets_to_update["S3_AWS_SECRET_ACCESS_KEY"] = s3_secret_access_key
