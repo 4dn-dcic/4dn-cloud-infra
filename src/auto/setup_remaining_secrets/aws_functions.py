@@ -214,7 +214,9 @@ class AwsFunctions(AwsContext):
                 key_description = kms.describe_key(KeyId=key_id)
                 key_metadata = key_description["KeyMetadata"]
                 key_manager = key_metadata["KeyManager"]
+                most_recent_creation_date = None
                 if key_manager == "CUSTOMER":
+<<<<<<< HEAD
 <<<<<<< HEAD
                     # TODO: If multiple keys (for some reason) silently pick the most recently created one (?)
                     # key_creation_date = key_metadata["CreationDate"]
@@ -223,6 +225,10 @@ class AwsFunctions(AwsContext):
 
     def get_elasticsearch_endpoint(self, aws_credentials_name: str) -> Optional[str]:
 =======
+=======
+                    # TODO: If multiple keys (for some reason) silently pick the most recently created one (?)
+                    key_creation_date = key_metadata["CreationDate"]
+>>>>>>> 4f835e1 (Fleshing out setup-remaining-secrets script and factored out federated user name construction from C4IAM into names.py.)
                     kms_keys.append(key_id)
         return kms_keys
 
@@ -262,10 +268,14 @@ class AwsFunctions(AwsContext):
             domain_endpoint_options = domain_status["DomainEndpointOptions"]
             domain_endpoint_vpc = domain_endpoints["vpc"]
 <<<<<<< HEAD
+<<<<<<< HEAD
             # NOTE: This EnforceHTTPS is from datastore.py/elasticsearch_instance.
 =======
             # TODO: This EnforceHTTPS is from datastore.py/elasticsearch_instance.
 >>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
+=======
+            # NOTE: This EnforceHTTPS is from datastore.py/elasticsearch_instance.
+>>>>>>> 4f835e1 (Fleshing out setup-remaining-secrets script and factored out federated user name construction from C4IAM into names.py.)
             domain_endpoint_https = domain_endpoint_options["EnforceHTTPS"]
             if domain_endpoint_https:
                 domain_endpoint = f"{domain_endpoint_vpc}:443"

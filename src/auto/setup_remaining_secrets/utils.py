@@ -1,6 +1,8 @@
 from prettytable import PrettyTable
 import re
 from dcicutils.misc_utils import PRINT
+# TODO: Probably should factor out utils from init_custom_dir into common "auto" utils.
+from ..init_custom_dir.utils import (exit_with_no_action, obfuscate)
 
 
 def should_obfuscate(key: str) -> bool:
@@ -22,31 +24,6 @@ def should_obfuscate(key: str) -> bool:
     return any(regex.match(key) for regex in secret_key_names_regex)
 
 
-def obfuscate(value: str) -> str:
-    """
-    Obfuscates and returns the given string value.
-
-    :param value: Value to obfuscate.
-    :return: Obfuscated value or empty string if not a string or empty.
-    """
-    # return value[0] + "*******" if isinstance(value, str) else "********"
-    return len(value) * "*"
-
-
-def exit_with_no_action(*messages, status: int = 1) -> None:
-    """
-    Prints the given message (if any), and another message indicating
-    no action was taken. Exits with the given status.
-
-    :param messages: Zero or more messages to print before exit.
-    :param status: Exit status code.
-    """
-    for message in messages:
-        PRINT(message)
-    PRINT("Exiting without doing anything.")
-    exit(status)
-
-
 def print_dictionary_as_table(header_name: str, header_value: str, dictionary: dict, display_value, sort: bool = True) -> None:
     table = PrettyTable()
     table.field_names = [header_name, header_value]
@@ -56,4 +33,4 @@ def print_dictionary_as_table(header_name: str, header_value: str, dictionary: d
         display_value = lambda key, value: value
     for key, value in sorted(dictionary.items(), key=lambda item: item[0]) if sort else dictionary.items():
         table.add_row([key, display_value(key, value)])
-    print(table)
+    PRINT(table)
