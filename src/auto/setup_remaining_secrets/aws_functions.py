@@ -34,7 +34,7 @@ class AwsFunctions(AwsContext):
         If the given secret key value does not yet exist it will be created.
         If the given secret key value is None then the given secret key will be "deactivated",
         where this means that its old value will be prepended with the string "DEACTIVATED:".
-        This is a command-line interactive process, prompting the user for info/confirmation.
+        This is a command-line INTERACTIVE process, prompting the user for info/confirmation.
 
         :param secret_name: AWS secret name.
         :param secret_key_name: AWS secret key name to update.
@@ -175,10 +175,11 @@ class AwsFunctions(AwsContext):
     def create_user_access_key(self, user_name: str, show: bool = False) -> [str,str]:
         """
         Create an AWS security access key pair for the given IAM user name.
-        This is a command-line interactive process, prompting the user for info/confirmation.
+        This is a command-line INTERACTIVE process, prompting the user for info/confirmation.
         because this is the only time it will ever be available.
 
         :param user_name: AWS IAM user name.
+        :param show: True to show in plaintext any displayed secret values. 
         :return: Tuple containing the access key ID and associated secret.
         """
         with super().establish_credentials():
@@ -204,13 +205,13 @@ class AwsFunctions(AwsContext):
                         existing_access_key_create_date = existing_key["CreateDate"]
                         PRINT(f"- {existing_access_key_id} (created: {existing_access_key_create_date.astimezone().strftime('%Y-%m-%d %H:%M:%S')})")
                     yes = yes_or_no("Do you still want to create a new access key?")
-                    if yes:
+                    if not yes:
                         return None, None
             PRINT(f"Creating AWS security access key pair for AWS IAM user: {user.name}")
             yes = yes_or_no(f"Continue?")
             if yes:
                 key_pair = user.create_access_key_pair()
                 PRINT(f"- Created AWS Access Key ID ({user.name}): {key_pair.id}")
-                PRINT(f"- Created AWS Secret Access Key ({user.name}): {obfuscate(key_pair.secret)}")
+                PRINT(f"- Created AWS Secret Access Key ({user.name}): {key_pair if show else obfuscate(key_pair.secret)}")
                 return key_pair.id, key_pair.secret
             return None, None
