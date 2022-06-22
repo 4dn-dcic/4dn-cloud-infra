@@ -2,6 +2,7 @@ import boto3
 from collections import namedtuple
 import contextlib
 import os
+from dcicutils.misc_utils import PRINT
 
 class AwsContext:
     """
