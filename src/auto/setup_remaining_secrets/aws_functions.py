@@ -251,11 +251,11 @@ class AwsFunctions(AwsContext):
             return key_policy_json
 
     # TODO: This is for what will be a different script to update the KMS policy with foursight roles.
-    def amend_kms_key_policy(self, key_policy_json: dict, sid_pattern: str, additional_roles: list) -> int:
+    def _amend_kms_key_policy(self, key_policy_json: dict, sid_pattern: str, additional_roles: list) -> int:
         """
         Amends the specific KMS key policy for the given key_policy_json (IN PLACE), whose statement ID (sid)
         matches the given sid_pattern, with the roles contained in the given additional_roles list.
-        Will not add if already present. Returns the number of roles added.
+        Will not add if already present. Returns the number of roles actually added.
 
         :param key_policy_json: JSON for a KMS key policy.
         :param sid_pattern: Statement ID (sid) pattern to match the specific policy.
@@ -279,6 +279,7 @@ class AwsFunctions(AwsContext):
         """
         Updates the specific AWS KMS key policy for the given key_id, whose statement ID (sid)
         matches the given sid_pattern, with the roles contained in the given additional_roles list.
+        Will not add if already present. Returns the number of roles actually added.
 
         :param key_id: KMS key ID.
         :param sid_pattern: Statement ID (sid) pattern to match the specific policy.
@@ -287,7 +288,7 @@ class AwsFunctions(AwsContext):
         """
         with super().establish_credentials():
             key_policy_json = self.get_kms_key_policy(key_id)
-            nadded = self.amend_kms_key_policy(key_policy_json, sid_pattern, additional_roles)
+            nadded = self._amend_kms_key_policy(key_policy_json, sid_pattern, additional_roles)
             if nadded > 0:
                 yes = yes_or_no(f"Really update KMS policy for {key_id}?")
                 if yes:
