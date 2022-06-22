@@ -138,7 +138,10 @@ class AwsFunctions(AwsContext):
                 key_description = kms.describe_key(KeyId=key_id)
                 key_metadata = key_description["KeyMetadata"]
                 key_manager = key_metadata["KeyManager"]
+                most_recent_creation_date = None
                 if key_manager == "CUSTOMER":
+                    # TODO: If multiple keys (for some reason) silently pick the most recently created one (?)
+                    key_creation_date = key_metadata["CreationDate"]
                     kms_keys.append(key_id)
         return kms_keys
 
@@ -164,7 +167,7 @@ class AwsFunctions(AwsContext):
             domain_endpoints = domain_status["Endpoints"]
             domain_endpoint_options = domain_status["DomainEndpointOptions"]
             domain_endpoint_vpc = domain_endpoints["vpc"]
-            # TODO: This EnforceHTTPS is from datastore.py/elasticsearch_instance.
+            # NOTE: This EnforceHTTPS is from datastore.py/elasticsearch_instance.
             domain_endpoint_https = domain_endpoint_options["EnforceHTTPS"]
             if domain_endpoint_https:
                 domain_endpoint = f"{domain_endpoint_vpc}:443"
