@@ -195,12 +195,16 @@ class AwsFunctions(AwsContext):
 =======
             for user in sorted(users, key=lambda user: user.name):
                 user_name = user.name
-                if re.search(user_name_pattern, user_name):
+                if re.match(user_name_pattern, user_name):
                     return user_name
         return None
 
+<<<<<<< HEAD
     def get_customer_managed_kms_keys(self):
 >>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
+=======
+    def get_customer_managed_kms_keys(self) -> list:
+>>>>>>> bd20439 (Minor updates plus functions for KMS policy setting for foursight roles; will move these to new script shortly.)
         """
         Returns the customer managed AWS KMS key IDs.
 
@@ -232,8 +236,12 @@ class AwsFunctions(AwsContext):
                     kms_keys.append(key_id)
         return kms_keys
 
+<<<<<<< HEAD
     def get_opensearch_endpoint(self, aws_credentials_name: str):
 >>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
+=======
+    def get_elasticsearch_endpoint(self, aws_credentials_name: str) -> str:
+>>>>>>> bd20439 (Minor updates plus functions for KMS policy setting for foursight roles; will move these to new script shortly.)
         """
         Returns the endpoint (host:port) for the ElasticSearch instance associated
         with the given AWS credentials name (e.g. cgap-supertest).
@@ -243,6 +251,7 @@ class AwsFunctions(AwsContext):
         """
         with super().establish_credentials():
             # TODO: Get this name from somewhere in 4dn-cloud-infra.
+<<<<<<< HEAD
 <<<<<<< HEAD
             elasticsearch_instance_name = f"es-{aws_credentials_name}"
             elasticsearch = boto3.client('opensearch')
@@ -263,6 +272,16 @@ class AwsFunctions(AwsContext):
             domain_name = domain_name[0]["DomainName"]
             domain_description = opensearch.describe_domain(DomainName=domain_name)
 >>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
+=======
+            elasticsearch_instance_name = f"es-{aws_credentials_name}"
+            elasticsearch = boto3.client('opensearch')
+            domain_names = elasticsearch.list_domain_names()["DomainNames"]
+            domain_name = [domain_name for domain_name in domain_names if domain_name["DomainName"] == elasticsearch_instance_name]
+            if domain_name is None or len(domain_name) != 1:
+                return None
+            domain_name = domain_name[0]["DomainName"]
+            domain_description = elasticsearch.describe_domain(DomainName=domain_name)
+>>>>>>> bd20439 (Minor updates plus functions for KMS policy setting for foursight roles; will move these to new script shortly.)
             domain_status = domain_description["DomainStatus"]
             domain_endpoints = domain_status["Endpoints"]
             domain_endpoint_options = domain_status["DomainEndpointOptions"]
@@ -446,4 +465,84 @@ class AwsFunctions(AwsContext):
 >>>>>>> e45eb32 (Fleshing out setup-remaining-secrets script.)
                 return key_pair.id, key_pair.secret
             return None, None
+<<<<<<< HEAD
 >>>>>>> 321d26b (Initial cut at setup-remaining-secrets script, and some associated refactoring.)
+=======
+
+    # TODO: This is for what will be a different script to update the KMS policy with foursight roles.
+    def find_iam_role_names(self, role_name_pattern: str) -> list:
+        """
+        Returns the list of AWS IAM role ARNs which match the given role name pattern.
+
+        :param role_name_pattern: Regular expression to match role names
+        :return: List of matching AWS IAM role ARNs or empty list of none found.
+        """
+        found_roles = []
+        with super().establish_credentials():
+            iam = boto3.client('iam')
+            roles = iam.list_roles()["Roles"]
+            for role in roles:
+                role_name = role["Arn"]
+                if re.match(role_name_pattern, role_name):
+                    found_roles.append(role_name)
+        return found_roles
+
+    # TODO: This is for what will be a different script to update the KMS policy with foursight roles.
+    def get_kms_key_policy(self, key_id: str) -> dict:
+        """
+        Returns JSON for the KMS key policy for the given KMS key ID.
+        :param key_id: KMS key ID.
+        :return: Policy for given KMS key ID or None if not found.
+        """
+        with super().establish_credentials():
+            kms = boto3.client("kms")
+            key_policy = kms.get_key_policy(KeyId=key_id, PolicyName="default")["Policy"]
+            key_policy_json = json.loads(key_policy)
+            return key_policy_json
+
+    # TODO: This is for what will be a different script to update the KMS policy with foursight roles.
+    def amend_kms_key_policy(self, key_policy_json: dict, sid_pattern: str, additional_roles: list) -> int:
+        """
+        Amends the specific KMS key policy for the given key_policy_json (IN PLACE), whose statement ID (sid)
+        matches the given sid_pattern, with the roles contained in the given additional_roles list.
+        Will not add if already present. Returns the number of roles added.
+
+        :param key_policy_json: JSON for a KMS key policy.
+        :param sid_pattern: Statement ID (sid) pattern to match the specific policy.
+        :param additional_roles: List of AWS IAM role ARNs to add to the roles for the specified KMS policy.
+        :return: Number of roles from the given addition roles actually added.
+        """
+        nadded = 0
+        key_policy_statements = key_policy_json["Statement"]
+        for key_policy_statement in key_policy_statements:
+            key_policy_statement_id = key_policy_statement["Sid"]
+            if re.match(sid_pattern, key_policy_statement_id):
+                key_policy_statement_principals =  key_policy_statement["Principal"]["AWS"]
+                for additional_role in additional_roles:
+                    if additional_role not in key_policy_statement_principals:
+                        key_policy_statement_principals.append(additional_role)
+                        nadded += 1
+        return nadded
+
+    # TODO: This is for what will be a different script to update the KMS policy with foursight roles.
+    def update_kms_key_policy(self, key_id: str, sid_pattern: str, additional_roles: list) -> None:
+        """
+        Updates the specific AWS KMS key policy for the given key_id, whose statement ID (sid)
+        matches the given sid_pattern, with the roles contained in the given additional_roles list.
+
+        :param key_id: KMS key ID.
+        :param sid_pattern: Statement ID (sid) pattern to match the specific policy.
+        :param additional_roles: List of AWS IAM role ARNs to add to the roles for the specified KMS policy.
+        :return: Number of roles from the given additional roles actually added.
+        """
+        with super().establish_credentials():
+            key_policy_json = self.get_kms_key_policy(key_id)
+            nadded = self.amend_kms_key_policy(key_policy_json, sid_pattern, additional_roles)
+            if nadded > 0:
+                yes = yes_or_no(f"Really update KMS policy for {key_id}?")
+                if yes:
+                    kms = boto3.client("kms")
+                    key_policy_string = json.dumps(key_policy_json)
+                    kms.put_key_policy(KeyId=key_id, Policy=key_policy_string, PolicyName="default")
+            return nadded
+>>>>>>> bd20439 (Minor updates plus functions for KMS policy setting for foursight roles; will move these to new script shortly.)
