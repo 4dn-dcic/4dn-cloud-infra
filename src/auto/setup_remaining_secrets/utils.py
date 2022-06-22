@@ -1,4 +1,6 @@
+from prettytable import PrettyTable
 import re
+from dcicutils.misc_utils import PRINT
 
 
 def should_obfuscate(key: str) -> bool:
@@ -29,3 +31,29 @@ def obfuscate(value: str) -> str:
     """
     # return value[0] + "*******" if isinstance(value, str) else "********"
     return len(value) * "*"
+
+
+def exit_with_no_action(*messages, status: int = 1) -> None:
+    """
+    Prints the given message (if any), and another message indicating
+    no action was taken. Exits with the given status.
+
+    :param messages: Zero or more messages to print before exit.
+    :param status: Exit status code.
+    """
+    for message in messages:
+        PRINT(message)
+    PRINT("Exiting without doing anything.")
+    exit(status)
+
+
+def print_dictionary_as_table(header_name: str, header_value: str, dictionary: dict, display_value, sort: bool = True) -> None:
+    table = PrettyTable()
+    table.field_names = [header_name, header_value]
+    table.align[header_name] = "l"
+    table.align[header_value] = "l"
+    if not callable(display_value):
+        display_value = lambda key, value: value
+    for key, value in sorted(dictionary.items(), key=lambda item: item[0]) if sort else dictionary.items():
+        table.add_row([key, display_value(key, value)])
+    print(table)
