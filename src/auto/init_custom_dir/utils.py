@@ -24,7 +24,6 @@ import subprocess
 from typing import Optional
 from dcicutils.misc_utils import json_leaf_subst as expand_json_template
 from dcicutils.misc_utils import PRINT
-from .defs import InfraFiles
 
 
 def expand_json_template_file(template_file: str, output_file: str, template_substitutions: dict) -> None:
@@ -45,7 +44,7 @@ def expand_json_template_file(template_file: str, output_file: str, template_sub
         output_fp.write("\n")
 
 
-def generate_s3_encrypt_key() -> str:
+def generate_encryption_key() -> str:
     """
     Generate a cryptographically secure encryption key suitable for AWS S3 encryption.
     References:
@@ -54,12 +53,13 @@ def generate_s3_encrypt_key() -> str:
 
     :return: Cryptographically secure encryption key.
     """
+    system_words_dictionary_file = "/usr/share/dict/words"
     def generate_password() -> str:
         # Will suggests using a password from some (4) random words.
         password = ""
-        if os.path.isfile(InfraFiles.SYSTEM_WORDS_DICTIONARY_FILE):
+        if os.path.isfile(system_words_dictionary_file):
             try:
-                with open(InfraFiles.SYSTEM_WORDS_DICTIONARY_FILE) as system_words_fp:
+                with open(system_words_dictionary_file) as system_words_fp:
                     words = [word.strip() for word in system_words_fp]
                     password = "".join(secrets.choice(words) for _ in range(4))
             except Exception:

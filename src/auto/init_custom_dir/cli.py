@@ -56,7 +56,7 @@ from .aws_credentials_info import AwsCredentialsInfo
 from .utils import (
     exit_with_no_action,
     expand_json_template_file,
-    generate_s3_encrypt_key,
+    generate_encryption_key,
     obfuscate,
     print_directory_tree,
     read_env_variable_from_subshell,
@@ -442,7 +442,7 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
 
         # Generate S3 encryption key.
         # Though we will NOT overwrite s3_encrypt_key.txt if it already exists, below.
-        s3_encrypt_key = generate_s3_encrypt_key()
+        s3_encrypt_key = generate_encryption_key()
         PRINT(f"Generating S3 encryption key: {obfuscate(s3_encrypt_key)}")
 
         # Confirm with the user that everything looks okay.

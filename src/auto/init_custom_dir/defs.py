@@ -37,7 +37,6 @@ class InfraFiles:
     CONFIG_TEMPLATE_FILE = "templates/config.template.json"
     SECRETS_TEMPLATE_FILE = "templates/secrets.template.json"
     S3_ENCRYPT_KEY_FILE = "s3_encrypt_key.txt"
-    SYSTEM_WORDS_DICTIONARY_FILE = "/usr/share/dict/words"
 
     @staticmethod
     def get_test_creds_script_file(aws_credentials_dir: str) -> str:
