@@ -10,7 +10,7 @@ from .misc_utils import (obfuscate, should_obfuscate)
 
 class Aws(AwsContext):
 
-    _DEACTIVATED_PREFIX = "DEACTIVATED:"
+    _DEACTIVATED_SECRET_VALUE_PREFIX = "DEACTIVATED:"
 
     def get_secret_value(self, secret_name: str, secret_key_name: str) -> str:
         """
@@ -51,7 +51,7 @@ class Aws(AwsContext):
             if not key_value:
                 PRINT(f"{prefix} value of AWS secret {name}.{key_name} has no value.")
                 return
-            suffix = " is deactivated" if key_value.startswith(self._DEACTIVATED_PREFIX) else ""
+            suffix = " is deactivated" if key_value.startswith(self._DEACTIVATED_SECRET_VALUE_PREFIX) else ""
             if should_obfuscate(key_name) and not show:
                 PRINT(f"{prefix} value of AWS secret looks like it is sensitive: {name}.{key_name}")
                 if yes_or_no("Show in plaintext?"):
@@ -81,10 +81,10 @@ class Aws(AwsContext):
                         PRINT(f"AWS secret {secret_name}.{secret_key_name} does not exist. Nothing to deactivate.")
                         return False
                     print_secret("Current", secret_name, secret_key_name, secret_key_value_current)
-                    if secret_key_value_current.startswith(self._DEACTIVATED_PREFIX):
+                    if secret_key_value_current.startswith(self._DEACTIVATED_SECRET_VALUE_PREFIX):
                         PRINT(f"AWS secret {secret_name}.{secret_key_name} is already deactivated. Nothing to do.")
                         return False
-                    secret_key_value = self._DEACTIVATED_PREFIX + secret_key_value_current
+                    secret_key_value = self._DEACTIVATED_SECRET_VALUE_PREFIX + secret_key_value_current
                     action = "deactivate"
                 else:
                     if secret_key_value_current is None:
