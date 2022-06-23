@@ -78,11 +78,13 @@ class Aws(AwsContext):
                 if secret_key_value is None:
                     # Deactivating secret key value.
                     if secret_key_value_current is None:
-                        PRINT(f"AWS secret {secret_name}.{secret_key_name} does not exist. Nothing to deactivate.")
+                        PRINT(f"AWS secret {secret_name}.{secret_key_name} does not exist."
+                              f" Nothing to deactivate.")
                         return False
                     print_secret("Current", secret_name, secret_key_name, secret_key_value_current)
                     if secret_key_value_current.startswith(self._DEACTIVATED_SECRET_VALUE_PREFIX):
-                        PRINT(f"AWS secret {secret_name}.{secret_key_name} is already deactivated. Nothing to do.")
+                        PRINT(f"AWS secret {secret_name}.{secret_key_name} is already deactivated."
+                              f" Nothing to do.")
                         return False
                     secret_key_value = self._DEACTIVATED_SECRET_VALUE_PREFIX + secret_key_value_current
                     action = "deactivate"
@@ -97,7 +99,7 @@ class Aws(AwsContext):
                         action = "update"
                         if secret_key_value_current == secret_key_value:
                             PRINT(f"New value of AWS secret ({secret_name}.{secret_key_name}) same as current one."
-                                  f"Nothing to update.")
+                                  f" Nothing to update.")
                             return False
                     print_secret("New", secret_name, secret_key_name, secret_key_value)
                 yes = yes_or_no(f"Are you sure you want to {action} AWS secret {secret_name}.{secret_key_name}?")
