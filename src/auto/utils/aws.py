@@ -1,4 +1,3 @@
-# TODO: Probably should factor out into some common utils somewhere.
 import boto3
 import json
 import re
@@ -6,10 +5,10 @@ from typing import Optional
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
 from .aws_context import AwsContext
-from .utils import (obfuscate, should_obfuscate)
+from .misc_utils import (obfuscate, should_obfuscate)
 
 
-class AwsFunctions(AwsContext):
+class Aws(AwsContext):
 
     _DEACTIVATED_PREFIX = "DEACTIVATED:"
 

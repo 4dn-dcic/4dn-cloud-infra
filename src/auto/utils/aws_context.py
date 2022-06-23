@@ -1,5 +1,3 @@
-# TODO: Probably should factor out into some common utils somewhere.
-
 import boto3
 import contextlib
 import os
