@@ -1,8 +1,9 @@
+# TODO: Probably should factor out into some common utils somewhere.
+
 import boto3
-from collections import namedtuple
 import contextlib
 import os
-from dcicutils.misc_utils import PRINT
+
 
 class AwsContext:
     """
@@ -27,7 +28,10 @@ class AwsContext:
             aws_user_arn = credentials.user_arn
     """
 
-    def __init__(self, aws_credentials_dir: str, aws_access_key_id: str = None, aws_secret_access_key: str = None, aws_default_region: str = None):
+    def __init__(self,
+                 aws_credentials_dir: str,
+                 aws_access_key_id: str = None, aws_secret_access_key: str = None, aws_default_region: str = None,
+                 aws_session_token: str = None):
         """
         Constructor which stores the given AWS credentials directory, and AWS access key ID
         and secret access key (and default region) for use when establishing AWS credentials.
@@ -43,6 +47,16 @@ class AwsContext:
         self._aws_secret_access_key = aws_secret_access_key
         self._aws_default_region = aws_default_region
         self._reset_boto3_default_session = True
+
+    class Credentials:
+        def __init__(self,
+                     access_key_id: str, secret_access_key: str, default_region: str,
+                     account_number: str, user_arn: str):
+            self.access_key_id = access_key_id
+            self.secret_access_key = secret_access_key
+            self.default_region = default_region
+            self.account_number = account_number
+            self.user_arn = user_arn
 
     @contextlib.contextmanager
     def establish_credentials(self):
@@ -62,7 +76,7 @@ class AwsContext:
         # given arguments (i.e. command-line, ultimately) XOR from given AWS credentials
         # directory? I.e. so as not to split between them which may create some confusion.
 
-        def unset_environ(environment_variables: list) -> list:
+        def unset_environ(environment_variables: list) -> dict:
             saved_environ = {}
             for environment_variable in environment_variables:
                 saved_environ[environment_variable] = os.environ.pop(environment_variable, None)
@@ -70,7 +84,7 @@ class AwsContext:
                     os.environ[environment_variable] = "/dev/null"
             return saved_environ
 
-        def restore_environ(saved_environ: list) -> None:
+        def restore_environ(saved_environ: dict) -> None:
             for saved_environ_key, saved_environ_value in saved_environ.items():
                 if saved_environ_value is not None:
                     os.environ[saved_environ_key] = saved_environ_value
@@ -79,12 +93,13 @@ class AwsContext:
 
         # Temporarily (for the life of this context) unset/delete (here) and
         # override (below) any AWS credentials related environment variables.
-        saved_environ = unset_environ([ "AWS_ACCESS_KEY_ID",
-                                        "AWS_SECRET_ACCESS_KEY",
-                                        "AWS_SHARED_CREDENTIALS_FILE",
-                                        "AWS_CONFIG_FILE",
-                                        "AWS_DEFAULT_REGION",
-                                        "AWS_SESSION_TOKEN" ])
+        saved_environ = unset_environ(["AWS_ACCESS_KEY_ID",
+                                       "AWS_SECRET_ACCESS_KEY",
+                                       "AWS_SHARED_CREDENTIALS_FILE",
+                                       "AWS_CONFIG_FILE",
+                                       "AWS_DEFAULT_REGION",
+                                       "AWS_REGION",
+                                       "AWS_SESSION_TOKEN"])
 
         # This reset of the boto3.DEFAULT_SESSION is to workaround an odd problem with boto3
         # caching a default session, even for bad or non-existent credentials. This problem
@@ -99,7 +114,6 @@ class AwsContext:
         if self._reset_boto3_default_session:
             boto3.DEFAULT_SESSION = None
             self._reset_boto3_default_session = False
-
         try:
             # Setup AWS environment variables for our specified credentials.
             if self._aws_access_key_id and self._aws_secret_access_key:
@@ -119,27 +133,16 @@ class AwsContext:
                     os.environ["AWS_CONFIG_FILE"] = aws_config_file
 
             # Setup AWS boto3 session/client to get basic AWS credentials info;
-            # and serves to test those credentials as well.
-            # TODO: What exactly to do on error. Just raise exception?
             session = boto3.session.Session()
             credentials = session.get_credentials()
-            access_key_id = credentials.access_key
-            secret_access_key = credentials.secret_key
-            default_region = session.region_name
             caller_identity = boto3.client("sts").get_caller_identity()
-            account_number = caller_identity["Account"]
-            user_arn = caller_identity["Arn"]
 
-            # Yield pertinent AWS credentials info for caller in case they need/want them. 
-            yield namedtuple("aws", "access_key_id secret_access_key default_region account_number user_arn") \
-                            (access_key_id=access_key_id,
-                             secret_access_key=secret_access_key,
-                             default_region=default_region,
-                             account_number=account_number,
-                             user_arn=user_arn)
-        except Exception as e:
-            # TODO: Raise exception? Or just let exception trigger (i.e. don't catch)?
-            PRINT(f"EXCEPTION! {str(e)}")
+            # Yield pertinent AWS credentials info for caller in case they need/want them.
+            yield AwsContext.Credentials(credentials.access_key,
+                                         credentials.secret_key,
+                                         session.region_name,
+                                         caller_identity["Account"],
+                                         caller_identity["Arn"])
         finally:
             # Restore any deleted/modified AWS credentials related environment variables.
             restore_environ(saved_environ)
