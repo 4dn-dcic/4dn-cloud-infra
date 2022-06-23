@@ -149,11 +149,11 @@ class AwsContext:
 
             # Setup AWS boto3 session/client to get basic AWS credentials info;
             session = boto3.session.Session()
-            credentials = session.get_credentials()
+            session_credentials = session.get_credentials()
             caller_identity = boto3.client("sts").get_caller_identity()
 
-            credentials = AwsContext.Credentials(credentials.access_key,
-                                                 credentials.secret_key,
+            credentials = AwsContext.Credentials(session_credentials.access_key,
+                                                 session_credentials.secret_key,
                                                  session.region_name,
                                                  caller_identity["Account"],
                                                  caller_identity["Arn"])
