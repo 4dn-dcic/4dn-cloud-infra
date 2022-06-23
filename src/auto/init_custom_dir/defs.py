@@ -7,7 +7,6 @@
 #     - os.path.dirname
 #     - os.path.join
 
-import os
 from ..utils.locations import (InfraDirectories, InfraFiles)
 
 
