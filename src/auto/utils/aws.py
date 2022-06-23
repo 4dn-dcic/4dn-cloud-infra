@@ -296,9 +296,7 @@ class Aws(AwsContext):
             key_policy_json = self.get_kms_key_policy(key_id)
             nadded = self._amend_kms_key_policy(key_policy_json, sid_pattern, additional_roles)
             if nadded > 0:
-                yes = yes_or_no(f"Really update KMS policy for {key_id}?")
-                if yes:
-                    kms = boto3.client("kms")
-                    key_policy_string = json.dumps(key_policy_json)
-                    kms.put_key_policy(KeyId=key_id, Policy=key_policy_string, PolicyName="default")
+                kms = boto3.client("kms")
+                key_policy_string = json.dumps(key_policy_json)
+                kms.put_key_policy(KeyId=key_id, Policy=key_policy_string, PolicyName="default")
         return nadded
