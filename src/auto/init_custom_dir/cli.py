@@ -54,7 +54,7 @@ from typing import Optional
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
 from .aws_credentials_info import AwsCredentialsInfo
-from .utils import (
+from ..utils.misc_utils import (
     exit_with_no_action,
     expand_json_template_file,
     generate_encryption_key,

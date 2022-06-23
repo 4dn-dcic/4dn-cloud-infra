@@ -10,7 +10,7 @@ from typing import Callable
 from contextlib import contextmanager
 from src.auto.init_custom_dir.cli import (get_fallback_identity, main)
 from src.auto.init_custom_dir.defs import InfraDirectories, InfraFiles
-from src.auto.init_custom_dir.utils import obfuscate
+from src.auto.utils.misc_utils import obfuscate
 from dcicutils.qa_utils import printed_output as mock_print
 
 # Tests for the main init-custom-dir script.
