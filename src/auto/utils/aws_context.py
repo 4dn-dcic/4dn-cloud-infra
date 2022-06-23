@@ -132,7 +132,8 @@ class AwsContext:
                 else:
                     raise Exception(f"AWS credentials directory not found: {aws_credentials_dir}")
                 if display:
-                    aws_credentials_dir_symlink_target = os.readlink(aws_credentials_dir) if os.path.islink(aws_credentials_dir) else None
+                    aws_credentials_dir_symlink_target = \
+                        os.readlink(aws_credentials_dir) if os.path.islink(aws_credentials_dir) else None
                     if aws_credentials_dir_symlink_target:
                         PRINT(f"Your AWS credentials directory (link): {aws_credentials_dir}@ ->")
                         PRINT(f"Your AWS credentials directory (real): {aws_credentials_dir_symlink_target}")

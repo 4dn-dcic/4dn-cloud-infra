@@ -66,7 +66,6 @@
 #   TODO: Get (if not already set) from custom/aws_creds/s3_encrypt_key.txt
 
 import argparse
-import os
 from typing import Optional
 from dcicutils.cloudformation_utils import DEFAULT_ECOSYSTEM
 from dcicutils.command_utils import yes_or_no
@@ -195,38 +194,6 @@ def validate_elasticsearch_endpoint(elasticsearch_server: str, aws_credentials_n
             exit_with_no_action(f"ERROR: AWS ElasticSearch server cannot be determined.")
     PRINT(f"AWS application ElasticSearch server: {elasticsearch_server}")
     return elasticsearch_server
-
-
-def validate_s3_encrypt_key_id(s3_encrypt_key_id: str, config_file: str, aws: Aws) -> Optional[str]:
-    """
-    Validates the given S3 encryption key ID and returns its value, but only if encryption
-    is enabled via the "s3.bucket.encryption" value in the given JSON config file. If not
-    set (and it is needed) gets it from AWS via the given Aws object.
-    Exits on error if this value (is needed and) cannot be determined.
-
-    :param s3_encrypt_key_id: Explicitly specified S3 encryption key ID.
-    :param config_file: Full path to JSON config file.
-    :param aws: Aws object.
-    :return: S3 encryption key ID or None if S3 encryption no enabled.
-    """
-    if not s3_encrypt_key_id:
-        s3_bucket_encryption = get_json_config_file_value("s3.bucket.encryption", config_file)
-        PRINT(f"AWS application S3 bucket encryption enabled: {'Yes' if s3_bucket_encryption else 'No'}")
-        if s3_bucket_encryption:
-            # Only needed if s3.bucket.encryption is True in the local custom config file.
-            customer_managed_kms_keys = aws.get_customer_managed_kms_keys()
-            if not customer_managed_kms_keys or len(customer_managed_kms_keys) == 0:
-                exit_with_no_action("ERROR: Cannot find a customer managed KMS key in AWS.")
-            elif len(customer_managed_kms_keys) > 1:
-                PRINT("More than one customer managed KMS key found in AWS:")
-                for customer_managed_kms_key in sorted(customer_managed_kms_keys, key=lambda key: key):
-                    PRINT(f"- {customer_managed_kms_key}")
-                exit_with_no_action("Use --s3-encrypt-key-id to specify specific value.")
-            else:
-                s3_encrypt_key_id = customer_managed_kms_keys[0]
-    if s3_encrypt_key_id:
-        PRINT(f"AWS application customer managed KMS (S3 encryption) key ID: {s3_encrypt_key_id}")
-    return s3_encrypt_key_id
 
 
 def validate_s3_access_key_pair(s3_access_key_id: str, s3_secret_access_key: str,
