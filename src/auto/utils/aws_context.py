@@ -1,6 +1,8 @@
 import boto3
 import contextlib
 import os
+from dcicutils.misc_utils import PRINT
+from .misc_utils import obfuscate
 
 
 class AwsContext:
@@ -40,10 +42,11 @@ class AwsContext:
         :param aws_secret_access_key: AWS credentials secret access key.
         :param aws_default_region: AWS credentials default region.
         """
-        self._aws_credentials_dir = aws_credentials_dir
         self._aws_access_key_id = aws_access_key_id
         self._aws_secret_access_key = aws_secret_access_key
         self._aws_default_region = aws_default_region
+        self._aws_session_token = aws_default_region
+        self._aws_credentials_dir = aws_credentials_dir
         self._reset_boto3_default_session = True
 
     class Credentials:
@@ -57,7 +60,7 @@ class AwsContext:
             self.user_arn = user_arn
 
     @contextlib.contextmanager
-    def establish_credentials(self):
+    def establish_credentials(self, display: bool = False, show: bool = False):
         """
         Context manager to establish AWS credentials without using environment,
         rather using the explicit AWS credentials directory or the explicit
@@ -67,6 +70,8 @@ class AwsContext:
         manager context) blow away the pertinent AWS credentials related environment
         variables, and set them appropriately based on given credentials information.
 
+        :param display: If True then print summary of AWS credentials.
+        :param show: If True and display True show in plaintext sensitive info for AWS credentials summary.
         :return: Yields named tuple with: access_key_id, secret_access_key, default_region, account_number, user_arn.
         """
 
@@ -117,12 +122,24 @@ class AwsContext:
             if self._aws_access_key_id and self._aws_secret_access_key:
                 os.environ["AWS_ACCESS_KEY_ID"] = self._aws_access_key_id
                 os.environ["AWS_SECRET_ACCESS_KEY"] = self._aws_secret_access_key
-            else:
-                aws_credentials_file = os.path.join(self._aws_credentials_dir, "credentials")
+            elif self._aws_session_token:
+                os.environ["AWS_SESSION_TOKEN"] = self._aws_session_token
+            elif self._aws_credentials_dir:
+                aws_credentials_dir = self._aws_credentials_dir
+                aws_credentials_file = os.path.join(aws_credentials_dir, "credentials")
                 if os.path.isfile(aws_credentials_file):
                     os.environ["AWS_SHARED_CREDENTIALS_FILE"] = aws_credentials_file
                 else:
-                    raise Exception("No AWS credentials specified.")
+                    raise Exception(f"AWS credentials directory not found: {aws_credentials_dir}")
+                if display:
+                    aws_credentials_dir_symlink_target = os.readlink(aws_credentials_dir) if os.path.islink(aws_credentials_dir) else None
+                    if aws_credentials_dir_symlink_target:
+                        PRINT(f"Your AWS credentials directory (link): {aws_credentials_dir}@ ->")
+                        PRINT(f"Your AWS credentials directory (real): {aws_credentials_dir_symlink_target}")
+                    else:
+                        PRINT(f"Your AWS credentials directory: {aws_credentials_dir}")
+            else:
+                raise Exception(f"No AWS credentials specified.")
             if self._aws_default_region:
                 os.environ["AWS_DEFAULT_REGION"] = self._aws_default_region
             else:
@@ -135,12 +152,22 @@ class AwsContext:
             credentials = session.get_credentials()
             caller_identity = boto3.client("sts").get_caller_identity()
 
+            credentials = AwsContext.Credentials(credentials.access_key,
+                                                 credentials.secret_key,
+                                                 session.region_name,
+                                                 caller_identity["Account"],
+                                                 caller_identity["Arn"])
+            if display:
+                PRINT(f"Your AWS account number: {credentials.account_number}")
+                PRINT(f"Your AWS access key: {credentials.access_key_id}")
+                PRINT(f"Your AWS access secret: {obfuscate(credentials.secret_access_key, show)}")
+                PRINT(f"Your AWS default region: {credentials.default_region}")
+                PRINT(f"Your AWS account number: {credentials.account_number}")
+                PRINT(f"Your AWS account user ARN: {credentials.user_arn}")
+
             # Yield pertinent AWS credentials info for caller in case they need/want them.
-            yield AwsContext.Credentials(credentials.access_key,
-                                         credentials.secret_key,
-                                         session.region_name,
-                                         caller_identity["Account"],
-                                         caller_identity["Arn"])
+            yield credentials
+
         finally:
             # Restore any deleted/modified AWS credentials related environment variables.
             restore_environ(saved_environ)
