@@ -64,11 +64,6 @@
 #   This gets set automatically it seems.
 #   Though originally this did not seem to be the case.
 #   TODO: Get (if not already set) from custom/aws_creds/s3_encrypt_key.txt
-#
-# Testing Notes:
-# - Boto3 usages:
-#   - TODO
-
 
 import argparse
 import os
@@ -78,7 +73,6 @@ from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
 from ...constants import Settings
 from ...names import Names
-from .defs import (InfraDirectories, InfraFiles)
 from ..utils.aws import Aws
 from ..utils.aws_context import AwsContext
 from ..utils.misc_utils import (get_json_config_file_value,
@@ -87,6 +81,7 @@ from ..utils.misc_utils import (get_json_config_file_value,
                                 print_dictionary_as_table,
                                 setup_and_action,
                                 should_obfuscate)
+from .defs import (InfraDirectories, InfraFiles)
 
 
 def validate_custom_dir(custom_dir: str) -> [str, str]:
@@ -509,7 +504,6 @@ def main(override_argv: Optional[list] = None) -> None:
 
     :param override_argv: Raw command-line arguments for this invocation.
     """
-
     argp = argparse.ArgumentParser()
     argp.add_argument("--aws-account-number", required=False,
                       dest="aws_account_number",

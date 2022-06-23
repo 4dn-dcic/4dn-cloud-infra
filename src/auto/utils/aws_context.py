@@ -97,12 +97,12 @@ class AwsContext:
         # Temporarily (for the life of this context) unset/delete (here) and
         # override (below) any AWS credentials related environment variables.
         saved_environ = unset_environ(["AWS_ACCESS_KEY_ID",
-                                       "AWS_SECRET_ACCESS_KEY",
-                                       "AWS_SHARED_CREDENTIALS_FILE",
                                        "AWS_CONFIG_FILE",
                                        "AWS_DEFAULT_REGION",
                                        "AWS_REGION",
-                                       "AWS_SESSION_TOKEN"])
+                                       "AWS_SECRET_ACCESS_KEY",
+                                       "AWS_SESSION_TOKEN",
+                                       "AWS_SHARED_CREDENTIALS_FILE"])
 
         # This reset of the boto3.DEFAULT_SESSION is to workaround an odd problem with boto3
         # caching a default session, even for bad or non-existent credentials. This problem
