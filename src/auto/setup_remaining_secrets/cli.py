@@ -246,7 +246,7 @@ def validate_rds_host_and_password(rds_host: str, rds_password: str,
     return rds_host, rds_password
 
 
-def gather_secrets_to_update(args) -> [str, dict, Aws]:
+def gather_secrets_to_update(args) -> (str, dict, Aws):
     """
     Gathers and validates the global application config secret (aka "identity" aka GAC) values to update.
     Returns a tuple containing the GAC secret name, secret values to update, and Aws object.
