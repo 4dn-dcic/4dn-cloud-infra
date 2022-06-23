@@ -403,7 +403,7 @@ def main(override_argv: Optional[list] = None) -> None:
                       help=f"Your AWS access key ID; also requires --aws-access-key-id.")
     argp.add_argument("--aws-session-token", required=False,
                       dest="aws_session_token",
-                      help=f"Your AWS session token; also requires.")
+                      help=f"Your AWS session token.")
     argp.add_argument("--custom-dir", required=False, default=InfraDirectories.CUSTOM_DIR,
                       dest="custom_dir",
                       help=f"Alternate custom config directory to default: {InfraDirectories.CUSTOM_DIR}.")
