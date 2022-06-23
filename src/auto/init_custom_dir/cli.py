@@ -52,24 +52,20 @@ import stat
 from typing import Optional
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
-from .aws_credentials_info import AwsCredentialsInfo
-from ..utils.misc_utils import (
-    exit_with_no_action,
-    expand_json_template_file,
-    generate_encryption_key,
-    obfuscate,
-    print_directory_tree,
-    read_env_variable_from_subshell,
-    setup_and_action
-)
-from .defs import (
-    ConfigTemplateVars,
-    InfraDirectories,
-    EnvVars,
-    InfraFiles,
-    SecretsTemplateVars
-)
 from ...names import Names
+from ..utils.misc_utils import (exit_with_no_action,
+                                expand_json_template_file,
+                                generate_encryption_key,
+                                obfuscate,
+                                print_directory_tree,
+                                read_env_variable_from_subshell,
+                                setup_and_action)
+from .aws_credentials_info import AwsCredentialsInfo
+from .defs import (ConfigTemplateVars,
+                   InfraDirectories,
+                   EnvVars,
+                   InfraFiles,
+                   SecretsTemplateVars)
 
 
 def get_fallback_account_number(aws_credentials_dir: str) -> str:
@@ -493,7 +489,6 @@ def main(override_argv: Optional[list] = None) -> None:
     The main function and args parser for this CLI script.
     Calls into init_custom_dir to do the real work.
     """
-
     argp = argparse.ArgumentParser()
     argp.add_argument("--account", "-a", dest="account_number", type=str, required=False,
                       help="Your AWS account number")
