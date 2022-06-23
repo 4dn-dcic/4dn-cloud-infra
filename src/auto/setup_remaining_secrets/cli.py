@@ -145,7 +145,7 @@ def validate_account_number(account_number: str, config_file: str, aws_credentia
     if not account_number:
         account_number = aws_credentials.account_number
         if not account_number:
-            exit_with_no_action("ERROR: Account number cannot be determined.")
+            exit_with_no_action("ERROR: AWS account number cannot be determined.")
     if account_number != get_json_config_file_value("account_number", config_file):
         exit_with_no_action(f"ERROR: Account number in your config file ({account_number})"
                             f" does not match AWS ({aws_credentials.account_number}).")
@@ -216,7 +216,7 @@ def validate_s3_access_key_pair(s3_access_key_id: str, s3_secret_access_key: str
             s3_access_key_id, s3_secret_access_key = aws.create_user_access_key(federated_user_name, show)
         return s3_access_key_id, s3_secret_access_key
     except:
-        exit_with_no_action("ERROR: S3 access key pair cannot be determined.")
+        exit_with_no_action("ERROR: AWS S3 access key pair cannot be determined.")
 
 
 def validate_rds_host_and_password(rds_host: str, rds_password: str,
@@ -236,12 +236,12 @@ def validate_rds_host_and_password(rds_host: str, rds_password: str,
     if not rds_host:
         rds_host = aws.get_secret_value(rds_secret_name, "host")
         if not rds_host:
-            exit_with_no_action("ERROR: RDS host cannot be determined.")
+            exit_with_no_action("ERROR: AWS application RDS host cannot be determined.")
     PRINT(f"AWS application RDS host name: {rds_host}")
     if not rds_password:
         rds_password = aws.get_secret_value(rds_secret_name, "password")
         if not rds_password:
-            exit_with_no_action("ERROR: RDS password cannot be determined.")
+            exit_with_no_action("ERROR: AWS application RDS password cannot be determined.")
     PRINT(f"AWS application RDS password: {obfuscate(rds_password, show)}")
     return rds_host, rds_password
 
