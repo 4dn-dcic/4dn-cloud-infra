@@ -167,26 +167,12 @@ def validate_aws_credentials(credentials_dir: str,
     :param show: True to show any displayed sensitive values in plaintext.
     :return: Tuple with an Aws object and AwsContext.Credentials containing the credentials.
     """
-    if not access_key_id or not secret_access_key:
-        credentials_dir_symlink_target = os.readlink(credentials_dir) if os.path.islink(credentials_dir) else None
-        if credentials_dir_symlink_target:
-            PRINT(f"Your AWS credentials directory (link): {credentials_dir}@ ->")
-            PRINT(f"Your AWS credentials directory (real): {credentials_dir_symlink_target}")
-        else:
-            PRINT(f"Your AWS credentials directory: {credentials_dir}")
-
     # Get AWS credentials context object.
     aws = Aws(credentials_dir, access_key_id, secret_access_key, default_region, session_token)
 
     # Verify the AWS credentials context and get the associated AWS credentials number.
     try:
-        with aws.establish_credentials() as credentials:
-            PRINT(f"Your AWS account number: {credentials.account_number}")
-            PRINT(f"Your AWS access key: {credentials.access_key_id}")
-            PRINT(f"Your AWS access secret: {obfuscate(credentials.secret_access_key, show)}")
-            PRINT(f"Your AWS default region: {credentials.default_region}")
-            PRINT(f"Your AWS account number: {credentials.account_number}")
-            PRINT(f"Your AWS account user ARN: {credentials.user_arn}")
+        with aws.establish_credentials(display=True, show=show) as credentials:
             return aws, credentials
     except Exception as e:
         PRINT(e)
@@ -385,49 +371,11 @@ def validate_rds_host_and_password(rds_host: str, rds_password: str,
     return rds_host, rds_password
 
 
-def summarize_secrets_to_update(gac_secret_name: str, secrets_to_update: dict, show: bool = False) -> None:
+def gather_secrets_to_update(args) -> [str, dict, Aws]:
     """
-    Prints a summary of the given AWS global application config secret keys/values to update.
-
-    :param gac_secret_name: Global application config secret name.
-    :param secrets_to_update: Dictionary of secret keys/values to update.
-    :param show: True to show any displayed sensitive values in plaintext.
-    """
-    PRINT()
-    PRINT(f"Secret keys/values to be set in AWS secrets manager for secret: {gac_secret_name}")
-
-    def secret_key_display_value(key: str, value: str) -> str:
-        if value is None:
-            return "<no value: deactivate>"
-        elif should_obfuscate(key) and not show:
-            return obfuscate(value, show)
-        else:
-            return value
-    print_dictionary_as_table("Secret Key Name", "Secret Key Value", secrets_to_update, secret_key_display_value)
-
-
-def update_secrets(gac_secret_name: str, secrets_to_update: dict, aws: Aws, show: bool = False) -> None:
-    """
-    Updates the given AWS global application config secret keys/values
-    in the AWS secrets manager (via the given Aws object).
-    This is a command-line INTERACTIVE process (via Aws), prompting the user for confirmation.
-
-    :param gac_secret_name: Global application config secret name.
-    :param secrets_to_update: Dictionary of secret keys/values to update.
-    :param aws: Aws object.
-    :param show: True to show any displayed sensitive values in plaintext.
-    """
-    summarize_secrets_to_update(gac_secret_name, secrets_to_update, show)
-    if not yes_or_no("Do you want to go ahead and set these secrets in AWS?"):
-        exit_with_no_action()
-    for secret_key_name, secret_key_value in secrets_to_update.items():
-        PRINT()
-        aws.update_secret_key_value(gac_secret_name, secret_key_name, secret_key_value, show)
-
-
-def gather_secrets_to_update(args) -> [str, dict]:
-    """
-    Gathers the global application config secret (aka "identity" aka GAC) values to update.
+    Gathers and validates the global application config secret (aka "identity" aka GAC) values to update.
+    Returns a tuple containing the GAC secret name, secret values to update, and Aws object.
+    Exits on error if these values cannot be determined.
 
     :param args: Command-line arguments values.
     :return: Tuple containing the GAC secret name, secret values to update, and Aws object.
@@ -494,6 +442,46 @@ def gather_secrets_to_update(args) -> [str, dict]:
     secrets_to_update["S3_AWS_SECRET_ACCESS_KEY"] = s3_secret_access_key
 
     return gac_secret_name, secrets_to_update, aws
+
+
+def summarize_secrets_to_update(gac_secret_name: str, secrets_to_update: dict, show: bool = False) -> None:
+    """
+    Prints a summary of the given AWS global application config secret keys/values to update.
+
+    :param gac_secret_name: Global application config secret name.
+    :param secrets_to_update: Dictionary of secret keys/values to update.
+    :param show: True to show any displayed sensitive values in plaintext.
+    """
+    PRINT()
+    PRINT(f"Secret keys/values to be set in AWS secrets manager for secret: {gac_secret_name}")
+
+    def secret_key_display_value(key: str, value: str) -> str:
+        if value is None:
+            return "<no value: deactivate>"
+        elif should_obfuscate(key) and not show:
+            return obfuscate(value, show)
+        else:
+            return value
+    print_dictionary_as_table("Secret Key Name", "Secret Key Value", secrets_to_update, secret_key_display_value)
+
+
+def update_secrets(gac_secret_name: str, secrets_to_update: dict, aws: Aws, show: bool = False) -> None:
+    """
+    Updates the given AWS global application config secret keys/values
+    in the AWS secrets manager (via the given Aws object).
+    This is a command-line INTERACTIVE process (via Aws), prompting the user for confirmation.
+
+    :param gac_secret_name: Global application config secret name.
+    :param secrets_to_update: Dictionary of secret keys/values to update.
+    :param aws: Aws object.
+    :param show: True to show any displayed sensitive values in plaintext.
+    """
+    summarize_secrets_to_update(gac_secret_name, secrets_to_update, show)
+    if not yes_or_no("Do you want to go ahead and set these secrets in AWS?"):
+        exit_with_no_action()
+    for secret_key_name, secret_key_value in secrets_to_update.items():
+        PRINT()
+        aws.update_secret_key_value(gac_secret_name, secret_key_name, secret_key_value, show)
 
 
 def setup_remaining_secrets(args) -> None:
