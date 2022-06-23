@@ -75,6 +75,7 @@ from ...constants import Settings
 from ...names import Names
 from ..utils.aws import Aws
 from ..utils.aws_context import AwsContext
+from ..utils.locations import (InfraDirectories, InfraFiles)
 from ..utils.misc_utils import (get_json_config_file_value,
                                 exit_with_no_action,
                                 obfuscate,
@@ -86,7 +87,6 @@ from ..utils.validate_utils import (validate_aws_credentials,
                                     validate_aws_credentials_name,
                                     validate_custom_dir,
                                     validate_s3_encrypt_key_id)
-from .defs import (InfraDirectories, InfraFiles)
 
 
 def validate_gac_secret_name(gac_secret_name: str, aws_credentials_name: str) -> str:
