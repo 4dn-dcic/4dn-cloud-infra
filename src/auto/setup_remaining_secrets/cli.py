@@ -282,7 +282,7 @@ def validate_federated_user_name(federated_user_name: str,
     return federated_user_name
 
 
-def validate_elasticsearch_server(elasticsearch_server: str, aws_credentials_name: str, aws: Aws) -> str:
+def validate_elasticsearch_endpoint(elasticsearch_server: str, aws_credentials_name: str, aws: Aws) -> str:
     """
     Validates the given ElasticSearch server (host/port) and returns its value. If not set gets
     it from AWS via the given Aws object, and using the given AWS credentials name.
@@ -471,7 +471,7 @@ def gather_secrets_to_update(args) -> [str, dict]:
     secrets_to_update["ENCODED_IDENTITY"] = gac_secret_name
 
     # Validate/get the ElasticSearch server (host/port).
-    elasticsearch_server = validate_elasticsearch_server(args.elasticsearch_server, aws_credentials_name, aws)
+    elasticsearch_server = validate_elasticsearch_endpoint(args.elasticsearch_server, aws_credentials_name, aws)
     secrets_to_update["ENCODED_ES_SERVER"] = elasticsearch_server
 
     # Validate/get the RDS host/password.
