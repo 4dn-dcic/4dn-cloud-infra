@@ -3,7 +3,7 @@ import os
 from typing import Optional
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
-from ..init_custom_dir.defs import (InfraDirectories, InfraFiles)
+from .locations import (InfraDirectories, InfraFiles)
 from ..utils.misc_utils import (get_json_config_file_value,
                                 exit_with_no_action)
 from .aws import Aws
