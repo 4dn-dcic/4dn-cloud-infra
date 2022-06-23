@@ -196,7 +196,7 @@ def validate_aws_credentials_info(
 def validate_custom_dir(custom_dir: str) -> str:
     """
     Validates the given custom directory and returns its full path.
-    Prompts for this value if not set; exit on error (if not set).
+    Exit on error (if not set).
 
     :param custom_dir: Specified custom directory.
     :return: Full path to custom directory.

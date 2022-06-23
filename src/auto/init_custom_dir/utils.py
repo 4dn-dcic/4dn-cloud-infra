@@ -93,15 +93,15 @@ def read_env_variable_from_subshell(shell_script_file: str, env_variable_name: s
         return None
 
 
-def obfuscate(value: str) -> str:
+def obfuscate(value: str, show: bool = False) -> str:
     """
     Obfuscates and returns the given string value.
 
     :param value: Value to obfuscate.
-    :return: Obfuscated value or empty string if not a string or empty.
+    :param show: If True then do not actually obfuscate rather return value in plaintext.
+    :return: Obfuscated (or not if show) value or empty string if not a string or empty.
     """
-    # return value[0] + "********" if isinstance(value, str) else ""
-    return len(value) * "*"
+    return value if show else len(value) * "*"
 
 
 def exit_with_no_action(*messages, status: int = 1) -> None:
