@@ -8,7 +8,7 @@ from .aws import Aws
 from .aws_context import AwsContext
 
 
-def validate_custom_dir(custom_dir: str) -> [str, str]:
+def validate_custom_dir(custom_dir: str) -> (str, str):
     """
     Validates the given custom directory and returns a tuple containing its full path,
     as well as the full path to the JSON config file within this custom directory.
@@ -16,7 +16,7 @@ def validate_custom_dir(custom_dir: str) -> [str, str]:
     or JSON config file do not exist.
 
     :param custom_dir: Explicitly specified path of the custom directory.
-    :return: Full path of the custom directory.
+    :return: Tuple with full paths of the custom directory and config file.
     """
     custom_dir = InfraDirectories.get_custom_dir(custom_dir)
     if not custom_dir:
@@ -71,7 +71,7 @@ def validate_aws_credentials(credentials_dir: str,
                              secret_access_key: str,
                              default_region: str,
                              session_token: str = None,
-                             show: bool = False) -> [Aws, AwsContext.Credentials]:
+                             show: bool = False) -> (Aws, AwsContext.Credentials):
     """
     Validates the given AWS credentials which can be either the path to the AWS credentials directory;
     or the AWS access key ID, secret access key, and default region; or the AWS session token.
