@@ -179,14 +179,18 @@ def validate_aws_credentials(credentials_dir: str,
     aws = Aws(credentials_dir, access_key_id, secret_access_key, default_region, session_token)
 
     # Verify the AWS credentials context and get the associated AWS credentials number.
-    with aws.establish_credentials() as credentials:
-        PRINT(f"Your AWS account number: {credentials.account_number}")
-        PRINT(f"Your AWS access key: {credentials.access_key_id}")
-        PRINT(f"Your AWS access secret: {obfuscate(credentials.secret_access_key, show)}")
-        PRINT(f"Your AWS default region: {credentials.default_region}")
-        PRINT(f"Your AWS account number: {credentials.account_number}")
-        PRINT(f"Your AWS account user ARN: {credentials.user_arn}")
-        return aws, credentials
+    try:
+        with aws.establish_credentials() as credentials:
+            PRINT(f"Your AWS account number: {credentials.account_number}")
+            PRINT(f"Your AWS access key: {credentials.access_key_id}")
+            PRINT(f"Your AWS access secret: {obfuscate(credentials.secret_access_key, show)}")
+            PRINT(f"Your AWS default region: {credentials.default_region}")
+            PRINT(f"Your AWS account number: {credentials.account_number}")
+            PRINT(f"Your AWS account user ARN: {credentials.user_arn}")
+            return aws, credentials
+    except Exception as e:
+        PRINT(e)
+        exit_with_no_action("ERROR: Cannot validate AWS credentials.")
 
 
 def validate_gac_secret_name(gac_secret_name: str, aws_credentials_name: str) -> str:
