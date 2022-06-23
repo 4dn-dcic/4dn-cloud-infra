@@ -179,7 +179,7 @@ class Aws(AwsContext):
                 domain_endpoint = f"{domain_endpoint_vpc}:80"
             return domain_endpoint
 
-    def create_user_access_key(self, user_name: str, show: bool = False) -> [str, str]:
+    def create_user_access_key(self, user_name: str, show: bool = False) -> (str, str):
         """
         Create an AWS security access key pair for the given IAM user name.
         This is a command-line INTERACTIVE process, prompting the user for info/confirmation.
@@ -224,10 +224,10 @@ class Aws(AwsContext):
                 return key_pair.id, key_pair.secret
             return None, None
 
-    # TODO: This is for what will be a different script to update the KMS policy with foursight roles.
     def find_iam_role_names(self, role_name_pattern: str) -> list:
         """
         Returns the list of AWS IAM role ARNs which match the given role name pattern.
+        Created for the update-kms-policy script.
 
         :param role_name_pattern: Regular expression to match role names
         :return: List of matching AWS IAM role ARNs or empty list of none found.
@@ -242,10 +242,11 @@ class Aws(AwsContext):
                     found_roles.append(role_name)
         return found_roles
 
-    # TODO: This is for what will be a different script to update the KMS policy with foursight roles.
     def get_kms_key_policy(self, key_id: str) -> dict:
         """
         Returns JSON for the KMS key policy for the given KMS key ID.
+        Created for the update-kms-policy script.
+
         :param key_id: KMS key ID.
         :return: Policy for given KMS key ID or None if not found.
         """
@@ -255,13 +256,13 @@ class Aws(AwsContext):
             key_policy_json = json.loads(key_policy)
             return key_policy_json
 
-    # TODO: This is for what will be a different script to update the KMS policy with foursight roles.
     @staticmethod
     def _amend_kms_key_policy(key_policy_json: dict, sid_pattern: str, additional_roles: list) -> int:
         """
         Amends the specific KMS key policy for the given key_policy_json (IN PLACE), whose statement ID (sid)
         matches the given sid_pattern, with the roles contained in the given additional_roles list.
         Will not add if already present. Returns the number of roles actually added.
+        Created for the update-kms-policy script.
 
         :param key_policy_json: JSON for a KMS key policy.
         :param sid_pattern: Statement ID (sid) pattern to match the specific policy.
@@ -280,12 +281,12 @@ class Aws(AwsContext):
                         nadded += 1
         return nadded
 
-    # TODO: This is for what will be a different script to update the KMS policy with foursight roles.
     def update_kms_key_policy(self, key_id: str, sid_pattern: str, additional_roles: list) -> int:
         """
         Updates the specific AWS KMS key policy for the given key_id, whose statement ID (sid)
         matches the given sid_pattern, with the roles contained in the given additional_roles list.
         Will not add if already present. Returns the number of roles actually added.
+        Created for the update-kms-policy script.
 
         :param key_id: KMS key ID.
         :param sid_pattern: Statement ID (sid) pattern to match the specific policy.
