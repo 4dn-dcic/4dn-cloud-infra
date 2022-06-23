@@ -20,7 +20,7 @@ def validate_custom_dir(custom_dir: str) -> (str, str):
     """
     custom_dir = InfraDirectories.get_custom_dir(custom_dir)
     if not custom_dir:
-        exit_with_no_action("ERROR: No custom directory specified.")
+        exit_with_no_action("ERROR: Custom directory cannot be determined..")
     if not os.path.isdir(custom_dir):
         exit_with_no_action(f"ERROR: Custom directory does not exist: {custom_dir}")
     config_file = InfraFiles.get_config_file(custom_dir)
@@ -43,7 +43,7 @@ def validate_aws_credentials_name(aws_credentials_name: str, config_file: str) -
     if not aws_credentials_name:
         aws_credentials_name = get_json_config_file_value("ENCODED_ENV_NAME", config_file)
         if not aws_credentials_name:
-            exit_with_no_action("ERROR: Cannot determine AWS credentials name")
+            exit_with_no_action("ERROR: AWS credentials name cannot be determined.")
     return aws_credentials_name
 
 
@@ -59,6 +59,8 @@ def validate_aws_credentials_dir(aws_credentials_dir: str, custom_dir: str) -> s
     """
     if not aws_credentials_dir:
         aws_credentials_dir = InfraDirectories.get_custom_aws_creds_dir(custom_dir)
+        if not aws_credentials_dir:
+            exit_with_no_action(f"ERROR: AWS credentials directory cannot be determined.")
     if aws_credentials_dir:
         aws_credentials_dir = os.path.abspath(os.path.expanduser(aws_credentials_dir))
         if not os.path.isdir(aws_credentials_dir):
@@ -67,9 +69,9 @@ def validate_aws_credentials_dir(aws_credentials_dir: str, custom_dir: str) -> s
 
 
 def validate_aws_credentials(credentials_dir: str,
-                             access_key_id: str,
-                             secret_access_key: str,
-                             default_region: str,
+                             access_key_id: str = None,
+                             secret_access_key: str = None,
+                             default_region: str = None,
                              session_token: str = None,
                              show: bool = False) -> (Aws, AwsContext.Credentials):
     """
