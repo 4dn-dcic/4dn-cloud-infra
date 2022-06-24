@@ -1,13 +1,10 @@
 # Script for 4dn-cloud-infra to update KMS key policy for Foursight.
 
 import argparse
-import os
 from typing import Optional
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
-from ..utils.aws import Aws
-from ..utils.aws_context import AwsContext
-from ..utils.locations import (InfraDirectories, InfraFiles)
+from ..utils.locations import (InfraDirectories)
 from ..utils.misc_utils import (get_json_config_file_value,
                                 exit_with_no_action)
 from ..utils.validate_utils import (validate_aws_credentials,
@@ -48,11 +45,12 @@ def update_kms_policy(args) -> None:
     if not kms_key_id:
         s3_bucket_encryption = get_json_config_file_value("s3.bucket.encryption", config_file)
         if not s3_bucket_encryption:
-            exit_with_no_action("No KMS key found. And encryption not enabled (via s3.bucket.encryption in config file).")
+            exit_with_no_action("No KMS key found."
+                                "And encryption not enabled (via s3.bucket.encryption in config file).")
         else:
             exit_with_no_action("ERROR: No KMS key found.")
 
-    # Get the Foursight role ARNS.
+    # Get the ARNs for the Foursight roles.
     foursight_role_arn_pattern = ".*foursight.*"
     foursight_role_arns = aws.find_iam_role_arns(foursight_role_arn_pattern)
     if foursight_role_arns and len(foursight_role_arns) > 0:
@@ -63,10 +61,10 @@ def update_kms_policy(args) -> None:
     else:
         exit_with_no_action("No Foursight AWS IAM roles found.")
 
-    # Get the KMS policy for the S3 encryption KMS key ID.
+    # Get the KMS policy JSON for the S3 encryption KMS key ID.
     kms_key_policy_json = aws.get_kms_key_policy(kms_key_id)
 
-    # Get principals for the specific KMS policy identified by the specified statement ID (sid).
+    # Get the principals for the KMS policy statement identified by the specified statement ID (sid).
     kms_key_sid_pattern = "Allow use of the key"
     kms_key_policy_principals = aws.get_kms_key_policy_principals(kms_key_policy_json, kms_key_sid_pattern)
     if args.verbose:
@@ -74,7 +72,7 @@ def update_kms_policy(args) -> None:
         for kms_key_principal in sorted(kms_key_policy_principals):
             print(f"- {kms_key_principal}")
 
-    # Find Foursight roles which are missing from the KMS policy. 
+    # Find the Foursight roles which are missing from the KMS specific policy.
     foursight_roles_to_add = list(set(foursight_role_arns) - set(kms_key_policy_principals))
     if foursight_roles_to_add and len(foursight_roles_to_add) > 0:
         print(f"Foursight roles not currently present in KMS key principals: {kms_key_id}")
@@ -84,13 +82,14 @@ def update_kms_policy(args) -> None:
         print(f"All Foursight roles already currently present in KMS key principals: {kms_key_id}")
         exit_with_no_action("Nothing to do.")
 
-    # Here there are one or more Foursight roles missing from the KMS policy. Confirm update and do it or not.
+    # Here there are one or more Foursight roles missing from the KMS policy. Confirm update.
     yes = yes_or_no(f"Update KMS policy with these roles for: {kms_key_id}?")
-    if yes:
-        aws.amend_kms_key_policy(kms_key_policy_json, kms_key_sid_pattern, foursight_roles_to_add)
-        aws.update_kms_key_policy(kms_key_id, kms_key_policy_json)
-    else:
+    if not yes:
         exit_with_no_action()
+
+    # Here the user has confirmed update. Update the KMS key policy JSON (in place) and update in AWS.
+    aws.amend_kms_key_policy(kms_key_policy_json, kms_key_sid_pattern, foursight_roles_to_add)
+    aws.update_kms_key_policy(kms_key_id, kms_key_policy_json)
 
 
 def main(override_argv: Optional[list] = None) -> None:
