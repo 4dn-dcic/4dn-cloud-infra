@@ -122,7 +122,7 @@ class Aws(AwsContext):
         with super().establish_credentials():
             iam = boto3.resource('iam')
             users = iam.users.all()
-            for user in sorted(users, key=lambda value: value.name):
+            for user in users:
                 user_name = user.name
                 if re.match(user_name_pattern, user_name):
                     return user_name
@@ -224,12 +224,12 @@ class Aws(AwsContext):
                 return key_pair.id, key_pair.secret
             return None, None
 
-    def find_iam_role_names(self, role_name_pattern: str) -> list:
+    def find_iam_role_arns(self, role_arn_pattern: str) -> list:
         """
-        Returns the list of AWS IAM role ARNs which match the given role name pattern.
+        Returns the list of AWS IAM role ARNs which match the given role ARN pattern.
         Created for the update-kms-policy script.
 
-        :param role_name_pattern: Regular expression to match role names
+        :param role_arn_pattern: Regular expression to match role ARNs.
         :return: List of matching AWS IAM role ARNs or empty list of none found.
         """
         found_roles = []
@@ -237,9 +237,9 @@ class Aws(AwsContext):
             iam = boto3.client('iam')
             roles = iam.list_roles()["Roles"]
             for role in roles:
-                role_name = role["Arn"]
-                if re.match(role_name_pattern, role_name):
-                    found_roles.append(role_name)
+                role_arn = role["Arn"]
+                if re.match(role_arn_pattern, role_arn):
+                    found_roles.append(role_arn)
         return found_roles
 
     def get_kms_key_policy(self, key_id: str) -> dict:
@@ -257,11 +257,26 @@ class Aws(AwsContext):
             return key_policy_json
 
     @staticmethod
-    def _amend_kms_key_policy(key_policy_json: dict, sid_pattern: str, additional_roles: list) -> int:
+    def get_kms_key_policy_principals(key_policy_json: str, sid_pattern: str) -> list:
         """
-        Amends the specific KMS key policy for the given key_policy_json (IN PLACE), whose statement ID (sid)
-        matches the given sid_pattern, with the roles contained in the given additional_roles list.
-        Will not add if already present. Returns the number of roles actually added.
+        Returns the AWS principals list for the specific KMS key policy within the
+        given KMS key policy JSON, whose statemnd ID (sid) matches the given sid_pattern. 
+
+        :param key_policy_json: JSON for a KMS key policy.
+        :param sid_pattern: Statement ID (sid) pattern to match the specific policy.
+        """
+        key_policy_statements = key_policy_json["Statement"]
+        for key_policy_statement in key_policy_statements:
+            key_policy_statement_id = key_policy_statement["Sid"]
+            if re.match(sid_pattern, key_policy_statement_id):
+                return key_policy_statement["Principal"]["AWS"]
+
+    @staticmethod
+    def amend_kms_key_policy(key_policy_json: dict, sid_pattern: str, additional_roles: list) -> int:
+        """
+        Amends the specific KMS key policy for the given key_policy_json (IN PLACE), whose statement
+        ID (sid) matches the given sid_pattern, with the roles contained in the given additional_roles
+        list. Will not add if already present. Returns the number of roles actually added.
         Created for the update-kms-policy script.
 
         :param key_policy_json: JSON for a KMS key policy.
@@ -270,34 +285,24 @@ class Aws(AwsContext):
         :return: Number of roles from the given addition roles actually added.
         """
         nadded = 0
-        key_policy_statements = key_policy_json["Statement"]
-        for key_policy_statement in key_policy_statements:
-            key_policy_statement_id = key_policy_statement["Sid"]
-            if re.match(sid_pattern, key_policy_statement_id):
-                key_policy_statement_principals = key_policy_statement["Principal"]["AWS"]
-                for additional_role in additional_roles:
-                    if additional_role not in key_policy_statement_principals:
-                        key_policy_statement_principals.append(additional_role)
-                        nadded += 1
+        key_policy_statement_principals = Aws.get_kms_key_policy_principals(key_policy_json, sid_pattern)
+        for additional_role in additional_roles:
+            if additional_role not in key_policy_statement_principals:
+                key_policy_statement_principals.append(additional_role)
+                nadded += 1
+        key_policy_statement_principals.sort()
         return nadded
 
-    def update_kms_key_policy(self, key_id: str, sid_pattern: str, additional_roles: list) -> int:
+    def update_kms_key_policy(self, key_id: str, key_policy_json: dict) -> None:
         """
-        Updates the specific AWS KMS key policy for the given key_id, whose statement ID (sid)
-        matches the given sid_pattern, with the roles contained in the given additional_roles list.
-        Will not add if already present. Returns the number of roles actually added.
+        Updates the specific AWS KMS key policy for the given key_id with the given JSON,
+        representing the new (complete) key policy for the KMS key.
         Created for the update-kms-policy script.
 
         :param key_id: KMS key ID.
-        :param sid_pattern: Statement ID (sid) pattern to match the specific policy.
-        :param additional_roles: List of AWS IAM role ARNs to add to the roles for the specified KMS policy.
-        :return: Number of roles from the given additional roles actually added.
+        :param key_policy_json: JSON for the KMS key policy.
         """
         with super().establish_credentials():
-            key_policy_json = self.get_kms_key_policy(key_id)
-            nadded = self._amend_kms_key_policy(key_policy_json, sid_pattern, additional_roles)
-            if nadded > 0:
-                kms = boto3.client("kms")
-                key_policy_string = json.dumps(key_policy_json)
-                kms.put_key_policy(KeyId=key_id, Policy=key_policy_string, PolicyName="default")
-        return nadded
+            kms = boto3.client("kms")
+            key_policy_string = json.dumps(key_policy_json)
+            kms.put_key_policy(KeyId=key_id, Policy=key_policy_string, PolicyName="default")
