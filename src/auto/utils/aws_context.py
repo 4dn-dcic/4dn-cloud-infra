@@ -45,7 +45,7 @@ class AwsContext:
         self._aws_access_key_id = aws_access_key_id
         self._aws_secret_access_key = aws_secret_access_key
         self._aws_default_region = aws_default_region
-        self._aws_session_token = aws_default_region
+        self._aws_session_token = aws_session_token
         self._aws_credentials_dir = aws_credentials_dir
         self._reset_boto3_default_session = True
 
@@ -163,7 +163,6 @@ class AwsContext:
                 PRINT(f"Your AWS access key: {credentials.access_key_id}")
                 PRINT(f"Your AWS access secret: {obfuscate(credentials.secret_access_key, show)}")
                 PRINT(f"Your AWS default region: {credentials.default_region}")
-                PRINT(f"Your AWS account number: {credentials.account_number}")
                 PRINT(f"Your AWS account user ARN: {credentials.user_arn}")
 
             # Yield pertinent AWS credentials info for caller in case they need/want them.
