@@ -42,10 +42,9 @@ def test_aws_context() -> None:
         "Account": Input.aws_account_number,
         "Arn": Input.aws_user_arn
     })
-
+    aws_object = aws.Aws(None, Input.aws_access_key_id, Input.aws_secret_access_key, Input.aws_default_region)
     with mock.patch.object(aws_context, "boto3", mocked_boto):
-        aws_object = aws.Aws(None, Input.aws_access_key_id, Input.aws_secret_access_key, Input.aws_default_region)
-        with aws_object.establish_credentials(display=True, show=True) as credentials:
-            assert credentials.access_key_id == Input.aws_access_key_id
-            assert credentials.secret_access_key == Input.aws_secret_access_key
-            assert credentials.default_region == Input.aws_default_region
+        with aws_object.establish_credentials(display=True, show=True) as aws_credentials:
+            assert aws_credentials.access_key_id == Input.aws_access_key_id
+            assert aws_credentials.secret_access_key == Input.aws_secret_access_key
+            assert aws_credentials.default_region == Input.aws_default_region
