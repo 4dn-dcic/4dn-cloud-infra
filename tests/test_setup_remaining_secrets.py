@@ -59,7 +59,7 @@ def test_aws_context_with_explicit_credentials() -> None:
         with aws_object.establish_credentials(display=True, show=True) as aws_credentials:
             assert aws_credentials.access_key_id == Input.aws_access_key_id
             assert aws_credentials.secret_access_key == Input.aws_secret_access_key
-            assert aws_credentials.default_region == Input.aws_region
+            assert aws_credentials.region == Input.aws_region
 
 def test_aws_context_with_explicit_credentials_dir() -> None:
     mocked_boto = MockBoto3()
@@ -68,9 +68,23 @@ def test_aws_context_with_explicit_credentials_dir() -> None:
         "Account": Input.aws_account_number,
         "Arn": Input.aws_user_arn
     })
+
+    # Set AWS credentials environment variables which should not be found becuase
+    # we're using AwsContext.establish_credentials which ignores environment.
+
     with _setup_aws_credentials_dir(Input.aws_access_key_id, Input.aws_secret_access_key, Input.aws_region) as aws_credentials_file:
         aws_object = aws.Aws(os.path.dirname(aws_credentials_file))
         with mock.patch.object(aws_context, "boto3", mocked_boto):
+            os.environ["AWS_ACCESS_KEY_ID"] = "do-not-find-this-access-key-id"
+            os.environ["AWS_SECRET_ACCESS_KEY"] = "do-not-find-this-secret-access-key"
+            os.environ["AWS_SHARED_CREDENTIALS_FILE"] = "do-not-find-this-shared-credentials-file"
+            os.environ["AWS_CONFIG_FILE"] = "do-not-find-this-config-file"
+            os.environ["AWS_REGION"] = "do-not-find-this-region"
+            os.environ["AWS_DEFAULT_REGION"] = "do-not-find-this-region"
             with aws_object.establish_credentials(display=True, show=True) as aws_credentials:
                 assert aws_credentials.access_key_id == Input.aws_access_key_id
+                assert aws_credentials.secret_access_key == Input.aws_secret_access_key
+                assert aws_credentials.region == Input.aws_region
+                assert aws_credentials.account_number == Input.aws_account_number
+                assert aws_credentials.user_arn == Input.aws_user_arn
         pass
