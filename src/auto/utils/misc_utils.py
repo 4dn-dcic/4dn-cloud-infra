@@ -73,14 +73,16 @@ def read_env_variable_from_subshell(shell_script_file: str, env_variable_name: s
         return None
 
 
-def generate_encryption_key() -> str:
+def generate_encryption_key(length: int = 16) -> str:
     """
     Generate a cryptographically secure encryption key suitable for AWS S3 (or other) encryption.
+    By default length will be 16 characters; if length less then 1 uses 1; if odd length then adds 1.
     References:
     https://cryptobook.nakov.com/symmetric-key-ciphers/aes-encrypt-decrypt-examples#password-to-key-derivation
     https://docs.python.org/3/library/secrets.html#recipes-and-best-practices
 
-    :return: Cryptographically secure encryption key.
+    :param length: Length of encryption key to return; default 16; ; if less then 1 uses 1; if odd then adds 1.
+    :return: Globally unique cryptographically secure encryption key.
     """
     system_words_dictionary_file = "/usr/share/dict/words"
 
@@ -95,8 +97,12 @@ def generate_encryption_key() -> str:
                 password = ""
         # As fallback for the words thing, and in any case, tack on a random token.
         return password + secrets.token_hex(16)
+    if length < 1:
+        length = 1
+    if length % 2 != 0:
+        length += 1
     password_salt = os.urandom(16)
-    encryption_key = pbkdf2.PBKDF2(generate_password(), password_salt).read(16)
+    encryption_key = pbkdf2.PBKDF2(generate_password(), password_salt).read(length // 2)
     encryption_key = binascii.hexlify(encryption_key).decode("utf-8")
     return encryption_key
 
@@ -106,8 +112,11 @@ def should_obfuscate(key: str) -> bool:
     Returns True if the given key looks like it represents a secret value.
     N.B.: Dumb implementation. Just sees if it contains "secret" or "password"
     or "crypt" some obvious variants (case-insensitive), i.e. whatever is
-    in the SECRET_KEY_NAMES_FOR_OBFUSCATION list, which can be a regular
-    expression. Add more to SECRET_KEY_NAMES_FOR_OBFUSCATION if/when needed.
+    in the secret_key_names_for_obfuscation list, which can be a regular
+    expression. Add more to secret_key_names_for_obfuscation if/when needed.
+
+    :param key: Key name of some property which may or may not need to be obfuscated..
+    :return: True if the given key name looks like it represents a sensitive value.
     """
     secret_key_names_for_obfuscation = [
         ".*secret.*",
