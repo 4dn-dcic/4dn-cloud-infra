@@ -14,7 +14,7 @@ class AwsContext:
 
     A specific path to the ~/.aws credentials directory MUST be specified, which will
     setup the context to refer to the credentials and config file(s) there; OR, specific
-    AWS access key ID and associated secret access key (and default region) values MUST
+    AWS access key ID and associated secret access key (and region) values MUST
     be specified; the latter taking precedence over the former. Usage like this:
 
         aws = AwsContext(your_aws_credentials_directory_or_access_key_id_and_secret_access_key)
@@ -23,39 +23,39 @@ class AwsContext:
             # if desired reference/use credentials values ...
             aws_access_key_id = credentials.access_key_id
             aws_secret_access_key = credentials.secret_access_key
-            aws_default_region = credentials.default_region
+            aws_region = credentials.region
             aws_account_number = credentials.account_number
             aws_user_arn = credentials.user_arn
     """
 
     def __init__(self,
                  aws_credentials_dir: str,
-                 aws_access_key_id: str = None, aws_secret_access_key: str = None, aws_default_region: str = None,
+                 aws_access_key_id: str = None, aws_secret_access_key: str = None, aws_region: str = None,
                  aws_session_token: str = None):
         """
         Constructor which stores the given AWS credentials directory, and AWS access key ID
-        and secret access key (and default region) for use when establishing AWS credentials.
+        and secret access key (and region) for use when establishing AWS credentials.
         The latter takes precedence.
 
         :param aws_credentials_dir: Path to AWS credentials directory.
         :param aws_access_key_id: AWS credentials access key ID.
         :param aws_secret_access_key: AWS credentials secret access key.
-        :param aws_default_region: AWS credentials default region.
+        :param aws_region: AWS credentials region.
         """
         self._aws_access_key_id = aws_access_key_id
         self._aws_secret_access_key = aws_secret_access_key
-        self._aws_default_region = aws_default_region
+        self._aws_region = aws_region
         self._aws_session_token = aws_session_token
         self._aws_credentials_dir = aws_credentials_dir
         self._reset_boto3_default_session = True
 
     class Credentials:
         def __init__(self,
-                     access_key_id: str, secret_access_key: str, default_region: str,
+                     access_key_id: str, secret_access_key: str, region: str,
                      account_number: str, user_arn: str):
             self.access_key_id = access_key_id
             self.secret_access_key = secret_access_key
-            self.default_region = default_region
+            self.region = region
             self.account_number = account_number
             self.user_arn = user_arn
 
@@ -72,7 +72,7 @@ class AwsContext:
 
         :param display: If True then print summary of AWS credentials.
         :param show: If True and display True show in plaintext sensitive info for AWS credentials summary.
-        :return: Yields named tuple with: access_key_id, secret_access_key, default_region, account_number, user_arn.
+        :return: Yields named tuple with: access_key_id, secret_access_key, region, account_number, user_arn.
         """
 
         # TODO: Should we require all credentials, INCLUDING region, to come from EITHER
@@ -141,8 +141,8 @@ class AwsContext:
                         PRINT(f"Your AWS credentials directory: {aws_credentials_dir}")
             else:
                 raise Exception(f"No AWS credentials specified.")
-            if self._aws_default_region:
-                os.environ["AWS_DEFAULT_REGION"] = self._aws_default_region
+            if self._aws_region:
+                os.environ["AWS_DEFAULT_REGION"] = self._aws_region
             else:
                 aws_config_file = os.path.join(self._aws_credentials_dir, "config")
                 if os.path.isfile(aws_config_file):
@@ -162,7 +162,7 @@ class AwsContext:
                 PRINT(f"Your AWS account number: {credentials.account_number}")
                 PRINT(f"Your AWS access key: {credentials.access_key_id}")
                 PRINT(f"Your AWS access secret: {obfuscate(credentials.secret_access_key, show)}")
-                PRINT(f"Your AWS default region: {credentials.default_region}")
+                PRINT(f"Your AWS region: {credentials.region}")
                 PRINT(f"Your AWS account user ARN: {credentials.user_arn}")
 
             # Yield pertinent AWS credentials info for caller in case they need/want them.
