@@ -36,7 +36,7 @@ def update_kms_policy(args) -> None:
     aws, aws_credentials = validate_aws_credentials(aws_credentials_dir,
                                                     args.aws_access_key_id,
                                                     args.aws_secret_access_key,
-                                                    args.aws_default_region,
+                                                    args.aws_region,
                                                     args.aws_session_token,
                                                     args.show)
 
@@ -121,9 +121,9 @@ def main(override_argv: Optional[list] = None) -> None:
     argp.add_argument("--no-confirm", required=False,
                       dest="confirm", action="store_false",
                       help="Behave as if all confirmation questions were answered yes.")
-    argp.add_argument("--aws-default-region", required=False,
-                      dest="aws_default_region",
-                      help="The default AWS region.")
+    argp.add_argument("--aws-region", required=False,
+                      dest="aws_region",
+                      help="The AWS region.")
     argp.add_argument("--s3-encrypt-key-id", required=False,
                       dest="s3_encrypt_key_id",
                       help="S3 encryption key ID.")

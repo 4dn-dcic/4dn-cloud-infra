@@ -71,25 +71,25 @@ def validate_aws_credentials_dir(aws_credentials_dir: str, custom_dir: str) -> s
 def validate_aws_credentials(credentials_dir: str,
                              access_key_id: str = None,
                              secret_access_key: str = None,
-                             default_region: str = None,
+                             region: str = None,
                              session_token: str = None,
                              show: bool = False) -> (Aws, AwsContext.Credentials):
     """
     Validates the given AWS credentials which can be either the path to the AWS credentials directory;
-    or the AWS access key ID, secret access key, and default region; or the AWS session token.
+    or the AWS access key ID, secret access key, and region; or the AWS session token.
     Prints the pertinent AWS credentials info, obfuscating senstive data unless show is True.
     Returns a tuple with an Aws object and AwsContext.Credentials containing the credentials.
 
     :param credentials_dir: Explicitly specified path to AWS credentials directory.
     :param access_key_id: Explicitly specified AWS access key ID.
     :param secret_access_key: Explicitly specified AWS secret access key.
-    :param default_region: Explicitly specified AWS default region.
+    :param region: Explicitly specified AWS region.
     :param session_token: Explicitly specified AWS session token
     :param show: True to show any displayed sensitive values in plaintext.
     :return: Tuple with an Aws object and AwsContext.Credentials containing the credentials.
     """
     # Get AWS credentials context object.
-    aws = Aws(credentials_dir, access_key_id, secret_access_key, default_region, session_token)
+    aws = Aws(credentials_dir, access_key_id, secret_access_key, region, session_token)
 
     # Verify the AWS credentials context and get the associated AWS credentials number.
     try:
