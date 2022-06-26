@@ -22,7 +22,7 @@ class Aws(AwsContext):
         :return: Secret key value if found or None if not found.
         """
         with super().establish_credentials():
-            secrets_manager = boto3.client('secretsmanager')
+            secrets_manager = boto3.client("secretsmanager")
             secret_values = secrets_manager.get_secret_value(SecretId=secret_name)
             secret_values_json = json.loads(secret_values["SecretString"])
             secret_key_value = secret_values_json.get(secret_key_name)
@@ -62,7 +62,7 @@ class Aws(AwsContext):
                 PRINT(f"{prefix} value of AWS secret {name}.{key_name}{suffix}: {key_value}")
 
         with super().establish_credentials():
-            secrets_manager = boto3.client('secretsmanager')
+            secrets_manager = boto3.client("secretsmanager")
             try:
                 # To update an individual secret key value we need to get the entire JSON
                 # associated with the given secret name, update the specific element for
@@ -120,7 +120,7 @@ class Aws(AwsContext):
         :return: Matched user name or None if none found.
         """
         with super().establish_credentials():
-            iam = boto3.resource('iam')
+            iam = boto3.resource("iam")
             users = iam.users.all()
             for user in users:
                 user_name = user.name
@@ -159,7 +159,7 @@ class Aws(AwsContext):
         with super().establish_credentials():
             # TODO: Get this name from somewhere in 4dn-cloud-infra.
             elasticsearch_instance_name = f"es-{aws_credentials_name}"
-            elasticsearch = boto3.client('opensearch')
+            elasticsearch = boto3.client("opensearch")
             domain_names = elasticsearch.list_domain_names()["DomainNames"]
             domain_name = [domain_name for domain_name in domain_names
                            if domain_name["DomainName"] == elasticsearch_instance_name]
@@ -190,7 +190,7 @@ class Aws(AwsContext):
         :return: Tuple containing the access key ID and associated secret.
         """
         with super().establish_credentials():
-            iam = boto3.resource('iam')
+            iam = boto3.resource("iam")
             user = [user for user in iam.users.all() if user.name == user_name]
             if not user or len(user) <= 0:
                 PRINT("AWS user not found for security access key pair creation: {user_name}")
@@ -199,7 +199,7 @@ class Aws(AwsContext):
                 PRINT("Multiple AWS users found for security access key pair creation: {user_name}")
                 return None, None
             user = user[0]
-            existing_keys = boto3.client('iam').list_access_keys(UserName=user.name)
+            existing_keys = boto3.client("iam").list_access_keys(UserName=user.name)
             if existing_keys:
                 existing_keys = existing_keys.get("AccessKeyMetadata")
                 if existing_keys and len(existing_keys) > 0:
@@ -234,7 +234,7 @@ class Aws(AwsContext):
         """
         found_roles = []
         with super().establish_credentials():
-            iam = boto3.client('iam')
+            iam = boto3.client("iam")
             roles = iam.list_roles()["Roles"]
             for role in roles:
                 role_arn = role["Arn"]
