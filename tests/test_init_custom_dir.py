@@ -297,9 +297,8 @@ def _test_main_exit_with_no_action_on_missing_required_input(omit_required_arg: 
     if omit_required_arg == "--account":
         # If we are omitting account number then do not create test_creds.sh with ACCOUNT_NUMBER.
         account_number = None
-    with _setup_filesystem(
-         Input.aws_credentials_name, account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
-         mock.patch("builtins.input") as mocked_input:
+    with _setup_filesystem(Input.aws_credentials_name, account_number) as \
+            (aws_dir, aws_credentials_dir, custom_dir), mock.patch("builtins.input") as mocked_input:
         argv = _get_standard_main_argv(aws_dir, Input.aws_credentials_name, custom_dir, omit_arg=omit_required_arg)
         mocked_input.side_effect = [""]  # return value for prompt for required arg
         _call_function_and_assert_exit_with_no_action(lambda: main(argv))
