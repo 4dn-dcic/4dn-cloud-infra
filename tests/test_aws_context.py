@@ -53,7 +53,7 @@ def _test_aws_context(aws_credentials_dir: Optional[str],
                       aws_environ_set: bool) -> None:
 
     mocked_boto = MockBoto3()
-    mocked_boto.client('sts').set_caller_identity_for_testing({
+    mocked_boto.client("sts").set_caller_identity_for_testing({
         "Account": Input.aws_account_number,
         "Arn": Input.aws_user_arn
     })
@@ -82,6 +82,6 @@ def test_aws_context_with_credentials() -> None:
 def test_aws_context_with_credentials_dir() -> None:
     with _setup_aws_credentials_dir(Input.aws_access_key_id,
                                     Input.aws_secret_access_key, Input.aws_region) as aws_credentials_file:
-        credentials_dir = os.path.dirname(aws_credentials_file)
-        _test_aws_context(credentials_dir, None, None, None, False)
-        _test_aws_context(credentials_dir, None, None, None, True)
+        aws_credentials_dir = os.path.dirname(aws_credentials_file)
+        _test_aws_context(aws_credentials_dir, None, None, None, False)
+        _test_aws_context(aws_credentials_dir, None, None, None, True)
