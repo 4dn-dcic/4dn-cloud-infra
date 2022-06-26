@@ -63,6 +63,7 @@ def test_aws_context_with_explicit_credentials() -> None:
 
 def test_aws_context_with_explicit_credentials_dir() -> None:
     mocked_boto = MockBoto3()
+    mocked_boto.client('session').unset_environ_credentials_for_testing()
     mocked_boto.client('sts').set_caller_identity_for_testing({
         "Account": Input.aws_account_number,
         "Arn": Input.aws_user_arn
