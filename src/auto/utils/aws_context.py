@@ -31,7 +31,7 @@ class AwsContext:
     def __init__(self,
                  aws_credentials_dir: str,
                  aws_access_key_id: str = None, aws_secret_access_key: str = None, aws_region: str = None,
-                 aws_session_token: str = None):
+                 aws_session_token: str = None) -> None:
         """
         Constructor which stores the given AWS credentials directory, and AWS access key ID
         and secret access key (and region) for use when establishing AWS credentials.
@@ -52,7 +52,7 @@ class AwsContext:
     class Credentials:
         def __init__(self,
                      access_key_id: str, secret_access_key: str, region: str,
-                     account_number: str, user_arn: str):
+                     account_number: str, user_arn: str) -> None:
             self.access_key_id = access_key_id
             self.secret_access_key = secret_access_key
             self.region = region
@@ -159,10 +159,10 @@ class AwsContext:
                                                  caller_identity["Account"],
                                                  caller_identity["Arn"])
             if display:
-                PRINT(f"Your AWS account number: {credentials.account_number}")
                 PRINT(f"Your AWS access key: {credentials.access_key_id}")
                 PRINT(f"Your AWS access secret: {obfuscate(credentials.secret_access_key, show)}")
                 PRINT(f"Your AWS region: {credentials.region}")
+                PRINT(f"Your AWS account number: {credentials.account_number}")
                 PRINT(f"Your AWS account user ARN: {credentials.user_arn}")
 
             # Yield pertinent AWS credentials info for caller in case they need/want them.
