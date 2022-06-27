@@ -161,12 +161,16 @@ class Aws(AwsContext):
             elasticsearch_instance_name = f"es-{aws_credentials_name}"
             elasticsearch = boto3.client("opensearch")
             domain_names = elasticsearch.list_domain_names()["DomainNames"]
+            print('xxxx')
+            print(elasticsearch.list_domain_names())
             domain_name = [domain_name for domain_name in domain_names
                            if domain_name["DomainName"] == elasticsearch_instance_name]
             if domain_name is None or len(domain_name) != 1:
                 return None
             domain_name = domain_name[0]["DomainName"]
             domain_description = elasticsearch.describe_domain(DomainName=domain_name)
+            print('yyyy')
+            print(elasticsearch.describe_domain(DomainName=domain_name))
             domain_status = domain_description["DomainStatus"]
             domain_endpoints = domain_status["Endpoints"]
             domain_endpoint_options = domain_status["DomainEndpointOptions"]
