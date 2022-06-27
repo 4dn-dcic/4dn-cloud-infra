@@ -195,6 +195,8 @@ def _call_function_and_assert_exit_with_no_action(f, interrupt: bool = False) ->
         with pytest.raises(Exception):
             f()
         if interrupt:
+            assert len(mocked_print.lines) > 0
+            print(mocked_print.lines)
             assert _rummage_for_print_message(mocked_print, ".*interrupt.*") is True
         assert mocked_exit.called is True
         # Check the message from the last print which should be something like: Exiting without doing anything.
