@@ -16,19 +16,20 @@ dependencies via poetry_.
 
 For example::
 
-    pyenv install 3.6.10
-    # Builds or rebuilds the env, version found in `.python-version`
-    pyenv exec python -m venv --clear infraenv
-    . infraenv/bin/activate
-    pip install --upgrade pip
-    pip install --upgrade poetry
-    poetry install
+    pyenv install 3.7.12
+    pyenv virtualenv 3.7.12 4dn-cloud-infra37
+    make build
+
+For more details on the build commands, see the ``Makefile``.
 
 ----------------------
 Access To Test Account
 ----------------------
 
-You can install them in ``custom/aws_creds`` . You can set up a credentials file::
+4dn-cloud-infra mounts credentials found in ``custom/aws_creds`` to the ``awscli`` Docker
+container where the actual CloudFormation templates are built.
+
+Set up a credentials file::
 
     [default]
     aws_access_key_id = XXX
@@ -41,15 +42,26 @@ a config file::
 
 and a test_creds.sh file::
 
-    export AWS_ACCESS_KEY_ID=XXX
-    export AWS_SECRET_ACCESS_KEY=XXX
-    export AWS_DEFAULT_REGION=us-east-1
+    # Personal AWS keys
+    export AWS_ACCESS_KEY_ID=`grep "aws_access_key_id" ~/.aws/credentials | sed -e 's/.* = //'`
+    export AWS_SECRET_ACCESS_KEY=`grep "aws_secret_access_key" ~/.aws/credentials | sed -e 's/.* = //'`
+    export AWS_SESSION_TOKEN=`grep "aws_session_token" ~/.aws/credentials | sed -e 's/.* = //'`
+    export AWS_DEFAULT_REGION=`grep "region" ~/.aws/config | sed -e 's/.* = //'`
+
+    # app config
+    export GLOBAL_BUCKET_ENV=<bucket>
+    export GLOBAL_ENV_BUCKET=<bucket>
+    export S3_ENCRYPT_KEY=<key>
+    export S3_ENCRYPT_KEY_ID=<key_id>
+
+    # auth0 for foursight
+    export CLIENT_ID=<Auth0ClientID>
+    export CLIENT_SECRET=<Auth0Secret>
+
+    # tibanna config
     export TIBANNA_VERSION=x.x.x
     export ACCOUNT_NUMBER=<number>
 
-    # fill these in later
-    export S3_ENCRYPT_KEY=<key>
-    export GLOBAL_BUCKET_ENV=<bucket>
 
 **Note**: The credentials and config file **must** contain the ``[default]`` profile
 for full functionality. Beware of copying Okta's profile name into these files,

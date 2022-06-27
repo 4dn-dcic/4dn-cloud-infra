@@ -3,8 +3,11 @@ default: info
 .PHONY: alpha legacy deploy-alpha-p1 deploy-alpha-p2 info
 
 configure:
+	pip install --upgrade wheel
 	pip install --upgrade pip
-	pip install poetry wheel
+	curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+	brew install libevent libmagic libxml2 libxslt openssl graphviz
+	brew install freetype libjpeg libtiff littlecms webp
 
 build:
 	make configure

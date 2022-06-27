@@ -102,6 +102,12 @@ class C4DatastoreExports(C4Exports):
     def get_tibanna_output_bucket(cls):
         return ConfigManager.find_stack_output(cls._TIBANNA_OUTPUT_BUCKET_PATTERN.match, value_only=True)
 
+    _FOURSIGHT_RESULT_BUCKET_PATTERN = re.compile(f".*Datastore.*FoursightResult")
+
+    @classmethod
+    def get_foursight_result_bucket(cls):
+        return ConfigManager.find_stack_output(cls._FOURSIGHT_RESULT_BUCKET_PATTERN.match, value_only=True)
+
     def __init__(self):
         # The intention here is that Beanstalk/ECS stacks will use these outputs and reduce amount
         # of manual configuration
@@ -209,9 +215,6 @@ class C4Datastore(C4DatastoreBase, C4Part):
 
     @classmethod
     def application_configuration_template(cls):
-        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        # print("ENV_NAME=", repr(ENV_NAME))
-        # print("env_name=", repr(env_name))
         result = cls.add_placeholders({
             'deploying_iam_user': ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER),  # required
             'ACCOUNT_NUMBER': cls.CONFIGURATION_PLACEHOLDER,
@@ -219,9 +222,9 @@ class C4Datastore(C4DatastoreBase, C4Part):
             'S3_AWS_SECRET_ACCESS_KEY': None,
             'ENCODED_AUTH0_CLIENT': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
             'ENCODED_AUTH0_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET, default=None),
-            'ENV_NAME': env_name,
+            'ENV_NAME':  ConfigManager.get_config_setting(Settings.ENV_NAME),
             'ENCODED_APPLICATION_BUCKET_PREFIX': cls.resolve_bucket_name("{application_prefix}"),
-            'ENCODED_BS_ENV': env_name,
+            'ENCODED_BS_ENV':  ConfigManager.get_config_setting(Settings.ENV_NAME),
             'ENCODED_DATA_SET': 'deploy',
             'ENCODED_ES_SERVER': C4DatastoreExports.get_es_url(),  # None,
             'ENCODED_FOURSIGHT_BUCKET_PREFIX': cls.resolve_bucket_name("{foursight_prefix}"),
@@ -246,8 +249,8 @@ class C4Datastore(C4DatastoreBase, C4Part):
             'RDS_PORT': ConfigManager.get_config_setting(Settings.RDS_DB_PORT, default=cls.DEFAULT_RDS_DB_PORT),
             'RDS_USERNAME': cls.rds_db_username(),
             'RDS_PASSWORD': None,
-            'S3_ENCRYPT_KEY': ConfigManager.get_config_setting(Secrets.S3_ENCRYPT_KEY,
-                                                               ConfigManager.get_s3_encrypt_key_from_file()),
+            'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY,
+                                                              ConfigManager.get_s3_encrypt_key_from_file()),
             # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
             'ENCODED_S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None),
             'ENCODED_SENTRY_DSN': '',

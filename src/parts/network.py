@@ -19,13 +19,29 @@ class C4NetworkExports(C4Exports):
 
     SUBNET_CONFIG_INFO = {
         'PrivateSubnetA':
-            {'name': 'PrivateSubnetA', 'cidr_block': '10.0.0.0/18', 'az': 'us-east-1a', 'kind': 'private'},
+            {'name': 'PrivateSubnetA', 'cidr_block': '10.0.0.0/20', 'az': 'us-east-1a', 'kind': 'private'},
         'PublicSubnetA':
-            {'name': 'PublicSubnetA', 'cidr_block': '10.0.64.0/18', 'az': 'us-east-1a', 'kind': 'public'},
+            {'name': 'PublicSubnetA', 'cidr_block': '10.0.16.0/20', 'az': 'us-east-1a', 'kind': 'public'},
         'PrivateSubnetB':
-            {'name': 'PrivateSubnetB', 'cidr_block': '10.0.128.0/18', 'az': 'us-east-1b', 'kind': 'private'},
+            {'name': 'PrivateSubnetB', 'cidr_block': '10.0.32.0/20', 'az': 'us-east-1b', 'kind': 'private'},
         'PublicSubnetB':
-            {'name': 'PublicSubnetB', 'cidr_block': '10.0.192.0/18', 'az': 'us-east-1b', 'kind': 'public'},
+            {'name': 'PublicSubnetB', 'cidr_block': '10.0.48.0/20', 'az': 'us-east-1b', 'kind': 'public'},
+        'PrivateSubnetC':
+            {'name': 'PrivateSubnetC', 'cidr_block': '10.0.64.0/20', 'az': 'us-east-1c', 'kind': 'private'},
+        'PublicSubnetC':
+            {'name': 'PublicSubnetC', 'cidr_block': '10.0.80.0/20', 'az': 'us-east-1c', 'kind': 'public'},
+        'PrivateSubnetD':
+            {'name': 'PrivateSubnetD', 'cidr_block': '10.0.96.0/20', 'az': 'us-east-1d', 'kind': 'private'},
+        'PublicSubnetD':
+            {'name': 'PublicSubnetD', 'cidr_block': '10.0.112.0/20', 'az': 'us-east-1d', 'kind': 'public'},
+        'PrivateSubnetE':
+            {'name': 'PrivateSubnetE', 'cidr_block': '10.0.128.0/20', 'az': 'us-east-1e', 'kind': 'private'},
+        'PublicSubnetE':
+            {'name': 'PublicSubnetE', 'cidr_block': '10.0.144.0/20', 'az': 'us-east-1e', 'kind': 'public'},
+        'PrivateSubnetF':
+            {'name': 'PrivateSubnetF', 'cidr_block': '10.0.160.0/20', 'az': 'us-east-1f', 'kind': 'private'},
+        'PublicSubnetF':
+            {'name': 'PublicSubnetF', 'cidr_block': '10.0.176.0/20', 'az': 'us-east-1f', 'kind': 'public'},
     }
 
     PRIVATE_SUBNETS = [exportify(name) for name, entry in SUBNET_CONFIG_INFO.items() if entry['kind'] == 'private']
@@ -541,6 +557,8 @@ class C4Network(C4Part):
             on specific ports via specific protocols. Ref:
 
             https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html
+
+            TODO: update for use with Sentieon server? Or perhaps write a command?
         """
         return [
             SecurityGroupIngress(

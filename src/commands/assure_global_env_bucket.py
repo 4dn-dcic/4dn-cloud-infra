@@ -3,16 +3,79 @@ import boto3
 import json
 
 from dcicutils.command_utils import yes_or_no
+from dcicutils.misc_utils import PRINT
 from ..base import ConfigManager
 from ..constants import Settings
 from ..parts.datastore import C4DatastoreExports
 from ..parts.ecs import C4ECSApplicationExports
 
 
+def configure_env_utils_ecosystem(env=None):
+    """ Builds an env_utils compatible main.ecosystem entry in GLOBAL_ENV_BUCKET. """
+    global_env_bucket = C4DatastoreExports.get_env_bucket()
+    s3 = boto3.client('s3')
+    env = env or ConfigManager.get_config_setting(Settings.ENV_NAME)
+    content = {
+        'full_env_prefix': 'cgap-',
+        'orchestrated_app': 'cgap',
+        'prd_env_name': env,
+        'foursight_bucket_table': {'prod': C4DatastoreExports.get_foursight_result_bucket(),
+                                   'dev': C4DatastoreExports.get_foursight_result_bucket()}
+    }
+    body = json.dumps(content, indent=2).encode('utf-8')
+    _upload_to_s3(s3=s3, bucket=global_env_bucket, env=env, body=body)
+
+
+def configure_env_utils_bucket_entry(env=None, url_override=None):
+    """ Builds an env_utils compatible GLOBAL_ENV_BUCKET entry. """
+    global_env_bucket = C4DatastoreExports.get_env_bucket()
+    s3 = boto3.client('s3')
+    env = env or ConfigManager.get_config_setting(Settings.ENV_NAME)
+    content = {
+        'fourfront': url_override or f'{C4ECSApplicationExports.get_application_url(env)}:80',
+        'es': f'https://{C4DatastoreExports.get_es_url()}:443',
+        'ff_env': env,
+        'is_legacy': False,
+        'dev_data_set_table': {env: 'deploy'},
+        # generally for CGAP we do not deploy both dev and prod stages so using the same
+        # s3 bucket should be safe - Will June 9 2022
+        'foursight_bucket_table': {'prod': C4DatastoreExports.get_foursight_result_bucket(),
+                                   'dev': C4DatastoreExports.get_foursight_result_bucket()},
+    }
+    body = json.dumps(content, indent=2).encode('utf-8')
+    _upload_to_s3(s3=s3, bucket=global_env_bucket, env=env, body=body)
+
+
+def configure_env_utils(env=None, url_override=None):
+    """ Bootstraps GLOBAL_ENV_BUCKET with an env_utils compatible configuration for a standalone environment.
+    """
+    configure_env_utils_ecosystem(env=None)
+    configure_env_utils_bucket_entry(env=env, url_override=url_override)
+
+
+def _upload_to_s3(*, s3, bucket, env, body):
+    PRINT(f"To be uploaded: {body.decode('utf-8')}")
+    s3_encrypt_key_id = ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
+    if yes_or_no(f"Upload this into {env} in account {ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER)}?"
+                 f" with s3_encrypt_key_id={s3_encrypt_key_id}"):
+        if s3_encrypt_key_id:
+            s3.put_object(Bucket=bucket, Key=env, Body=body,
+                          ServerSideEncryption='aws:kms',
+                          SSEKMSKeyId=s3_encrypt_key_id)
+        else:
+            s3.put_object(Bucket=bucket, Key=env, Body=body)
+    else:
+        PRINT("Aborted.")
+
+
 def configure_env_bucket(env=None, url_override=None):
     """
     This will upload an appropriate entry into the global env bucket for the given env,
     which defaults to the config-declared environment if not specified.
+
+    This env entry is compatible with the LEGACY env utils, and will lack functionality in the new
+    env utils. Ensure foursight environments have transitioned to the new functions prior to deploying
+    the env_utils update.
     """
     global_env_bucket = C4DatastoreExports.get_env_bucket()
     s3 = boto3.client('s3')
@@ -27,31 +90,26 @@ def configure_env_bucket(env=None, url_override=None):
         s3.head_bucket(Bucket=global_env_bucket)  # check if bucket exists
     except Exception as e:
         if 'NoSuchBucket' in str(e):
-            print("first create buckets! %s" % str(e))
+            PRINT("first create buckets! %s" % str(e))
         raise
     body = json.dumps(content, indent=2).encode('utf-8')
-    print(f"To be uploaded: {body.decode('utf-8')}")
-    s3_encrypt_key_id = ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
-    if yes_or_no(f"Upload this into {env} in account {ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER)}?"
-                 f" with s3_encrypt_key_id={s3_encrypt_key_id}"):
-        if s3_encrypt_key_id:
-            s3.put_object(Bucket=global_env_bucket, Key=env, Body=body,
-                          ServerSideEncryption='aws:kms',
-                          SSEKMSKeyId=s3_encrypt_key_id)
-        else:
-            s3.put_object(Bucket=global_env_bucket, Key=env, Body=body)
-    else:
-        print("Aborted.")
+    _upload_to_s3(s3=s3, bucket=global_env_bucket, body=body, env=env)
 
 
 def main():
     parser = argparse.ArgumentParser(description='Assures presence and initialization of the global env bucket.')
     parser.add_argument('--env_name', help='The environment name to assure', default=None, type=str)
-    parser.add_argument('--url', help='The URL to use for this env (if not the autogenerated one)', default=None, type=str)
+    parser.add_argument('--url', help='The URL to use for this env (if not the autogenerated one)', default=None,
+                        type=str)
+    parser.add_argument('--env-utils', help='Whether to use new env_utils provision function', action='store_true',
+                        default=False)
     args = parser.parse_args()
 
     with ConfigManager.validate_and_source_configuration():
-        configure_env_bucket(env=args.env_name, url_override=args.url)
+        if args.env_utils:
+            configure_env_utils(env=args.env_name, url_override=args.url)
+        else:
+            configure_env_bucket(env=args.env_name, url_override=args.url)
 
 
 if __name__ == '__main__':

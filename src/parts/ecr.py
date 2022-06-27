@@ -30,15 +30,25 @@ class C4ECRExports(C4Exports):
         For pipeline repository structure, see cgap-pipeline documentation.
     """
     PORTAL_REPO_URL = 'RepoURL'
-    FASTQC_REPO_URL = 'FastqcRepositoryURL'
-    BASE_REPO_URL = 'BaseRepositoryURL'
-    MD5_REPO_URL = 'MD5RepositoryURL'
-    UPSTREAM_SENTIEON = 'UpstreamSentieonRepositoryURL'
-    UPSTREAM_GATK = 'UpstreamGATKRepositoryURL'
-    MANTA_REPO_URL = 'MantaRepositoryURL'
-    SV_GERMLINE = 'SVGermlineRepositoryURL'
-    SNV_GERMLINE = 'SNVGermlineRepositoryURL'
     TIBANNA_REPO_URL = 'TibannaRepositoryURL'
+    BASE_REPO_URL = 'BaseRepositoryURL'
+    FASTQC_REPO_URL = 'FastqcRepositoryURL'
+    MD5_REPO_URL = 'MD5RepositoryURL'
+    UPSTREAM_SENTIEON_URL = 'UpstreamSentieonRepositoryURL'
+    UPSTREAM_GATK_URL = 'UpstreamGATKRepositoryURL'
+    SNV_GERMLINE_GATK_URL = 'SNVGermlineGATKURL'
+    SNV_GERMLINE_GRANITE_URL = 'SNVGermlineGraniteURL'
+    SNV_GERMLINE_MISC_URL = 'SNVGermlineMiscURL'
+    SNV_GERMLINE_TOOLS_URL = 'SNVGermlineToolsURL'
+    SNV_GERMLINE_VEP_URL = 'SNVGermlineVEPURL'
+    SNV_SOMATIC_URL = 'SNVSomaticURL'
+    CNV_GERMLINE_URL = 'CNVGermlineURL'
+    MANTA_REPO_URL = 'MantaRepositoryURL'
+    SV_GERMLINE_GRANITE_URL = 'SVGermlineGraniteURL'
+    SV_GERMLINE_TOOLS_URL = 'SVGermlineToolsURL'
+    SV_GERMLINE_VEP_URL = 'SVGermlineVEPURL'
+    ASCAT_URL = 'AscatURL'
+    SOMATIC_SENTION_URL = 'SomaticSentieonURL'
 
     def __init__(self):
         parameter = 'ECRStackNameParameter'
@@ -73,16 +83,40 @@ class C4ContainerRegistry(C4Part):
         # build repos
         # note that these are defined by the structure in cgap-pipeline-master - Will Dec 6 2021
         repo_export_pairs = [
+            # Main application portal image
             (ECOSYSTEM, self.EXPORTS.PORTAL_REPO_URL),
+
+            # Tibanna executor image
             ('tibanna-awsf', self.EXPORTS.TIBANNA_REPO_URL),
+
+            # Misc
             ('base', self.EXPORTS.BASE_REPO_URL),
-            ('upstream_gatk', self.EXPORTS.UPSTREAM_GATK),
-            ('upstream_sentieon', self.EXPORTS.UPSTREAM_SENTIEON),
-            ('snv_germline', self.EXPORTS.SNV_GERMLINE),
-            ('sv_germline', self.EXPORTS.SV_GERMLINE),
-            ('manta', self.EXPORTS.MANTA_REPO_URL),
-            ('md5', self.EXPORTS.MD5_REPO_URL),
             ('fastqc', self.EXPORTS.FASTQC_REPO_URL),
+            ('md5', self.EXPORTS.MD5_REPO_URL),
+
+            # Alignment algorithms
+            ('upstream_gatk', self.EXPORTS.UPSTREAM_GATK_URL),
+            ('upstream_sentieon', self.EXPORTS.UPSTREAM_SENTIEON_URL),
+
+            # SNV callers
+            ('snv_germline_gatk', self.EXPORTS.SNV_GERMLINE_GATK_URL),
+            ('snv_germline_granite', self.EXPORTS.SNV_GERMLINE_GRANITE_URL),
+            ('snv_germline_misc', self.EXPORTS.SNV_GERMLINE_MISC_URL),
+            ('snv_germline_tools', self.EXPORTS.SNV_GERMLINE_TOOLS_URL),
+            ('snv_germline_vep', self.EXPORTS.SNV_GERMLINE_VEP_URL),
+            ('snv_somatic', self.EXPORTS.SNV_SOMATIC_URL),
+
+            # CNV/SV callers
+            ('cnv_germline', self.EXPORTS.CNV_GERMLINE_URL),
+            ('manta', self.EXPORTS.MANTA_REPO_URL),
+            ('sv_germline_granite', self.EXPORTS.SV_GERMLINE_GRANITE_URL),
+            ('sv_germline_tools', self.EXPORTS.SV_GERMLINE_TOOLS_URL),
+            ('sv_germline_vep', self.EXPORTS.SV_GERMLINE_VEP_URL),
+            ('ascat', self.EXPORTS.ASCAT_URL),
+
+            # Sentieon callers
+            ('somatic_sentieon', self.EXPORTS.SOMATIC_SENTION_URL),
+
         ]
         for rname, export in repo_export_pairs:
             if is_fourfront_env(env_name) and rname != ECOSYSTEM:
