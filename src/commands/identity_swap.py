@@ -4,13 +4,10 @@ from typing import List
 
 from ..base import ConfigManager
 from ..base import Settings
+from ..exceptions import IdentitySwapSetupError
 from dcicutils.lang_utils import conjoined_list
 from dcicutils.misc_utils import PRINT
 from dcicutils.ecs_utils import ECSUtils
-
-
-class IdentitySwapSetupError(Exception):
-    pass
 
 
 class C4IdentitySwap:

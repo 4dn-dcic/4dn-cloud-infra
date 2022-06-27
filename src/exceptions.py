@@ -16,3 +16,7 @@ class CLIException(Exception):
 class C4ApplicationException(Exception):
     """ Custom exception type for application-specific exceptions """
     pass
+
+
+class IdentitySwapSetupError(Exception):
+    pass
