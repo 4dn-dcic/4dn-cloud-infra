@@ -257,6 +257,7 @@ class FFIdentitySwap(C4IdentitySwap):
         confirm = input(f'Please confirm the above swap plan is correct. (yes|no) ').strip().lower() == 'yes'
         if confirm:
             cls._execute_swap_plan(ecs, blue_cluster_arn, green_cluster_arn, swap_plan)
+            PRINT(f'Swap plan executed - new tasks should reflect within 5 minutes')
 
         # swap the foursight environments (ES URL)
         # TODO: discuss how to do this with Kent after verifying env setup is correct
