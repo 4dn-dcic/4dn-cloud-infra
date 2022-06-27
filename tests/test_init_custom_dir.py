@@ -107,10 +107,10 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
     with _setup_filesystem(
          Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
          mock_print() as mocked_print, \
-         mock.patch("src.auto.init_custom_dir.cli.os.getlogin") as mocked_os_getlogin, \
+         mock.patch("src.auto.init_custom_dir.cli.getpass.getuser") as mocked_getpass_getuser, \
          mock.patch("builtins.input") as mocked_input:
 
-        mocked_os_getlogin.return_value = Input.deploying_iam_user
+        mocked_getpass_getuser.return_value = Input.deploying_iam_user
         mocked_input.return_value = "yes"
 
         # This is the directory structure we are simulating;
@@ -195,8 +195,6 @@ def _call_function_and_assert_exit_with_no_action(f, interrupt: bool = False) ->
         with pytest.raises(Exception):
             f()
         if interrupt:
-            assert len(mocked_print.lines) > 0
-            print(mocked_print.lines)
             assert _rummage_for_print_message(mocked_print, ".*interrupt.*") is True
         assert mocked_exit.called is True
         # Check the message from the last print which should be something like: Exiting without doing anything.
