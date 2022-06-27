@@ -53,7 +53,7 @@ def _test_aws_context(aws_credentials_dir: Optional[str],
                       aws_environ_set: bool) -> None:
 
     mocked_boto = MockBoto3()
-    mocked_boto.client("sts").set_caller_identity_for_testing(Input.aws_account_number, Input.aws_user_arn)
+    mocked_boto.client("sts").put_caller_identity_for_testing(Input.aws_account_number, Input.aws_user_arn)
 
     if aws_environ_set:
         # Set AWS credentials environment variables which should NOT be found/used

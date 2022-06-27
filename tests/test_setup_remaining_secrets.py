@@ -27,8 +27,8 @@ class Input:
 def test_setup_remaining_secrets() -> None:
     # Not yet implemented.
     mocked_boto = MockBoto3()
-    mocked_boto.client("iam").set_users_for_testing(Input.aws_iam_users)
-    mocked_boto.client("iam").set_roles_for_testing(Input.aws_iam_roles)
+    mocked_boto.client("iam").put_users_for_testing(Input.aws_iam_users)
+    mocked_boto.client("iam").put_roles_for_testing(Input.aws_iam_roles)
     aws_object = aws.Aws(None, Input.aws_access_key_id, Input.aws_secret_access_key, Input.aws_region)
     #with mock.patch.object(aws_context, "boto3", mocked_boto):
     with mock.patch.object(sys.modules[__name__], "boto3", mocked_boto):
@@ -45,4 +45,9 @@ def test_setup_remaining_secrets() -> None:
         print("ROLES")
         for role in iam.list_roles()["Roles"]:
             print(f"ROLE:[{role['Arn']}]")
+        sm = boto3.client('secretsmanager')
+        sm.put_secret_value_for_testing('foo', 'bar')
+        x = sm.get_secret_value('foo')
+        print('secretdadsfasdfasdfasdfadsfasdfasdf')
+        print(x)
         assert 1 == 1
