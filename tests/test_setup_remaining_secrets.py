@@ -2,6 +2,7 @@
 
 import boto3
 import io
+import json
 import mock
 import os
 import re
@@ -86,7 +87,7 @@ def _setup_aws_credentials_dir(aws_access_key_id: str, aws_secret_access_key: st
 
 
 @contextmanager
-def _setup_custom_dir(aws_credentials_name: str, aws_account_number: str):
+def _setup_custom_dir(aws_credentials_name: str, aws_account_number: str, s3_encryption_enabled: bool):
     """
     Sets up a custom config directory, in a system temporary directory (for the lifetime of this context manager),
     containing a config.json file with the given AWS credentials name (e.g. cgap-supertest), and AWS account number.
@@ -100,16 +101,26 @@ def _setup_custom_dir(aws_credentials_name: str, aws_account_number: str):
         os.makedirs(custom_dir)
         config_file = os.path.join(custom_dir, Input.config_file)
         with io.open(config_file, "w") as config_file_fp:
-            config_file_fp.write(f'{{ "account_number": "{aws_account_number}", "ENCODED_ENV_NAME": "{aws_credentials_name}", "s3.bucket.encryption": true }}\n')
+            config_json = {}
+            config_json["account_number"] = aws_account_number
+            config_json["ENCODED_ENV_NAME"] = aws_credentials_name
+            if s3_encryption_enabled:
+                config_json["s3.bucket.encryption"] = True
+            config_file_fp.write(json.dumps(config_json))
         yield custom_dir
 
+
 def test_setup_remaining_secrets() -> None:
-    _test_setup_remaining_secrets(True)
+    _test_setup_remaining_secrets(overwrite_existing_secrets=True, s3_encryption_enabled=False)
+    _test_setup_remaining_secrets(overwrite_existing_secrets=True, s3_encryption_enabled=True)
+
 
 def test_setup_remaining_secrets_without_overwriting_existing_secrets() -> None:
-    _test_setup_remaining_secrets(False)
+    _test_setup_remaining_secrets(overwrite_existing_secrets=False, s3_encryption_enabled=False)
+    _test_setup_remaining_secrets(overwrite_existing_secrets=False, s3_encryption_enabled=True)
 
-def _test_setup_remaining_secrets(overwrite_existing_secrets: bool = True) -> None:
+
+def _test_setup_remaining_secrets(overwrite_existing_secrets: bool = True, s3_encryption_enabled: bool = True) -> None:
 
     mocked_boto = MockBoto3()
 
@@ -126,12 +137,12 @@ def _test_setup_remaining_secrets(overwrite_existing_secrets: bool = True) -> No
     mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_ES_SERVER, SecretsExisting.ENCODED_ES_SERVER)
     mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.RDS_HOST, SecretsExisting.RDS_HOST)
     mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.RDS_PASSWORD, SecretsExisting.RDS_PASSWORD)
-    mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID, SecretsExisting.ENCODED_S3_ENCRYPT_KEY_ID)
     mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_ACCESS_KEY_ID, SecretsExisting.S3_AWS_ACCESS_KEY_ID)
     mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_SECRET_ACCESS_KEY, SecretsExisting.S3_AWS_SECRET_ACCESS_KEY)
+    mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID, SecretsExisting.ENCODED_S3_ENCRYPT_KEY_ID)
 
     with _setup_aws_credentials_dir(Input.aws_access_key_id, Input.aws_secret_access_key, Input.aws_region) as aws_credentials_dir, \
-         _setup_custom_dir(Input.aws_credentials_name, Input.aws_account_number) as custom_dir, \
+         _setup_custom_dir(Input.aws_credentials_name, Input.aws_account_number, s3_encryption_enabled) as custom_dir, \
          mock.patch.object(aws_context, "boto3", mocked_boto), mock.patch.object(aws, "boto3", mocked_boto), \
          mock_print() as mocked_print:
 
@@ -194,4 +205,7 @@ def _test_setup_remaining_secrets(overwrite_existing_secrets: bool = True) -> No
                 assert created_aws_access_key_id == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_ACCESS_KEY_ID)
                 created_aws_secret_access_key = find_created_aws_secret_access_key_from_output(mocked_print)
                 assert created_aws_secret_access_key == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_SECRET_ACCESS_KEY)
-                assert Input.aws_kms_key == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID)
+                if s3_encryption_enabled:
+                    assert Input.aws_kms_key == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID)
+                else:
+                    assert "DEACTIVATED:" + SecretsExisting.ENCODED_S3_ENCRYPT_KEY_ID == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID)
