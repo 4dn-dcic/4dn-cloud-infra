@@ -12,6 +12,7 @@ from dcicutils.qa_utils import printed_output as mock_print
 from src.auto.init_custom_dir.cli import (get_fallback_identity, main)
 from src.auto.utils.locations import InfraDirectories, InfraFiles
 from src.auto.utils.misc_utils import obfuscate
+from .utils.utils_for_testing import (rummage_for_print_message, rummage_for_print_message_all)
 
 # Tests for the main init-custom-dir script.
 
@@ -44,32 +45,6 @@ def _get_standard_main_argv(aws_dir: str, aws_credentials_name: str, custom_dir:
             del argv[arg_index + 1]
             del argv[arg_index]
     return argv
-
-
-def _rummage_for_print_message(mocked_print, regular_expression: str):
-    """
-    Searches the given print mock for the/a print call whose arguments matches
-    the given regular expression, and returns True if it finds (just) one
-    that matches, otherwise returns False.
-    """
-    for value in mocked_print.lines:
-        if re.search(regular_expression, value, re.IGNORECASE):
-            return True
-    return False
-
-
-def _rummage_for_print_message_all(mocked_print, regular_expression: str, predicate: Callable):
-    """
-    Searches the given print mock for the/a call whose argument matches
-    the given regular expression and returns True iff each/every match also
-    passes (gets a True return value from) the given predicate function
-    with that argument, otherwise returns False.
-    """
-    for value in mocked_print.lines:
-        if re.search(regular_expression, value, re.IGNORECASE):
-            if not predicate(value):
-                return False
-    return True
 
 
 @contextmanager
@@ -181,9 +156,9 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
                 assert 32 <= len(s3_encrypt_key) <= 128
 
         # Check that any secrets printed out look like they"ve been obfuscated.
-        assert _rummage_for_print_message_all(
+        assert rummage_for_print_message_all(
             mocked_print, ".*using.*secret.*", lambda arg: arg.endswith("*******"))
-        assert _rummage_for_print_message_all(
+        assert rummage_for_print_message_all(
             mocked_print, ".*using.*secret.*",
             lambda arg: Input.auth0_secret not in arg and Input.recaptcha_secret not in arg)
 
@@ -195,11 +170,11 @@ def _call_function_and_assert_exit_with_no_action(f, interrupt: bool = False) ->
         with pytest.raises(Exception):
             f()
         if interrupt:
-            assert _rummage_for_print_message(mocked_print, ".*interrupt.*") is True
+            assert rummage_for_print_message(mocked_print, ".*interrupt.*") is True
         assert mocked_exit.called is True
         # Check the message from the last print which should be something like: Exiting without doing anything.
         # Kinda lame.
-        assert _rummage_for_print_message(mocked_print, ".*exit.*without.*doing*") is True
+        assert rummage_for_print_message(mocked_print, ".*exit.*without.*doing*") is True
 
 
 def test_sanity() -> None:
