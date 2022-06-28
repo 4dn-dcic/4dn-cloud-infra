@@ -215,8 +215,7 @@ class Aws(AwsContext):
                     yes = yes_or_no("Do you still want to create a new access key?")
                     if not yes:
                         return None, None
-            PRINT(f"Creating AWS security access key pair for AWS IAM user: {user.name}")
-            yes = yes_or_no(f"Continue?")
+            yes = yes_or_no(f"Create AWS security access key pair for AWS IAM user: {user.name} ?")
             if yes:
                 key_pair = user.create_access_key_pair()
                 PRINT(f"- Created AWS Access Key ID ({user.name}): {key_pair.id}")

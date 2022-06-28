@@ -47,7 +47,18 @@ class Input:
     rds_password = "rds-password-for-testing"
 
 
-class SecretsExisting:
+class NewSecret:
+    ACCOUNT_NUMBER = Input.aws_account_number
+    ENCODED_IDENTITY = Input.gac_secret_name
+    ENCODED_ES_SERVER = Input.elasticsearch_server
+    RDS_HOST = Input.rds_host
+    RDS_PASSWORD = Input.rds_password
+    S3_AWS_ACCESS_KEY_ID = None # dynamically set: see find_created_aws_access_key_id_from_output() below
+    S3_AWS_SECRET_ACCESS_KEY = None # dymanimcally set: see find_created_aws_secret_access_key_from_output() below
+    ENCODED_S3_ENCRYPT_KEY_ID = Input.aws_kms_key
+
+
+class ExistingSecret:
     ACCOUNT_NUMBER = "some-existing-account-number"
     ENCODED_IDENTITY = "some-existing-encoded-identity"
     ENCODED_ES_SERVER = "some-existing-elasticsearch-server"
@@ -58,8 +69,12 @@ class SecretsExisting:
     ENCODED_S3_ENCRYPT_KEY_ID = "some-existing-encoded-s3-encrypt-key-id"
 
 
+def deactivated_secret(existing_secret: str) -> str:
+    return "DEACTIVATED:" + existing_secret
+
+
 @contextmanager
-def _setup_aws_credentials_dir(aws_access_key_id: str, aws_secret_access_key: str, aws_region: str = None):
+def setup_aws_credentials_dir(aws_access_key_id: str, aws_secret_access_key: str, aws_region: str = None):
     """
     Sets up an AWS credentials directory, in a system temporary directory (for the lifetime
     of this context manager), containing a credentials file with the given AWS access key
@@ -87,7 +102,7 @@ def _setup_aws_credentials_dir(aws_access_key_id: str, aws_secret_access_key: st
 
 
 @contextmanager
-def _setup_custom_dir(aws_credentials_name: str, aws_account_number: str, s3_encryption_enabled: bool):
+def setup_custom_dir(aws_credentials_name: str, aws_account_number: str, s3_encryption_enabled: bool):
     """
     Sets up a custom config directory, in a system temporary directory (for the lifetime of this context manager),
     containing a config.json file with the given AWS credentials name (e.g. cgap-supertest), and AWS account number.
@@ -111,16 +126,17 @@ def _setup_custom_dir(aws_credentials_name: str, aws_account_number: str, s3_enc
 
 
 def test_setup_remaining_secrets() -> None:
-    _test_setup_remaining_secrets(overwrite_existing_secrets=True, s3_encryption_enabled=False)
-    _test_setup_remaining_secrets(overwrite_existing_secrets=True, s3_encryption_enabled=True)
+    do_test_setup_remaining_secrets(overwrite_existing_secrets=True, s3_encryption_enabled=False)
+    do_test_setup_remaining_secrets(overwrite_existing_secrets=True, s3_encryption_enabled=True)
+    do_test_setup_remaining_secrets(overwrite_existing_secrets=True, s3_encryption_enabled=True, create_access_key_pair=False)
 
 
 def test_setup_remaining_secrets_without_overwriting_existing_secrets() -> None:
-    _test_setup_remaining_secrets(overwrite_existing_secrets=False, s3_encryption_enabled=False)
-    _test_setup_remaining_secrets(overwrite_existing_secrets=False, s3_encryption_enabled=True)
+    do_test_setup_remaining_secrets(overwrite_existing_secrets=False, s3_encryption_enabled=False)
+    do_test_setup_remaining_secrets(overwrite_existing_secrets=False, s3_encryption_enabled=True)
 
 
-def _test_setup_remaining_secrets(overwrite_existing_secrets: bool = True, s3_encryption_enabled: bool = True) -> None:
+def do_test_setup_remaining_secrets(overwrite_existing_secrets: bool = True, s3_encryption_enabled: bool = True, create_access_key_pair: bool = True) -> None:
 
     mocked_boto = MockBoto3()
 
@@ -130,19 +146,20 @@ def _test_setup_remaining_secrets(overwrite_existing_secrets: bool = True, s3_en
     mocked_boto.client("opensearch").put_domain_for_testing(Input.elasticsearch_name, Input.elasticsearch_host, Input.elasticsearch_https)
     mocked_boto.client("kms").put_key_for_testing(Input.aws_kms_key)
 
-    mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.rds_secret_name, RdsSecretName.RDS_HOST, Input.rds_host)
-    mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.rds_secret_name, RdsSecretName.RDS_PASSWORD, Input.rds_password)
-    mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ACCOUNT_NUMBER, SecretsExisting.ACCOUNT_NUMBER)
-    mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_IDENTITY, SecretsExisting.ENCODED_IDENTITY)
-    mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_ES_SERVER, SecretsExisting.ENCODED_ES_SERVER)
-    mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.RDS_HOST, SecretsExisting.RDS_HOST)
-    mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.RDS_PASSWORD, SecretsExisting.RDS_PASSWORD)
-    mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_ACCESS_KEY_ID, SecretsExisting.S3_AWS_ACCESS_KEY_ID)
-    mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_SECRET_ACCESS_KEY, SecretsExisting.S3_AWS_SECRET_ACCESS_KEY)
-    mocked_boto.client("secretsmanager").put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID, SecretsExisting.ENCODED_S3_ENCRYPT_KEY_ID)
+    mocked_secretsmanager = mocked_boto.client("secretsmanager")
+    mocked_secretsmanager.put_secret_key_value_for_testing(Input.rds_secret_name, RdsSecretName.RDS_HOST, Input.rds_host)
+    mocked_secretsmanager.put_secret_key_value_for_testing(Input.rds_secret_name, RdsSecretName.RDS_PASSWORD, Input.rds_password)
+    mocked_secretsmanager.put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ACCOUNT_NUMBER, ExistingSecret.ACCOUNT_NUMBER)
+    mocked_secretsmanager.put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_IDENTITY, ExistingSecret.ENCODED_IDENTITY)
+    mocked_secretsmanager.put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_ES_SERVER, ExistingSecret.ENCODED_ES_SERVER)
+    mocked_secretsmanager.put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.RDS_HOST, ExistingSecret.RDS_HOST)
+    mocked_secretsmanager.put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.RDS_PASSWORD, ExistingSecret.RDS_PASSWORD)
+    mocked_secretsmanager.put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_ACCESS_KEY_ID, ExistingSecret.S3_AWS_ACCESS_KEY_ID)
+    mocked_secretsmanager.put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_SECRET_ACCESS_KEY, ExistingSecret.S3_AWS_SECRET_ACCESS_KEY)
+    mocked_secretsmanager.put_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID, ExistingSecret.ENCODED_S3_ENCRYPT_KEY_ID)
 
-    with _setup_aws_credentials_dir(Input.aws_access_key_id, Input.aws_secret_access_key, Input.aws_region) as aws_credentials_dir, \
-         _setup_custom_dir(Input.aws_credentials_name, Input.aws_account_number, s3_encryption_enabled) as custom_dir, \
+    with setup_aws_credentials_dir(Input.aws_access_key_id, Input.aws_secret_access_key, Input.aws_region) as aws_credentials_dir, \
+         setup_custom_dir(Input.aws_credentials_name, Input.aws_account_number, s3_encryption_enabled) as custom_dir, \
          mock.patch.object(aws_context, "boto3", mocked_boto), mock.patch.object(aws, "boto3", mocked_boto), \
          mock_print() as mocked_print:
 
@@ -164,18 +181,22 @@ def _test_setup_remaining_secrets(overwrite_existing_secrets: bool = True, s3_en
                     return created_aws_secret_access_key
             return None
 
-        def is_confirmation_for_access_key_create(arg) -> bool:
-            return re.search(".*sure.*want.*update.*AWS.*secret.*.S3_AWS_ACCESS_KEY_ID.*", arg, re.IGNORECASE)
+        def is_confirmation_for_access_key_pair_create(arg) -> bool:
+            return re.search(".*create.*access.*key.*", arg, re.IGNORECASE)
 
         def is_confirmation_for_secret_update(arg) -> bool:
-            # Are you sure you want to deactivate AWS secret MyTestSecretName.S3_AWS_ACCESS_KEY_ID? [yes/no]:
             return re.search(".*sure.*want.*(create|update|deactivate).*AWS.*secret.*", arg, re.IGNORECASE)
 
         def mock_input(arg: str):
             if is_confirmation_for_secret_update(arg) and not overwrite_existing_secrets:
-                # If this is input for a confirmation to actually update a secret,
+                # If this is input for a confirmation to actually update an AWS secret,
                 # and this test is for the case where we should  not overwrite any
                 # existing secrets then return "no" meaning "do not update secrets".
+                return "no"
+            if is_confirmation_for_access_key_pair_create(arg) and not create_access_key_pair:
+                # If this is input for a confirmation to actually create an AWS security
+                # access key pair (for the federated user) and this test is for the case where
+                # we should not do this then return "no" meaning "do not create an access key pair".
                 return "no"
             return "yes"
 
@@ -185,27 +206,36 @@ def _test_setup_remaining_secrets(overwrite_existing_secrets: bool = True, s3_en
 
             if not overwrite_existing_secrets:
 
-                assert SecretsExisting.ACCOUNT_NUMBER== mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ACCOUNT_NUMBER)
-                assert SecretsExisting.ENCODED_IDENTITY == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_IDENTITY)
-                assert SecretsExisting.ENCODED_ES_SERVER == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_ES_SERVER)
-                assert SecretsExisting.RDS_HOST == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.RDS_HOST)
-                assert SecretsExisting.RDS_PASSWORD == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.RDS_PASSWORD)
-                assert SecretsExisting.S3_AWS_ACCESS_KEY_ID == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_ACCESS_KEY_ID)
-                assert SecretsExisting.S3_AWS_SECRET_ACCESS_KEY == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_SECRET_ACCESS_KEY)
-                assert SecretsExisting.ENCODED_S3_ENCRYPT_KEY_ID == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID)
+                assert ExistingSecret.ACCOUNT_NUMBER == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ACCOUNT_NUMBER)
+                assert ExistingSecret.ENCODED_IDENTITY == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_IDENTITY)
+                assert ExistingSecret.ENCODED_ES_SERVER == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_ES_SERVER)
+                assert ExistingSecret.RDS_HOST == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.RDS_HOST)
+                assert ExistingSecret.RDS_PASSWORD == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.RDS_PASSWORD)
+                assert ExistingSecret.S3_AWS_ACCESS_KEY_ID == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_ACCESS_KEY_ID)
+                assert ExistingSecret.S3_AWS_SECRET_ACCESS_KEY == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_SECRET_ACCESS_KEY)
+                assert ExistingSecret.ENCODED_S3_ENCRYPT_KEY_ID == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID)
 
             else:
 
-                assert Input.aws_account_number == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ACCOUNT_NUMBER)
-                assert Input.gac_secret_name == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_IDENTITY)
-                assert Input.elasticsearch_server == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_ES_SERVER)
-                assert Input.rds_host == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.RDS_HOST)
-                assert Input.rds_password == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.RDS_PASSWORD)
-                created_aws_access_key_id = find_created_aws_access_key_id_from_output(mocked_print)
-                assert created_aws_access_key_id == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_ACCESS_KEY_ID)
-                created_aws_secret_access_key = find_created_aws_secret_access_key_from_output(mocked_print)
-                assert created_aws_secret_access_key == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_SECRET_ACCESS_KEY)
-                if s3_encryption_enabled:
-                    assert Input.aws_kms_key == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID)
+                assert NewSecret.ACCOUNT_NUMBER == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ACCOUNT_NUMBER)
+                assert NewSecret.ENCODED_IDENTITY == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_IDENTITY)
+                assert NewSecret.ENCODED_ES_SERVER == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_ES_SERVER)
+                assert NewSecret.RDS_HOST == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.RDS_HOST)
+                assert NewSecret.RDS_PASSWORD == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.RDS_PASSWORD)
+
+                if not create_access_key_pair:
+                    assert deactivated_secret(ExistingSecret.S3_AWS_ACCESS_KEY_ID) == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_ACCESS_KEY_ID)
                 else:
-                    assert "DEACTIVATED:" + SecretsExisting.ENCODED_S3_ENCRYPT_KEY_ID == mocked_boto.client("secretsmanager").get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID)
+                    created_aws_access_key_id = find_created_aws_access_key_id_from_output(mocked_print)
+                    assert created_aws_access_key_id == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_ACCESS_KEY_ID)
+
+                if not create_access_key_pair:
+                    assert deactivated_secret(ExistingSecret.S3_AWS_SECRET_ACCESS_KEY) == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_SECRET_ACCESS_KEY)
+                else:
+                    created_aws_secret_access_key = find_created_aws_secret_access_key_from_output(mocked_print)
+                    assert created_aws_secret_access_key == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.S3_AWS_SECRET_ACCESS_KEY)
+
+                if s3_encryption_enabled:
+                    assert Input.aws_kms_key == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID)
+                else:
+                    assert deactivated_secret(ExistingSecret.ENCODED_S3_ENCRYPT_KEY_ID) == mocked_secretsmanager.get_secret_key_value_for_testing(Input.gac_secret_name, GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID)
