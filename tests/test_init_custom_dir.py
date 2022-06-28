@@ -12,7 +12,7 @@ from dcicutils.qa_utils import printed_output as mock_print
 from src.auto.init_custom_dir.cli import (get_fallback_identity, main)
 from src.auto.utils.locations import InfraDirectories, InfraFiles
 from src.auto.utils.misc_utils import obfuscate
-from .utils.utils_for_testing import (rummage_for_print_message, rummage_for_print_message_all)
+from .testing_utils import (rummage_for_print_message, rummage_for_print_message_all)
 
 # Tests for the main init-custom-dir script.
 

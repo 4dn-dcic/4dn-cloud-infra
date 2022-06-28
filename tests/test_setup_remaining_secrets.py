@@ -11,7 +11,7 @@ from dcicutils.qa_utils import (printed_output as mock_print, MockBoto3, MockBot
 from src.auto.setup_remaining_secrets.defs import SecretKeyNames
 from src.auto.utils import aws_context
 from src.auto.utils import aws
-from .utils.utils_for_testing import (rummage_for_print_message, rummage_for_print_message_all)
+from .testing_utils import (rummage_for_print_message, rummage_for_print_message_all)
 
 
 class Input:
