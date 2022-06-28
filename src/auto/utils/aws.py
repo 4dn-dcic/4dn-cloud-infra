@@ -135,24 +135,17 @@ class Aws(AwsContext):
         :return: List of customer managed KMS key IDs; empty list of none found.
         """
         kms_keys = []
-        print('xyzzy-1')
         with super().establish_credentials():
-            print('xyzzy-2')
             kms = boto3.client("kms")
             for key in kms.list_keys()["Keys"]:
-                print('xyzzy-3')
                 key_id = key["KeyId"]
                 key_description = kms.describe_key(KeyId=key_id)
                 key_metadata = key_description["KeyMetadata"]
                 key_manager = key_metadata["KeyManager"]
-                print('xyzzy-4')
                 if key_manager == "CUSTOMER":
-                    print('xyzzy-5')
                     # TODO: If multiple keys (for some reason) silently pick the most recently created one (?)
                     # key_creation_date = key_metadata["CreationDate"]
                     kms_keys.append(key_id)
-                    print('xyzzy-6')
-        print('xyzzy-7')
         return kms_keys
 
     def get_elasticsearch_endpoint(self, aws_credentials_name: str) -> Optional[str]:
