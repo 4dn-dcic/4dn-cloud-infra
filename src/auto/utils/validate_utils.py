@@ -40,10 +40,16 @@ def validate_aws_credentials_name(aws_credentials_name: str, config_file: str) -
     :param config_file: Full path of the JSON config file.
     :return: AWS credentials name (e.g. cgap-supertest).
     """
+    print('xyzzy-7')
     if not aws_credentials_name:
+        print('xyzzy-8')
+        print(config_file)
         aws_credentials_name = get_json_config_file_value("ENCODED_ENV_NAME", config_file)
+        print('xyzzy-9')
         if not aws_credentials_name:
+            print('xyzzy-10')
             exit_with_no_action("ERROR: AWS credentials name cannot be determined.")
+    print('xyzzy-11')
     return aws_credentials_name
 
 

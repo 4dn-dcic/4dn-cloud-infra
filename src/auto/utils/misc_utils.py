@@ -73,7 +73,7 @@ def read_env_variable_from_subshell(shell_script_file: str, env_variable_name: s
         return None
 
 
-def generate_encryption_key(length: int = 16) -> str:
+def generate_encryption_key(length: int = 32) -> str:
     """
     Generate a cryptographically secure encryption key suitable for AWS S3 (or other) encryption.
     By default length will be 16 characters; if length less then 1 uses 1; if odd length then adds 1.

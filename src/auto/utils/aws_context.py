@@ -12,10 +12,10 @@ class AwsContext:
     nor on the ~/.aws credentials and config files (nor on the AWS_SHARED_CREDENTIALS_FILE
     and AWS_CONFIG_FILE environment variables).
 
-    A specific path to the ~/.aws credentials directory MUST be specified, which will
-    setup the context to refer to the credentials and config file(s) there; OR, specific
-    AWS access key ID and associated secret access key (and region) values MUST
-    be specified; the latter taking precedence over the former. Usage like this:
+    EITHER a specific path to the ~/.aws credentials directory MUST be specified, which
+    will will setup the context to refer to the credentials and config file(s) there;
+    OR, specific AWS access key ID and associated secret access key (and region) values
+    MUST be specified; the latter taking precedence over the former. Usage like this:
 
         aws = AwsContext(your_aws_credentials_directory_or_access_key_id_and_secret_access_key)
         with aws.establish_credentials() as credentials:

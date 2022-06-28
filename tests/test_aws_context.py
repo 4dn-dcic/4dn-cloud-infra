@@ -34,7 +34,7 @@ def _setup_aws_credentials_dir(aws_access_key_id: str, aws_secret_access_key: st
             with io.open(aws_config_file, "w") as aws_config_fp:
                 aws_config_fp.write(f"[default]\n")
                 aws_config_fp.write(f"region={aws_region}\n")
-        yield aws_credentials_file
+        yield aws_credentials_dir
 
 
 def _setup_aws_environ_which_should_be_ignored():
@@ -78,7 +78,6 @@ def test_aws_context_with_credentials() -> None:
 
 def test_aws_context_with_credentials_dir() -> None:
     with _setup_aws_credentials_dir(Input.aws_access_key_id,
-                                    Input.aws_secret_access_key, Input.aws_region) as aws_credentials_file:
-        aws_credentials_dir = os.path.dirname(aws_credentials_file)
+                                    Input.aws_secret_access_key, Input.aws_region) as aws_credentials_dir:
         _test_aws_context(aws_credentials_dir, None, None, None, False)
         _test_aws_context(aws_credentials_dir, None, None, None, True)
