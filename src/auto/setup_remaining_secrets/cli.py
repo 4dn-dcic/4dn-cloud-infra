@@ -146,9 +146,10 @@ def validate_account_number(account_number: str, config_file: str, aws_credentia
         account_number = aws_credentials.account_number
         if not account_number:
             exit_with_no_action("ERROR: AWS account number cannot be determined.")
-    if account_number != get_json_config_file_value("account_number", config_file):
+    account_number_from_config_file = get_json_config_file_value("account_number", config_file)
+    if account_number != account_number_from_config_file:
         exit_with_no_action(f"ERROR: Account number in your config file ({account_number})"
-                            f" does not match AWS ({aws_credentials.account_number}).")
+                            f" does not match AWS ({account_number_from_config_file}).")
     return account_number
 
 
