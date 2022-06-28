@@ -68,18 +68,18 @@ def update_kms_policy(args) -> None:
     kms_key_sid_pattern = "Allow use of the key"
     kms_key_policy_principals = aws.get_kms_key_policy_principals(kms_key_policy_json, kms_key_sid_pattern)
     if args.verbose:
-        print(f"Principals for AWS KMS key: {kms_key_id}")
+        PRINT(f"Principals for AWS KMS key: {kms_key_id}")
         for kms_key_principal in sorted(kms_key_policy_principals):
-            print(f"- {kms_key_principal}")
+            PRINT(f"- {kms_key_principal}")
 
     # Find the Foursight roles which are missing from the KMS specific policy.
     foursight_roles_to_add = list(set(foursight_role_arns) - set(kms_key_policy_principals))
     if foursight_roles_to_add and len(foursight_roles_to_add) > 0:
-        print(f"Foursight roles not currently present in KMS key principals: {kms_key_id}")
+        PRINT(f"Foursight roles not currently present in KMS key principals: {kms_key_id}")
         for foursight_role in foursight_roles_to_add:
-            print(f"- {foursight_role}")
+            PRINT(f"- {foursight_role}")
     else:
-        print(f"All Foursight roles already currently present in KMS key principals: {kms_key_id}")
+        PRINT(f"All Foursight roles already currently present in KMS key principals: {kms_key_id}")
         exit_with_no_action("Nothing to do.")
 
     # Here there are one or more Foursight roles missing from the KMS policy. Confirm update.

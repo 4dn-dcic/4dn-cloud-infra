@@ -67,7 +67,7 @@ def read_env_variable_from_subshell(shell_script_file: str, env_variable_name: s
         # If we don't do unset first it inherits from any current environment variable of the name.
         command = f"unset {env_variable_name} ; source {shell_script_file} ; echo ${env_variable_name}"
         command_output = str(subprocess.check_output(
-            command, shell=True, stderr=subprocess.STDOUT).decode("utf-8")).strip()
+            command, shell=True, stderr=subprocess.STDOUT, executable="/bin/bash").decode("utf-8")).strip()
         return command_output
     except:
         return None
