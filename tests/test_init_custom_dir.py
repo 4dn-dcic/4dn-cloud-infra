@@ -170,11 +170,11 @@ def _call_function_and_assert_exit_with_no_action(f, interrupt: bool = False) ->
         with pytest.raises(Exception):
             f()
         if interrupt:
-            assert rummage_for_print_message(mocked_print, ".*interrupt.*") is True
+            assert rummage_for_print_message(mocked_print, ".*interrupt.*") is not None
         assert mocked_exit.called is True
         # Check the message from the last print which should be something like: Exiting without doing anything.
         # Kinda lame.
-        assert rummage_for_print_message(mocked_print, ".*exit.*without.*doing*") is True
+        assert rummage_for_print_message(mocked_print, ".*exit.*without.*doing*") is not None
 
 
 def test_sanity() -> None:
