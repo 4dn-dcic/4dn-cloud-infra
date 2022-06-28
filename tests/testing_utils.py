@@ -1,19 +1,19 @@
 import re
-from typing import Callable
+from typing import Callable, Optional
 
-def rummage_for_print_message(mocked_print, regular_expression: str) -> bool:
+def rummage_for_print_message(mocked_print, regular_expression: str) -> Optional[str]:
     """
-    Searches the given print mock for the/a print call whose arguments matches the given regular
-    expression, and returns True if it finds (at least) ONE that matches, otherwise returns False.
+    Searches the given print mock for the/a print call whose argument matches the given regular
+    expression, and returns that argument for the first one that matches; if not found returns None.
 
     :param mocked_print: Mock print object.
     :param regular_expression: Regular expression to look for in mock print values/lines.
-    :return: True if at least one match found otherwise False.
+    :return: First message matching the given regular expression or None if not found.
     """
-    for value in mocked_print.lines:
-        if re.search(regular_expression, value, re.IGNORECASE):
-            return True
-    return False
+    for line in mocked_print.lines:
+        if re.search(regular_expression, line, re.IGNORECASE):
+            return line
+    return None
 
 
 def rummage_for_print_message_all(mocked_print, regular_expression: str, predicate: Callable) -> bool:
