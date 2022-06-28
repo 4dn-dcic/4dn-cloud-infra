@@ -86,6 +86,7 @@ from ..utils.validate_utils import (validate_aws_credentials,
                                     validate_aws_credentials_name,
                                     validate_custom_dir,
                                     validate_s3_encrypt_key_id)
+from .defs import (SecretKeyNames)
 
 
 def validate_gac_secret_name(gac_secret_name: str, aws_credentials_name: str) -> str:
@@ -289,23 +290,23 @@ def gather_secrets_to_update(args) -> (str, dict, Aws):
 
     # Validate/get the account number.
     account_number = validate_account_number(args.aws_account_number, config_file, aws_credentials)
-    secrets_to_update["ACCOUNT_NUMBER"] = account_number
+    secrets_to_update[SecretKeyNames.ACCOUNT_NUMBER] = account_number
 
     # Validate/get the global application config secret name (aka "identity" aka GAC).
-    secrets_to_update["ENCODED_IDENTITY"] = gac_secret_name
+    secrets_to_update[SecretKeyNames.ENCODED_IDENTITY] = gac_secret_name
 
     # Validate/get the ElasticSearch server (host/port).
     elasticsearch_server = validate_elasticsearch_endpoint(args.elasticsearch_server, aws_credentials_name, aws)
-    secrets_to_update["ENCODED_ES_SERVER"] = elasticsearch_server
+    secrets_to_update[SecretKeyNames.ENCODED_ES_SERVER] = elasticsearch_server
 
     # Validate/get the RDS host/password.
     rds_host, rds_password = validate_rds_host_and_password(args.rds_host, args.rds_password, rds_secret_name, aws)
-    secrets_to_update["RDS_HOST"] = rds_host
-    secrets_to_update["RDS_PASSWORD"] = rds_password
+    secrets_to_update[SecretKeyNames.RDS_HOST] = rds_host
+    secrets_to_update[SecretKeyNames.RDS_PASSWORD] = rds_password
 
     # Validate/get the S3 encryption key ID from KMS (iff s3.bucket.encryption is true in config file).
     s3_encrypt_key_id = validate_s3_encrypt_key_id(args.s3_encrypt_key_id, config_file, aws)
-    secrets_to_update["ENCODED_S3_ENCRYPT_KEY_ID"] = s3_encrypt_key_id
+    secrets_to_update[SecretKeyNames.ENCODED_S3_ENCRYPT_KEY_ID] = s3_encrypt_key_id
 
     # Validate/get the federated user name (needed to create the security access key pair, below).
     federated_user_name = validate_federated_user_name(args.federated_user_name, aws_credentials_name, config_file, aws)
@@ -314,8 +315,8 @@ def gather_secrets_to_update(args) -> (str, dict, Aws):
     s3_access_key_id, s3_secret_access_key = validate_s3_access_key_pair(args.s3_access_key_id,
                                                                          args.s3_secret_access_key,
                                                                          federated_user_name, aws, args.show)
-    secrets_to_update["S3_AWS_ACCESS_KEY_ID"] = s3_access_key_id
-    secrets_to_update["S3_AWS_SECRET_ACCESS_KEY"] = s3_secret_access_key
+    secrets_to_update[SecretKeyNames.S3_AWS_ACCESS_KEY_ID] = s3_access_key_id
+    secrets_to_update[SecretKeyNames.S3_AWS_SECRET_ACCESS_KEY] = s3_secret_access_key
 
     return gac_secret_name, secrets_to_update, aws
 
