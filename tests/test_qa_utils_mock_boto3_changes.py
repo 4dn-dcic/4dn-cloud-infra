@@ -6,6 +6,7 @@ import os
 import tempfile
 import uuid
 
+
 def test_mock_boto3_session():
     mock_boto3 = MockBoto3()
     assert isinstance(mock_boto3.client('session'), MockBoto3Session)

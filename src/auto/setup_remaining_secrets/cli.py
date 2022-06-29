@@ -75,7 +75,7 @@ from ...names import Names
 from ..utils.args_utils import add_aws_credentials_args
 from ..utils.aws import Aws
 from ..utils.aws_context import AwsContext
-from ..utils.locations import (InfraDirectories, InfraFiles)
+from ..utils.locations import (InfraDirectories)
 from ..utils.misc_utils import (get_json_config_file_value,
                                 exit_with_no_action,
                                 obfuscate,
