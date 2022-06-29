@@ -82,10 +82,10 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
     with _setup_filesystem(
          Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
          mock_print() as mocked_print, \
-         mock.patch("src.auto.init_custom_dir.cli.getpass.getuser") as mocked_getpass_getuser, \
+         mock.patch("src.auto.init_custom_dir.cli.get_fallback_deploying_iam_user") as mocked_get_fallback_deploying_iam_user, \
          mock.patch("builtins.input") as mocked_input:
 
-        mocked_getpass_getuser.return_value = Input.deploying_iam_user
+        mocked_get_fallback_deploying_iam_user.return_value = Input.deploying_iam_user
         mocked_input.return_value = "yes"
 
         # This is the directory structure we are simulating;
@@ -165,6 +165,7 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
 
 def _call_function_and_assert_exit_with_no_action(f, interrupt: bool = False) -> None:
     with mock_print() as mocked_print, \
+         mock.patch("src.auto.init_custom_dir.cli.get_fallback_deploying_iam_user") as mocked_get_fallback_deploying_iam_user, \
          mock.patch("builtins.exit") as mocked_exit:
         mocked_exit.side_effect = Exception()
         with pytest.raises(Exception):
