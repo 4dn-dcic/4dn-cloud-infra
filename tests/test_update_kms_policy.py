@@ -3,7 +3,7 @@ from dcicutils.qa_utils import MockBoto3
 from dcicutils.diff_utils import DiffManager
 from src.auto.update_kms_policy.cli import main
 from src.auto.utils import aws, aws_context
-from .testing_utils import setup_aws_credentials_dir, setup_custom_dir
+from .testing_utils import setup_aws_credentials_dir
 
 
 class Input:
