@@ -165,7 +165,7 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
 
 def _call_function_and_assert_exit_with_no_action(f, interrupt: bool = False) -> None:
     with mock_print() as mocked_print, \
-         mock.patch("src.auto.init_custom_dir.cli.get_fallback_deploying_iam_user") as mocked_get_fallback_deploying_iam_user, \
+         mock.patch("src.auto.init_custom_dir.cli.get_fallback_deploying_iam_user"), \
          mock.patch("builtins.exit") as mocked_exit:
         mocked_exit.side_effect = Exception()
         with pytest.raises(Exception):
