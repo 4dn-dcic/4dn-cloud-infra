@@ -22,7 +22,6 @@
 # Testing notes:
 # - External resources accesed by this module:
 #   - filesystem via:
-#     - getpass.getuser
 #     - glob.glob
 #     - io.open
 #     - os.chmod
@@ -46,7 +45,6 @@
 #     os.argv
 
 import argparse
-import getpass
 import io
 import os
 import stat
@@ -54,6 +52,8 @@ from typing import Optional
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
 from ...names import Names
+from ..utils.aws import Aws
+from ..utils.aws_context import AwsContext
 from ..utils.misc_utils import (exit_with_no_action,
                                 expand_json_template_file,
                                 generate_encryption_key,
@@ -82,18 +82,18 @@ def get_fallback_account_number(aws_credentials_dir: str) -> str:
     return read_env_variable_from_subshell(test_creds_script_file, EnvVars.ACCOUNT_NUMBER)
 
 
-def get_fallback_deploying_iam_user() -> str:
+def get_fallback_deploying_iam_user(aws_credentials_dir: str) -> str:
     """
-    Obtains/returns fallback deploying_iam_user value, simply from the OS environment.
+    Obtains/returns fallback deploying_iam_user value by trnga to get it from AWS,
+    via the credentials within the given AWS credentials directory. 
 
-    :return: Username as found by getpass.getuser().
+    :return: Username as described above, or None if cannot be determined.
     """
-    # TODO: This is really no good. Need to use the AWS user name.
-    # And in fact it seems like we actually need the AWS ARN for the user;
-    # e.g. arn:aws:iam::466564410312:user/david.michaels, though unclear why
-    # we didn't need this before (e.g. it seemed to work with david.michaels).
-    # In any case we will need the user to supply this explicitly via --username.
-    return getpass.getuser()
+    try:
+        with Aws(aws_credentials_dir).establish_credentials() as credentials:
+            return credentials.user_arn
+    except:
+        return None
 
 
 def get_fallback_identity(aws_credentials_name: str) -> str:
@@ -236,17 +236,18 @@ def validate_account_number(account_number: str, aws_credentials_dir: str, debug
     return account_number
 
 
-def validate_deploying_iam_user(deploying_iam_user: str) -> str:
+def validate_deploying_iam_user(deploying_iam_user: str, aws_credentials_dir: str) -> str:
     """
     Validates the given deploying IAM username and returns it if/when set.
     Prompts for this value if not set; exit on error (if not set).
-    We get the default/fallabck value from the current system username.
+    We try to get the default/fallback value from AWS, via the
+    credentials within the given AWS credentials directory. 
 
     :param deploying_iam_user: Deploying IAM username value.
     :return: Deploying IAM username value.
     """
     if not deploying_iam_user:
-        deploying_iam_user = get_fallback_deploying_iam_user()
+        deploying_iam_user = get_fallback_deploying_iam_user(aws_credentials_dir)
         if not deploying_iam_user:
             PRINT("Cannot determine deploying IAM username. Use the --username option.")
             deploying_iam_user = input("Or enter your deploying IAM username: ").strip()
@@ -422,7 +423,6 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
 
         if debug:
             PRINT(f"DEBUG: Current directory: {os.getcwd()}")
-            PRINT(f"DEBUG: Current username: {getpass.getuser()}")
             PRINT(f"DEBUG: Script directory: {InfraDirectories.THIS_SCRIPT_DIR}")
 
         # Validate/gather all the inputs.
@@ -430,7 +430,7 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
             = validate_aws_credentials_info(aws_dir, aws_credentials_name, confirm, debug)
         custom_dir = validate_custom_dir(custom_dir)
         account_number = validate_account_number(account_number, aws_credentials_dir, debug)
-        deploying_iam_user = validate_deploying_iam_user(deploying_iam_user)
+        deploying_iam_user = validate_deploying_iam_user(deploying_iam_user, aws_credentials_dir)
         identity = validate_identity(identity, aws_credentials_name)
         s3_bucket_org = validate_s3_bucket_org(s3_bucket_org)
         auth0_client, auth0_secret = validate_auth0(auth0_client, auth0_secret)
