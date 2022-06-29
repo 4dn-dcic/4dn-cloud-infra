@@ -32,3 +32,7 @@ def rummage_for_print_message_all(mocked_print, regular_expression: str, predica
             if not predicate(value):
                 return False
     return True
+
+
+def camelize(value: str, separator: str = '-') -> str:
+    return value.title().replace(separator, '')

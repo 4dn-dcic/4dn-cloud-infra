@@ -12,18 +12,15 @@ from typing import Callable, Optional
 from src.auto.setup_remaining_secrets.cli import main
 from contextlib import contextmanager
 from dcicutils.qa_utils import printed_output as mock_print, MockBoto3, MockBoto3SecretsManager, MockBoto3Session, MockBoto3Sts
-from src.auto.setup_remaining_secrets.defs import GacSecretName, RdsSecretName
+from src.auto.setup_remaining_secrets.defs import GacSecretKeyName, RdsSecretKeyName
 from src.auto.utils import aws_context
 from src.auto.utils import aws
-from .testing_utils import rummage_for_print_message, rummage_for_print_message_all
+from .testing_utils import camelize, rummage_for_print_message, rummage_for_print_message_all
 
 
 class Input:
     config_file = "config.json"
     custom_dir = "custom"
-
-    gac_secret_name = "C4DatastoreCgapUnitTestApplicationConfiguration"
-    rds_secret_name = "C4DatastoreCgapUnitTestRDSSecret"
 
     aws_credentials_name = "cgap-unit-test"
     aws_credentials_dir = os.path.join(custom_dir, "aws_creds")
@@ -46,6 +43,9 @@ class Input:
     rds_host = "rds.host.for.testing"
     rds_password = "rds-password-for-testing"
 
+    gac_secret_name = f"C4Datastore{camelize(aws_credentials_name)}ApplicationConfiguration"
+    rds_secret_name = f"C4Datastore{camelize(aws_credentials_name)}RDSSecret"
+
 
 class NewSecret:
     ACCOUNT_NUMBER = Input.aws_account_number
@@ -58,7 +58,7 @@ class NewSecret:
     ENCODED_S3_ENCRYPT_KEY_ID = Input.aws_kms_key
 
 
-class ExistingSecret:
+class OldSecret:
     ACCOUNT_NUMBER = "some-existing-account-number"
     ENCODED_IDENTITY = "some-existing-encoded-identity"
     ENCODED_ES_SERVER = "some-existing-elasticsearch-server"
@@ -126,20 +126,20 @@ def setup_custom_dir(aws_credentials_name: str, aws_account_number: str, encrypt
 
 
 def test_setup_remaining_secrets() -> None:
-    do_test_setup_remaining_secrets(overwrite_existing_secrets=True, encryption_enabled=False, create_access_key_pair=True)
-    do_test_setup_remaining_secrets(overwrite_existing_secrets=True, encryption_enabled=True, create_access_key_pair=True)
-    do_test_setup_remaining_secrets(overwrite_existing_secrets=True, encryption_enabled=False, create_access_key_pair=False)
-    do_test_setup_remaining_secrets(overwrite_existing_secrets=True, encryption_enabled=True, create_access_key_pair=False)
+    do_test_setup_remaining_secrets(overwrite_existing_secrets=True, create_access_key_pair=True, encryption_enabled=True)
+    do_test_setup_remaining_secrets(overwrite_existing_secrets=True, create_access_key_pair=True, encryption_enabled=False)
+    do_test_setup_remaining_secrets(overwrite_existing_secrets=True, create_access_key_pair=False, encryption_enabled=True)
+    do_test_setup_remaining_secrets(overwrite_existing_secrets=True, create_access_key_pair=False, encryption_enabled=False)
 
 
 def test_setup_remaining_secrets_without_overwriting_existing_secrets() -> None:
-    do_test_setup_remaining_secrets(overwrite_existing_secrets=False, encryption_enabled=False, create_access_key_pair=True)
-    do_test_setup_remaining_secrets(overwrite_existing_secrets=False, encryption_enabled=True, create_access_key_pair=True)
-    do_test_setup_remaining_secrets(overwrite_existing_secrets=False, encryption_enabled=False, create_access_key_pair=False)
-    do_test_setup_remaining_secrets(overwrite_existing_secrets=False, encryption_enabled=True, create_access_key_pair=False)
+    do_test_setup_remaining_secrets(overwrite_existing_secrets=False, create_access_key_pair=True, encryption_enabled=True)
+    do_test_setup_remaining_secrets(overwrite_existing_secrets=False, create_access_key_pair=True, encryption_enabled=False)
+    do_test_setup_remaining_secrets(overwrite_existing_secrets=False, create_access_key_pair=False, encryption_enabled=True)
+    do_test_setup_remaining_secrets(overwrite_existing_secrets=False, create_access_key_pair=False, encryption_enabled=False)
 
 
-def do_test_setup_remaining_secrets(overwrite_existing_secrets: bool = True, encryption_enabled: bool = True, create_access_key_pair: bool = True) -> None:
+def do_test_setup_remaining_secrets(overwrite_existing_secrets: bool = True, create_access_key_pair: bool = True, encryption_enabled: bool = True) -> None:
 
     mocked_boto = MockBoto3()
 
@@ -157,16 +157,16 @@ def do_test_setup_remaining_secrets(overwrite_existing_secrets: bool = True, enc
     mocked_rds_secret_put = lambda key, value: mocked_secret_put(Input.rds_secret_name, key, value)
     mocked_rds_secret_get = lambda key: mocked_secret_get(Input.rds_secret_name, key)
 
-    mocked_rds_secret_put(RdsSecretName.RDS_HOST, Input.rds_host)
-    mocked_rds_secret_put(RdsSecretName.RDS_PASSWORD, Input.rds_password)
-    mocked_gac_secret_put(GacSecretName.ACCOUNT_NUMBER, ExistingSecret.ACCOUNT_NUMBER)
-    mocked_gac_secret_put(GacSecretName.ENCODED_IDENTITY, ExistingSecret.ENCODED_IDENTITY)
-    mocked_gac_secret_put(GacSecretName.ENCODED_ES_SERVER, ExistingSecret.ENCODED_ES_SERVER)
-    mocked_gac_secret_put(GacSecretName.RDS_HOST, ExistingSecret.RDS_HOST)
-    mocked_gac_secret_put(GacSecretName.RDS_PASSWORD, ExistingSecret.RDS_PASSWORD)
-    mocked_gac_secret_put(GacSecretName.S3_AWS_ACCESS_KEY_ID, ExistingSecret.S3_AWS_ACCESS_KEY_ID)
-    mocked_gac_secret_put(GacSecretName.S3_AWS_SECRET_ACCESS_KEY, ExistingSecret.S3_AWS_SECRET_ACCESS_KEY)
-    mocked_gac_secret_put(GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID, ExistingSecret.ENCODED_S3_ENCRYPT_KEY_ID)
+    mocked_rds_secret_put(RdsSecretKeyName.RDS_HOST, Input.rds_host)
+    mocked_rds_secret_put(RdsSecretKeyName.RDS_PASSWORD, Input.rds_password)
+    mocked_gac_secret_put(GacSecretKeyName.ACCOUNT_NUMBER, OldSecret.ACCOUNT_NUMBER)
+    mocked_gac_secret_put(GacSecretKeyName.ENCODED_IDENTITY, OldSecret.ENCODED_IDENTITY)
+    mocked_gac_secret_put(GacSecretKeyName.ENCODED_ES_SERVER, OldSecret.ENCODED_ES_SERVER)
+    mocked_gac_secret_put(GacSecretKeyName.RDS_HOST, OldSecret.RDS_HOST)
+    mocked_gac_secret_put(GacSecretKeyName.RDS_PASSWORD, OldSecret.RDS_PASSWORD)
+    mocked_gac_secret_put(GacSecretKeyName.S3_AWS_ACCESS_KEY_ID, OldSecret.S3_AWS_ACCESS_KEY_ID)
+    mocked_gac_secret_put(GacSecretKeyName.S3_AWS_SECRET_ACCESS_KEY, OldSecret.S3_AWS_SECRET_ACCESS_KEY)
+    mocked_gac_secret_put(GacSecretKeyName.ENCODED_S3_ENCRYPT_KEY_ID, OldSecret.ENCODED_S3_ENCRYPT_KEY_ID)
 
     with setup_aws_credentials_dir(Input.aws_access_key_id, Input.aws_secret_access_key, Input.aws_region) as aws_credentials_dir, \
          setup_custom_dir(Input.aws_credentials_name, Input.aws_account_number, encryption_enabled) as custom_dir, \
@@ -191,11 +191,24 @@ def do_test_setup_remaining_secrets(overwrite_existing_secrets: bool = True, enc
                     return created_aws_secret_access_key
             return None
 
+        def find_current_value_of_secret_from_output(mocked_print, secret_key_name: str) -> Optional[str]:
+            current_value_of_secret_output = rummage_for_print_message(mocked_print, f".*Current.*value.*secret.*{secret_key_name}.*" )
+            if current_value_of_secret_output:
+                last_space = current_value_of_secret_output.rindex(" ") if " " in current_value_of_secret_output else None
+                if last_space is not None:
+                    current_value_of_secret_from_output = current_value_of_secret_output[last_space + 1:].strip()
+                    return current_value_of_secret_from_output
+            return None
+
         def is_confirmation_for_access_key_pair_create(arg) -> bool:
             return re.search(".*create.*access.*key.*", arg, re.IGNORECASE)
 
         def is_confirmation_for_secret_update(arg) -> bool:
             return re.search(".*sure.*want.*(create|update|deactivate).*AWS.*secret.*", arg, re.IGNORECASE)
+
+        def assert_value_of_secret_from_output(mocked_print, secret_key_name: str, secret_key_value) -> None:
+            current_value_of_secret_from_output = find_current_value_of_secret_from_output(mocked_print, secret_key_name)
+            assert current_value_of_secret_from_output == secret_key_value
 
         def mock_input(arg: str):
             if is_confirmation_for_secret_update(arg) and not overwrite_existing_secrets:
@@ -216,36 +229,46 @@ def do_test_setup_remaining_secrets(overwrite_existing_secrets: bool = True, enc
 
             if not overwrite_existing_secrets:
 
-                assert ExistingSecret.ACCOUNT_NUMBER == mocked_gac_secret_get(GacSecretName.ACCOUNT_NUMBER)
-                assert ExistingSecret.ENCODED_IDENTITY == mocked_gac_secret_get(GacSecretName.ENCODED_IDENTITY)
-                assert ExistingSecret.ENCODED_ES_SERVER == mocked_gac_secret_get(GacSecretName.ENCODED_ES_SERVER)
-                assert ExistingSecret.RDS_HOST == mocked_gac_secret_get(GacSecretName.RDS_HOST)
-                assert ExistingSecret.RDS_PASSWORD == mocked_gac_secret_get(GacSecretName.RDS_PASSWORD)
-                assert ExistingSecret.S3_AWS_ACCESS_KEY_ID == mocked_gac_secret_get(GacSecretName.S3_AWS_ACCESS_KEY_ID)
-                assert ExistingSecret.S3_AWS_SECRET_ACCESS_KEY == mocked_gac_secret_get(GacSecretName.S3_AWS_SECRET_ACCESS_KEY)
-                assert ExistingSecret.ENCODED_S3_ENCRYPT_KEY_ID == mocked_gac_secret_get(GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID)
+                assert OldSecret.ACCOUNT_NUMBER == mocked_gac_secret_get(GacSecretKeyName.ACCOUNT_NUMBER)
+                assert OldSecret.ENCODED_IDENTITY == mocked_gac_secret_get(GacSecretKeyName.ENCODED_IDENTITY)
+                assert OldSecret.ENCODED_ES_SERVER == mocked_gac_secret_get(GacSecretKeyName.ENCODED_ES_SERVER)
+                assert OldSecret.RDS_HOST == mocked_gac_secret_get(GacSecretKeyName.RDS_HOST)
+                assert OldSecret.RDS_PASSWORD == mocked_gac_secret_get(GacSecretKeyName.RDS_PASSWORD)
+                assert OldSecret.S3_AWS_ACCESS_KEY_ID == mocked_gac_secret_get(GacSecretKeyName.S3_AWS_ACCESS_KEY_ID)
+                assert OldSecret.S3_AWS_SECRET_ACCESS_KEY == mocked_gac_secret_get(GacSecretKeyName.S3_AWS_SECRET_ACCESS_KEY)
+                assert OldSecret.ENCODED_S3_ENCRYPT_KEY_ID == mocked_gac_secret_get(GacSecretKeyName.ENCODED_S3_ENCRYPT_KEY_ID)
 
             else:
 
-                assert NewSecret.ACCOUNT_NUMBER == mocked_gac_secret_get(GacSecretName.ACCOUNT_NUMBER)
-                assert NewSecret.ENCODED_IDENTITY == mocked_gac_secret_get(GacSecretName.ENCODED_IDENTITY)
-                assert NewSecret.ENCODED_ES_SERVER == mocked_gac_secret_get(GacSecretName.ENCODED_ES_SERVER)
-                assert NewSecret.RDS_HOST == mocked_gac_secret_get(GacSecretName.RDS_HOST)
-                assert NewSecret.RDS_PASSWORD == mocked_gac_secret_get(GacSecretName.RDS_PASSWORD)
+                assert NewSecret.ACCOUNT_NUMBER == mocked_gac_secret_get(GacSecretKeyName.ACCOUNT_NUMBER)
+                assert NewSecret.ENCODED_IDENTITY == mocked_gac_secret_get(GacSecretKeyName.ENCODED_IDENTITY)
+                assert NewSecret.ENCODED_ES_SERVER == mocked_gac_secret_get(GacSecretKeyName.ENCODED_ES_SERVER)
+                assert NewSecret.RDS_HOST == mocked_gac_secret_get(GacSecretKeyName.RDS_HOST)
+                assert NewSecret.RDS_PASSWORD == mocked_gac_secret_get(GacSecretKeyName.RDS_PASSWORD)
 
                 if not create_access_key_pair:
-                    assert deactivated_secret(ExistingSecret.S3_AWS_ACCESS_KEY_ID) == mocked_gac_secret_get(GacSecretName.S3_AWS_ACCESS_KEY_ID)
+                    assert deactivated_secret(OldSecret.S3_AWS_ACCESS_KEY_ID) == mocked_gac_secret_get(GacSecretKeyName.S3_AWS_ACCESS_KEY_ID)
                 else:
                     created_aws_access_key_id = find_created_aws_access_key_id_from_output(mocked_print)
-                    assert created_aws_access_key_id == mocked_gac_secret_get(GacSecretName.S3_AWS_ACCESS_KEY_ID)
+                    assert created_aws_access_key_id == mocked_gac_secret_get(GacSecretKeyName.S3_AWS_ACCESS_KEY_ID)
 
                 if not create_access_key_pair:
-                    assert deactivated_secret(ExistingSecret.S3_AWS_SECRET_ACCESS_KEY) == mocked_gac_secret_get(GacSecretName.S3_AWS_SECRET_ACCESS_KEY)
+                    assert deactivated_secret(OldSecret.S3_AWS_SECRET_ACCESS_KEY) == mocked_gac_secret_get(GacSecretKeyName.S3_AWS_SECRET_ACCESS_KEY)
                 else:
                     created_aws_secret_access_key = find_created_aws_secret_access_key_from_output(mocked_print)
-                    assert created_aws_secret_access_key == mocked_gac_secret_get(GacSecretName.S3_AWS_SECRET_ACCESS_KEY)
+                    assert created_aws_secret_access_key == mocked_gac_secret_get(GacSecretKeyName.S3_AWS_SECRET_ACCESS_KEY)
 
                 if encryption_enabled:
-                    assert Input.aws_kms_key == mocked_gac_secret_get(GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID)
+                    assert Input.aws_kms_key == mocked_gac_secret_get(GacSecretKeyName.ENCODED_S3_ENCRYPT_KEY_ID)
                 else:
-                    assert deactivated_secret(ExistingSecret.ENCODED_S3_ENCRYPT_KEY_ID) == mocked_gac_secret_get(GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID)
+                    assert deactivated_secret(OldSecret.ENCODED_S3_ENCRYPT_KEY_ID) == mocked_gac_secret_get(GacSecretKeyName.ENCODED_S3_ENCRYPT_KEY_ID)
+
+            # Make sure we displayed the values of any old/existing secrets correctly.
+            assert_value_of_secret_from_output(mocked_print, GacSecretKeyName.ACCOUNT_NUMBER, OldSecret.ACCOUNT_NUMBER)
+            assert_value_of_secret_from_output(mocked_print, GacSecretKeyName.ENCODED_IDENTITY, OldSecret.ENCODED_IDENTITY)
+            assert_value_of_secret_from_output(mocked_print, GacSecretKeyName.ENCODED_ES_SERVER, OldSecret.ENCODED_ES_SERVER)
+            assert_value_of_secret_from_output(mocked_print, GacSecretKeyName.RDS_HOST, OldSecret.RDS_HOST)
+            assert_value_of_secret_from_output(mocked_print, GacSecretKeyName.RDS_PASSWORD, OldSecret.RDS_PASSWORD)
+            assert_value_of_secret_from_output(mocked_print, GacSecretKeyName.S3_AWS_ACCESS_KEY_ID, OldSecret.S3_AWS_ACCESS_KEY_ID)
+            assert_value_of_secret_from_output(mocked_print, GacSecretKeyName.S3_AWS_SECRET_ACCESS_KEY, OldSecret.S3_AWS_SECRET_ACCESS_KEY)
+            assert_value_of_secret_from_output(mocked_print, GacSecretKeyName.ENCODED_S3_ENCRYPT_KEY_ID, OldSecret.ENCODED_S3_ENCRYPT_KEY_ID)
