@@ -53,7 +53,6 @@ from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
 from ...names import Names
 from ..utils.aws import Aws
-from ..utils.aws_context import AwsContext
 from ..utils.misc_utils import (exit_with_no_action,
                                 expand_json_template_file,
                                 generate_encryption_key,
@@ -85,7 +84,7 @@ def get_fallback_account_number(aws_credentials_dir: str) -> str:
 def get_fallback_deploying_iam_user(aws_credentials_dir: str) -> str:
     """
     Obtains/returns fallback deploying_iam_user value by trnga to get it from AWS,
-    via the credentials within the given AWS credentials directory. 
+    via the credentials within the given AWS credentials directory.
 
     :return: Username as described above, or None if cannot be determined.
     """
@@ -241,9 +240,10 @@ def validate_deploying_iam_user(deploying_iam_user: str, aws_credentials_dir: st
     Validates the given deploying IAM username and returns it if/when set.
     Prompts for this value if not set; exit on error (if not set).
     We try to get the default/fallback value from AWS, via the
-    credentials within the given AWS credentials directory. 
+    credentials within the given AWS credentials directory.
 
     :param deploying_iam_user: Deploying IAM username value.
+    :param aws_credentials_dir: Full path to AWS credentials directory.
     :return: Deploying IAM username value.
     """
     if not deploying_iam_user:
