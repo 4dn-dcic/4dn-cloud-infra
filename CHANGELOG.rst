@@ -6,9 +6,14 @@
 Change Log
 ----------
 
+3.2.1
+=====
+* Added ``setup-remaining-secrets`` poetry script target to automate the setting up of the remaining secrets global application secrets.
+* Added ``update-kms-policy`` poetry script target to automate the updating of the KMS policy for Foursight roles.
+
 3.2.0
 =====
-* Added ``init-custom-dir`` poetry script target to automated the creation of the local ``custom`` configuration directory
+* Added ``init-custom-dir`` poetry script target to automate the creation of the local ``custom`` configuration directory
   implementation in src/auto/init_custom_dir.
 
 2.0.1
