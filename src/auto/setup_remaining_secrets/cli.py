@@ -86,7 +86,7 @@ from ..utils.validate_utils import (validate_aws_credentials,
                                     validate_aws_credentials_name,
                                     validate_custom_dir,
                                     validate_s3_encrypt_key_id)
-from .defs import (GacSecretName, RdsSecretName)
+from .defs import (GacSecretKeyName, RdsSecretKeyName)
 
 
 def validate_gac_secret_name(gac_secret_name: str, aws_credentials_name: str) -> str:
@@ -236,12 +236,12 @@ def validate_rds_host_and_password(rds_host: str, rds_password: str,
     :param show: True to show any displayed sensitive values in plaintext.
     """
     if not rds_host:
-        rds_host = aws.get_secret_value(rds_secret_name, RdsSecretName.RDS_HOST)
+        rds_host = aws.get_secret_value(rds_secret_name, RdsSecretKeyName.RDS_HOST)
         if not rds_host:
             exit_with_no_action("ERROR: AWS application RDS host cannot be determined.")
     PRINT(f"AWS application RDS host name: {rds_host}")
     if not rds_password:
-        rds_password = aws.get_secret_value(rds_secret_name, RdsSecretName.RDS_PASSWORD)
+        rds_password = aws.get_secret_value(rds_secret_name, RdsSecretKeyName.RDS_PASSWORD)
         if not rds_password:
             exit_with_no_action("ERROR: AWS application RDS password cannot be determined.")
     PRINT(f"AWS application RDS password: {obfuscate(rds_password, show)}")
@@ -290,23 +290,23 @@ def gather_secrets_to_update(args) -> (str, dict, Aws):
 
     # Validate/get the account number.
     account_number = validate_account_number(args.aws_account_number, config_file, aws_credentials)
-    secrets_to_update[GacSecretName.ACCOUNT_NUMBER] = account_number
+    secrets_to_update[GacSecretKeyName.ACCOUNT_NUMBER] = account_number
 
     # Validate/get the global application config secret name (aka "identity" aka GAC).
-    secrets_to_update[GacSecretName.ENCODED_IDENTITY] = gac_secret_name
+    secrets_to_update[GacSecretKeyName.ENCODED_IDENTITY] = gac_secret_name
 
     # Validate/get the ElasticSearch server (host/port).
     elasticsearch_server = validate_elasticsearch_endpoint(args.elasticsearch_server, aws_credentials_name, aws)
-    secrets_to_update[GacSecretName.ENCODED_ES_SERVER] = elasticsearch_server
+    secrets_to_update[GacSecretKeyName.ENCODED_ES_SERVER] = elasticsearch_server
 
     # Validate/get the RDS host/password.
     rds_host, rds_password = validate_rds_host_and_password(args.rds_host, args.rds_password, rds_secret_name, aws)
-    secrets_to_update[GacSecretName.RDS_HOST] = rds_host
-    secrets_to_update[GacSecretName.RDS_PASSWORD] = rds_password
+    secrets_to_update[GacSecretKeyName.RDS_HOST] = rds_host
+    secrets_to_update[GacSecretKeyName.RDS_PASSWORD] = rds_password
 
     # Validate/get the S3 encryption key ID from KMS (iff s3.bucket.encryption is true in config file).
     s3_encrypt_key_id = validate_s3_encrypt_key_id(args.s3_encrypt_key_id, config_file, aws)
-    secrets_to_update[GacSecretName.ENCODED_S3_ENCRYPT_KEY_ID] = s3_encrypt_key_id
+    secrets_to_update[GacSecretKeyName.ENCODED_S3_ENCRYPT_KEY_ID] = s3_encrypt_key_id
 
     # Validate/get the federated user name (needed to create the security access key pair, below).
     federated_user_name = validate_federated_user_name(args.federated_user_name, aws_credentials_name, config_file, aws)
@@ -315,8 +315,8 @@ def gather_secrets_to_update(args) -> (str, dict, Aws):
     s3_access_key_id, s3_secret_access_key = validate_s3_access_key_pair(args.s3_access_key_id,
                                                                          args.s3_secret_access_key,
                                                                          federated_user_name, aws, args.show)
-    secrets_to_update[GacSecretName.S3_AWS_ACCESS_KEY_ID] = s3_access_key_id
-    secrets_to_update[GacSecretName.S3_AWS_SECRET_ACCESS_KEY] = s3_secret_access_key
+    secrets_to_update[GacSecretKeyName.S3_AWS_ACCESS_KEY_ID] = s3_access_key_id
+    secrets_to_update[GacSecretKeyName.S3_AWS_SECRET_ACCESS_KEY] = s3_secret_access_key
 
     return gac_secret_name, secrets_to_update, aws
 
