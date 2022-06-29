@@ -4,7 +4,8 @@ import argparse
 from typing import Optional
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
-from ..utils.locations import (InfraDirectories)
+from ..utils.args_utils import add_aws_credentials_args
+from ..utils.locations import InfraDirectories
 from ..utils.misc_utils import (get_json_config_file_value,
                                 exit_with_no_action)
 from ..utils.validate_utils import (validate_aws_credentials,
@@ -99,31 +100,13 @@ def main(override_argv: Optional[list] = None) -> None:
     :param override_argv: Raw command-line arguments for this invocation.
     """
     argp = argparse.ArgumentParser()
-    argp.add_argument("--aws-access-key-id", required=False,
-                      dest="aws_access_key_id",
-                      help=f"Your AWS access key ID; also requires --aws-access-secret-key.")
-    argp.add_argument("--aws-credentials-dir", required=False,
-                      dest="aws_credentials_dir",
-                      help=f"Alternate full path to your custom AWS credentials directory.")
-    argp.add_argument("--aws-credentials-name", required=False,
-                      dest="aws_credentials_name",
-                      help=f"The name of your AWS credentials,"
-                           f"e.g. <aws-credentials-name> from {InfraDirectories.AWS_DIR}.<aws-credentials-name>.")
-    argp.add_argument("--aws-secret-access-key", required=False,
-                      dest="aws_secret_access_key",
-                      help=f"Your AWS access key ID; also requires --aws-access-key-id.")
-    argp.add_argument("--aws-session-token", required=False,
-                      dest="aws_session_token",
-                      help=f"Your AWS session token.")
+    add_aws_credentials_args(argp)
     argp.add_argument("--custom-dir", required=False, default=InfraDirectories.CUSTOM_DIR,
                       dest="custom_dir",
                       help=f"Alternate custom config directory to default: {InfraDirectories.CUSTOM_DIR}.")
     argp.add_argument("--no-confirm", required=False,
                       dest="confirm", action="store_false",
                       help="Behave as if all confirmation questions were answered yes.")
-    argp.add_argument("--aws-region", required=False,
-                      dest="aws_region",
-                      help="The AWS region.")
     argp.add_argument("--s3-encrypt-key-id", required=False,
                       dest="s3_encrypt_key_id",
                       help="S3 encryption key ID.")
