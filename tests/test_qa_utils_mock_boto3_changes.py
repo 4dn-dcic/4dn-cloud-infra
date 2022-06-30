@@ -16,6 +16,7 @@ def test_mock_boto3_session():
 def test_mock_boto3_session_get_credentials_via_explicit():
     mock_boto3 = MockBoto3()
     mocked_session = mock_boto3.client('session')
+#   mocked_session = mock_boto3.session.Session()
 
     # Test MockBoto3Session.get_credentials with explicitly-specified info.
     aws_access_key_id = str(uuid.uuid4())
