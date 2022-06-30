@@ -70,7 +70,7 @@ def _setup_filesystem(aws_credentials_name: str, account_number: str = None):
         # aws_credentials_dir represents: /your-home/.aws_test.<your-credentials-name>
         os.makedirs(aws_credentials_dir)
         aws_credentials_file = os.path.join(aws_credentials_dir, "credentials")
-        with io.open(aws_credentials_file, "w") as aws_credentials_fp:
+        with io.open(aws_credentials_file, "w"):
             # Placeholder credentials file.
             pass
         if account_number:
@@ -80,15 +80,18 @@ def _setup_filesystem(aws_credentials_name: str, account_number: str = None):
                 test_creds_script_fp.write(f"\n")
         yield aws_dir, aws_credentials_dir, custom_dir
 
+
 def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
 
     mocked_boto3 = MockBoto3()
 
-    with _setup_filesystem(
-         Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
+    with _setup_filesystem(Input.aws_credentials_name,
+                           Input.account_number) as (aws_dir,
+                                                     aws_credentials_dir,
+                                                     custom_dir), \
          mock_print() as mocked_print, \
-        mock.patch("builtins.input") as mocked_input, \
-        mock.patch.object(aws_context, "boto3", mocked_boto3):
+         mock.patch("builtins.input") as mocked_input, \
+         mock.patch.object(aws_context, "boto3", mocked_boto3):
 
         # The script gets the deploying_iam_user via boto3 via "sts" get_caller_identity so we mock this.
         mocked_boto3.client("sts").put_caller_identity_for_testing(account=None, user_arn=Input.deploying_iam_user)
@@ -176,7 +179,8 @@ def _call_function_and_assert_exit_with_no_action(f, interrupt: bool = False) ->
          mock.patch("builtins.exit") as mocked_exit, \
          mock.patch.object(aws_context, "boto3", mocked_boto3):
         # The script gets the deploying_iam_user via boto3 via "sts" get_caller_identity so we mock this.
-        mocked_boto3.client("sts").put_caller_identity_for_testing(account=Input.account_number, user_arn=Input.deploying_iam_user)
+        mocked_boto3.client("sts").put_caller_identity_for_testing(account=Input.account_number,
+                                                                   user_arn=Input.deploying_iam_user)
         mocked_exit.side_effect = Exception()
         with pytest.raises(Exception):
             f()
