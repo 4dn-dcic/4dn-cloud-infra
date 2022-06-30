@@ -30,7 +30,7 @@ def get_json_config_file_value(name: str, config_file: str, fallback: str = None
             config_json = json.load(config_fp)
             value = config_json.get(name)
             return value if value else fallback
-    except:
+    except Exception:
         return fallback
 
 
@@ -66,10 +66,11 @@ def read_env_variable_from_subshell(shell_script_file: str, env_variable_name: s
             return None
         # If we don't do unset first it inherits from any current environment variable of the name.
         command = f"unset {env_variable_name} ; source {shell_script_file} ; echo ${env_variable_name}"
-        command_output = str(subprocess.check_output(
-            command, shell=True, stderr=subprocess.STDOUT, executable="/bin/bash").decode("utf-8")).strip()
-        return command_output
-    except:
+        result = subprocess.run(command, shell=True, encoding="utf-8", capture_output=True, executable="/bin/bash")
+        if result.stderr or result.returncode != 0 or not result.stdout:
+            return None
+        return result.stdout.strip()
+    except Exception:
         return None
 
 
@@ -93,7 +94,7 @@ def generate_encryption_key(length: int = 32) -> str:
                 with open(system_words_dictionary_file) as system_words_fp:
                     words = [word.strip() for word in system_words_fp]
                     password = "".join(secrets.choice(words) for _ in range(4))
-            except:
+            except Exception:
                 password = ""
         # As fallback for the words thing, and in any case, tack on a random token.
         return password + secrets.token_hex(16)

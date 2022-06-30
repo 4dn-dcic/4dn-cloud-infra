@@ -70,7 +70,7 @@ class Aws(AwsContext):
                 # JSON back as the secret value for the given secret name.
                 try:
                     secret_value = secrets_manager.get_secret_value(SecretId=secret_name)
-                except:
+                except Exception:
                     PRINT(f"AWS secret name does not exist: {secret_name}")
                     return False
                 secret_value_json = json.loads(secret_value["SecretString"])

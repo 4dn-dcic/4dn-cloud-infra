@@ -103,7 +103,7 @@ def validate_gac_secret_name(gac_secret_name: str, aws_credentials_name: str) ->
     if not gac_secret_name:
         try:
             gac_secret_name = Names.application_configuration_secret(aws_credentials_name)
-        except:
+        except Exception:
             gac_secret_name = None
         if not gac_secret_name:
             exit_with_no_action(f"ERROR: AWS global application config secret name cannot be determined.")
@@ -124,7 +124,7 @@ def validate_rds_secret_name(rds_secret_name: str, aws_credentials_name: str) ->
     if not rds_secret_name:
         try:
             rds_secret_name = Names.rds_secret_logical_id(aws_credentials_name)
-        except:
+        except Exception:
             rds_secret_name = None
         if not rds_secret_name:
             exit_with_no_action(f"ERROR: AWS RDS application secret name cannot be determined.")
@@ -217,7 +217,7 @@ def validate_s3_access_key_pair(s3_access_key_id: str, s3_secret_access_key: str
         if not s3_access_key_id or not s3_secret_access_key:
             s3_access_key_id, s3_secret_access_key = aws.create_user_access_key(federated_user_name, show)
         return s3_access_key_id, s3_secret_access_key
-    except:
+    except Exception:
         exit_with_no_action("ERROR: AWS S3 access key pair cannot be determined.")
 
 
