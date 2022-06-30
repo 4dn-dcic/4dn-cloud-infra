@@ -91,7 +91,7 @@ def get_fallback_deploying_iam_user(aws_credentials_dir: str) -> str:
     try:
         with Aws(aws_credentials_dir).establish_credentials() as credentials:
             return credentials.user_arn
-    except:
+    except Exception:
         return None
 
 
