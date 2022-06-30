@@ -517,7 +517,8 @@ def main(override_argv: Optional[list] = None) -> None:
                       help="Your reCAPTCHA secret")
     argp.add_argument("--s3org", "-n", dest="s3_bucket_org", type=str, required=False,
                       help="Your S3 bucket organization name")
-    argp.add_argument("--s3encrypt", "-e", dest="s3_bucket_encryption", action="store_true", default=False, required=False,
+    argp.add_argument("--s3encrypt", "-e", dest="s3_bucket_encryption",
+                      action="store_true", default=False, required=False,
                       help="To encrypt S3 buckets")
     argp.add_argument("--username", "-u", dest="deploying_iam_user", type=str, required=False,
                       help="Your deploying IAM username")

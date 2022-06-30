@@ -1,6 +1,5 @@
 # Script for 4dn-cloud-infra to fill out "remaining" secrets in
 # global application config after AWS datastore stack setup.
-# Ref: https://hms-dbmi.atlassian.net/wiki/spaces/~627943f598eae500689dbdc7/pages/2844229759/Building+and+Deploying+AWS+Infrastructure#Filling-Out-Remaining-Application-Secrets
 
 # The following values need to be filled in for the
 # global application config (GAC) secret in AWS:
