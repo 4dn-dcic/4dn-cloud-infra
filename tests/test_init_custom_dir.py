@@ -6,10 +6,10 @@ import pytest
 import re
 import stat
 import tempfile
-from typing import Callable
 from contextlib import contextmanager
-from dcicutils.qa_utils import printed_output as mock_print
+from dcicutils.qa_utils import printed_output as mock_print, MockBoto3
 from src.auto.init_custom_dir.cli import (get_fallback_identity, main)
+from src.auto.utils import aws_context
 from src.auto.utils.locations import InfraDirectories, InfraFiles
 from src.auto.utils.misc_utils import obfuscate
 from .testing_utils import (rummage_for_print_message, rummage_for_print_message_all)
@@ -69,6 +69,10 @@ def _setup_filesystem(aws_credentials_name: str, account_number: str = None):
         os.makedirs(aws_dir)
         # aws_credentials_dir represents: /your-home/.aws_test.<your-credentials-name>
         os.makedirs(aws_credentials_dir)
+        aws_credentials_file = os.path.join(aws_credentials_dir, "credentials")
+        with io.open(aws_credentials_file, "w") as aws_credentials_fp:
+            # Placeholder credentials file.
+            pass
         if account_number:
             with io.open(test_creds_script_file, "w") as test_creds_script_fp:
                 # test_creds_script_file represents: /your-home/.aws_test.<your-credentials-name>/test_creds.sh
@@ -76,16 +80,19 @@ def _setup_filesystem(aws_credentials_name: str, account_number: str = None):
                 test_creds_script_fp.write(f"\n")
         yield aws_dir, aws_credentials_dir, custom_dir
 
-
 def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
+
+    mocked_boto3 = MockBoto3()
 
     with _setup_filesystem(
          Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
          mock_print() as mocked_print, \
-         mock.patch("src.auto.init_custom_dir.cli.get_fallback_deploying_iam_user") as mocked_get_fallback_deploying_iam_user, \
-         mock.patch("builtins.input") as mocked_input:
+        mock.patch("builtins.input") as mocked_input, \
+        mock.patch.object(aws_context, "boto3", mocked_boto3):
 
-        mocked_get_fallback_deploying_iam_user.return_value = Input.deploying_iam_user
+        # The script gets the deploying_iam_user via boto3 via "sts" get_caller_identity so we mock this.
+        mocked_boto3.client("sts").put_caller_identity_for_testing(account=None, user_arn=Input.deploying_iam_user)
+
         mocked_input.return_value = "yes"
 
         # This is the directory structure we are simulating;
@@ -164,9 +171,12 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
 
 
 def _call_function_and_assert_exit_with_no_action(f, interrupt: bool = False) -> None:
+    mocked_boto3 = MockBoto3()
     with mock_print() as mocked_print, \
-         mock.patch("src.auto.init_custom_dir.cli.get_fallback_deploying_iam_user"), \
-         mock.patch("builtins.exit") as mocked_exit:
+         mock.patch("builtins.exit") as mocked_exit, \
+         mock.patch.object(aws_context, "boto3", mocked_boto3):
+        # The script gets the deploying_iam_user via boto3 via "sts" get_caller_identity so we mock this.
+        mocked_boto3.client("sts").put_caller_identity_for_testing(account=Input.account_number, user_arn=Input.deploying_iam_user)
         mocked_exit.side_effect = Exception()
         with pytest.raises(Exception):
             f()
@@ -260,7 +270,7 @@ def test_main_when_answering_no_to_confirmation_prompt() -> None:
     with _setup_filesystem(
          Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
          mock.patch("builtins.input") as mocked_input:
-        mocked_input.return_value = 'no'
+        mocked_input.return_value = "no"
         argv = _get_standard_main_argv(aws_dir, Input.aws_credentials_name, custom_dir)
         _call_function_and_assert_exit_with_no_action(lambda: main(argv))
         assert not os.path.exists(custom_dir)

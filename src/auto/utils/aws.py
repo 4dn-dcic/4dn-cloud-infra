@@ -47,7 +47,7 @@ class Aws(AwsContext):
         :return: True if succeeded otherwise false.
         """
 
-        def print_secret(prefix: str,  name: str, key_name: str, key_value: str) -> None:
+        def print_secret(prefix: str, name: str, key_name: str, key_value: str) -> None:
             if not key_value:
                 PRINT(f"{prefix} value of AWS secret {name}.{key_name} has no value.")
                 return
@@ -259,7 +259,7 @@ class Aws(AwsContext):
     def get_kms_key_policy_principals(key_policy_json: str, sid_pattern: str) -> list:
         """
         Returns the AWS principals list for the specific KMS key policy within the
-        given KMS key policy JSON, whose statemnd ID (sid) matches the given sid_pattern. 
+        given KMS key policy JSON, whose statemnd ID (sid) matches the given sid_pattern.
 
         :param key_policy_json: JSON for a KMS key policy.
         :param sid_pattern: Statement ID (sid) pattern to match the specific policy.

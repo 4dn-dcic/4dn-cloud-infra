@@ -3,6 +3,11 @@ from .locations import InfraDirectories
 
 
 def add_aws_credentials_args(args_parser: argparse.ArgumentParser) -> None:
+    """
+    Adds some standard AWS related arguments to the given argparse.ArgumentParser.
+
+    :param args_parser: The argparse.ArgumentParser to add arguments to.
+    """
     args_parser.add_argument("--aws-access-key-id", required=False,
                              dest="aws_access_key_id",
                              help=f"Your AWS access key ID; also requires --aws-access-secret-key.")

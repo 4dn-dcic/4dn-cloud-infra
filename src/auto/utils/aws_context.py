@@ -126,11 +126,12 @@ class AwsContext:
                 os.environ["AWS_SESSION_TOKEN"] = self._aws_session_token
             elif self._aws_credentials_dir:
                 aws_credentials_dir = self._aws_credentials_dir
-                aws_credentials_file = os.path.join(aws_credentials_dir, "credentials")
-                if os.path.isfile(aws_credentials_file):
-                    os.environ["AWS_SHARED_CREDENTIALS_FILE"] = aws_credentials_file
-                else:
+                if not os.path.isdir(aws_credentials_dir):
                     raise Exception(f"AWS credentials directory not found: {aws_credentials_dir}")
+                aws_credentials_file = os.path.join(aws_credentials_dir, "credentials")
+                if not os.path.isfile(aws_credentials_file):
+                    raise Exception(f"AWS credentials file not found: {aws_credentials_file}")
+                os.environ["AWS_SHARED_CREDENTIALS_FILE"] = aws_credentials_file
                 if display:
                     aws_credentials_dir_symlink_target = \
                         os.readlink(aws_credentials_dir) if os.path.islink(aws_credentials_dir) else None
