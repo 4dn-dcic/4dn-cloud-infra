@@ -88,7 +88,7 @@ def test_update_kms_policy() -> None:
 
         kms_key_policy_before = aws_object.get_kms_key_policy(Input.aws_kms_key_id)
 
-#       main(["--verbose"])
+        main(["--verbose"])
 
 #       kms_key_policy_after = aws_object.get_kms_key_policy(Input.aws_kms_key_id)
 
