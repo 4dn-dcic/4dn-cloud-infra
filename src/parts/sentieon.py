@@ -4,7 +4,9 @@ from troposphere.ec2 import (
     Instance, NetworkInterfaceProperty,
 )
 from dcicutils.cloudformation_utils import camelize
+from ..constants import C4SentieonSupportBase
 from ..exports import C4Exports
+from ..names import Names
 from ..part import C4Part
 from ..base import ConfigManager, Settings
 from .network import C4NetworkExports, C4Network
@@ -14,23 +16,24 @@ class C4SentieonSupportExports(C4Exports):
     """ Holds Sentieon export metadata. """
 
     @classmethod
-    def output_sentieon_server_ip_key(cls, env_name):
-        return f"SentieonServerIP{camelize(env_name)}"
+    def output_server_ip_key(cls, env_name):
+        return Names.sentieon_output_server_ip_key(env_name)
 
     @classmethod
-    def get_sentieon_server_ip(cls, env_name):
-        sentieon_server_ip_key = cls.output_sentieon_server_ip_key(env_name)
+    def get_server_ip(cls, env_name):
+        sentieon_server_ip_key = cls.output_server_ip_key(env_name)
         sentieon_server_ip = ConfigManager.find_stack_output(sentieon_server_ip_key, value_only=True)
         return sentieon_server_ip
 
 
-class C4SentieonSupport(C4Part):
+class C4SentieonSupport(C4SentieonSupportBase, C4Part):
     """
     Layer that provides an EC2 and associated resources for a Sentieon license server
     """
     SENTIEON_MASTER_CIDR = '52.89.132.242/32'
-    STACK_NAME_TOKEN = 'sentieon'
-    STACK_TITLE_TOKEN = 'Sentieon'
+    # dmichaels/2022-07-05: Factored out into constants.py.
+    # STACK_NAME_TOKEN = 'sentieon'
+    # STACK_TITLE_TOKEN = 'Sentieon'
     NETWORK_EXPORTS = C4NetworkExports()
 
     def build_template(self, template: Template) -> Template:
@@ -182,7 +185,7 @@ class C4SentieonSupport(C4Part):
         """ Outputs URL to access portal. """
         env = env or ConfigManager.get_config_setting(Settings.ENV_NAME)
         return Output(
-            C4SentieonSupportExports.output_sentieon_server_ip_key(env),
+            C4SentieonSupportExports.output_server_ip_key(env),
             Description='IP of Sentieon EC2 Server.',
             Value=GetAtt(self.sentieon_license_server(), 'PrivateIp')
         )

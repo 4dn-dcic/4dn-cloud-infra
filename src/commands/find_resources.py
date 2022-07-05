@@ -58,7 +58,7 @@ def get_portal_url(*, env_name=ENV_NAME):
 def get_sentieon_server_ip(*, env_name=ENV_NAME):
     if not os.environ.get("GLOBAL_ENV_BUCKET") and not os.environ.get("GLOBAL_BUCKET_ENV"):
         raise RuntimeError("Cannot compute the appropriate URL because GLOBAL_ENV_BUCKET is not bound.")
-    result = C4SentieonSupportExports.get_sentieon_server_ip(env_name)
+    result = C4SentieonSupportExports.get_server_ip(env_name)
     if not result:
         raise ValueError(f"Cannot find Sentieon server IP for {env_name}.")
     return result

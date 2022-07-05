@@ -122,3 +122,9 @@ class C4DatastoreBase:
     STACK_NAME_TOKEN = "datastore"
     STACK_TITLE_TOKEN = "Datastore"
     APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = 'ApplicationConfiguration'
+
+
+# dmichaels/2022-07-05: Factored out from sentieon.py.
+class C4SentieonSupportBase:
+    STACK_NAME_TOKEN = 'sentieon'
+    STACK_TITLE_TOKEN = 'Sentieon'
