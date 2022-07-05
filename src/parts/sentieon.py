@@ -1,20 +1,40 @@
-from troposphere import Ref, Template, Parameter
+from troposphere import GetAtt, Join, Output, Ref, Template, Parameter
 from troposphere.ec2 import (
     SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
     Instance, NetworkInterfaceProperty,
 )
+from dcicutils.cloudformation_utils import camelize
+from ..constants import C4SentieonSupportBase
+from ..exports import C4Exports
+from ..names import Names
 from ..part import C4Part
 from ..base import ConfigManager, Settings
 from .network import C4NetworkExports, C4Network
 
 
-class C4SentieonSupport(C4Part):
+# dmichaels/20220705: Added to set AWS Outputs value for Sentieon server IP; similar to ecs.py for DNSName.
+class C4SentieonSupportExports(C4Exports):
+    """ Holds Sentieon export metadata. """
+
+    @classmethod
+    def output_server_ip_key(cls, env_name):
+        return Names.sentieon_output_server_ip_key(env_name)
+
+    @classmethod
+    def get_server_ip(cls, env_name):
+        sentieon_server_ip_key = cls.output_server_ip_key(env_name)
+        sentieon_server_ip = ConfigManager.find_stack_output(sentieon_server_ip_key, value_only=True)
+        return sentieon_server_ip
+
+
+class C4SentieonSupport(C4SentieonSupportBase, C4Part):
     """
     Layer that provides an EC2 and associated resources for a Sentieon license server
     """
     SENTIEON_MASTER_CIDR = '52.89.132.242/32'
-    STACK_NAME_TOKEN = 'sentieon'
-    STACK_TITLE_TOKEN = 'Sentieon'
+    # dmichaels/2022-07-05: Factored out into constants.py.
+    # STACK_NAME_TOKEN = 'sentieon'
+    # STACK_TITLE_TOKEN = 'Sentieon'
     NETWORK_EXPORTS = C4NetworkExports()
 
     def build_template(self, template: Template) -> Template:
@@ -35,6 +55,9 @@ class C4SentieonSupport(C4Part):
 
         # Add server
         template.add_resource(self.sentieon_license_server())
+
+        # Add outputs
+        template.add_output(self.output_sentieon_server_ip())
 
         return template
 
@@ -156,4 +179,14 @@ class C4SentieonSupport(C4Part):
                 SubnetId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.PUBLIC_SUBNETS[0]),
             )],
             KeyName=Ref(self.ssh_key())
+        )
+
+    # dmichaels/20220705: Added to set AWS Outputs value for Sentieon server IP; similar to ecs.py for DNSName.
+    def output_sentieon_server_ip(self, env=None) -> Output:
+        """ Outputs URL to access portal. """
+        env = env or ConfigManager.get_config_setting(Settings.ENV_NAME)
+        return Output(
+            C4SentieonSupportExports.output_server_ip_key(env),
+            Description='IP of Sentieon EC2 Server.',
+            Value=GetAtt(self.sentieon_license_server(), 'PrivateIp')
         )

@@ -143,3 +143,9 @@ class C4IAMBase:
     STACK_NAME_TOKEN = "iam"
     STACK_TITLE_TOKEN = "IAM"
     SHARING = 'ecosystem'
+
+
+# dmichaels/2022-07-05: Factored out from sentieon.py.
+class C4SentieonSupportBase:
+    STACK_NAME_TOKEN = 'sentieon'
+    STACK_TITLE_TOKEN = 'Sentieon'

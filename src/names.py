@@ -6,6 +6,7 @@ from .constants import (
     COMMON_STACK_PREFIX_CAMEL_CASE,
     C4DatastoreBase,
     C4IAMBase,
+    C4SentieonSupportBase,
     StackNameMixinBase
 )
 
@@ -60,3 +61,19 @@ class Names:
             qualifier = cls.suggest_sharing_qualifier(C4IAMBase.SHARING, env_name, ecosystem)
             c4name = cls.suggest_stack_name(title_token, name_token, qualifier)
         return c4name.logical_id('ApplicationS3Federator')
+
+    # dmichaels/2022-07-05: Created to get Sentieon stack name; equivalent to
+    # C4SentieonSupport.suggest_stack_name() but without importing sentieon.py which pulls in
+    # base.py which is problematic for automation scripts (e.g. update-sentieon-security-groups).
+    @classmethod
+    def sentieon_stack_name(cls, env_name: str) -> str:
+        title_token = C4SentieonSupportBase.STACK_TITLE_TOKEN  # Sentieon (in constants.py, from C4SentieonSupport.STACK_TITLE_TOKEN)
+        name_token = C4SentieonSupportBase.STACK_NAME_TOKEN    # sentieon (in constants.py, from C4SentieonSupport.STACK_NAME_TOKEN)
+        qualifier = env_name
+        return cls.suggest_stack_name(title_token, name_token, qualifier)
+
+    # dmichaels/2022-07-05: New to get stack output key name for Senteion server IP;
+    # C4SentieonSupportExports.output_server_ip_key uses this common code.
+    @classmethod
+    def sentieon_output_server_ip_key(cls, env_name: str) -> str:
+        return f"SentieonServerIP{camelize(env_name)}"
