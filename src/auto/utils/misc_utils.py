@@ -89,6 +89,7 @@ def generate_encryption_key(length: int = 32) -> str:
 
     def generate_password() -> str:
         # Will suggests using a password from some (4) random words.
+        password = ""
         if os.path.isfile(system_words_dictionary_file):
             try:
                 with open(system_words_dictionary_file) as system_words_fp:
