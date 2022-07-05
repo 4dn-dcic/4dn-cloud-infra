@@ -6,7 +6,7 @@
 Change Log
 ----------
 
-3.2.1
+3.3.1
 =====
 * Added ``setup-remaining-secrets`` poetry script target to automate the setting up of the remaining secrets global application secrets.
 * Added ``update-kms-policy`` poetry script target to automate the updating of the KMS policy for Foursight roles.
