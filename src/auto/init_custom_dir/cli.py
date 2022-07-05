@@ -22,11 +22,11 @@
 # Testing notes:
 # - External resources accesed by this module:
 #   - filesystem via:
+#     - getpass.getuser
 #     - glob.glob
 #     - io.open
 #     - os.chmod
 #     - os.getcwd
-#     - os.getlogin
 #     - os.listdir
 #     - os.makedirs
 #     - os.path.abspath
@@ -46,6 +46,7 @@
 #     os.argv
 
 import argparse
+import getpass
 import io
 import os
 import stat
@@ -89,9 +90,14 @@ def get_fallback_deploying_iam_user() -> str:
     """
     Obtains/returns fallback deploying_iam_user value, simply from the OS environment.
 
-    :return: Username as found by os.getlogin().
+    :return: Username as found by getpass.getuser().
     """
-    return os.getlogin()
+    # TODO: This is really no good. Need to use the AWS user name.
+    # And in fact it seems like we actually need the AWS ARN for the user;
+    # e.g. arn:aws:iam::466564410312:user/david.michaels, though unclear why
+    # we didn't need this before (e.g. it seemed to work with david.michaels).
+    # In any case we will need the user to supply this explicitly via --username.
+    return getpass.getuser()
 
 
 def get_fallback_identity(aws_credentials_name: str) -> str:
@@ -420,7 +426,7 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
 
         if debug:
             PRINT(f"DEBUG: Current directory: {os.getcwd()}")
-            PRINT(f"DEBUG: Current username: {os.getlogin()}")
+            PRINT(f"DEBUG: Current username: {getpass.getuser()}")
             PRINT(f"DEBUG: Script directory: {InfraDirectories.THIS_SCRIPT_DIR}")
 
         # Validate/gather all the inputs.

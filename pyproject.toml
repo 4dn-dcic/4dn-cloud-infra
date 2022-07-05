@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "4dn-cloud-infra"
-version = "3.3.0"
+version = "3.2.1"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
 authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
@@ -65,6 +65,7 @@ setup-tibanna-precheck = "src.commands.setup_tibanna:setup_tibanna_precheck_main
 setup-tibanna = "src.commands.setup_tibanna:setup_tibanna_main"
 show-datastore-attribute = "src.commands.find_resources:show_datastore_attribute_main"
 show-foursight-url = "src.commands.find_resources:show_foursight_url_main"
+show-sentieon-server-ip = "src.commands.find_resources:show_sentieon_server_ip_main"
 show-health-page-url = "src.commands.find_resources:show_health_page_url_main"
 show-network-attribute = "src.commands.find_resources:show_network_attribute_main"
 show-portal-url = "src.commands.find_resources:show_portal_url_main"

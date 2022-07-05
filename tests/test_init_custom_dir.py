@@ -107,10 +107,10 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
     with _setup_filesystem(
          Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
          mock_print() as mocked_print, \
-         mock.patch("src.auto.init_custom_dir.cli.os.getlogin") as mocked_os_getlogin, \
+         mock.patch("src.auto.init_custom_dir.cli.getpass.getuser") as mocked_getpass_getuser, \
          mock.patch("builtins.input") as mocked_input:
 
-        mocked_os_getlogin.return_value = Input.deploying_iam_user
+        mocked_getpass_getuser.return_value = Input.deploying_iam_user
         mocked_input.return_value = "yes"
 
         # This is the directory structure we are simulating;

@@ -8,6 +8,7 @@ from dcicutils.misc_utils import find_association, PRINT
 from ..base import ConfigManager, ENV_NAME, ECOSYSTEM, COMMON_STACK_PREFIX_CAMEL_CASE
 from ..constants import Settings
 from ..parts.ecs import C4ECSApplicationExports
+from ..parts.sentieon import C4SentieonSupportExports
 
 
 EPILOG = __doc__
@@ -51,6 +52,15 @@ def get_portal_url(*, env_name=ENV_NAME):
     result = C4ECSApplicationExports.get_application_url(env_name)
     if not result:
         raise ValueError(f"Cannot find portal for {env_name}.")
+    return result
+
+
+def get_sentieon_server_ip(*, env_name=ENV_NAME):
+    if not os.environ.get("GLOBAL_ENV_BUCKET") and not os.environ.get("GLOBAL_BUCKET_ENV"):
+        raise RuntimeError("Cannot compute the appropriate URL because GLOBAL_ENV_BUCKET is not bound.")
+    result = C4SentieonSupportExports.get_server_ip(env_name)
+    if not result:
+        raise ValueError(f"Cannot find Sentieon server IP for {env_name}.")
     return result
 
 
@@ -302,6 +312,18 @@ class ShowPortalURLCommand(CommonResourceCommand):
 
 
 show_portal_url_main = ShowPortalURLCommand.main
+
+
+class ShowSentieonServerIpCommand(CommonResourceCommand):
+
+    COMMON_ARGUMENT_NAMES = ['env_name']
+
+    @classmethod
+    def execute(cls, *, env_name):
+        PRINT(get_sentieon_server_ip(env_name=env_name))
+
+
+show_sentieon_server_ip_main = ShowSentieonServerIpCommand.main
 
 
 class OpenPortalURLCommand(CommonResourceCommand):
