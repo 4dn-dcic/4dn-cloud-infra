@@ -6,6 +6,10 @@
 Change Log
 ----------
 
+3.2.1
+=====
+* Added AWS Output for Sentieon server containing its IP address; for soon-to-come ``update-sentieon-security-group`` script.
+
 3.2.0
 =====
 * Added ``init-custom-dir`` poetry script target to automated the creation of the local ``custom`` configuration directory
