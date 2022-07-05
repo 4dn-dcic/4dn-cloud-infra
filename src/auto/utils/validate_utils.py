@@ -89,10 +89,6 @@ def validate_aws_credentials(credentials_dir: str,
     :return: Tuple with an Aws object and AwsContext.Credentials containing the credentials.
     """
     # Get AWS credentials context object.
-    print(credentials_dir)
-    if not os.path.isdir(credentials_dir):
-        print('XYZZY: cannot find credentials dir!')
-    print(credentials_dir)
     aws = Aws(credentials_dir, access_key_id, secret_access_key, region, session_token)
 
     # Verify the AWS credentials context and get the associated AWS credentials number.
@@ -101,7 +97,6 @@ def validate_aws_credentials(credentials_dir: str,
             return aws, credentials
     except Exception as e:
         PRINT(e)
-        print(e)
         exit_with_no_action("ERROR: Cannot validate AWS credentials.")
 
 

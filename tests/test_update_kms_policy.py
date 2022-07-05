@@ -3,7 +3,7 @@ from dcicutils.qa_utils import MockBoto3
 from dcicutils.diff_utils import DiffManager
 from src.auto.update_kms_policy.cli import main
 from src.auto.utils import aws, aws_context
-from .testing_utils import setup_aws_credentials_dir
+from .testing_utils import setup_aws_credentials_dir, setup_custom_dir
 
 
 class Input:
@@ -79,6 +79,7 @@ def test_update_kms_policy() -> None:
 
     with setup_aws_credentials_dir(Input.aws_access_key_id,
                                    Input.aws_secret_access_key, Input.aws_region) as aws_credentials_dir, \
+         setup_custom_dir(Input.aws_credentials_name, Input.aws_account_number, True) as custom_dir, \
          mock.patch.object(aws_context, "boto3", mocked_boto), mock.patch.object(aws, "boto3", mocked_boto), \
          mock.patch("builtins.input") as mocked_input:
 
@@ -88,7 +89,7 @@ def test_update_kms_policy() -> None:
 
         kms_key_policy_before = aws_object.get_kms_key_policy(Input.aws_kms_key_id)
 
-        main(["--verbose"])
+        main(["--custom-dir", custom_dir, "--aws-credentials-dir", aws_credentials_dir, "--verbose"])
 
         kms_key_policy_after = aws_object.get_kms_key_policy(Input.aws_kms_key_id)
 
