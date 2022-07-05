@@ -68,7 +68,7 @@ class Input:
     }
 
 
-def test_update_kms_policy() -> None:
+def xyzzy_test_update_kms_policy() -> None:
 
     mocked_boto = MockBoto3()
 
