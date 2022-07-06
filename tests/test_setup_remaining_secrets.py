@@ -2,10 +2,11 @@ import mock
 import re
 from typing import Optional
 from src.auto.setup_remaining_secrets.cli import main
+from dcicutils.cloudformation_utils import camelize
 from dcicutils.qa_utils import printed_output as mock_print, MockBoto3
 from src.auto.setup_remaining_secrets.defs import GacSecretKeyName, RdsSecretKeyName
 from src.auto.utils import aws, aws_context
-from .testing_utils import camelize, rummage_for_print_message, setup_aws_credentials_dir, setup_custom_dir
+from .testing_utils import rummage_for_print_message, setup_aws_credentials_dir, setup_custom_dir
 
 
 class Input:
@@ -66,20 +67,20 @@ def deactivated_secret(existing_secret: str) -> str:
 
 
 def test_setup_remaining_secrets() -> None:
-    do_test_setup_remaining_secrets(True, True, True)
-    do_test_setup_remaining_secrets(True, True, False)
-    do_test_setup_remaining_secrets(True, False, True)
-    do_test_setup_remaining_secrets(True, False, False)
+    do_test_setup_remaining_secrets(overwrite_secrets=True, create_access_key_pair=True, encryption_enabled=True)
+    do_test_setup_remaining_secrets(overwrite_secrets=True, create_access_key_pair=True, encryption_enabled=False)
+    do_test_setup_remaining_secrets(overwrite_secrets=True, create_access_key_pair=False, encryption_enabled=True)
+    do_test_setup_remaining_secrets(overwrite_secrets=True, create_access_key_pair=False, encryption_enabled=False)
 
 
 def test_setup_remaining_secrets_without_overwriting_existing_secrets() -> None:
-    do_test_setup_remaining_secrets(False, True, True)
-    do_test_setup_remaining_secrets(False, True, False)
-    do_test_setup_remaining_secrets(False, False, True)
-    do_test_setup_remaining_secrets(False, False, False)
+    do_test_setup_remaining_secrets(overwrite_secrets=False, create_access_key_pair=True, encryption_enabled=True)
+    do_test_setup_remaining_secrets(overwrite_secrets=False, create_access_key_pair=True, encryption_enabled=False)
+    do_test_setup_remaining_secrets(overwrite_secrets=False, create_access_key_pair=False, encryption_enabled=True)
+    do_test_setup_remaining_secrets(overwrite_secrets=False, create_access_key_pair=False, encryption_enabled=False)
 
 
-def do_test_setup_remaining_secrets(overwrite_existing_secrets: bool = True,
+def do_test_setup_remaining_secrets(overwrite_secrets: bool = True,
                                     create_access_key_pair: bool = True,
                                     encryption_enabled: bool = True) -> None:
     mocked_boto = MockBoto3()
@@ -158,7 +159,7 @@ def do_test_setup_remaining_secrets(overwrite_existing_secrets: bool = True,
             assert current_value_of_secret_from_output == secret_key_value
 
         def mocked_input(arg: str):
-            if is_confirmation_for_secret_update(arg) and not overwrite_existing_secrets:
+            if is_confirmation_for_secret_update(arg) and not overwrite_secrets:
                 # If this is input for a confirmation to actually update an AWS secret,
                 # and this test is for the case where we should  not overwrite any
                 # existing secrets then return "no" meaning "do not update secrets".
@@ -174,7 +175,7 @@ def do_test_setup_remaining_secrets(overwrite_existing_secrets: bool = True,
 
             main(["--aws-credentials-dir", aws_credentials_dir, "--custom-dir", custom_dir, "--show"])
 
-            if not overwrite_existing_secrets:
+            if not overwrite_secrets:
 
                 assert OldSecret.ACCOUNT_NUMBER == \
                        mocked_gac_secret_get(GacSecretKeyName.ACCOUNT_NUMBER)

@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 from dcicutils.misc_utils import PRINT
-from .locations import (InfraDirectories, InfraFiles)
+from .paths import (InfraDirectories, InfraFiles)
 from ..utils.misc_utils import (get_json_config_file_value,
                                 exit_with_no_action)
 from .aws import Aws

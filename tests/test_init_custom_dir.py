@@ -2,6 +2,7 @@ import io
 import json
 import mock
 import os
+from pathlib import Path
 import pytest
 import re
 import stat
@@ -10,7 +11,7 @@ from contextlib import contextmanager
 from dcicutils.qa_utils import printed_output as mock_print, MockBoto3
 from src.auto.init_custom_dir.cli import (get_fallback_identity, main)
 from src.auto.utils import aws_context
-from src.auto.utils.locations import InfraDirectories, InfraFiles
+from src.auto.utils.paths import InfraDirectories, InfraFiles
 from src.auto.utils.misc_utils import obfuscate
 from .testing_utils import (rummage_for_print_message, rummage_for_print_message_all)
 
@@ -70,9 +71,8 @@ def _setup_filesystem(aws_credentials_name: str, account_number: str = None):
         # aws_credentials_dir represents: /your-home/.aws_test.<your-credentials-name>
         os.makedirs(aws_credentials_dir)
         aws_credentials_file = os.path.join(aws_credentials_dir, "credentials")
-        with io.open(aws_credentials_file, "w"):
-            # Placeholder credentials file.
-            pass
+        # credentials file placeholder
+        Path(aws_credentials_file).touch()
         if account_number:
             with io.open(test_creds_script_file, "w") as test_creds_script_fp:
                 # test_creds_script_file represents: /your-home/.aws_test.<your-credentials-name>/test_creds.sh

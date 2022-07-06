@@ -5,7 +5,7 @@ from typing import Optional
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
 from ..utils.args_utils import add_aws_credentials_args
-from ..utils.locations import InfraDirectories
+from ..utils.paths import InfraDirectories
 from ..utils.misc_utils import (get_json_config_file_value,
                                 exit_with_no_action)
 from ..utils.validate_utils import (validate_aws_credentials,

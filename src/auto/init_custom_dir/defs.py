@@ -7,7 +7,7 @@
 #     - os.path.dirname
 #     - os.path.join
 
-from ..utils.locations import (InfraDirectories, InfraFiles)  # noqa
+from ..utils.paths import (InfraDirectories, InfraFiles)  # noqa
 
 
 class ConfigTemplateVars:

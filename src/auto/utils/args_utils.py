@@ -1,5 +1,5 @@
 import argparse
-from .locations import InfraDirectories
+from .paths import InfraDirectories
 
 
 def add_aws_credentials_args(args_parser: argparse.ArgumentParser) -> None:
