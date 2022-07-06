@@ -6,6 +6,7 @@ from .constants import (
     COMMON_STACK_PREFIX_CAMEL_CASE,
     C4DatastoreBase,
     C4IAMBase,
+    C4NetworkBase,
     C4SentieonSupportBase
 )
 from .mixins import StackNameBaseMixin
@@ -77,3 +78,13 @@ class Names(StackNameBaseMixin):
     @classmethod
     def sentieon_output_server_ip_key(cls, env_name: str) -> str:
         return f"SentieonServerIP{camelize(env_name)}"
+
+    # dmichaels/2022-07-06: Factored out from C4Network.application_security_group() in network.py.
+    @classmethod
+    def application_security_group_name(cls, c4name: C4Name = None) -> str:
+        if not c4name:
+            title_token = C4NetworkBase.STACK_TITLE_TOKEN  # Network (in constants.py, from C4Network.STACK_TITLE_TOKEN)
+            name_token = C4NetworkBase.STACK_NAME_TOKEN    # network (in constants.py, from C4Network.STACK_NAME_TOKEN)
+            qualifier = 'main'
+            c4name = cls.suggest_stack_name(title_token, name_token, qualifier)
+        return c4name.logical_id('ApplicationSecurityGroup', context='application_security_group')

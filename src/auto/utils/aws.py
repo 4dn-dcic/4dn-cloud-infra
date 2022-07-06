@@ -307,3 +307,48 @@ class Aws(AwsContext):
             kms = boto3.client("kms")
             key_policy_string = json.dumps(key_policy_json)
             kms.put_key_policy(KeyId=key_id, Policy=key_policy_string, PolicyName="default")
+
+    def find_security_group_id(self, security_group_name: str) -> str:
+        """
+        Returns the AWS security group ID for the given AWS security group name.
+
+        :param security_group_name: AWS security group name.
+        :return: AWS security group ID for the given AWS security group name.
+        """
+        with super().establish_credentials():
+            ec2 = boto3.client('ec2')
+            security_group_filter = [{ "Name": "tag:Name", "Values": [security_group_name]}]
+            security_groups = ec2.describe_security_groups(Filters=security_group_filter)
+            if not security_groups:
+                return None
+            security_groups = security_groups.get("SecurityGroups")
+            if not security_groups or len(security_groups) != 1:
+                return None
+            security_group_id = security_groups[0].get("GroupId")
+            return security_group_id
+
+    def create_outbound_security_group_rule(self, security_group_id: str, security_group_rule: dict) -> dict:
+        """
+        Creates the given AWS security group outbound rule for the given AWS security group ID.
+
+        :param security_group_id: AWS security group ID.
+        :param security_group_rule: AWS outbound security group rule.
+        :return: Response from the boto3 call to create the outbound security group rule.
+        """
+        with super().establish_credentials():
+            ec2 = boto3.client('ec2')
+            return ec2.authorize_security_group_egress(GroupId=security_group_id,
+                                                       IpPermissions=security_group_rule)
+
+    def create_inbound_security_group_rule(self, security_group_id: str, security_group_rule: dict) -> dict:
+        """
+        Creates the given AWS security group rule for the given AWS security group ID.
+
+        :param security_group_id: AWS security group ID.
+        :param security_group_rule: AWS inbound security group rule.
+        :return: Response from the boto3 call to create the inbound security group rule.
+        """
+        with super().establish_credentials():
+            ec2 = boto3.client('ec2')
+            return ec2.authorize_security_group_ingress(GroupId=security_group_id,
+                                                        IpPermissions=security_group_rule)

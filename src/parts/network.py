@@ -7,9 +7,11 @@ from troposphere.ec2 import (
     Subnet, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment, NatGateway, EIP, Instance, NetworkInterfaceProperty,
     VPCEndpoint,
 )
-from ..base import ConfigManager, exportify
+from ..base import ConfigManager, Settings, exportify
 from typing import List
+from ..constants import C4NetworkBase
 from ..exports import C4Exports
+from ..names import Names
 from ..part import C4Part
 
 
@@ -87,7 +89,7 @@ class C4NetworkExports(C4Exports):
         super().__init__(parameter)
 
 
-class C4Network(C4Part):
+class C4Network(C4NetworkBase, C4Part):
     """ Note: when reading this code 'application' roughly refers to the AWS service running
         the CGAP Portal, whether it be Elastic Beanstalk or ECS.
     """
@@ -102,8 +104,9 @@ class C4Network(C4Part):
     DB_PORT_LOW = 5400
     DB_PORT_HIGH = 5499
     EXPORTS = C4NetworkExports()
-    STACK_NAME_TOKEN = "network"
-    STACK_TITLE_TOKEN = "Network"
+    # dmichaels/2022-07-06: Factored out into constants.py.
+    # STACK_NAME_TOKEN = "network"
+    # STACK_TITLE_TOKEN = "Network"
     SHARING = 'ecosystem'
 
     def build_template(self, template: Template) -> Template:
@@ -528,7 +531,10 @@ class C4Network(C4Part):
         """ Returns application security group for rules needed by application to access resources. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
         """
-        logical_id = self.name.logical_id('ApplicationSecurityGroup', context='application_security_group')
+        # dmichaels/2022-07-06: Refactored to use Names.application_security_group_name() in names.py.
+        # logical_id = self.name.logical_id('ApplicationSecurityGroup', context='application_security_group')
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        logical_id = Names.application_security_group_name(env_name, self.name)
         return SecurityGroup(
             logical_id,
             GroupName=logical_id,
