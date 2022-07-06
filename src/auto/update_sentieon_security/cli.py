@@ -205,10 +205,11 @@ def update_sentieon_security(args) -> None:
         if not yes:
             exit_with_no_action()
 
+        # Start the action.
         setup_and_action_state.note_action_start()
 
         # Update the outbound security group rules.
-        # update_outbound_security_group_rules(aws, aws_credentials_name, security_group_id)
+        update_outbound_security_group_rules(aws, aws_credentials_name, security_group_id)
 
         # Update the inbound security group rules.
         update_inbound_security_group_rules(aws, security_group_id)
