@@ -308,7 +308,7 @@ class Aws(AwsContext):
             key_policy_string = json.dumps(key_policy_json)
             kms.put_key_policy(KeyId=key_id, Policy=key_policy_string, PolicyName="default")
 
-    def find_security_group_id(self, security_group_name: str) -> str:
+    def find_security_group_id(self, security_group_name: str) -> Optional[str]:
         """
         Returns the AWS security group ID for the given AWS security group name.
 
@@ -317,7 +317,7 @@ class Aws(AwsContext):
         """
         with super().establish_credentials():
             ec2 = boto3.client('ec2')
-            security_group_filter = [{ "Name": "tag:Name", "Values": [security_group_name]}]
+            security_group_filter = [{"Name": "tag:Name", "Values": [security_group_name]}]
             security_groups = ec2.describe_security_groups(Filters=security_group_filter)
             if not security_groups:
                 return None
@@ -327,7 +327,7 @@ class Aws(AwsContext):
             security_group_id = security_groups[0].get("GroupId")
             return security_group_id
 
-    def create_outbound_security_group_rule(self, security_group_id: str, security_group_rule: dict) -> dict:
+    def create_outbound_security_group_rule(self, security_group_id: str, security_group_rule: list) -> dict:
         """
         Creates the given AWS security group outbound rule for the given AWS security group ID.
 
@@ -340,7 +340,7 @@ class Aws(AwsContext):
             return ec2.authorize_security_group_egress(GroupId=security_group_id,
                                                        IpPermissions=security_group_rule)
 
-    def create_inbound_security_group_rule(self, security_group_id: str, security_group_rule: dict) -> dict:
+    def create_inbound_security_group_rule(self, security_group_id: str, security_group_rule: list) -> dict:
         """
         Creates the given AWS security group rule for the given AWS security group ID.
 

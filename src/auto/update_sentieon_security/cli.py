@@ -8,13 +8,12 @@ from ...names import Names
 from ..utils.aws import Aws
 from ..utils.args_utils import add_aws_credentials_args
 from ..utils.paths import InfraDirectories
-from ..utils.misc_utils import (get_json_config_file_value,
-                                exit_with_no_action)
+from ..utils.misc_utils import (exit_with_no_action,
+                                setup_and_action)
 from ..utils.validate_utils import (validate_aws_credentials,
                                     validate_aws_credentials_dir,
                                     validate_aws_credentials_name,
-                                    validate_custom_dir,
-                                    validate_s3_encrypt_key_id)
+                                    validate_custom_dir)
 
 
 def get_application_security_group_name() -> str:
@@ -31,7 +30,7 @@ def validate_security_group_name(security_group_name: str) -> str:
 
 def get_sentieon_server_ip(aws_credentials_name: str) -> str:
     sentieon_server_ip_output_key_name = Names.sentieon_output_server_ip_key(aws_credentials_name)
-    # TODO: Read the value of the output key name. 
+    # TODO: Read the value of the output key name.
     sentieon_server_ip = "10.0.68.248"
     return sentieon_server_ip
 
@@ -95,7 +94,7 @@ def update_outbound_security_group_rules(aws: Aws, aws_credentials_name: str, se
     # Protocol: Time Exceeded
     #      Use: FromPort = 11 and ToPort = -1
 
-    def create_outbound_icmp_security_group_rule(aws: Aws, security_group_id: str, from_port: int) -> None:
+    def create_outbound_icmp_security_group_rule(from_port: int) -> None:
         outbound_icmp_security_group_rule = [{
             "IpProtocol": "icmp",
             "FromPort": from_port,
@@ -104,23 +103,21 @@ def update_outbound_security_group_rules(aws: Aws, aws_credentials_name: str, se
         }]
         try:
             aws.create_outbound_security_group_rule(security_group_id, outbound_icmp_security_group_rule)
-        except Exception as e:
-            # TODO
-            print("EXCEPTION!!!")
-            print(e)
+        except Exception as ee:
+            print("EXCEPTION!")
+            print(ee)
 
     # Create the outbound ICMP security group rules.
     icmp_port_destination_unreachable = 3
     icmp_port_echo_request = 8
     icmp_port_source_quench = 4
     icmp_port_time_exceeded = 11
-    create_outbound_icmp_security_group_rule(aws, security_group_id, icmp_port_destination_unreachable)
-    create_outbound_icmp_security_group_rule(aws, security_group_id, icmp_port_echo_request)
-    create_outbound_icmp_security_group_rule(aws, security_group_id, icmp_port_source_quench)
-    create_outbound_icmp_security_group_rule(aws, security_group_id, icmp_port_time_exceeded)
+    create_outbound_icmp_security_group_rule(icmp_port_destination_unreachable)
+    create_outbound_icmp_security_group_rule(icmp_port_echo_request)
+    create_outbound_icmp_security_group_rule(icmp_port_source_quench)
+    create_outbound_icmp_security_group_rule(icmp_port_time_exceeded)
 
     # Create the outbound port 8990 security group rules.
-    print('xyzzy-1')
     sentieon_server_ip = get_sentieon_server_ip(aws_credentials_name)
     sentieon_server_cidr_ip = sentieon_server_ip + "/32"
     outbound_security_group_rule = [{
@@ -131,13 +128,9 @@ def update_outbound_security_group_rules(aws: Aws, aws_credentials_name: str, se
                       "Description": "allows communication with sentieon server"}],
     }]
     try:
-        print('xyzzy-2')
         aws.create_outbound_security_group_rule(security_group_id, outbound_security_group_rule)
-        print('xyzzy-3')
     except Exception as e:
-        # TODO
-        print('xyzzy-4')
-        print("EXCEPTION!!!")
+        print("EXCEPTION!")
         print(e)
 
 
@@ -154,7 +147,18 @@ def update_inbound_security_group_rules(aws: Aws, security_group_id: str) -> Non
     :param aws: Aws object.
     :param security_group_id: Target AWS security group ID.
     """
-    pass
+    inbound_security_group_rule = [{
+        "IpProtocol": "icmp",
+        "FromPort": -1,
+        "ToPort": -1,
+        "IpRanges": [{"CidrIp": "0.0.0.0/0",
+                      "Description": "ICMP for sentieon server"}],
+    }]
+    try:
+        aws.create_inbound_security_group_rule(security_group_id, inbound_security_group_rule)
+    except Exception as e:
+        print("EXCEPTION!")
+        print(e)
 
 
 def update_sentieon_security(args) -> None:
@@ -165,40 +169,49 @@ def update_sentieon_security(args) -> None:
     :param args: Command-line arguments values.
     """
 
-    # Gather the basic info.
-    custom_dir, config_file = validate_custom_dir(args.custom_dir)
-    aws_credentials_name = validate_aws_credentials_name(args.aws_credentials_name, config_file)
-    aws_credentials_dir = validate_aws_credentials_dir(args.aws_credentials_dir, custom_dir)
+    with setup_and_action() as setup_and_action_state:
 
-    # Print header and basic info.
-    PRINT(f"Updating 4dn-cloud-infra application security group Sentieon.")
-    PRINT(f"Your custom directory: {custom_dir}")
-    PRINT(f"Your custom config file: {config_file}")
-    PRINT(f"Your AWS credentials name: {aws_credentials_name}")
+        # Gather the basic info.
+        custom_dir, config_file = validate_custom_dir(args.custom_dir)
+        aws_credentials_name = validate_aws_credentials_name(args.aws_credentials_name, config_file)
+        aws_credentials_dir = validate_aws_credentials_dir(args.aws_credentials_dir, custom_dir)
 
-    # Validate and print basic AWS credentials info.
-    aws, aws_credentials = validate_aws_credentials(aws_credentials_dir,
-                                                    args.aws_access_key_id,
-                                                    args.aws_secret_access_key,
-                                                    args.aws_region,
-                                                    args.aws_session_token)
-    # TODO
+        # Print header and basic info.
+        PRINT(f"Updating 4dn-cloud-infra application security group Sentieon.")
+        PRINT(f"Your custom directory: {custom_dir}")
+        PRINT(f"Your custom config file: {config_file}")
+        PRINT(f"Your AWS credentials name: {aws_credentials_name}")
 
-    security_group_name = validate_security_group_name(args.security_group_name)
-    print(f"Target security group name: {security_group_name}")
+        # Validate and print basic AWS credentials info.
+        aws, aws_credentials = validate_aws_credentials(aws_credentials_dir,
+                                                        args.aws_access_key_id,
+                                                        args.aws_secret_access_key,
+                                                        args.aws_region,
+                                                        args.aws_session_token,
+                                                        args.show)
 
-    security_group_id = aws.find_security_group_id(security_group_name)
-    if not security_group_id:
-        exit_with_no_action(f"Unable to determine security group ID from name: {security_group_name}")
-    print(f"Target security group ID: {security_group_id}")
+        # Validate the security group name (default via 4dn-cloud-infra code in names.py).
+        security_group_name = validate_security_group_name(args.security_group_name)
+        print(f"Target security group name: {security_group_name}")
 
-    yes = yes_or_no(f"Update this security group ({security_group_id}) with outbound rules Sentieon?")
-    if not yes:
-        exit_with_no_action()
+        # Get the associated security group ID from the name.
+        security_group_id = aws.find_security_group_id(security_group_name)
+        if not security_group_id:
+            exit_with_no_action(f"Unable to determine security group ID from name: {security_group_name}")
+        print(f"Target security group ID: {security_group_id}")
 
-    # Update the outbound security group rules.
-    update_outbound_security_group_rules(aws, aws_credentials_name, security_group_id)
+        # Confirm with user before taking action.
+        yes = yes_or_no(f"Update this security group ({security_group_id}) with outbound rules Sentieon?")
+        if not yes:
+            exit_with_no_action()
 
+        setup_and_action_state.note_action_start()
+
+        # Update the outbound security group rules.
+        # update_outbound_security_group_rules(aws, aws_credentials_name, security_group_id)
+
+        # Update the inbound security group rules.
+        update_inbound_security_group_rules(aws, security_group_id)
 
 
 def main(override_argv: Optional[list] = None) -> None:
@@ -216,6 +229,7 @@ def main(override_argv: Optional[list] = None) -> None:
     argp.add_argument("--no-confirm", required=False,
                       dest="confirm", action="store_false",
                       help="Behave as if all confirmation questions were answered yes.")
+    argp.add_argument("--show", action="store_true", required=False)
     args = argp.parse_args(override_argv)
 
     if (args.aws_access_key_id or args.aws_secret_access_key) and \
