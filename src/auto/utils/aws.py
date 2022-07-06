@@ -61,6 +61,7 @@ class Aws(AwsContext):
             else:
                 PRINT(f"{prefix} value of AWS secret {name}.{key_name}{suffix}: {key_value}")
 
+        PRINT()
         with super().establish_credentials():
             secrets_manager = boto3.client("secretsmanager")
             try:

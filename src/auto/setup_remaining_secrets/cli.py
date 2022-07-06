@@ -357,7 +357,6 @@ def update_secrets(gac_secret_name: str, secrets_to_update: dict, aws: Aws, show
     if not yes_or_no("Do you want to go ahead and set these secrets in AWS?"):
         exit_with_no_action()
     for secret_key_name, secret_key_value in secrets_to_update.items():
-        PRINT()
         aws.update_secret_key_value(gac_secret_name, secret_key_name, secret_key_value, show)
 
 

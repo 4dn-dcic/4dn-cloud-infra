@@ -194,7 +194,7 @@ def setup_and_action():
             if isinstance(exception, KeyboardInterrupt):
                 message = "Interrupt!"
             else:
-                message = "Exception! " + str(exception)
+                message = f"{exception.__class__.__name__}: {exception}"
             if self.status != 'setup':
                 exit_with_partial_action("\n", message)
             else:
@@ -219,6 +219,7 @@ def print_directory_tree(directory: str) -> None:
     """
     # This function adapted stackoverflow:
     # Ref: https://stackoverflow.com/questions/9727673/list-directory-tree-structure-in-python
+    intro = "└─ "
     def tree_generator(dirname: str, prefix: str = ""):
         space = "    "
         branch = "│   "
@@ -232,7 +233,7 @@ def print_directory_tree(directory: str) -> None:
             if os.path.isdir(path):
                 extension = branch if pointer == tee else space
                 yield from tree_generator(path, prefix=prefix+extension)
-    PRINT("└─ " + directory)
+    PRINT(intro + directory)
     for line in tree_generator(directory, prefix="   "):
         PRINT(line)
 

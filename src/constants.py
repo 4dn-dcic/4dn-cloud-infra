@@ -138,7 +138,7 @@ class StackNameMixinBase:
 # dmichaels/2022-06-22: Factored out from C4IAM in iam.py.
 class C4IAMBase:
     """
-    Factored out of C4IAM to to generate names before orchestration (e.g. setup-remaining-secrets).
+    Factored out of C4IAM to to generate names before orchestration (e.g. the setup-remaining-secrets command).
     """
     STACK_NAME_TOKEN = "iam"
     STACK_TITLE_TOKEN = "IAM"

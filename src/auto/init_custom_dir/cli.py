@@ -68,7 +68,7 @@ from .defs import (ConfigTemplateVars,
                    SecretsTemplateVars)
 
 
-def get_fallback_account_number(aws_credentials_dir: str) -> str:
+def get_fallback_account_number(aws_credentials_dir: str) -> Optional[str]:
     """
     Obtains/returns fallback account_number value by executing the test_creds.sh
     file for the chosen AWS credentials (in a sub-shell) and grabbing the value
@@ -81,7 +81,7 @@ def get_fallback_account_number(aws_credentials_dir: str) -> str:
     return read_env_variable_from_subshell(test_creds_script_file, EnvVars.ACCOUNT_NUMBER)
 
 
-def get_fallback_deploying_iam_user(aws_credentials_dir: str) -> str:
+def get_fallback_deploying_iam_user(aws_credentials_dir: str) -> Optional[str]:
     """
     Obtains/returns fallback deploying_iam_user value by trnga to get it from AWS,
     via the credentials within the given AWS credentials directory.
