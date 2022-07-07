@@ -71,7 +71,7 @@ from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
 from ...constants import Settings
 from ...names import Names
-from ..utils.args_utils import add_aws_credentials_args
+from ..utils.args_utils import add_aws_credentials_args, validate_aws_credentials_args
 from ..utils.aws import Aws
 from ..utils.aws_context import AwsContext
 from ..utils.paths import (InfraDirectories)
@@ -81,15 +81,15 @@ from ..utils.misc_utils import (get_json_config_file_value,
                                 print_dictionary_as_table,
                                 setup_and_action,
                                 should_obfuscate)
-from ..utils.validate_utils import (validate_aws_credentials,
-                                    validate_aws_credentials_dir,
-                                    validate_aws_credentials_name,
-                                    validate_custom_dir,
-                                    validate_s3_encrypt_key_id)
+from ..utils.validate_utils import (validate_and_get_aws_credentials,
+                                    validate_and_get_aws_credentials_dir,
+                                    validate_and_get_aws_credentials_name,
+                                    validate_and_get_custom_dir,
+                                    validate_and_get_s3_encrypt_key_id)
 from .defs import (GacSecretKeyName, RdsSecretKeyName)
 
 
-def validate_gac_secret_name(gac_secret_name: str, aws_credentials_name: str) -> str:
+def validate_and_get_gac_secret_name(gac_secret_name: str, aws_credentials_name: str) -> str:
     """
     Validates the given global application config secret (aka "identity" aka GAC) and
     returns its value. If not set gets it using the same code that 4dn-cloud-infra code does,
@@ -110,7 +110,7 @@ def validate_gac_secret_name(gac_secret_name: str, aws_credentials_name: str) ->
     return gac_secret_name
 
 
-def validate_rds_secret_name(rds_secret_name: str, aws_credentials_name: str) -> str:
+def validate_and_get_rds_secret_name(rds_secret_name: str, aws_credentials_name: str) -> str:
     """
     Validates the given RDS secret name and returns its value. If not set gets it using
     the same code that 4dn-cloud-infra code does, using the given AWS credentials
@@ -131,7 +131,9 @@ def validate_rds_secret_name(rds_secret_name: str, aws_credentials_name: str) ->
     return rds_secret_name
 
 
-def validate_account_number(account_number: str, config_file: str, aws_credentials: AwsContext.Credentials) -> str:
+def validate_and_get_account_number(account_number: str,
+                                    config_file: str,
+                                    aws_credentials: AwsContext.Credentials) -> str:
     """
     Validates the given AWS account number and returns its value. If not set gets it from the
     given AwsContext.Credentials object. Also gets this value from the given JSON config file.
@@ -154,8 +156,10 @@ def validate_account_number(account_number: str, config_file: str, aws_credentia
     return account_number
 
 
-def validate_federated_user_name(federated_user_name: str,
-                                 aws_credentials_name: str, config_file: str, aws: Aws) -> str:
+def validate_and_get_federated_user_name(federated_user_name: str,
+                                         aws_credentials_name: str,
+                                         config_file: str,
+                                         aws: Aws) -> str:
     """
     Validates the given AWS federated user IAM name and returns its value. If not set gets it
     the same code that 4dn-cloud-infra code does, using the given AWS credentials and
@@ -179,7 +183,7 @@ def validate_federated_user_name(federated_user_name: str,
     return federated_user_name
 
 
-def validate_elasticsearch_endpoint(elasticsearch_server: str, aws_credentials_name: str, aws: Aws) -> str:
+def validate_and_get_elasticsearch_endpoint(elasticsearch_server: str, aws_credentials_name: str, aws: Aws) -> str:
     """
     Validates the given ElasticSearch server (host/port) and returns its value. If not set gets
     it from AWS via the given Aws object, and using the given AWS credentials name.
@@ -198,8 +202,8 @@ def validate_elasticsearch_endpoint(elasticsearch_server: str, aws_credentials_n
     return elasticsearch_server
 
 
-def validate_s3_access_key_pair(s3_access_key_id: str, s3_secret_access_key: str,
-                                federated_user_name: str, aws: Aws, show: bool = False) -> [str, str]:
+def validate_and_get_s3_access_key_pair(s3_access_key_id: str, s3_secret_access_key: str,
+                                        federated_user_name: str, aws: Aws, show: bool = False) -> [str, str]:
     """
     Validates the given S3 access key pair and returns their values. If not set then gets these from AWS
     by creating a key pair for the given federated user IAM name (via the given Aws object),
@@ -221,9 +225,9 @@ def validate_s3_access_key_pair(s3_access_key_id: str, s3_secret_access_key: str
         exit_with_no_action("ERROR: AWS S3 access key pair cannot be determined.")
 
 
-def validate_rds_host_and_password(rds_host: str, rds_password: str,
-                                   rds_secret_name: str,
-                                   aws: Aws, show: bool = False) -> [str, str]:
+def validate_and_get_rds_host_and_password(rds_host: str, rds_password: str,
+                                           rds_secret_name: str,
+                                           aws: Aws, show: bool = False) -> [str, str]:
     """
     Validates the given RDS host/password and returns their values. If not set then gets these from
     the AWS secrets manager (via the given Aws object), using the given RDS secret name.
@@ -236,7 +240,7 @@ def validate_rds_host_and_password(rds_host: str, rds_password: str,
     :param show: True to show any displayed sensitive values in plaintext.
     """
     if not rds_host:
-        rds_host = aws.get_secret_value(rds_secret_name, RdsSecretKeyName.RDS_HOST)
+        rds_host = aws.get_secret_value(rds_secret_name, RdsSecretKeyName.RDS_HOSTNAME)
         if not rds_host:
             exit_with_no_action("ERROR: AWS application RDS host cannot be determined.")
     PRINT(f"AWS application RDS host name: {rds_host}")
@@ -248,13 +252,30 @@ def validate_rds_host_and_password(rds_host: str, rds_password: str,
     return rds_host, rds_password
 
 
-def gather_secrets_to_update(args) -> (str, dict, Aws):
+def gather_secrets_to_update(
+        aws_access_key_id: str,
+        aws_account_number: str,
+        aws_credentials_dir: str,
+        aws_credentials_name: str,
+        aws_region: str,
+        aws_secret_access_key: str,
+        aws_session_token: str,
+        custom_dir: str,
+        elasticsearch_server: str,
+        federated_user_name: str,
+        gac_secret_name: str,
+        rds_secret_name: str,
+        rds_host: str,
+        rds_password: str,
+        s3_access_key_id: str,
+        s3_encrypt_key_id: str,
+        s3_secret_access_key: str,
+        show: bool) -> (str, dict, Aws):
     """
     Gathers and validates the global application config secret (aka "identity" aka GAC) values to update.
     Returns a tuple containing the GAC secret name, secret values to update, and Aws object.
     Exits on error if these values cannot be determined.
 
-    :param args: Command-line arguments values.
     :return: Tuple containing the GAC secret name, secret values to update, and Aws object.
     """
 
@@ -262,13 +283,13 @@ def gather_secrets_to_update(args) -> (str, dict, Aws):
     secrets_to_update = {}
 
     # Gather the basic info.
-    custom_dir, config_file = validate_custom_dir(args.custom_dir)
-    aws_credentials_name = validate_aws_credentials_name(args.aws_credentials_name, config_file)
-    aws_credentials_dir = validate_aws_credentials_dir(args.aws_credentials_dir, custom_dir)
+    custom_dir, config_file = validate_and_get_custom_dir(custom_dir)
+    aws_credentials_name = validate_and_get_aws_credentials_name(aws_credentials_name, config_file)
+    aws_credentials_dir = validate_and_get_aws_credentials_dir(aws_credentials_dir, custom_dir)
 
     # Get the relevant AWS secret names.
-    gac_secret_name = validate_gac_secret_name(args.gac_secret_name, aws_credentials_name)
-    rds_secret_name = validate_rds_secret_name(args.rds_secret_name, aws_credentials_name)
+    gac_secret_name = validate_and_get_gac_secret_name(gac_secret_name, aws_credentials_name)
+    rds_secret_name = validate_and_get_rds_secret_name(rds_secret_name, aws_credentials_name)
 
     # Print header and basic info.
     PRINT(f"Setting up 4dn-cloud-infra remaining AWS secrets for: {gac_secret_name}")
@@ -277,44 +298,52 @@ def gather_secrets_to_update(args) -> (str, dict, Aws):
     PRINT(f"Your AWS credentials name: {aws_credentials_name}")
 
     # Validate and print basic AWS credentials info.
-    aws, aws_credentials = validate_aws_credentials(aws_credentials_dir,
-                                                    args.aws_access_key_id,
-                                                    args.aws_secret_access_key,
-                                                    args.aws_region,
-                                                    args.aws_session_token,
-                                                    args.show)
+    aws, aws_credentials = validate_and_get_aws_credentials(aws_credentials_dir,
+                                                            aws_access_key_id,
+                                                            aws_secret_access_key,
+                                                            aws_region,
+                                                            aws_session_token,
+                                                            show)
 
     # Print the relevant AWS secret names we are dealing with.
     PRINT(f"AWS global application config secret name: {gac_secret_name}")
     PRINT(f"AWS RDS application config secret name: {rds_secret_name}")
 
     # Validate/get the account number.
-    account_number = validate_account_number(args.aws_account_number, config_file, aws_credentials)
+    account_number = validate_and_get_account_number(aws_account_number, config_file, aws_credentials)
     secrets_to_update[GacSecretKeyName.ACCOUNT_NUMBER] = account_number
 
     # Validate/get the global application config secret name (aka "identity" aka GAC).
     secrets_to_update[GacSecretKeyName.ENCODED_IDENTITY] = gac_secret_name
 
     # Validate/get the ElasticSearch server (host/port).
-    elasticsearch_server = validate_elasticsearch_endpoint(args.elasticsearch_server, aws_credentials_name, aws)
+    elasticsearch_server = validate_and_get_elasticsearch_endpoint(elasticsearch_server, aws_credentials_name, aws)
     secrets_to_update[GacSecretKeyName.ENCODED_ES_SERVER] = elasticsearch_server
 
     # Validate/get the RDS host/password.
-    rds_host, rds_password = validate_rds_host_and_password(args.rds_host, args.rds_password, rds_secret_name, aws)
-    secrets_to_update[GacSecretKeyName.RDS_HOST] = rds_host
+    rds_host, rds_password = validate_and_get_rds_host_and_password(rds_host,
+                                                                    rds_password,
+                                                                    rds_secret_name,
+                                                                    aws)
+    secrets_to_update[GacSecretKeyName.RDS_HOSTNAME] = rds_host
     secrets_to_update[GacSecretKeyName.RDS_PASSWORD] = rds_password
 
     # Validate/get the S3 encryption key ID from KMS (iff s3.bucket.encryption is true in config file).
-    s3_encrypt_key_id = validate_s3_encrypt_key_id(args.s3_encrypt_key_id, config_file, aws)
+    s3_encrypt_key_id = validate_and_get_s3_encrypt_key_id(s3_encrypt_key_id, config_file, aws)
     secrets_to_update[GacSecretKeyName.ENCODED_S3_ENCRYPT_KEY_ID] = s3_encrypt_key_id
 
     # Validate/get the federated user name (needed to create the security access key pair, below).
-    federated_user_name = validate_federated_user_name(args.federated_user_name, aws_credentials_name, config_file, aws)
+    federated_user_name = validate_and_get_federated_user_name(federated_user_name,
+                                                               aws_credentials_name,
+                                                               config_file,
+                                                               aws)
 
     # Validate/create the security access key/secret pair for the IAM federated user.
-    s3_access_key_id, s3_secret_access_key = validate_s3_access_key_pair(args.s3_access_key_id,
-                                                                         args.s3_secret_access_key,
-                                                                         federated_user_name, aws, args.show)
+    s3_access_key_id, s3_secret_access_key = validate_and_get_s3_access_key_pair(s3_access_key_id,
+                                                                                 s3_secret_access_key,
+                                                                                 federated_user_name,
+                                                                                 aws,
+                                                                                 show)
     secrets_to_update[GacSecretKeyName.S3_AWS_ACCESS_KEY_ID] = s3_access_key_id
     secrets_to_update[GacSecretKeyName.S3_AWS_SECRET_ACCESS_KEY] = s3_secret_access_key
 
@@ -360,23 +389,55 @@ def update_secrets(gac_secret_name: str, secrets_to_update: dict, aws: Aws, show
         aws.update_secret_key_value(gac_secret_name, secret_key_name, secret_key_value, show)
 
 
-def setup_remaining_secrets(args) -> None:
+def setup_remaining_secrets(
+        aws_access_key_id: str,
+        aws_account_number: str,
+        aws_credentials_dir: str,
+        aws_credentials_name: str,
+        aws_region: str,
+        aws_secret_access_key: str,
+        aws_session_token: str,
+        custom_dir: str,
+        elasticsearch_server: str,
+        federated_user_name: str,
+        gac_secret_name: str,
+        rds_secret_name: str,
+        rds_host: str,
+        rds_password: str,
+        s3_access_key_id: str,
+        s3_encrypt_key_id: str,
+        s3_secret_access_key: str,
+        show: bool) -> None:
     """
     Main logical entry point for this script. Gathers, prints, confirms, and update various values
     in the AWS secrets manager for the global application config secret (aka "identity" aka GAC).
-
-    :param args: Command-line arguments values.
     """
 
     with setup_and_action() as setup_and_action_state:
 
         # Gather all the secrets to update in the AWS secrets manager for the global application config.
-        gac_secret_name, secrets_to_update, aws = gather_secrets_to_update(args)
-
+        gac_secret_name, secrets_to_update, aws = gather_secrets_to_update(aws_access_key_id,
+                                                                           aws_account_number,
+                                                                           aws_credentials_dir,
+                                                                           aws_credentials_name,
+                                                                           aws_region,
+                                                                           aws_secret_access_key,
+                                                                           aws_session_token,
+                                                                           custom_dir,
+                                                                           elasticsearch_server,
+                                                                           federated_user_name,
+                                                                           gac_secret_name,
+                                                                           rds_secret_name,
+                                                                           rds_host,
+                                                                           rds_password,
+                                                                           s3_access_key_id,
+                                                                           s3_encrypt_key_id,
+                                                                           s3_secret_access_key,
+                                                                           show)
         setup_and_action_state.note_action_start()
 
         # Summarize secrets to update, confirm with user, and actually update the secrets.
-        update_secrets(gac_secret_name, secrets_to_update, aws, args.show)
+        update_secrets(gac_secret_name, secrets_to_update, aws, show)
 
 
 def main(override_argv: Optional[list] = None) -> None:
@@ -425,16 +486,31 @@ def main(override_argv: Optional[list] = None) -> None:
                       help="S3 AWS secret access key.")
     argp.add_argument("--show", action="store_true", required=False)
     args = argp.parse_args(override_argv)
-
-    if (args.aws_access_key_id or args.aws_secret_access_key) and \
-       not (args.aws_access_key_id and args.aws_secret_access_key):
-        exit_with_no_action("Either none or both --aws-access-key-id and --aws-secret-access-key must be specified.")
+    validate_aws_credentials_args(args)
 
     if (args.s3_access_key_id or args.s3_secret_access_key) and \
        not (args.s3_access_key_id and args.s3_secret_access_key):
         exit_with_no_action("Either none or both --s3-access-key-id and --s3-secret-access-key must be specified.")
 
-    setup_remaining_secrets(args)
+    setup_remaining_secrets(
+        args.aws_access_key_id,
+        args.aws_account_number,
+        args.aws_credentials_dir,
+        args.aws_credentials_name,
+        args.aws_region,
+        args.aws_secret_access_key,
+        args.aws_session_token,
+        args.custom_dir,
+        args.elasticsearch_server,
+        args.federated_user_name,
+        args.gac_secret_name,
+        args.rds_secret_name,
+        args.rds_host,
+        args.rds_password,
+        args.s3_access_key_id,
+        args.s3_encrypt_key_id,
+        args.s3_secret_access_key,
+        args.show)
 
 
 if __name__ == "__main__":

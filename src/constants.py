@@ -124,16 +124,6 @@ class C4DatastoreBase:
     APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = 'ApplicationConfiguration'
     RDS_SECRET_NAME_SUFFIX = 'RDSSecret'  # Used as logical id suffix in resource names
 
-# dmichaels/2022-06-22: Factored out from StackNameMixin in part.py.
-class StackNameMixinBase:
-    SHARING = 'env'
-    def SHARING_QUALIFIERS(env_name: str, ecosystem: str):
-        _SHARING_QUALIFIERS = {
-            'env': f"{env_name}",
-            'ecosystem': f"{ecosystem}",
-            'account': "",
-        }
-        return _SHARING_QUALIFIERS
 
 # dmichaels/2022-06-22: Factored out from C4IAM in iam.py.
 class C4IAMBase:

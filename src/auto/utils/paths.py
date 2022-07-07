@@ -1,4 +1,4 @@
-# Definitions for files/paths used in 4dn-cloud-infra setup automattion.
+# Definitions for files/paths used in 4dn-cloud-infra setup automation.
 
 import os
 
@@ -61,3 +61,8 @@ class InfraFiles:
             custom_dir = InfraDirectories.get_custom_dir()
         return os.path.abspath(
             os.path.join(InfraDirectories.get_custom_aws_creds_dir(custom_dir), InfraFiles.S3_ENCRYPT_KEY_FILE))
+
+
+class MiscFiles:
+    DICTIONARY_WORDS_FILE = "/usr/share/dict/words"
+    ALTERNATE_DICTIONARY_WORDS_FILE = "/usr/dict/words"

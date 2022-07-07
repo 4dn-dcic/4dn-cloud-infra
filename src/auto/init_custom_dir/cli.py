@@ -56,9 +56,9 @@ from ..utils.aws import Aws
 from ..utils.misc_utils import (exit_with_no_action,
                                 expand_json_template_file,
                                 generate_encryption_key,
+                                get_script_exported_variable,
                                 obfuscate,
                                 print_directory_tree,
-                                read_env_variable_from_subshell,
                                 setup_and_action)
 from .aws_credentials_info import AwsCredentialsInfo
 from .defs import (ConfigTemplateVars,
@@ -78,7 +78,7 @@ def get_fallback_account_number(aws_credentials_dir: str) -> Optional[str]:
     :return: Account number from test_creds.sh if found otherwise None.
     """
     test_creds_script_file = InfraFiles.get_test_creds_script_file(aws_credentials_dir)
-    return read_env_variable_from_subshell(test_creds_script_file, EnvVars.ACCOUNT_NUMBER)
+    return get_script_exported_variable(test_creds_script_file, EnvVars.ACCOUNT_NUMBER)
 
 
 def get_fallback_deploying_iam_user(aws_credentials_dir: str) -> Optional[str]:
@@ -95,7 +95,7 @@ def get_fallback_deploying_iam_user(aws_credentials_dir: str) -> Optional[str]:
         return None
 
 
-def get_fallback_identity(aws_credentials_name: str) -> str:
+def get_fallback_identity(aws_credentials_name: str) -> Optional[str]:
     """
     Obtains/returns the 'identity', i.e. the global application configuration name using
     the same code that 4dn-cloud-infra code does (see C4Datastore.application_configuration_secret).
@@ -111,8 +111,10 @@ def get_fallback_identity(aws_credentials_name: str) -> str:
     return identity_value
 
 
-def validate_aws_credentials_info(
-        aws_dir: str, aws_credentials_name: str, confirm: bool = True, debug: bool = False) -> (str, str):
+def validate_and_get_aws_credentials_info(aws_dir: str,
+                                          aws_credentials_name: str,
+                                          confirm: bool = True,
+                                          debug: bool = False) -> (str, str):
     """
     Validates the given AWS directory and AWS credentials name and returns
     the AWS credentials name and full path to the associated AWS credentials directory.
@@ -188,7 +190,7 @@ def validate_aws_credentials_info(
     return aws_credentials_name, aws_credentials_dir
 
 
-def validate_custom_dir(custom_dir: str) -> str:
+def validate_and_get_custom_dir(custom_dir: str) -> str:
     """
     Validates the given custom directory and returns its full path.
     Exit on error (if not set).
@@ -210,7 +212,7 @@ def validate_custom_dir(custom_dir: str) -> str:
     return custom_dir
 
 
-def validate_account_number(account_number: str, aws_credentials_dir: str, debug: bool = False) -> str:
+def validate_and_get_account_number(account_number: str, aws_credentials_dir: str, debug: bool = False) -> str:
     """
     Validates the given account number (if specified), and returns it if/when set.
     If not specified we try to get it from test_creds.sh.
@@ -235,7 +237,7 @@ def validate_account_number(account_number: str, aws_credentials_dir: str, debug
     return account_number
 
 
-def validate_deploying_iam_user(deploying_iam_user: str, aws_credentials_dir: str) -> str:
+def validate_and_get_deploying_iam_user(deploying_iam_user: str, aws_credentials_dir: str) -> str:
     """
     Validates the given deploying IAM username and returns it if/when set.
     Prompts for this value if not set; exit on error (if not set).
@@ -257,7 +259,7 @@ def validate_deploying_iam_user(deploying_iam_user: str, aws_credentials_dir: st
     return deploying_iam_user
 
 
-def validate_identity(identity: str, aws_credentials_name: str) -> str:
+def validate_and_get_identity(identity: str, aws_credentials_name: str) -> str:
     """
     Validates the given identity (i.e. GAC name) and returns it if set.
     Does NOT prompt for this value if not set; exit on error (if not set).
@@ -277,7 +279,7 @@ def validate_identity(identity: str, aws_credentials_name: str) -> str:
     return identity
 
 
-def validate_s3_bucket_org(s3_bucket_org: str) -> str:
+def validate_and_get_s3_bucket_org(s3_bucket_org: str) -> str:
     """
     Validates the given S3 bucket organization name and returns it if/when set.
     Prompts for this value if not set; exit on error (if not set).
@@ -294,7 +296,7 @@ def validate_s3_bucket_org(s3_bucket_org: str) -> str:
     return s3_bucket_org
 
 
-def validate_auth0(auth0_client: str, auth0_secret: str) -> (str, str):
+def validate_and_get_auth0(auth0_client: str, auth0_secret: str) -> (str, str):
     """
     Validates the given Auth0 client/secret and returns them if/when set.
     Prompts for this value if not set; exit on error (if not set).
@@ -322,7 +324,7 @@ def validate_auth0(auth0_client: str, auth0_secret: str) -> (str, str):
     return auth0_client, auth0_secret
 
 
-def validate_recaptcha(recaptcha_key: str, recaptcha_secret: str) -> (str, str):
+def validate_and_get_recaptcha(recaptcha_key: str, recaptcha_secret: str) -> (str, str):
     """
     Validates the given reCAPTCHA key/secret and returns them if/when set.
     Does not prompt for this value if not set as not required.
@@ -426,15 +428,16 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
             PRINT(f"DEBUG: Script directory: {InfraDirectories.THIS_SCRIPT_DIR}")
 
         # Validate/gather all the inputs.
-        aws_credentials_name, aws_credentials_dir \
-            = validate_aws_credentials_info(aws_dir, aws_credentials_name, confirm, debug)
-        custom_dir = validate_custom_dir(custom_dir)
-        account_number = validate_account_number(account_number, aws_credentials_dir, debug)
-        deploying_iam_user = validate_deploying_iam_user(deploying_iam_user, aws_credentials_dir)
-        identity = validate_identity(identity, aws_credentials_name)
-        s3_bucket_org = validate_s3_bucket_org(s3_bucket_org)
-        auth0_client, auth0_secret = validate_auth0(auth0_client, auth0_secret)
-        recaptcha_key, recaptcha_secret = validate_recaptcha(recaptcha_key, recaptcha_secret)
+        aws_credentials_name, aws_credentials_dir = validate_and_get_aws_credentials_info(aws_dir,
+                                                                                          aws_credentials_name,
+                                                                                          confirm, debug)
+        custom_dir = validate_and_get_custom_dir(custom_dir)
+        account_number = validate_and_get_account_number(account_number, aws_credentials_dir, debug)
+        deploying_iam_user = validate_and_get_deploying_iam_user(deploying_iam_user, aws_credentials_dir)
+        identity = validate_and_get_identity(identity, aws_credentials_name)
+        s3_bucket_org = validate_and_get_s3_bucket_org(s3_bucket_org)
+        auth0_client, auth0_secret = validate_and_get_auth0(auth0_client, auth0_secret)
+        recaptcha_key, recaptcha_secret = validate_and_get_recaptcha(recaptcha_key, recaptcha_secret)
 
         PRINT(f"Using S3 bucket encryption: {'Yes' if s3_bucket_encryption else 'No'}")
 

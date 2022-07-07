@@ -5,7 +5,7 @@ from typing import Optional
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
 from .aws_context import AwsContext
-from .misc_utils import (obfuscate, should_obfuscate)
+from .misc_utils import (obfuscate, print_exception, should_obfuscate)
 
 
 class Aws(AwsContext):
@@ -109,7 +109,7 @@ class Aws(AwsContext):
                     secrets_manager.update_secret(SecretId=secret_name, SecretString=json.dumps(secret_value_json))
                     return True
             except Exception as e:
-                PRINT(f"EXCEPTION: {str(e)}")
+                print_exception(e)
             return False
 
     def find_iam_user_name(self, user_name_pattern: str) -> Optional[str]:
@@ -180,7 +180,7 @@ class Aws(AwsContext):
                 domain_endpoint = f"{domain_endpoint_vpc}:80"
             return domain_endpoint
 
-    def create_user_access_key(self, user_name: str, show: bool = False) -> (str, str):
+    def create_user_access_key(self, user_name: str, show: bool = False) -> (Optional[str], Optional[str]):
         """
         Create an AWS security access key pair for the given IAM user name.
         This is a command-line INTERACTIVE process, prompting the user for info/confirmation.
@@ -257,13 +257,14 @@ class Aws(AwsContext):
             return key_policy_json
 
     @staticmethod
-    def get_kms_key_policy_principals(key_policy_json: str, sid_pattern: str) -> list:
+    def get_kms_key_policy_principals(key_policy_json: dict, sid_pattern: str) -> list:
         """
         Returns the AWS principals list for the specific KMS key policy within the
-        given KMS key policy JSON, whose statemnd ID (sid) matches the given sid_pattern.
+        given KMS key policy JSON, whose statement ID (sid) matches the given sid_pattern.
 
         :param key_policy_json: JSON for a KMS key policy.
         :param sid_pattern: Statement ID (sid) pattern to match the specific policy.
+        :return: List of KMS key policy principals.
         """
         key_policy_statements = key_policy_json["Statement"]
         for key_policy_statement in key_policy_statements:

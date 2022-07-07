@@ -3,12 +3,13 @@ from typing import Optional
 from dcicutils.misc_utils import PRINT
 from .paths import (InfraDirectories, InfraFiles)
 from ..utils.misc_utils import (get_json_config_file_value,
-                                exit_with_no_action)
+                                exit_with_no_action,
+                                print_exception)
 from .aws import Aws
 from .aws_context import AwsContext
 
 
-def validate_custom_dir(custom_dir: str) -> (str, str):
+def validate_and_get_custom_dir(custom_dir: str) -> (str, str):
     """
     Validates the given custom directory and returns a tuple containing its full path,
     as well as the full path to the JSON config file within this custom directory.
@@ -29,7 +30,7 @@ def validate_custom_dir(custom_dir: str) -> (str, str):
     return custom_dir, config_file
 
 
-def validate_aws_credentials_name(aws_credentials_name: str, config_file: str) -> str:
+def validate_and_get_aws_credentials_name(aws_credentials_name: str, config_file: str) -> str:
     """
     Validates the given AWS credentials name (e.g. cgap-supertest) and gets and returns
     the value for this if not set. Default if not set is to get from the given JSON
@@ -47,7 +48,7 @@ def validate_aws_credentials_name(aws_credentials_name: str, config_file: str) -
     return aws_credentials_name
 
 
-def validate_aws_credentials_dir(aws_credentials_dir: str, custom_dir: str) -> str:
+def validate_and_get_aws_credentials_dir(aws_credentials_dir: str, custom_dir: str) -> str:
     """
     Validates the given AWS credentials directory and returns its full path.
     Default if not set is: /full-path-relative-to-current-directory/custom/aws_creds.
@@ -68,12 +69,12 @@ def validate_aws_credentials_dir(aws_credentials_dir: str, custom_dir: str) -> s
     return aws_credentials_dir
 
 
-def validate_aws_credentials(credentials_dir: str,
-                             access_key_id: str = None,
-                             secret_access_key: str = None,
-                             region: str = None,
-                             session_token: str = None,
-                             show: bool = False) -> (Aws, AwsContext.Credentials):
+def validate_and_get_aws_credentials(credentials_dir: str,
+                                     access_key_id: str = None,
+                                     secret_access_key: str = None,
+                                     region: str = None,
+                                     session_token: str = None,
+                                     show: bool = False) -> (Aws, AwsContext.Credentials):
     """
     Validates the given AWS credentials which can be either the path to the AWS credentials directory;
     or the AWS access key ID, secret access key, and region; or the AWS session token.
@@ -96,11 +97,11 @@ def validate_aws_credentials(credentials_dir: str,
         with aws.establish_credentials(display=True, show=show) as credentials:
             return aws, credentials
     except Exception as e:
-        PRINT(e)
+        print_exception(e)
         exit_with_no_action("ERROR: Cannot validate AWS credentials.")
 
 
-def validate_s3_encrypt_key_id(s3_encrypt_key_id: str, config_file: str, aws: Aws) -> Optional[str]:
+def validate_and_get_s3_encrypt_key_id(s3_encrypt_key_id: str, config_file: str, aws: Aws) -> Optional[str]:
     """
     Validates the given S3 encryption key ID and returns its value, but only if encryption
     is enabled via the "s3.bucket.encryption" value in the given JSON config file. If not

@@ -3,10 +3,10 @@ from dcicutils.qa_utils import MockBoto3
 from dcicutils.diff_utils import DiffManager
 from src.auto.update_kms_policy.cli import main
 from src.auto.utils import aws, aws_context
-from .testing_utils import setup_aws_credentials_dir, setup_custom_dir
+from .testing_utils import temporary_aws_credentials_dir_for_testing, temporary_custom_dir_for_testing
 
 
-class Input:
+class TestData:
 
     aws_credentials_name = "cgap-unit-test"
     aws_access_key_id = "AWS-ACCESS-KEY-ID-FOR-TESTING"
@@ -72,14 +72,18 @@ def test_update_kms_policy() -> None:
 
     mocked_boto = MockBoto3()
 
-    mocked_boto.client("iam").put_roles_for_testing(Input.aws_iam_roles)
-    mocked_boto.client("sts").put_caller_identity_for_testing(Input.aws_account_number, Input.aws_user_arn)
-    mocked_boto.client("kms").put_key_for_testing(Input.aws_kms_key_id)
-    mocked_boto.client("kms").put_key_policy_for_testing(Input.aws_kms_key_id, Input.aws_kms_key_policy)
+    mocked_boto.client("iam").put_roles_for_testing(TestData.aws_iam_roles)
+    mocked_boto.client("sts").put_caller_identity_for_testing(TestData.aws_account_number, TestData.aws_user_arn)
+    mocked_boto.client("kms").put_key_for_testing(TestData.aws_kms_key_id)
+    mocked_boto.client("kms").put_key_policy_for_testing(TestData.aws_kms_key_id, TestData.aws_kms_key_policy)
 
-    with setup_aws_credentials_dir(Input.aws_access_key_id,
-                                   Input.aws_secret_access_key, Input.aws_region) as aws_credentials_dir, \
-         setup_custom_dir(Input.aws_credentials_name, Input.aws_account_number, True) as custom_dir, \
+    with temporary_aws_credentials_dir_for_testing(
+            TestData.aws_access_key_id,
+            TestData.aws_secret_access_key,
+            TestData.aws_region) as aws_credentials_dir, \
+         temporary_custom_dir_for_testing(
+            TestData.aws_credentials_name,
+            TestData.aws_account_number, True) as custom_dir, \
          mock.patch.object(aws_context, "boto3", mocked_boto), mock.patch.object(aws, "boto3", mocked_boto), \
          mock.patch("builtins.input") as mocked_input:
 
@@ -87,22 +91,22 @@ def test_update_kms_policy() -> None:
 
         aws_object = aws.Aws(aws_credentials_dir)
 
-        kms_key_policy_before = aws_object.get_kms_key_policy(Input.aws_kms_key_id)
+        kms_key_policy_before = aws_object.get_kms_key_policy(TestData.aws_kms_key_id)
 
         main(["--custom-dir", custom_dir, "--aws-credentials-dir", aws_credentials_dir, "--verbose"])
 
-        kms_key_policy_after = aws_object.get_kms_key_policy(Input.aws_kms_key_id)
+        kms_key_policy_after = aws_object.get_kms_key_policy(TestData.aws_kms_key_id)
 
         # Get the "after" principals for the KMS key policy in
-        # question (i.e. index-1 from Input.aws_kms_key_policy above).
+        # question (i.e. index-1 from TestData.aws_kms_key_policy above).
         kms_key_policy_principals_after = kms_key_policy_after["Statement"][1]["Principal"]["AWS"]
 
         # Make sure the principals for the KMS key policy in question
-        # from Input.aws_kms_key_policy above) match what we expect.
-        assert sorted(kms_key_policy_principals_after) == sorted(Input.aws_kms_key_policy_roles_after)
+        # from TestData.aws_kms_key_policy above) match what we expect.
+        assert sorted(kms_key_policy_principals_after) == sorted(TestData.aws_kms_key_policy_roles_after)
 
         # Disregarding the before/after principals for the KMS key policy
-        # in question (i.e. index-1 from Input.aws_kms_key_policy above),
+        # in question (i.e. index-1 from TestData.aws_kms_key_policy above),
         # make sure that the policies are otherwise the same.
         del kms_key_policy_before["Statement"][1]["Principal"]["AWS"]
         del kms_key_policy_after["Statement"][1]["Principal"]["AWS"]

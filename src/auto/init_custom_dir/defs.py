@@ -1,7 +1,7 @@
-# Definitions for files/paths, template variables, and evironment variables.
+# Definitions for files/paths, template variables, and environment variables.
 #
 # Testing notes:
-# - External resources accesed by this module:
+# - External resources accessed by this module:
 #   - filesystem via:
 #     - os.path.abspath
 #     - os.path.dirname

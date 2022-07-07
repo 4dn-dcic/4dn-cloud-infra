@@ -8,7 +8,9 @@ from typing import Callable, Optional
 
 
 @contextmanager
-def setup_aws_credentials_dir(aws_access_key_id: str, aws_secret_access_key: str, aws_region: str = None):
+def temporary_aws_credentials_dir_for_testing(aws_access_key_id: str,
+                                              aws_secret_access_key: str,
+                                              aws_region: str = None):
     """
     Sets up an AWS credentials directory, in a system temporary directory (for the lifetime
     of this context manager), containing a credentials file with the given AWS access key
@@ -36,13 +38,16 @@ def setup_aws_credentials_dir(aws_access_key_id: str, aws_secret_access_key: str
 
 
 @contextmanager
-def setup_custom_dir(aws_credentials_name: str, aws_account_number: str, encryption_enabled: bool = False):
+def temporary_custom_dir_for_testing(aws_credentials_name: str,
+                                     aws_account_number: str,
+                                     encryption_enabled: bool = False):
     """
     Sets up a custom config directory, in a system temporary directory (for the lifetime of this context manager),
     containing a config.json file with the given AWS credentials name (e.g. cgap-supertest), and AWS account number.
 
     :param aws_credentials_name: AWS credentials name (e.g. cgap-superttest).
     :param aws_account_number: AWS account number (e.g. 466564410312)
+    :param encryption_enabled: True iff encryption should be enabled otherwise False.
     :return: Yields full path to the temporary custom directory.
     """
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -59,22 +64,25 @@ def setup_custom_dir(aws_credentials_name: str, aws_account_number: str, encrypt
         yield custom_dir
 
 
-def rummage_for_print_message(mocked_print, regular_expression: str) -> Optional[str]:
+def find_matching_line(mocked_print, regular_expression: str, predicate: Optional[Callable] = None) -> Optional[str]:
     """
     Searches the given print mock for the/a print call whose argument matches the given regular
     expression, and returns that argument for the first one that matches; if not found returns None.
 
     :param mocked_print: Mock print object.
     :param regular_expression: Regular expression to look for in mock print values/lines.
+    :param predicate: Optional function taking matched line and returning a True or False indicating match or not.
     :return: First message matching the given regular expression or None if not found.
     """
+    predicate = predicate or (lambda _: True)
     for line in mocked_print.lines:
         if re.search(regular_expression, line, re.IGNORECASE):
-            return line
+            if predicate(line):
+                return line
     return None
 
 
-def rummage_for_print_message_all(mocked_print, regular_expression: str, predicate: Callable) -> bool:
+def all_lines_match(mocked_print, regular_expression: str, predicate: Callable) -> bool:
     """
     Searches the given print mock for the/a call whose argument matches the given regular
     expression and returns True iff EVERY match ALSO passes (gets a True return value
@@ -82,7 +90,7 @@ def rummage_for_print_message_all(mocked_print, regular_expression: str, predica
 
     :param mocked_print: Mock print object.
     :param regular_expression: Regular expression to look for in mock print output values/lines.
-    :param predicate: Regular expression to look for in mock print values/lines.
+    :param predicate: Function taking matched line and returning a True or False indicating match or not.
     :return: True if ALL matched mock print values/lines passes the given predicate test otherwise False.
     """
     for value in mocked_print.lines:

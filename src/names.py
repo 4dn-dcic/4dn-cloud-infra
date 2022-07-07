@@ -6,9 +6,9 @@ from .constants import (
     COMMON_STACK_PREFIX_CAMEL_CASE,
     C4DatastoreBase,
     C4IAMBase,
-    C4SentieonSupportBase,
-    StackNameMixinBase
+    C4SentieonSupportBase
 )
+from .mixins import StackNameBaseMixin
 
 
 class Names:
@@ -46,7 +46,7 @@ class Names:
     # dmichaels/2022-06-22: Factored out from C4IAM.suggest_sharing_qualifier() in part.py.
     @classmethod
     def suggest_sharing_qualifier(cls, sharing: str, env_name: str, ecosystem: str) -> str:
-        sharing_qualifiers = StackNameMixinBase.SHARING_QUALIFIERS(env_name, ecosystem)
+        sharing_qualifiers = StackNameBaseMixin.SHARING_QUALIFIERS(env_name, ecosystem)
         if sharing not in sharing_qualifiers:
             raise InvalidParameterError(parameter=f'{cls}.SHARING', value=sharing,
                                         options=list(sharing_qualifiers.keys()))

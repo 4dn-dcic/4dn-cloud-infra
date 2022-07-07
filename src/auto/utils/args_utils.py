@@ -1,5 +1,6 @@
 import argparse
 from .paths import InfraDirectories
+from .misc_utils import exit_with_no_action
 
 
 def add_aws_credentials_args(args_parser: argparse.ArgumentParser) -> None:
@@ -28,3 +29,9 @@ def add_aws_credentials_args(args_parser: argparse.ArgumentParser) -> None:
     args_parser.add_argument("--aws-session-token", required=False,
                              dest="aws_session_token",
                              help=f"Your AWS session token.")
+
+
+def validate_aws_credentials_args(args) -> None:
+    if ((args.aws_access_key_id or args.aws_secret_access_key)
+       and not (args.aws_access_key_id and args.aws_secret_access_key)):
+        exit_with_no_action("Either none or both --aws-access-key-id and --aws-secret-access-key must be specified.")

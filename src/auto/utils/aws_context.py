@@ -62,13 +62,13 @@ class AwsContext:
     @contextlib.contextmanager
     def establish_credentials(self, display: bool = False, show: bool = False):
         """
-        Context manager to establish AWS credentials without using environment,
-        rather using the explicit AWS credentials directory or the explicit
-        credentials values passed to the constructor of this object.
+        Context manager to establish AWS credentials WITHOUT using environment, rather
+        using the EXPLICITLY specified AWS credentials directory or the EXPLICITLY
+        specified credentials values passed to the constructor of this object.
 
         Implementation note: to do this we temporarily (for the life of the context
-        manager context) blow away the pertinent AWS credentials related environment
-        variables, and set them appropriately based on given credentials information.
+        manager context) blow away any pertinent AWS credentials related environment variables,
+        and set them appropriately based on given EXPLICITLY specified credentials information.
 
         :param display: If True then print summary of AWS credentials.
         :param show: If True and display True show in plaintext sensitive info for AWS credentials summary.

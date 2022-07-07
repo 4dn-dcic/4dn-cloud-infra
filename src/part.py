@@ -7,7 +7,7 @@ from dcicutils.misc_utils import remove_prefix
 from troposphere import Tag, Tags, Template
 from .base import ENV_NAME, ECOSYSTEM
 from .c4name import C4Name
-from .constants import StackNameMixinBase
+from .mixins import StackNameBaseMixin
 from .names import Names
 
 
@@ -58,13 +58,13 @@ class C4Account:
 # dmichaels/2022-06-06: Factored out C4Name class into c4name.py.
 
 
-class StackNameMixin(StackNameMixinBase):
+class StackNameMixin(StackNameBaseMixin):
 
     STACK_NAME_TOKEN = None
     STACK_TITLE_TOKEN = None
     STACK_TAGS = None
 
-    # dmichaels/2022-06-22: Factored out into StackNameMixinBase in constants.py.
+    # dmichaels/2022-06-22: Factored out into StackNameBaseMixin in constants.py.
     # SHARING = 'env'
     # _SHARING_QUALIFIERS = {
     #     'env': f"{ENV_NAME}",

@@ -10,7 +10,8 @@ from prettytable import PrettyTable
 import re
 import secrets
 import subprocess
-from typing import Optional
+from .paths import MiscFiles
+from typing import Callable, Optional
 from dcicutils.misc_utils import (json_leaf_subst as expand_json_template, PRINT)
 
 
@@ -52,10 +53,13 @@ def expand_json_template_file(template_file: str, output_file: str, template_sub
         output_fp.write("\n")
 
 
-def read_env_variable_from_subshell(shell_script_file: str, env_variable_name: str) -> Optional[str]:
+def get_script_exported_variable(shell_script_file: str, env_variable_name: str) -> Optional[str]:
     """
-    Obtains/returns the value of the given envrionment variable name by actually
-    executing the given shell script file in a sub-shell; be careful what you pass here.
+    Obtains/returns the value of the given environment variable name by actually
+    executing the given shell script file in a sub-shell.
+
+    WARNING: Since the given full (bash) script file is actually executed, be very
+             CAREFUL what you pass here; i.e. that it has no unwanted side-effects.
 
     :param shell_script_file: Shell script file to execute.
     :param env_variable_name: Environment variable name to read.
@@ -74,36 +78,52 @@ def read_env_variable_from_subshell(shell_script_file: str, env_variable_name: s
         return None
 
 
+def generate_password() -> str:
+    """
+    Returns a reasonably secure password, by simply concatenating 5 random words from the system
+    dictionary words file; or if that is not possible, then returns a random 32-character string.
+
+    :return: Generated password.
+    """
+    password = None
+    # Will suggests using a password from some (5) random words.
+    if os.path.isfile(MiscFiles.DICTIONARY_WORDS_FILE):
+        dictionary_words_file = MiscFiles.DICTIONARY_WORDS_FILE
+    elif os.path.isfile(MiscFiles.ALTERNATE_DICTIONARY_WORDS_FILE):
+        dictionary_words_file = MiscFiles.ALTERNATE_DICTIONARY_WORDS_FILE
+    else:
+        dictionary_words_file = None
+    if dictionary_words_file:
+        try:
+            with io.open(dictionary_words_file) as dictionary_words_fp:
+                words = [word.strip() for word in dictionary_words_fp]
+                if len(words) > 10000:
+                    password = " ".join(secrets.choice(words) for _ in range(5))
+        except Exception:
+            pass
+    if not password:
+        password = secrets.token_hex(16)
+    return password
+
+
 def generate_encryption_key(length: int = 32) -> str:
     """
     Generate a cryptographically secure encryption key suitable for AWS S3 (or other) encryption.
-    By default length will be 16 characters; if length less then 1 uses 1; if odd length then adds 1.
-    References:
+    By default, length will be 16 characters; if length less than 1 uses 1; if odd length then adds 1.
+    Ref:
     https://cryptobook.nakov.com/symmetric-key-ciphers/aes-encrypt-decrypt-examples#password-to-key-derivation
     https://docs.python.org/3/library/secrets.html#recipes-and-best-practices
+    https://en.wikipedia.org/wiki/PBKDF2
 
-    :param length: Length of encryption key to return; default 16; ; if less then 1 uses 1; if odd then adds 1.
+    :param length: Length of encryption key to return; default 16; if less than 2 uses 2; if odd then adds 1.
     :return: Globally unique cryptographically secure encryption key.
     """
-    system_words_dictionary_file = "/usr/share/dict/words"
-
-    def generate_password() -> str:
-        # Will suggests using a password from some (4) random words.
-        password = ""
-        if os.path.isfile(system_words_dictionary_file):
-            try:
-                with open(system_words_dictionary_file) as system_words_fp:
-                    words = [word.strip() for word in system_words_fp]
-                    password = "".join(secrets.choice(words) for _ in range(4))
-            except Exception:
-                password = ""
-        # As fallback for the words thing, and in any case, tack on a random token.
-        return password + secrets.token_hex(16)
-    if length < 1:
-        length = 1
-    if length % 2 != 0:
+    if length < 2:
+        length = 2
+    elif length % 2 != 0:
         length += 1
     password_salt = os.urandom(16)
+    # Integer floor (//) division by two of length because read returns double the length of this argument value.
     encryption_key = pbkdf2.PBKDF2(generate_password(), password_salt).read(length // 2)
     encryption_key = binascii.hexlify(encryption_key).decode("utf-8")
     return encryption_key
@@ -117,18 +137,20 @@ def should_obfuscate(key: str) -> bool:
     in the secret_key_names_for_obfuscation list, which can be a regular
     expression. Add more to secret_key_names_for_obfuscation if/when needed.
 
-    :param key: Key name of some property which may or may not need to be obfuscated..
+    :param key: Key name of some property which may or may not need to be obfuscated.
     :return: True if the given key name looks like it represents a sensitive value.
     """
-    secret_key_names_for_obfuscation = [
-        ".*secret.*",
-        ".*secrt.*",
-        ".*password.*",
-        ".*passwd.*",
-        ".*crypt.*"
-    ]
-    secret_key_names_regex = map(lambda regex: re.compile(regex, re.IGNORECASE), secret_key_names_for_obfuscation)
-    return any(regex.match(key) for regex in secret_key_names_regex)
+    secret_key_names_regex = re.compile(
+        r"""
+        .*(
+            secret   |
+            secrt    |
+            password |
+            passwd   |
+            crypt
+        ).*
+        """, re.VERBOSE | re.IGNORECASE)
+    return secret_key_names_regex.match(key) is not None
 
 
 def obfuscate(value: str, show: bool = False) -> str:
@@ -140,6 +162,14 @@ def obfuscate(value: str, show: bool = False) -> str:
     :return: Obfuscated (or not if show) value or empty string if not a string or empty.
     """
     return value if show else len(value) * "*"
+
+
+def get_exception_string(exception) -> str:
+    return f"{exception.__class__.__name__}: {exception}"
+
+
+def print_exception(exception) -> None:
+    PRINT(get_exception_string(exception))
 
 
 def exit_with_no_action(*messages, status: int = 1) -> None:
@@ -194,7 +224,7 @@ def setup_and_action():
             if isinstance(exception, KeyboardInterrupt):
                 message = "Interrupt!"
             else:
-                message = f"{exception.__class__.__name__}: {exception}"
+                message = get_exception_string(exception)
             if self.status != 'setup':
                 exit_with_partial_action("\n", message)
             else:
@@ -217,14 +247,15 @@ def print_directory_tree(directory: str) -> None:
 
     :param directory: Directory name whose tree structure to print.
     """
-    # This function adapted stackoverflow:
+    first = "└─ "
+    space = "    "
+    branch = "│   "
+    tee = "├── "
+    last = "└── "
+
+    # This function adapted from stackoverflow:
     # Ref: https://stackoverflow.com/questions/9727673/list-directory-tree-structure-in-python
-    intro = "└─ "
     def tree_generator(dirname: str, prefix: str = ""):
-        space = "    "
-        branch = "│   "
-        tee = "├── "
-        last = "└── "
         contents = [os.path.join(dirname, item) for item in sorted(os.listdir(dirname))]
         pointers = [tee] * (len(contents) - 1) + [last]
         for pointer, path in zip(pointers, contents):
@@ -233,13 +264,13 @@ def print_directory_tree(directory: str) -> None:
             if os.path.isdir(path):
                 extension = branch if pointer == tee else space
                 yield from tree_generator(path, prefix=prefix+extension)
-    PRINT(intro + directory)
+    PRINT(first + directory)
     for line in tree_generator(directory, prefix="   "):
         PRINT(line)
 
 
 def print_dictionary_as_table(header_name: str, header_value: str,
-                              dictionary: dict, display_value: callable, sort: bool = True) -> None:
+                              dictionary: dict, display_value: Callable, sort: bool = True) -> None:
     table = PrettyTable()
     table.field_names = [header_name, header_value]
     table.align[header_name] = "l"
