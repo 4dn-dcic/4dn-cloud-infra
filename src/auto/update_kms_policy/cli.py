@@ -11,11 +11,9 @@ from ..utils.misc_utils import (
     exit_with_no_action
 )
 from ..utils.validate_utils import (
-    validate_and_get_aws_credentials,
-    validate_and_get_aws_credentials_dir,
-    validate_and_get_aws_credentials_name,
-    validate_and_get_custom_dir,
-    validate_and_get_s3_encrypt_key_id
+    validate_and_get_aws_credentials, validate_and_get_aws_credentials_dir,
+    validate_and_get_aws_credentials_name, validate_and_get_custom_dir,
+    validate_and_get_s3_encrypt_key_id,
 )
 
 
