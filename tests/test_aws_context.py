@@ -19,6 +19,14 @@ class TestData:
     aws_user_arn = "1B1CCA38-1CC8-4979-9213-85C6B664C0AA"
 
 
+aws_environ_vars = ["AWS_ACCESS_KEY_ID",
+                    "AWS_SECRET_ACCESS_KEY",
+                    "AWS_SHARED_CREDENTIALS_FILE",
+                    "AWS_CONFIG_FILE",
+                    "AWS_REGION",
+                    "AWS_DEFAULT_REGION"]
+
+
 @contextmanager
 def _setup_aws_credentials_dir(aws_access_key_id: str, aws_secret_access_key: str, aws_region: str = None):
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -38,12 +46,6 @@ def _setup_aws_credentials_dir(aws_access_key_id: str, aws_secret_access_key: st
 
 
 def _setup_aws_environ_that_should_be_ignored():
-    aws_environ_vars = ["AWS_ACCESS_KEY_ID",
-                        "AWS_SECRET_ACCESS_KEY",
-                        "AWS_SHARED_CREDENTIALS_FILE",
-                        "AWS_CONFIG_FILE",
-                        "AWS_REGION",
-                        "AWS_DEFAULT_REGION"]
     for aws_environ_var in aws_environ_vars:
         os.environ[aws_environ_var] = "UNUSED_" + aws_environ_var
 
