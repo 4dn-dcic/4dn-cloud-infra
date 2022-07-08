@@ -6,21 +6,21 @@ from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
 from ...names import Names
 from ..utils.aws import Aws
-from ..utils.args_utils import add_aws_credentials_args
+from ..utils.args_utils import add_aws_credentials_args, validate_aws_credentials_args
 from ..utils.paths import InfraDirectories
 from ..utils.misc_utils import (exit_with_no_action,
                                 setup_and_action)
-from ..utils.validate_utils import (validate_aws_credentials,
-                                    validate_aws_credentials_dir,
-                                    validate_aws_credentials_name,
-                                    validate_custom_dir)
+from ..utils.validate_utils import (validate_and_get_aws_credentials,
+                                    validate_and_get_aws_credentials_dir,
+                                    validate_and_get_aws_credentials_name,
+                                    validate_and_get_custom_dir)
 
 
 def get_application_security_group_name() -> str:
     return Names.application_security_group_name()
 
 
-def validate_security_group_name(security_group_name: str) -> str:
+def validate_and_get_security_group_name(security_group_name: str) -> str:
     if not security_group_name:
         security_group_name = get_application_security_group_name()
         if not security_group_name:
@@ -172,9 +172,9 @@ def update_sentieon_security(args) -> None:
     with setup_and_action() as setup_and_action_state:
 
         # Gather the basic info.
-        custom_dir, config_file = validate_custom_dir(args.custom_dir)
-        aws_credentials_name = validate_aws_credentials_name(args.aws_credentials_name, config_file)
-        aws_credentials_dir = validate_aws_credentials_dir(args.aws_credentials_dir, custom_dir)
+        custom_dir, config_file = validate_and_get_custom_dir(args.custom_dir)
+        aws_credentials_name = validate_and_get_aws_credentials_name(args.aws_credentials_name, config_file)
+        aws_credentials_dir = validate_and_get_aws_credentials_dir(args.aws_credentials_dir, custom_dir)
 
         # Print header and basic info.
         PRINT(f"Updating 4dn-cloud-infra application security group Sentieon.")
@@ -183,15 +183,15 @@ def update_sentieon_security(args) -> None:
         PRINT(f"Your AWS credentials name: {aws_credentials_name}")
 
         # Validate and print basic AWS credentials info.
-        aws, aws_credentials = validate_aws_credentials(aws_credentials_dir,
-                                                        args.aws_access_key_id,
-                                                        args.aws_secret_access_key,
-                                                        args.aws_region,
-                                                        args.aws_session_token,
-                                                        args.show)
+        aws, aws_credentials = validate_and_get_aws_credentials(aws_credentials_dir,
+                                                                args.aws_access_key_id,
+                                                                args.aws_secret_access_key,
+                                                                args.aws_region,
+                                                                args.aws_session_token,
+                                                                args.show)
 
         # Validate the security group name (default via 4dn-cloud-infra code in names.py).
-        security_group_name = validate_security_group_name(args.security_group_name)
+        security_group_name = validate_and_get_security_group_name(args.security_group_name)
         print(f"Target security group name: {security_group_name}")
 
         # Get the associated security group ID from the name.
@@ -232,6 +232,7 @@ def main(override_argv: Optional[list] = None) -> None:
                       help="Behave as if all confirmation questions were answered yes.")
     argp.add_argument("--show", action="store_true", required=False)
     args = argp.parse_args(override_argv)
+    validate_aws_credentials_args(args)
 
     if (args.aws_access_key_id or args.aws_secret_access_key) and \
        not (args.aws_access_key_id and args.aws_secret_access_key):
