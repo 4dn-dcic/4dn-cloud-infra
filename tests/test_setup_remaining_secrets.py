@@ -2,8 +2,9 @@ import mock
 import re
 from typing import Optional
 from src.auto.setup_remaining_secrets.cli import main
-from dcicutils.cloudformation_utils import camelize
+from dcicutils.cloudformation_utils import camelize, DEFAULT_ECOSYSTEM
 from dcicutils.qa_utils import printed_output as mock_print, MockBoto3
+from src.names import Names
 from src.auto.setup_remaining_secrets.defs import GacSecretKeyName, RdsSecretKeyName
 from src.auto.utils import aws, aws_context
 from .testing_utils import (find_matching_line,
@@ -80,6 +81,11 @@ def test_setup_remaining_secrets_without_overwriting_existing_secrets() -> None:
     do_test_setup_remaining_secrets(overwrite_secrets=False, create_access_key_pair=True, encryption_enabled=False)
     do_test_setup_remaining_secrets(overwrite_secrets=False, create_access_key_pair=False, encryption_enabled=True)
     do_test_setup_remaining_secrets(overwrite_secrets=False, create_access_key_pair=False, encryption_enabled=False)
+
+
+def test_get_federated_user_name_pattern() -> None:
+    federated_user_name_pattern = Names.ecs_s3_iam_user_logical_id(None, TestData.aws_credentials_name, DEFAULT_ECOSYSTEM)
+    assert federated_user_name_pattern == "C4IAMMainApplicationS3Federator"
 
 
 def do_test_setup_remaining_secrets(overwrite_secrets: bool = True,
