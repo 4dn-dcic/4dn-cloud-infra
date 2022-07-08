@@ -166,9 +166,9 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
 
         # Check that any secrets printed out look like they"ve been obfuscated.
         assert all_lines_match(
-            mocked_print, ".*using.*secret.*", lambda arg: arg.endswith("*******"))
+            mocked_print.lines, ".*using.*secret.*", lambda arg: arg.endswith("*******"))
         assert all_lines_match(
-            mocked_print, ".*using.*secret.*",
+            mocked_print.lines, ".*using.*secret.*",
             lambda arg: TestData.auth0_secret not in arg and TestData.recaptcha_secret not in arg)
 
 
@@ -184,11 +184,11 @@ def _call_function_and_assert_exit_with_no_action(f, interrupt: bool = False) ->
         with pytest.raises(Exception):
             f()
         if interrupt:
-            assert find_matching_line(mocked_print, ".*interrupt.*") is not None
+            assert find_matching_line(mocked_print.lines, ".*interrupt.*") is not None
         assert mocked_exit.called is True
         # Check the message from the last print which should be something like: Exiting without doing anything.
         # Kinda lame.
-        assert find_matching_line(mocked_print, ".*exit.*without.*doing*") is not None
+        assert find_matching_line(mocked_print.lines, ".*exit.*without.*doing*") is not None
 
 
 def test_sanity() -> None:

@@ -64,7 +64,7 @@ def temporary_custom_dir_for_testing(aws_credentials_name: str,
         yield custom_dir
 
 
-def find_matching_line(mocked_print, regular_expression: str, predicate: Optional[Callable] = None) -> Optional[str]:
+def find_matching_line(lines: list, regular_expression: str, predicate: Optional[Callable] = None) -> Optional[str]:
     """
     Searches the given print mock for the/a print call whose argument matches the given regular
     expression, and returns that argument for the first one that matches; if not found returns None.
@@ -75,14 +75,14 @@ def find_matching_line(mocked_print, regular_expression: str, predicate: Optiona
     :return: First message matching the given regular expression or None if not found.
     """
     predicate = predicate or (lambda _: True)
-    for line in mocked_print.lines:
+    for line in lines:
         if re.search(regular_expression, line, re.IGNORECASE):
             if predicate(line):
                 return line
     return None
 
 
-def all_lines_match(mocked_print, regular_expression: str, predicate: Callable) -> bool:
+def all_lines_match(lines: list, regular_expression: str, predicate: Callable) -> bool:
     """
     Searches the given print mock for the/a call whose argument matches the given regular
     expression and returns True iff EVERY match ALSO passes (gets a True return value
@@ -93,7 +93,7 @@ def all_lines_match(mocked_print, regular_expression: str, predicate: Callable) 
     :param predicate: Function taking matched line and returning a True or False indicating match or not.
     :return: True if ALL matched mock print values/lines passes the given predicate test otherwise False.
     """
-    for value in mocked_print.lines:
+    for value in lines:
         if re.search(regular_expression, value, re.IGNORECASE):
             if not predicate(value):
                 return False

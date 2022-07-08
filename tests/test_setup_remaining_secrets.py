@@ -132,7 +132,7 @@ def do_test_setup_remaining_secrets(overwrite_secrets: bool = True,
 
         def find_created_aws_access_key_id_from_output() -> Optional[str]:
             created_value_output = \
-                find_matching_line(mocked_print, ".*Created.*AWS.*Access.*Key.*ID.*")
+                find_matching_line(mocked_print.lines, ".*Created.*AWS.*Access.*Key.*ID.*")
             if created_value_output:
                 if " " in created_value_output:
                     last_space = created_value_output.rindex(" ")
@@ -142,7 +142,7 @@ def do_test_setup_remaining_secrets(overwrite_secrets: bool = True,
 
         def find_created_aws_secret_access_key_from_output() -> Optional[str]:
             created_value_output = \
-                find_matching_line(mocked_print, ".*Created.*AWS.*Secret.*Access.*Key.*")
+                find_matching_line(mocked_print.lines, ".*Created.*AWS.*Secret.*Access.*Key.*")
             if created_value_output:
                 if " " in created_value_output:
                     last_space = created_value_output.rindex(" ")
@@ -152,7 +152,7 @@ def do_test_setup_remaining_secrets(overwrite_secrets: bool = True,
 
         def find_current_value_of_secret_from_output(secret_key_name: str) -> Optional[str]:
             current_value_output = \
-                find_matching_line(mocked_print, f".*Current.*value.*secret.*{secret_key_name}.*")
+                find_matching_line(mocked_print.lines, f".*Current.*value.*secret.*{secret_key_name}.*")
             if current_value_output:
                 if " " in current_value_output:
                     last_space = current_value_output.rindex(" ")
