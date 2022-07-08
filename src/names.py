@@ -11,7 +11,7 @@ from .constants import (
 from .mixins import StackNameBaseMixin
 
 
-class Names:
+class Names(StackNameBaseMixin):
 
     # dmichaels/2022-06-06: Factored out from StackNameMixin.suggest_stack_name() in part.py.
     @staticmethod
@@ -46,7 +46,7 @@ class Names:
     # dmichaels/2022-06-22: Factored out from C4IAM.suggest_sharing_qualifier() in part.py.
     @classmethod
     def suggest_sharing_qualifier(cls, sharing: str, env_name: str, ecosystem: str) -> str:
-        sharing_qualifiers = StackNameBaseMixin.SHARING_QUALIFIERS(env_name, ecosystem)
+        sharing_qualifiers = cls.SHARING_QUALIFIERS(env_name, ecosystem)
         if sharing not in sharing_qualifiers:
             raise InvalidParameterError(parameter=f'{cls}.SHARING', value=sharing,
                                         options=list(sharing_qualifiers.keys()))
