@@ -46,7 +46,7 @@ class Names(StackNameBaseMixin):
     # dmichaels/2022-06-22: Factored out from C4IAM.suggest_sharing_qualifier() in part.py.
     @classmethod
     def suggest_sharing_qualifier(cls, sharing: str, env_name: str, ecosystem: str) -> str:
-        sharing_qualifiers = cls.SHARING_QUALIFIERS(env_name, ecosystem)
+        sharing_qualifiers = cls.sharing_qualifiers(env_name=env_name, ecosystem=ecosystem)
         if sharing not in sharing_qualifiers:
             raise InvalidParameterError(parameter=f'{cls}.SHARING', value=sharing,
                                         options=list(sharing_qualifiers.keys()))
