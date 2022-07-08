@@ -83,7 +83,7 @@ def update_outbound_security_group_rules(aws: Aws, aws_credentials_name: str, se
     # N.B. Had trouble finding values for these protocols (e.g. Source Quench, et cetera).
     # In fact only found a clue at this link:
     # https://github.com/VoyagerInnovations/secgroup_approval/blob/master/revertSecurityGroup.py
-    # Where we gleaned the following strategy for setting these which seem to work:
+    # Where we gleaned the following strategy for setting these, which does seem to work:
     #
     # Protocol: Destination Unreachable
     #      Use: FromPort = 3 and ToPort = -1
