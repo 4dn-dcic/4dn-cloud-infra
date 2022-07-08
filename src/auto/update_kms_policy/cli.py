@@ -6,13 +6,17 @@ from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
 from ..utils.args_utils import add_aws_credentials_args, validate_aws_credentials_args
 from ..utils.paths import InfraDirectories
-from ..utils.misc_utils import (get_json_config_file_value,
-                                exit_with_no_action)
-from ..utils.validate_utils import (validate_and_get_aws_credentials,
-                                    validate_and_get_aws_credentials_dir,
-                                    validate_and_get_aws_credentials_name,
-                                    validate_and_get_custom_dir,
-                                    validate_and_get_s3_encrypt_key_id)
+from ..utils.misc_utils import (
+    get_json_config_file_value,
+    exit_with_no_action
+)
+from ..utils.validate_utils import (
+    validate_and_get_aws_credentials,
+    validate_and_get_aws_credentials_dir,
+    validate_and_get_aws_credentials_name,
+    validate_and_get_custom_dir,
+    validate_and_get_s3_encrypt_key_id
+)
 
 
 def update_kms_policy(
