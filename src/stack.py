@@ -5,6 +5,7 @@ import sys
 from chalicelib.package import PackageDeploy as PackageDeploy_from_app
 from dcicutils.misc_utils import PRINT, full_class_name
 from os.path import dirname
+import tempfile
 from troposphere import Template
 from .base import ConfigManager
 from .constants import Secrets, Settings

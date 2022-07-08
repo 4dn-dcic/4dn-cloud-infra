@@ -7,7 +7,7 @@ from dcicutils.misc_utils import remove_prefix
 from troposphere import Tag, Tags, Template
 from .base import ENV_NAME, ECOSYSTEM
 from .c4name import C4Name
-from .mixins import StackNameBaseMixin
+from .mixins import StackNameMixin
 from .names import Names
 
 
@@ -56,62 +56,7 @@ class C4Account:
 
 
 # dmichaels/2022-06-06: Factored out C4Name class into c4name.py.
-
-
-class StackNameMixin(StackNameBaseMixin):
-
-    STACK_NAME_TOKEN = None
-    STACK_TITLE_TOKEN = None
-    STACK_TAGS = None
-
-    # dmichaels/2022-06-22: Factored out into StackNameBaseMixin in constants.py.
-    # SHARING = 'env'
-    # _SHARING_QUALIFIERS = {
-    #     'env': f"{ENV_NAME}",
-    #     'ecosystem': f"{ECOSYSTEM}",
-    #     'account': "",
-    # }
-
-    @classmethod
-    def stack_title_token(cls):
-        return cls.STACK_TITLE_TOKEN or camelize(cls.STACK_NAME_TOKEN)
-
-    @classmethod
-    def suggest_sharing_qualifier(cls):
-        # dmichaels/2022-06-22: Factored out into Names.suggest_sharing_qualifier() in names.py.
-        # sharing = cls.SHARING
-        # if sharing not in cls._SHARING_QUALIFIERS:
-        #     raise InvalidParameterError(parameter=f'{cls}.SHARING', value=sharing,
-        #                                 options=list(cls._SHARING_QUALIFIERS.keys()))
-        # return cls._SHARING_QUALIFIERS[sharing]
-        return Names.suggest_sharing_qualifier(cls.SHARING, ENV_NAME, ECOSYSTEM)
-
-    @classmethod
-    def suggest_stack_name(cls, name=None):
-        # dmichaels/2022-06-06: Refactored to use Names.suggest_stack_name() in names.py.
-        title_token = cls.stack_title_token()
-        name_token = cls.STACK_NAME_TOKEN
-        qualifier = cls.suggest_sharing_qualifier()
-        return Names.suggest_stack_name(title_token, name_token, qualifier)
-#
-#       title_token = cls.stack_title_token()
-# # Comment out at suggestion from Kent 2022-05-17 @ 2:15pm
-# #     if name:  # for stack names, defer to the name of that stack as declared in alpha_stacks.py
-# #         name_camel = camelize(name)
-# #         return C4Name(name=f'{COMMON_STACK_PREFIX}{name}',
-# #                       raw_name=name,
-# #                       title_token=(f'{COMMON_STACK_PREFIX_CAMEL_CASE}{title_token}{name_camel}'
-# #                                    if title_token else None),
-# #                       string_to_trim=name_camel)
-#       qualifier = cls.suggest_sharing_qualifier()
-#       qualifier_suffix = f"-{qualifier}"
-#       qualifier_camel = camelize(qualifier)
-#       name_token = cls.STACK_NAME_TOKEN
-#
-#       return C4Name(name=f'{COMMON_STACK_PREFIX}{name_token}{qualifier_suffix}',
-#                     title_token=(f'{COMMON_STACK_PREFIX_CAMEL_CASE}{title_token}{qualifier_camel}'
-#                                  if title_token else None),
-#                     string_to_trim=qualifier_camel)
+# dmichaels/2022-07-08: Factored out StackNameMixin class into mixins.py.
 
 
 class C4Part(StackNameMixin):
