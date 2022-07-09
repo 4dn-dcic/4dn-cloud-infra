@@ -13,6 +13,7 @@ from ..utils.args_utils import (
 from ..utils.paths import InfraDirectories
 from ..utils.misc_utils import (
     exit_with_no_action,
+    print_exception,
     setup_and_action,
 )
 from ..utils.validate_utils import (
@@ -124,8 +125,7 @@ def update_outbound_security_group_rules(
         try:
             aws.create_outbound_security_group_rule(security_group_id, outbound_icmp_security_group_rule)
         except Exception as ee:
-            print("EXCEPTION!")
-            print(ee)
+            print_exception(ee)
 
     # Create the outbound ICMP security group rules.
     icmp_port_destination_unreachable = 3
@@ -149,8 +149,7 @@ def update_outbound_security_group_rules(
     try:
         aws.create_outbound_security_group_rule(security_group_id, outbound_security_group_rule)
     except Exception as e:
-        print("EXCEPTION!")
-        print(e)
+        print_exception(e)
 
 
 def update_inbound_security_group_rules(aws: Aws, security_group_id: str) -> None:
@@ -176,8 +175,7 @@ def update_inbound_security_group_rules(aws: Aws, security_group_id: str) -> Non
     try:
         aws.create_inbound_security_group_rule(security_group_id, inbound_security_group_rule)
     except Exception as e:
-        print("EXCEPTION!")
-        print(e)
+        print_exception(e)
 
 
 def update_sentieon_security(
