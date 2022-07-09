@@ -352,3 +352,20 @@ class Aws(AwsContext):
             ec2 = boto3.client('ec2')
             return ec2.authorize_security_group_ingress(GroupId=security_group_id,
                                                         IpPermissions=security_group_rule)
+
+    def get_stack_output_value(self, stack_name: str, stack_output_key_name: str) -> str:
+        """
+        Returns the value of the given AWS stack output key name of the given stack name.
+
+        :param stack_name: AWS stack name.
+        :param stack_output_key_name: AWS stack output key name.
+        :return: Value of the given AWS stack output key name of the given stack name, or None.
+        """
+        with super().establish_credentials():
+            stacks = boto3.resource('cloudformation').stacks.all()
+            for stack in stacks:
+                if stack.name == stack_name:
+                    for stack_output in stack.outputs:
+                        if stack_output["OutputKey"] == stack_output_key_name:
+                            return stack_output["OutputValue"]
+        return None

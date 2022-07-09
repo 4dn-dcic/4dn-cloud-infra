@@ -6,36 +6,56 @@ from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
 from ...names import Names
 from ..utils.aws import Aws
-from ..utils.args_utils import add_aws_credentials_args, validate_aws_credentials_args
+from ..utils.args_utils import (
+    add_aws_credentials_args,
+    validate_aws_credentials_args,
+)
 from ..utils.paths import InfraDirectories
-from ..utils.misc_utils import (exit_with_no_action,
-                                setup_and_action)
-from ..utils.validate_utils import (validate_and_get_aws_credentials,
-                                    validate_and_get_aws_credentials_dir,
-                                    validate_and_get_aws_credentials_name,
-                                    validate_and_get_custom_dir)
-
-
-def get_application_security_group_name() -> str:
-    return Names.application_security_group_name()
+from ..utils.misc_utils import (
+    exit_with_no_action,
+    setup_and_action,
+)
+from ..utils.validate_utils import (
+    validate_and_get_aws_credentials,
+    validate_and_get_aws_credentials_dir,
+    validate_and_get_aws_credentials_name,
+    validate_and_get_custom_dir,
+)
 
 
 def validate_and_get_security_group_name(security_group_name: str) -> str:
     if not security_group_name:
-        security_group_name = get_application_security_group_name()
+        security_group_name = Names.application_security_group_name()
         if not security_group_name:
             exit_with_no_action("Unable to determine default application security group name.")
     return security_group_name
 
 
-def get_sentieon_server_ip(aws_credentials_name: str) -> str:
+def get_sentieon_stack_name(aws_credentials_name: str) -> str:
+    return Names.sentieon_stack_name(aws_credentials_name)
+
+
+def get_sentieon_stack_output_ip_address_key_name(aws_credentials_name: str) -> str:
+    return Names.sentieon_output_server_ip_key(aws_credentials_name)
+
+
+def get_sentieon_server_ip_address(aws: Aws, aws_credentials_name: str) -> str:
+    sentieon_stack_name = Names.sentieon_stack_name(aws_credentials_name)
     sentieon_server_ip_output_key_name = Names.sentieon_output_server_ip_key(aws_credentials_name)
     # TODO: Read the value of the output key name.
     sentieon_server_ip = "10.0.68.248"
+
+    sentieon_server_ip_address = aws.get_stack_output_value(sentieon_stack_name, sentieon_server_ip_output_key_name)
+    print(f"DEBUG: Sentieon stack IP address: {sentieon_server_ip_address}")
+
     return sentieon_server_ip
 
 
-def update_outbound_security_group_rules(aws: Aws, aws_credentials_name: str, security_group_id: str) -> None:
+def update_outbound_security_group_rules(
+        aws: Aws,
+        security_group_id: str,
+        sentieon_server_ip: str
+) -> None:
     """
     Adds these outbound security group rules to the given/names security group:
 
@@ -76,8 +96,8 @@ def update_outbound_security_group_rules(aws: Aws, aws_credentials_name: str, se
        Description: allows communication with sentieon server
 
     :param aws: Aws object.
-    :param aws_credentials_name: AWS credentials name (e.g. cgap-supertest).
     :param security_group_id: Target AWS security group ID.
+    :param sentieon_server_ip: Sentieon server IP address.
     """
 
     # N.B. Had trouble finding values for these protocols (e.g. Source Quench, et cetera).
@@ -118,7 +138,6 @@ def update_outbound_security_group_rules(aws: Aws, aws_credentials_name: str, se
     create_outbound_icmp_security_group_rule(icmp_port_time_exceeded)
 
     # Create the outbound port 8990 security group rules.
-    sentieon_server_ip = get_sentieon_server_ip(aws_credentials_name)
     sentieon_server_cidr_ip = sentieon_server_ip + "/32"
     outbound_security_group_rule = [{
         "IpProtocol": "tcp",
@@ -161,20 +180,28 @@ def update_inbound_security_group_rules(aws: Aws, security_group_id: str) -> Non
         print(e)
 
 
-def update_sentieon_security(args) -> None:
+def update_sentieon_security(
+        aws_access_key_id: str,
+        aws_credentials_dir: str,
+        aws_credentials_name: str,
+        aws_region: str,
+        aws_secret_access_key: str,
+        aws_session_token: str,
+        custom_dir: str,
+        security_group_name: str,
+        show: bool
+) -> None:
     """
     Main logical entry point for this script.
     Gathers, prints, confirms, and updates the application security group for Sentieon.
-
-    :param args: Command-line arguments values.
     """
 
     with setup_and_action() as setup_and_action_state:
 
         # Gather the basic info.
-        custom_dir, config_file = validate_and_get_custom_dir(args.custom_dir)
-        aws_credentials_name = validate_and_get_aws_credentials_name(args.aws_credentials_name, config_file)
-        aws_credentials_dir = validate_and_get_aws_credentials_dir(args.aws_credentials_dir, custom_dir)
+        custom_dir, config_file = validate_and_get_custom_dir(custom_dir)
+        aws_credentials_name = validate_and_get_aws_credentials_name(aws_credentials_name, config_file)
+        aws_credentials_dir = validate_and_get_aws_credentials_dir(aws_credentials_dir, custom_dir)
 
         # Print header and basic info.
         PRINT(f"Updating 4dn-cloud-infra application security group Sentieon.")
@@ -184,14 +211,27 @@ def update_sentieon_security(args) -> None:
 
         # Validate and print basic AWS credentials info.
         aws, aws_credentials = validate_and_get_aws_credentials(aws_credentials_dir,
-                                                                args.aws_access_key_id,
-                                                                args.aws_secret_access_key,
-                                                                args.aws_region,
-                                                                args.aws_session_token,
-                                                                args.show)
+                                                                aws_access_key_id,
+                                                                aws_secret_access_key,
+                                                                aws_region,
+                                                                aws_session_token,
+                                                                show)
 
-        # Validate the security group name (default via 4dn-cloud-infra code in names.py).
-        security_group_name = validate_and_get_security_group_name(args.security_group_name)
+        # Get the Sentieon AWS stack name.
+        sentieon_stack_name = get_sentieon_stack_name(aws_credentials_name)
+        print(f"Sentieon stack name: {sentieon_stack_name}")
+
+        # Get the Sentieon AWS stack output IP address key name.
+        sentieon_stack_output_ip_address_key_name = get_sentieon_stack_output_ip_address_key_name(aws_credentials_name)
+        print(f"Sentieon stack output IP address key name: {sentieon_stack_output_ip_address_key_name}")
+
+        # Get the Sentieon server IP address (from the Outputs of the Sentieon AWS stack).
+        sentieon_server_ip_address = aws.get_stack_output_value(sentieon_stack_name,
+                                                                sentieon_stack_output_ip_address_key_name)
+        print(f"Sentieon server IP address: {sentieon_server_ip_address}")
+
+        # Validate the security group name (default value via 4dn-cloud-infra code in names.py).
+        security_group_name = validate_and_get_security_group_name(security_group_name)
         print(f"Target security group name: {security_group_name}")
 
         # Get the associated security group ID from the name.
@@ -234,11 +274,17 @@ def main(override_argv: Optional[list] = None) -> None:
     args = argp.parse_args(override_argv)
     validate_aws_credentials_args(args)
 
-    if (args.aws_access_key_id or args.aws_secret_access_key) and \
-       not (args.aws_access_key_id and args.aws_secret_access_key):
-        exit_with_no_action("Either none or both --aws-access-key-id and --aws-secret-access-key must be specified.")
-
-    update_sentieon_security(args)
+    update_sentieon_security(
+        args.aws_access_key_id,
+        args.aws_credentials_dir,
+        args.aws_credentials_name,
+        args.aws_region,
+        args.aws_secret_access_key,
+        args.aws_session_token,
+        args.custom_dir,
+        args.security_group_name,
+        args.show
+    )
 
 
 if __name__ == "__main__":

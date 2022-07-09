@@ -71,7 +71,7 @@ class Names(StackNameBaseMixin):
         title_token = C4SentieonSupportBase.STACK_TITLE_TOKEN  # Sentieon (in constants.py, from C4SentieonSupport.STACK_TITLE_TOKEN)
         name_token = C4SentieonSupportBase.STACK_NAME_TOKEN    # sentieon (in constants.py, from C4SentieonSupport.STACK_NAME_TOKEN)
         qualifier = env_name
-        return cls.suggest_stack_name(title_token, name_token, qualifier)
+        return cls.suggest_stack_name(title_token, name_token, qualifier).stack_name
 
     # dmichaels/2022-07-05: New to get stack output key name for Senteion server IP;
     # C4SentieonSupportExports.output_server_ip_key uses this common code.
