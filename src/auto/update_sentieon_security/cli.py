@@ -294,7 +294,8 @@ def main(override_argv: Optional[list] = None) -> None:
     argp.add_argument("--no-confirm", required=False,
                       dest="confirm", action="store_false",
                       help="Behave as if all confirmation questions were answered yes.")
-    argp.add_argument("--show", action="store_true", required=False)
+    argp.add_argument("--show", action="store_true", required=False,
+                      help="Show any senstive info in plaintext.")
     args = argp.parse_args(override_argv)
     validate_aws_credentials_args(args)
 
