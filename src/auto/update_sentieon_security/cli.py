@@ -91,10 +91,10 @@ def validate_and_get_target_security_group_name(aws: Aws, security_group_name: s
     return security_group_name, security_group_id
 
 
-def print_duplicate_security_group_error(exception: Exception,
-                                         security_group_id: str,
-                                         security_group_type: str,
-                                         security_group_rule: list) -> bool:
+def print_duplicate_security_group_message(exception: Exception,
+                                           security_group_id: str,
+                                           security_group_type: str,
+                                           security_group_rule: list) -> bool:
     """
     If the given exception is for a boto3 duplicate security group rule creation, then
     prints an error for this, with info about the given security group ID, security group
@@ -132,6 +132,11 @@ def update_inbound_security_group_rules(aws: Aws, security_group_id: str) -> Non
     :param aws: Aws object.
     :param security_group_id: Target AWS security group ID.
     """
+
+    # First get the list of inbound security group rules for the given security group ID.
+    existing_inbound_security_group_rules = aws.get_inbound_security_group_rules(security_group_id)
+
+    # Define the inbound security group rule.
     security_group_rule = [{
         "IpProtocol": "icmp",
         "FromPort": -1,
@@ -139,10 +144,18 @@ def update_inbound_security_group_rules(aws: Aws, security_group_id: str) -> Non
         "IpRanges": [{"CidrIp": "0.0.0.0/0",
                       "Description": "ICMP for sentieon server"}],
     }]
+
+    # See if this new security group rule is already defined.
+    if aws.find_inbound_security_group_rule(existing_inbound_security_group_rules, security_group_rule[0]) is not None:
+        print(f"Inbound security group rule"
+              f" for security group ({security_group_id}) already exists: {security_group_rule[0]}")
+        return
+
+    # Create the inbound security group rule.
     try:
         aws.create_inbound_security_group_rule(security_group_id, security_group_rule)
     except Exception as e:
-        if not print_duplicate_security_group_error(e, security_group_id, "inbound", security_group_rule):
+        if not print_duplicate_security_group_message(e, security_group_id, "inbound", security_group_rule):
             print_exception(e)
 
 
@@ -203,13 +216,20 @@ def update_outbound_security_group_rules(
     # Protocol: Time Exceeded
     #      Use: FromPort = 11 and ToPort = -1
 
+    # First get the list of outbound security group rules for the given security group ID.
+    existing_outbound_security_group_rules = aws.get_outbound_security_group_rules(security_group_id)
+
     def create_outbound_security_group_rule(security_group_rule: list) -> None:
         if not isinstance(security_group_rule, list) or len(security_group_rule) < 1:
             return
         try:
+            if aws.find_outbound_security_group_rule(existing_outbound_security_group_rules, security_group_rule[0]) is not None:
+                print(f"Outbound security group rule"
+                      f" for security group ({security_group_id}) already exists: {security_group_rule[0]}")
+                return
             aws.create_outbound_security_group_rule(security_group_id, security_group_rule)
         except Exception as e:
-            if not print_duplicate_security_group_error(e, security_group_id, "outbound", security_group_rule):
+            if not print_duplicate_security_group_message(e, security_group_id, "outbound", security_group_rule):
                 print_exception(e)
 
     def create_outbound_icmp_security_group_rule(from_port: int) -> None:
@@ -292,6 +312,13 @@ def update_sentieon_security(
 
         # Validate/get and print the target security group name, and get associated security group ID.
         security_group_name, security_group_id = validate_and_get_target_security_group_name(aws, security_group_name)
+
+        # Get the existing security group rules for the target security group ID.
+#       existing_inbound_security_group_rules, existing_outbound_security_group_rules = aws.get_security_group_rules(security_group_id)
+#       if existing_inbound_security_group_rules:
+#           print(f"Existing inbound security group rules for security group ({security_group_id}): {len(existing_inbound_security_group_rules)}")
+#       if existing_outbound_security_group_rules:
+#           print(f"Existing outbound security group rules for security group ({security_group_id}): {len(existing_outbound_security_group_rules)}")
 
         # Confirm with user before taking action.
         yes = yes_or_no(f"Update this security group ({security_group_id}) with outbound rules Sentieon?")

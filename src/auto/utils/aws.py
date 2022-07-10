@@ -308,6 +308,29 @@ class Aws(AwsContext):
             key_policy_string = json.dumps(key_policy_json)
             kms.put_key_policy(KeyId=key_id, Policy=key_policy_string, PolicyName="default")
 
+    def get_security_group_rules(self, security_group_id: str) -> (list, list):
+        """
+        Returns the list inbound and outbound (respectively) in a tuble
+        for the AWS security group rules of the given security group ID.
+
+        :param security_group_id: AWS security group ID.
+        :return: A tuple with the ist of inbound/outbound AWS security group rules for the given security group ID.
+        """
+        with super().establish_credentials():
+            ec2 = boto3.client('ec2')
+            security_group_rules = ec2.describe_security_group_rules(Filters=[{"Name": "group-id", "Values": ["sg-0561068965d07c4af"]}])["SecurityGroupRules"]
+            inbound_security_group_rules = [security_group_rules for security_group_rule in security_group_rules if not security_group_rule.get("IsEgress")][0]
+            outbound_security_group_rules = [security_group_rules for security_group_rule in security_group_rules if security_group_rule.get("IsEgress")][0]
+            return inbound_security_group_rules, outbound_security_group_rules
+
+    def get_inbound_security_group_rules(self, security_group_id: str) -> (list, list):
+        inbound_security_group_rules, _ = self.get_security_group_rules(security_group_id)
+        return inbound_security_group_rules
+
+    def get_outbound_security_group_rules(self, security_group_id: str) -> (list, list):
+        _, outbound_security_group_rules = self.get_security_group_rules(security_group_id)
+        return outbound_security_group_rules
+
     def find_security_group_id(self, security_group_name: str) -> Optional[str]:
         """
         Returns the AWS security group ID for the given AWS security group name.
@@ -352,6 +375,34 @@ class Aws(AwsContext):
             ec2 = boto3.client('ec2')
             return ec2.authorize_security_group_ingress(GroupId=security_group_id,
                                                         IpPermissions=security_group_rule)
+
+    def find_security_group_rule(self, existing_security_group_rules: list, security_group_rule: list, outbound: bool) -> dict:
+        """
+        Returns from the given existing AWS security group rules, the (single) one that matches the
+        given security group rule, or None if not found. The former is as returned by the boto3 ec2
+        describe_security_group_rules function; the latter is as passed to the boto3 ec2
+        authorize_security_group_ingress or authorize_security_group_eggress functions.
+        N.B. Ignores the description portion of the rule in comparison.
+
+        :param existing_security_group_rules: List of AWS security group rules.
+        :param security_group_rule: AWS security group rule.
+        """
+        for existing_security_group_rule in existing_security_group_rules:
+            if (security_group_rule.get("IpProtocol") == existing_security_group_rule.get("IpProtocol")
+                and security_group_rule.get("FromPort") == existing_security_group_rule.get("FromPort")
+                and security_group_rule.get("ToPort") == existing_security_group_rule.get("ToPort")
+                and outbound == existing_security_group_rule.get("IsEgress")):
+                security_group_rule_ip_ranges = security_group_rule.get("IpRanges")
+                if isinstance(security_group_rule_ip_ranges, list) and len(security_group_rule_ip_ranges) == 1:
+                    if security_group_rule_ip_ranges[0].get("CidrIp") == existing_security_group_rule.get("CidrIpv4"):
+                        return existing_security_group_rule
+        return None
+
+    def find_inbound_security_group_rule(self, existing_security_group_rules: list, security_group_id: str) -> dict:
+        return self.find_security_group_rule(existing_security_group_rules, security_group_id, outbound=False)
+
+    def find_outbound_security_group_rule(self, existing_security_group_rules: list, security_group_id: str) -> dict:
+        return self.find_security_group_rule(existing_security_group_rules, security_group_id, outbound=True)
 
     def get_stack_output_value(self, stack_name: str, stack_output_key_name: str) -> str:
         """
