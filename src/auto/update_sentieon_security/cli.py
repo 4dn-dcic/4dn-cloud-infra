@@ -102,7 +102,7 @@ def update_outbound_security_group_rules(
     - Type: Custom TCP
       Protocol: TCP
       Port range: 8990
-      Destination: Custom <cidr-of-ip-address-from-sentieon-ec2-instance-from-stack-output>/32
+      Destination: Custom <ip-address-of-sentieon-ec2-instance-from-stack-output>/32
       Description: allows communication with sentieon server
 
     - Type: Custom ICMP - IPv4
