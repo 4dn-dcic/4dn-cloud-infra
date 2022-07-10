@@ -290,7 +290,7 @@ def update_sentieon_security(
                                                                           sentieon_stack_name,
                                                                           sentieon_stack_output_ip_address_key_name)
 
-        # Validate/get and print the target security group name (default value via 4dn-cloud-infra code).
+        # Validate/get and print the target security group name, and get associated security group ID.
         security_group_name, security_group_id = validate_and_get_target_security_group_name(aws, security_group_name)
 
         # Confirm with user before taking action.
@@ -298,14 +298,14 @@ def update_sentieon_security(
         if not yes:
             exit_with_no_action()
 
-        # Start the action.
+        # Start creating the inbound/outbound security group rules.
         setup_and_action_state.note_action_start()
-
-        # Update the outbound security group rules.
-        update_outbound_security_group_rules(aws, security_group_id, sentieon_ip_address)
 
         # Update the inbound security group rules.
         update_inbound_security_group_rules(aws, security_group_id)
+
+        # Update the outbound security group rules.
+        update_outbound_security_group_rules(aws, security_group_id, sentieon_ip_address)
 
 
 def main(override_argv: Optional[list] = None) -> None:
