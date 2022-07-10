@@ -24,84 +24,113 @@ from ..utils.validate_utils import (
 )
 
 
-def validate_and_get_security_group_name(security_group_name: str) -> str:
+def validate_and_get_sentieon_server_ip_address(aws: Aws,
+                                                aws_credentials_name: str,
+                                                sentieon_ip_address: str,
+                                                sentieon_stack_name: str,
+                                                sentieon_stack_output_ip_address_key_name: str) -> str:
+    """
+    Validates and returns the Sentieon server IP address based on the given AWS credentials name,
+    Sentieon AWS stack name, Sentieon AWS stack output IP address key name, and Sentieon IP address.
+
+    :param aws: AWS object.
+    :param aws_credentials_name: AWS credentials name (e.g. cgap-supertest).
+    :param sentieon_stack_name: TODO
+    :param sentieon_stack_output_ip_address_key_name: TODO
+    :param sentieon_ip_address: TODO
+    :return: Sentieon server IP address.
+    """
+
+    if not sentieon_ip_address:
+
+        # Get the Sentieon AWS stack name.
+        if not sentieon_stack_name:
+            sentieon_stack_name = Names.sentieon_stack_name(aws_credentials_name)
+            if not sentieon_stack_name:
+                exit_with_no_action("Unable to determine Sentieon stack name.")
+        print(f"Sentieon stack name: {sentieon_stack_name}")
+
+        # Get the Sentieon AWS stack output IP address key name.
+        if not sentieon_stack_output_ip_address_key_name:
+            sentieon_stack_output_ip_address_key_name = Names.sentieon_output_server_ip_key(aws_credentials_name)
+            if not sentieon_stack_output_ip_address_key_name:
+                exit_with_no_action("Unable to determine Sentieon stack output IP address key name.")
+        print(f"Sentieon stack output IP address key name: {sentieon_stack_output_ip_address_key_name}")
+
+        # Get the Sentieon server IP address (from the Outputs of the Sentieon AWS stack).
+        sentieon_server_ip_address = aws.get_stack_output_value(sentieon_stack_name,
+                                                                sentieon_stack_output_ip_address_key_name)
+        if not sentieon_server_ip_address:
+            exit_with_no_action("Unable to determine Sentieon server IP address.")
+
+    print(f"Sentieon server IP address: {sentieon_server_ip_address}")
+
+
+def validate_and_get_security_group_name(aws: Aws, security_group_name: str) -> (str, str):
+    """
+    Validates the given target security group name and returns its value; defaults to a value
+    returned by 4d-cloud-infra code if not given. And also returns the security group ID
+    associated with this security group name.
+
+    :param security_group_name: Target AWS security group name.
+    :return: Tuple containing AWS security group name and associated security group ID.
+    """
     if not security_group_name:
         security_group_name = Names.application_security_group_name()
         if not security_group_name:
             exit_with_no_action("Unable to determine default application security group name.")
-    return security_group_name
-
-
-def get_sentieon_stack_name(aws_credentials_name: str) -> str:
-    return Names.sentieon_stack_name(aws_credentials_name)
-
-
-def get_sentieon_stack_output_ip_address_key_name(aws_credentials_name: str) -> str:
-    return Names.sentieon_output_server_ip_key(aws_credentials_name)
-
-
-def get_sentieon_server_ip_address(aws: Aws, aws_credentials_name: str) -> str:
-    sentieon_stack_name = Names.sentieon_stack_name(aws_credentials_name)
-    sentieon_server_ip_output_key_name = Names.sentieon_output_server_ip_key(aws_credentials_name)
-    # TODO: Read the value of the output key name.
-    sentieon_server_ip = "10.0.68.248"
-
-    sentieon_server_ip_address = aws.get_stack_output_value(sentieon_stack_name, sentieon_server_ip_output_key_name)
-    print(f"DEBUG: Sentieon stack IP address: {sentieon_server_ip_address}")
-
-    return sentieon_server_ip
+    security_group_id = aws.find_security_group_id(security_group_name)
+    if not security_group_id:
+        exit_with_no_action(f"Unable to determine security group ID from name: {security_group_name}")
+    print(f"Target security group name: {security_group_name}")
+    print(f"Target security group ID: {security_group_id}")
+    return security_group_name, security_group_id
 
 
 def update_outbound_security_group_rules(
         aws: Aws,
         security_group_id: str,
-        sentieon_server_ip: str
+        sentieon_server_ip_address: str
 ) -> None:
     """
-    Adds these outbound security group rules to the given/names security group:
+    Adds these outbound security group rules to the given/named AWS target security group:
 
-     - Type: Custom TCP
-       Protocol: TCP
-       Port range: 8990
-       Destination: Custom | 10.0.68.248/32 # read from aws outputs
-       Description: allows communication with sentieon server
+    - Type: Custom TCP
+      Protocol: TCP
+      Port range: 8990
+      Destination: Custom <cidr-of-ip-address-from-sentieon-ec2-instance-from-stack-output>/32
+      Description: allows communication with sentieon server
 
-     - Type: Custom ICMP - IPv4
-       Protocol: Destination Unreachable
-       Port range: All
-       Destination: Custom | 0.0.0.0/0
-       Description: ICMP for sentieon server
+    - Type: Custom ICMP - IPv4
+      Protocol: Destination Unreachable
+      Port range: All
+      Destination: Custom | 0.0.0.0/0
+      Description: ICMP for sentieon server
 
-     - Type: Custom ICMP - IPv4
-       Protocol: Echo Request
-       Port range: N/A
-       Destination: Custom | 0.0.0.0/0
-       Description: ICMP for sentieon server
+    - Type: Custom ICMP - IPv4
+      Protocol: Echo Request
+      Port range: N/A
+      Destination: Custom | 0.0.0.0/0
+      Description: ICMP for sentieon server
 
-     - Type: Custom ICMP - IPv4
-       Protocol: Source Quench
-       Port range: N/A
-       Destination: Custom | 0.0.0.0/0
-       Description: ICMP for sentieon server
+    - Type: Custom ICMP - IPv4
+      Protocol: Source Quench
+      Port range: N/A
+      Destination: Custom | 0.0.0.0/0
+      Description: ICMP for sentieon server
 
-     - Type: Custom ICMP - IPv4
-       Protocol: Time Exceeded
-       Port range: All
-       Destination: Custom | 0.0.0.0/0
-       Description: ICMP for sentieon server
-
-     - Type: Custom TCP
-       Protocol: TCP
-       Port range: 8990
-       Destination: Custom <IP-address-of-Senteion-EC2-instance-from-stack-output>/32
-       Description: allows communication with sentieon server
+    - Type: Custom ICMP - IPv4
+      Protocol: Time Exceeded
+      Port range: All
+      Destination: Custom | 0.0.0.0/0
+      Description: ICMP for sentieon server
 
     :param aws: Aws object.
     :param security_group_id: Target AWS security group ID.
-    :param sentieon_server_ip: Sentieon server IP address.
+    :param sentieon_server_ip_address: Sentieon server IP address.
     """
 
-    # N.B. Had trouble finding values for these protocols (e.g. Source Quench, et cetera).
+    # N.B. Had trouble finding values for the ICMP protocols (e.g. Source Quench, et cetera).
     # In fact only found a clue at this link:
     # https://github.com/VoyagerInnovations/secgroup_approval/blob/master/revertSecurityGroup.py
     # Where we gleaned the following strategy for setting these, which does seem to work:
@@ -138,12 +167,12 @@ def update_outbound_security_group_rules(
     create_outbound_icmp_security_group_rule(icmp_port_time_exceeded)
 
     # Create the outbound port 8990 security group rules.
-    sentieon_server_cidr_ip = sentieon_server_ip + "/32"
+    sentieon_server_cidr = sentieon_server_ip_address + "/32"
     outbound_security_group_rule = [{
         "IpProtocol": "tcp",
         "FromPort": 8990,
         "ToPort": 8990,
-        "IpRanges": [{"CidrIp": sentieon_server_cidr_ip,
+        "IpRanges": [{"CidrIp": sentieon_server_cidr,
                       "Description": "allows communication with sentieon server"}],
     }]
     try:
@@ -154,7 +183,7 @@ def update_outbound_security_group_rules(
 
 def update_inbound_security_group_rules(aws: Aws, security_group_id: str) -> None:
     """
-    Adds these inbound security group rules to the given/names security group:
+    Adds these inbound security group rules to the given/named AWS target security group:
 
     - Type: All ICMP - IPv4
       Protocol: ICMP
@@ -187,6 +216,9 @@ def update_sentieon_security(
         aws_session_token: str,
         custom_dir: str,
         security_group_name: str,
+        sentieon_ip_address: str,
+        sentieon_stack_name: str,
+        sentieon_stack_output_ip_address_key_name: str,
         show: bool
 ) -> None:
     """
@@ -207,7 +239,7 @@ def update_sentieon_security(
         PRINT(f"Your custom config file: {config_file}")
         PRINT(f"Your AWS credentials name: {aws_credentials_name}")
 
-        # Validate and print basic AWS credentials info.
+        # Validate/get and print basic AWS credentials info.
         aws, aws_credentials = validate_and_get_aws_credentials(aws_credentials_dir,
                                                                 aws_access_key_id,
                                                                 aws_secret_access_key,
@@ -215,28 +247,16 @@ def update_sentieon_security(
                                                                 aws_session_token,
                                                                 show)
 
-        # Get the Sentieon AWS stack name.
-        sentieon_stack_name = get_sentieon_stack_name(aws_credentials_name)
-        print(f"Sentieon stack name: {sentieon_stack_name}")
+        # Validate/get and print the Sentieon server IP address.
+        sentieon_server_ip_address = validate_and_get_sentieon_server_ip_address(
+            aws,
+            aws_credentials_name,
+            sentieon_ip_address,
+            sentieon_stack_name,
+            sentieon_stack_output_ip_address_key_name)
 
-        # Get the Sentieon AWS stack output IP address key name.
-        sentieon_stack_output_ip_address_key_name = get_sentieon_stack_output_ip_address_key_name(aws_credentials_name)
-        print(f"Sentieon stack output IP address key name: {sentieon_stack_output_ip_address_key_name}")
-
-        # Get the Sentieon server IP address (from the Outputs of the Sentieon AWS stack).
-        sentieon_server_ip_address = aws.get_stack_output_value(sentieon_stack_name,
-                                                                sentieon_stack_output_ip_address_key_name)
-        print(f"Sentieon server IP address: {sentieon_server_ip_address}")
-
-        # Validate the security group name (default value via 4dn-cloud-infra code in names.py).
-        security_group_name = validate_and_get_security_group_name(security_group_name)
-        print(f"Target security group name: {security_group_name}")
-
-        # Get the associated security group ID from the name.
-        security_group_id = aws.find_security_group_id(security_group_name)
-        if not security_group_id:
-            exit_with_no_action(f"Unable to determine security group ID from name: {security_group_name}")
-        print(f"Target security group ID: {security_group_id}")
+        # Validate/get and print the target security group name (default value via 4dn-cloud-infra code).
+        security_group_name, security_group_id = validate_and_get_security_group_name(aws, security_group_name)
 
         # Confirm with user before taking action.
         yes = yes_or_no(f"Update this security group ({security_group_id}) with outbound rules Sentieon?")
@@ -247,7 +267,7 @@ def update_sentieon_security(
         setup_and_action_state.note_action_start()
 
         # Update the outbound security group rules.
-        update_outbound_security_group_rules(aws, aws_credentials_name, security_group_id)
+        update_outbound_security_group_rules(aws, aws_credentials_name, sentieon_server_ip_address)
 
         # Update the inbound security group rules.
         update_inbound_security_group_rules(aws, security_group_id)
@@ -265,6 +285,12 @@ def main(override_argv: Optional[list] = None) -> None:
                       help=f"Alternate custom config directory to default: {InfraDirectories.CUSTOM_DIR}.")
     argp.add_argument("--security-group-name", required=False,
                       help=f"Security group name to updaate. Default is C4NetworkMainApplicationSecurityGroup.")
+    argp.add_argument("--sentieon-ip-address", required=False,
+                      help=f"Sentieon IP address.")
+    argp.add_argument("--sentieon-stack-name", required=False,
+                      help=f"Sentieon AWS stack name to get IP address from.")
+    argp.add_argument("--sentieon-stack-output-ip-address-key-name", required=False,
+                      help=f"Sentieon AWS stack output IP address key name to get IP address from.")
     argp.add_argument("--no-confirm", required=False,
                       dest="confirm", action="store_false",
                       help="Behave as if all confirmation questions were answered yes.")
@@ -281,6 +307,9 @@ def main(override_argv: Optional[list] = None) -> None:
         args.aws_session_token,
         args.custom_dir,
         args.security_group_name,
+        args.sentieon_ip_address,
+        args.sentieon_stack_name,
+        args.sentieon_stack_output_ip_address_key_name,
         args.show
     )
 
