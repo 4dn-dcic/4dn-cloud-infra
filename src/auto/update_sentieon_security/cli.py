@@ -91,6 +91,61 @@ def validate_and_get_target_security_group_name(aws: Aws, security_group_name: s
     return security_group_name, security_group_id
 
 
+def print_duplicate_security_group_error(exception: Exception,
+                                         security_group_id: str,
+                                         security_group_type: str,
+                                         security_group_rule: list) -> bool:
+    """
+    If the given exception is for a boto3 duplicate security group rule creation, then
+    prints an error for this, with info about the given security group ID, security group
+    type (inbound or outbound), and security group rule, and returns True; otherwise returns False.
+
+    :param exception: Exception to examine for boto3 duplicate security group rule creation.
+    :param security_group_type: Security group type; inbound or outbound.
+    :param security_group_id: AWS security group ID.
+    :param security_group_rule: AWS security group rule.
+    """
+    if isinstance(exception, Boto3ClientException):
+        if exception.response:
+            error = exception.response.get("Error")
+            if error:
+                error_code = error.get("Code")
+                if error_code == "InvalidPermission.Duplicate":
+                    rule = security_group_rule[0]
+                    rule_description = f"{rule['IpProtocol']}/{rule['FromPort']}"
+                    print(f"Security group {security_group_type} rule ({rule_description})"
+                          f" for security group ({security_group_id}) already exists.")
+                    return True
+    return False
+
+
+def update_inbound_security_group_rules(aws: Aws, security_group_id: str) -> None:
+    """
+    Adds these inbound security group rules to the given/named AWS target security group:
+
+    - Type: All ICMP - IPv4
+      Protocol: ICMP
+      Port range: All
+      Destination: Custom 0.0.0.0/0
+      Description: ICMP for sentieon server
+
+    :param aws: Aws object.
+    :param security_group_id: Target AWS security group ID.
+    """
+    security_group_rule = [{
+        "IpProtocol": "icmp",
+        "FromPort": -1,
+        "ToPort": -1,
+        "IpRanges": [{"CidrIp": "0.0.0.0/0",
+                      "Description": "ICMP for sentieon server"}],
+    }]
+    try:
+        aws.create_inbound_security_group_rule(security_group_id, security_group_rule)
+    except Exception as e:
+        if not print_duplicate_security_group_error(e, security_group_id, "inbound", security_group_rule):
+            print_exception(e)
+
+
 def update_outbound_security_group_rules(
         aws: Aws,
         security_group_id: str,
@@ -153,20 +208,9 @@ def update_outbound_security_group_rules(
             return
         try:
             aws.create_outbound_security_group_rule(security_group_id, security_group_rule)
-        except Boto3ClientException as ce:
-            if ce.response:
-                error = ce.response.get("Error")
-                if error:
-                    error_code = error.get("Code")
-                    if error_code == "InvalidPermission.Duplicate":
-                        rule = security_group_rule[0]
-                        rule_description = f"{rule['IpProtocol']}/{rule['FromPort']}"
-                        print(f"Outbound security group rule ({rule_description})"
-                              f" for security group ({security_group_id}) already exists.")
-                        return
-            print_exception(ce)
         except Exception as e:
-            print_exception(e)
+            if not print_duplicate_security_group_error(e, security_group_id, "outbound", security_group_rule):
+                print_exception(e)
 
     def create_outbound_icmp_security_group_rule(from_port: int) -> None:
         security_group_rule = [{
@@ -197,44 +241,6 @@ def update_outbound_security_group_rules(
     create_outbound_icmp_security_group_rule(icmp_port_echo_request)
     create_outbound_icmp_security_group_rule(icmp_port_source_quench)
     create_outbound_icmp_security_group_rule(icmp_port_time_exceeded)
-
-
-def update_inbound_security_group_rules(aws: Aws, security_group_id: str) -> None:
-    """
-    Adds these inbound security group rules to the given/named AWS target security group:
-
-    - Type: All ICMP - IPv4
-      Protocol: ICMP
-      Port range: All
-      Destination: Custom 0.0.0.0/0
-      Description: ICMP for sentieon server
-
-    :param aws: Aws object.
-    :param security_group_id: Target AWS security group ID.
-    """
-    security_group_rule = [{
-        "IpProtocol": "icmp",
-        "FromPort": -1,
-        "ToPort": -1,
-        "IpRanges": [{"CidrIp": "0.0.0.0/0",
-                      "Description": "ICMP for sentieon server"}],
-    }]
-    try:
-        aws.create_inbound_security_group_rule(security_group_id, security_group_rule)
-    except Boto3ClientException as ce:
-        if ce.response:
-            error = ce.response.get("Error")
-            if error:
-                error_code = error.get("Code")
-                if error_code == "InvalidPermission.Duplicate":
-                    rule = security_group_rule[0]
-                    rule_description = f"{rule['IpProtocol']}/{rule['FromPort']}"
-                    print(f"Inbound security group rule ({rule_description})"
-                          f" for security group ({security_group_id}) already exists.")
-                    return
-            print_exception(ce)
-    except Exception as e:
-        print_exception(e)
 
 
 def update_sentieon_security(
