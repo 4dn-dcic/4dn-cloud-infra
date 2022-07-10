@@ -1,6 +1,7 @@
 # Script for 4dn-cloud-infra to update the application security group for Sentieon.
 
 import argparse
+from botocore.exceptions import ClientError as Boto3ClientException
 from typing import Optional
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
@@ -147,27 +148,34 @@ def update_outbound_security_group_rules(
     # Protocol: Time Exceeded
     #      Use: FromPort = 11 and ToPort = -1
 
+    def create_outbound_security_group_rule(security_group_rule: list) -> None:
+        if not isinstance(security_group_rule, list) or len(security_group_rule) < 1:
+            return
+        try:
+            aws.create_outbound_security_group_rule(security_group_id, security_group_rule)
+        except Boto3ClientException as ce:
+            if ce.response:
+                error = ce.response.get("Error")
+                if error:
+                    error_code = error.get("Code")
+                    if error_code == "InvalidPermission.Duplicate":
+                        rule = security_group_rule[0]
+                        rule_description = f"{rule['IpProtocol']}/{rule['FromPort']}"
+                        print(f"Outbound security group rule ({rule_description})"
+                              f" for security group ({security_group_id}) already exists.")
+                        return
+            print_exception(ce)
+        except Exception as e:
+            print_exception(e)
+
     def create_outbound_icmp_security_group_rule(from_port: int) -> None:
-        outbound_icmp_security_group_rule = [{
+        security_group_rule = [{
             "IpProtocol": "icmp",
             "FromPort": from_port,
             "ToPort": -1,
             "IpRanges": [{"CidrIp": "0.0.0.0/0", "Description": "ICMP for sentieon server"}],
         }]
-        try:
-            aws.create_outbound_security_group_rule(security_group_id, outbound_icmp_security_group_rule)
-        except Exception as ee:
-            print_exception(ee)
-
-    # Create the outbound ICMP security group rules.
-    icmp_port_destination_unreachable = 3
-    icmp_port_echo_request = 8
-    icmp_port_source_quench = 4
-    icmp_port_time_exceeded = 11
-    create_outbound_icmp_security_group_rule(icmp_port_destination_unreachable)
-    create_outbound_icmp_security_group_rule(icmp_port_echo_request)
-    create_outbound_icmp_security_group_rule(icmp_port_source_quench)
-    create_outbound_icmp_security_group_rule(icmp_port_time_exceeded)
+        create_outbound_security_group_rule(security_group_rule)
 
     # Create the outbound port 8990 security group rules.
     sentieon_server_cidr = sentieon_ip_address + "/32"
@@ -178,10 +186,17 @@ def update_outbound_security_group_rules(
         "IpRanges": [{"CidrIp": sentieon_server_cidr,
                       "Description": "allows communication with sentieon server"}],
     }]
-    try:
-        aws.create_outbound_security_group_rule(security_group_id, outbound_security_group_rule)
-    except Exception as e:
-        print_exception(e)
+    create_outbound_security_group_rule(outbound_security_group_rule)
+
+    # Create the outbound ICMP security group rules.
+    icmp_port_destination_unreachable = 3
+    icmp_port_echo_request = 8
+    icmp_port_source_quench = 4
+    icmp_port_time_exceeded = 11
+    create_outbound_icmp_security_group_rule(icmp_port_destination_unreachable)
+    create_outbound_icmp_security_group_rule(icmp_port_echo_request)
+    create_outbound_icmp_security_group_rule(icmp_port_source_quench)
+    create_outbound_icmp_security_group_rule(icmp_port_time_exceeded)
 
 
 def update_inbound_security_group_rules(aws: Aws, security_group_id: str) -> None:
@@ -197,7 +212,7 @@ def update_inbound_security_group_rules(aws: Aws, security_group_id: str) -> Non
     :param aws: Aws object.
     :param security_group_id: Target AWS security group ID.
     """
-    inbound_security_group_rule = [{
+    security_group_rule = [{
         "IpProtocol": "icmp",
         "FromPort": -1,
         "ToPort": -1,
@@ -205,7 +220,19 @@ def update_inbound_security_group_rules(aws: Aws, security_group_id: str) -> Non
                       "Description": "ICMP for sentieon server"}],
     }]
     try:
-        aws.create_inbound_security_group_rule(security_group_id, inbound_security_group_rule)
+        aws.create_inbound_security_group_rule(security_group_id, security_group_rule)
+    except Boto3ClientException as ce:
+        if ce.response:
+            error = ce.response.get("Error")
+            if error:
+                error_code = error.get("Code")
+                if error_code == "InvalidPermission.Duplicate":
+                    rule = security_group_rule[0]
+                    rule_description = f"{rule['IpProtocol']}/{rule['FromPort']}"
+                    print(f"Inbound security group rule ({rule_description})"
+                          f" for security group ({security_group_id}) already exists.")
+                    return
+            print_exception(ce)
     except Exception as e:
         print_exception(e)
 
@@ -269,7 +296,7 @@ def update_sentieon_security(
         setup_and_action_state.note_action_start()
 
         # Update the outbound security group rules.
-        update_outbound_security_group_rules(aws, aws_credentials_name, sentieon_ip_address)
+        update_outbound_security_group_rules(aws, security_group_id, sentieon_ip_address)
 
         # Update the inbound security group rules.
         update_inbound_security_group_rules(aws, security_group_id)
