@@ -315,7 +315,7 @@ class Aws(AwsContext):
         AWS security group rules, for the given AWS security group ID; or None if none found.
 
         :param security_group_id: AWS security group ID.
-        :param outbound: True if outbound (egress) rules are desired, otherwise (False) inbound (ingress).
+        :param outbound: True if outbound (egress) rules are desired, otherwise inbound (ingress).
         :return: List of inbound or outbound AWS security group rules for the given security group ID, or None.
         """
         with super().establish_credentials():

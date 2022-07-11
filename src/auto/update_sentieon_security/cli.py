@@ -103,7 +103,7 @@ def print_duplicate_security_group_message(exception: Exception,
     :param exception: Exception to examine for boto3 duplicate security group rule creation.
     :param security_group_id: AWS security group ID.
     :param security_group_rule: AWS security group rule.
-    :param security_group_direction: Security group type; Inbound or Outbound.
+    :param outbound: True if related to outbound (egress) rule, otherwise inbound (ingress).
     """
     if isinstance(exception, Boto3ClientException):
         if exception.response:
@@ -254,7 +254,8 @@ def update_outbound_security_group_rules(
                           f" already exists: {Aws.get_security_group_rule_display_value(existing_security_group_rule)}")
                     return
             print(f"Creating outbound security"
-                  f" group ({security_group_id}) rule: {Aws.get_security_group_rule_display_value(security_group_rule)}")
+                  f" group ({security_group_id}) rule:"
+                  f" {Aws.get_security_group_rule_display_value(security_group_rule)}")
             aws.create_outbound_security_group_rule(security_group_id, security_group_rule)
         except Exception as e:
             if not print_duplicate_security_group_message(e, security_group_id, security_group_rule, outbound=True):
