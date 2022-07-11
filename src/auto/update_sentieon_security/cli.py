@@ -93,17 +93,17 @@ def validate_and_get_target_security_group_name(aws: Aws, security_group_name: s
 
 def print_duplicate_security_group_message(exception: Exception,
                                            security_group_id: str,
-                                           security_group_type: str,
-                                           security_group_rule: list) -> bool:
+                                           security_group_rule: dict,
+                                           outbound: bool) -> bool:
     """
     If the given exception is for a boto3 duplicate security group rule creation, then
     prints an error for this, with info about the given security group ID, security group
     type (inbound or outbound), and security group rule, and returns True; otherwise returns False.
 
     :param exception: Exception to examine for boto3 duplicate security group rule creation.
-    :param security_group_type: Security group type; inbound or outbound.
     :param security_group_id: AWS security group ID.
     :param security_group_rule: AWS security group rule.
+    :param security_group_direction: Security group type; Inbound or Outbound.
     """
     if isinstance(exception, Boto3ClientException):
         if exception.response:
@@ -111,15 +111,17 @@ def print_duplicate_security_group_message(exception: Exception,
             if error:
                 error_code = error.get("Code")
                 if error_code == "InvalidPermission.Duplicate":
-                    rule = security_group_rule[0]
-                    rule_description = f"{rule['IpProtocol']}/{rule['FromPort']}"
-                    print(f"Security group {security_group_type} rule ({rule_description})"
-                          f" for security group ({security_group_id}) already exists.")
+                    print(f"{'Outbound' if outbound else 'Inbound'} security group ({security_group_id}) rule"
+                          f" already exists: {Aws.get_security_group_rule_display_value(security_group_rule)}")
                     return True
     return False
 
 
-def update_inbound_security_group_rules(aws: Aws, security_group_id: str) -> None:
+def update_inbound_security_group_rules(
+        aws: Aws,
+        security_group_id: str,
+        force: bool = False
+) -> None:
     """
     Adds these inbound security group rules to the given/named AWS target security group:
 
@@ -131,38 +133,51 @@ def update_inbound_security_group_rules(aws: Aws, security_group_id: str) -> Non
 
     :param aws: Aws object.
     :param security_group_id: Target AWS security group ID.
+    :param force: True to replace any existing security group rule before creation.
     """
 
     # First get the list of inbound security group rules for the given security group ID.
     existing_inbound_security_group_rules = aws.get_inbound_security_group_rules(security_group_id)
 
     # Define the inbound security group rule.
-    security_group_rule = [{
+    security_group_rule = {
         "IpProtocol": "icmp",
         "FromPort": -1,
         "ToPort": -1,
         "IpRanges": [{"CidrIp": "0.0.0.0/0",
                       "Description": "ICMP for sentieon server"}],
-    }]
+    }
 
     # See if this new security group rule is already defined.
-    if aws.find_inbound_security_group_rule(existing_inbound_security_group_rules, security_group_rule[0]) is not None:
-        print(f"Inbound security group rule"
-              f" for security group ({security_group_id}) already exists: {security_group_rule[0]}")
-        return
+    existing_security_group_rule = aws.find_inbound_security_group_rule(existing_inbound_security_group_rules,
+                                                                        security_group_rule)
+    if existing_security_group_rule is not None:
+        existing_security_group_rule_id = existing_security_group_rule.get("SecurityGroupRuleId")
+        if force:
+            print(f"Removing existing inbound security"
+                  f" group ({security_group_id}) rule ({existing_security_group_rule_id}):"
+                  f" {Aws.get_security_group_rule_display_value(security_group_rule)}")
+            aws.delete_inbound_security_group_rule(security_group_id, existing_security_group_rule_id)
+        else:
+            print(f"Inbound security group ({security_group_id}) rule ({existing_security_group_rule_id})"
+                  f" already exists: {Aws.get_security_group_rule_display_value(security_group_rule)}")
+            return
 
     # Create the inbound security group rule.
     try:
+        print(f"Creating inbound security"
+              f" group ({security_group_id}) rule: {Aws.get_security_group_rule_display_value(security_group_rule)}")
         aws.create_inbound_security_group_rule(security_group_id, security_group_rule)
     except Exception as e:
-        if not print_duplicate_security_group_message(e, security_group_id, "inbound", security_group_rule):
+        if not print_duplicate_security_group_message(e, security_group_id, security_group_rule, outbound=False):
             print_exception(e)
 
 
 def update_outbound_security_group_rules(
         aws: Aws,
         security_group_id: str,
-        sentieon_ip_address: str
+        sentieon_ip_address: str,
+        force: bool = False
 ) -> None:
     """
     Adds these outbound security group rules to the given/named AWS target security group:
@@ -200,12 +215,15 @@ def update_outbound_security_group_rules(
     :param aws: Aws object.
     :param security_group_id: Target AWS security group ID.
     :param sentieon_ip_address: Sentieon server IP address.
+    :param force: True to replace any existing security group rule before creation.
     """
 
     # N.B. Had trouble finding values for the ICMP protocols (e.g. Source Quench, et cetera).
     # In fact only found a clue at this link:
-    # https://github.com/VoyagerInnovations/secgroup_approval/blob/master/revertSecurityGroup.py
+    # Ref: https://github.com/VoyagerInnovations/secgroup_approval/blob/master/revertSecurityGroup.py
     # Where we gleaned the following strategy for setting these, which does seem to work:
+    # FYI note this link says: ICMP has no concept of ports, as TCP/UDP do, but instead uses types/codes.
+    # Ref: https://www.sciencedirect.com/topics/computer-science/internet-control-message-protocol
     #
     # Protocol: Destination Unreachable
     #      Use: FromPort = 3 and ToPort = -1
@@ -219,37 +237,47 @@ def update_outbound_security_group_rules(
     # First get the list of outbound security group rules for the given security group ID.
     existing_outbound_security_group_rules = aws.get_outbound_security_group_rules(security_group_id)
 
-    def create_outbound_security_group_rule(security_group_rule: list) -> None:
-        if not isinstance(security_group_rule, list) or len(security_group_rule) < 1:
-            return
+    def create_outbound_security_group_rule(security_group_rule: dict) -> None:
         try:
-            if aws.find_outbound_security_group_rule(existing_outbound_security_group_rules, security_group_rule[0]) is not None:
-                print(f"Outbound security group rule"
-                      f" for security group ({security_group_id}) already exists: {security_group_rule[0]}")
-                return
+            existing_security_group_rule = aws.find_outbound_security_group_rule(
+                                              existing_outbound_security_group_rules,
+                                              security_group_rule)
+            if existing_security_group_rule is not None:
+                existing_security_group_rule_id = existing_security_group_rule.get("SecurityGroupRuleId")
+                if force:
+                    print(f"Removing existing outbound security"
+                          f" group ({security_group_id}) rule ({existing_security_group_rule_id}):"
+                          f" {Aws.get_security_group_rule_display_value(existing_security_group_rule)}")
+                    aws.delete_outbound_security_group_rule(security_group_id, existing_security_group_rule_id)
+                else:
+                    print(f"Outbound security group ({security_group_id}) rule ({existing_security_group_rule_id})"
+                          f" already exists: {Aws.get_security_group_rule_display_value(existing_security_group_rule)}")
+                    return
+            print(f"Creating outbound security"
+                  f" group ({security_group_id}) rule: {Aws.get_security_group_rule_display_value(security_group_rule)}")
             aws.create_outbound_security_group_rule(security_group_id, security_group_rule)
         except Exception as e:
-            if not print_duplicate_security_group_message(e, security_group_id, "outbound", security_group_rule):
+            if not print_duplicate_security_group_message(e, security_group_id, security_group_rule, outbound=True):
                 print_exception(e)
 
     def create_outbound_icmp_security_group_rule(from_port: int) -> None:
-        security_group_rule = [{
+        security_group_rule = {
             "IpProtocol": "icmp",
             "FromPort": from_port,
             "ToPort": -1,
             "IpRanges": [{"CidrIp": "0.0.0.0/0", "Description": "ICMP for sentieon server"}],
-        }]
+        }
         create_outbound_security_group_rule(security_group_rule)
 
     # Create the outbound port 8990 security group rules.
     sentieon_server_cidr = sentieon_ip_address + "/32"
-    outbound_security_group_rule = [{
+    outbound_security_group_rule = {
         "IpProtocol": "tcp",
         "FromPort": 8990,
         "ToPort": 8990,
         "IpRanges": [{"CidrIp": sentieon_server_cidr,
                       "Description": "allows communication with sentieon server"}],
-    }]
+    }
     create_outbound_security_group_rule(outbound_security_group_rule)
 
     # Create the outbound ICMP security group rules.
@@ -271,6 +299,7 @@ def update_sentieon_security(
         aws_secret_access_key: str,
         aws_session_token: str,
         custom_dir: str,
+        force: bool,
         security_group_name: str,
         sentieon_ip_address: str,
         sentieon_stack_name: str,
@@ -290,7 +319,7 @@ def update_sentieon_security(
         aws_credentials_dir = validate_and_get_aws_credentials_dir(aws_credentials_dir, custom_dir)
 
         # Print header and basic info.
-        PRINT(f"Updating 4dn-cloud-infra application security group Sentieon.")
+        PRINT(f"Updating 4dn-cloud-infra application security group for use as Sentieon compute node.")
         PRINT(f"Your custom directory: {custom_dir}")
         PRINT(f"Your custom config file: {config_file}")
         PRINT(f"Your AWS credentials name: {aws_credentials_name}")
@@ -301,6 +330,7 @@ def update_sentieon_security(
                                                                 aws_secret_access_key,
                                                                 aws_region,
                                                                 aws_session_token,
+                                                                config_file,
                                                                 show)
 
         # Validate/get and print the Sentieon server IP address.
@@ -322,10 +352,10 @@ def update_sentieon_security(
         setup_and_action_state.note_action_start()
 
         # Update the inbound security group rules.
-        update_inbound_security_group_rules(aws, security_group_id)
+        update_inbound_security_group_rules(aws, security_group_id, force)
 
         # Update the outbound security group rules.
-        update_outbound_security_group_rules(aws, security_group_id, sentieon_ip_address)
+        update_outbound_security_group_rules(aws, security_group_id, sentieon_ip_address, force)
 
 
 def main(override_argv: Optional[list] = None) -> None:
@@ -338,6 +368,11 @@ def main(override_argv: Optional[list] = None) -> None:
     add_aws_credentials_args(argp)
     argp.add_argument("--custom-dir", required=False, default=InfraDirectories.CUSTOM_DIR,
                       help=f"Alternate custom config directory to default: {InfraDirectories.CUSTOM_DIR}.")
+    argp.add_argument("--force", action="store_true", required=False,
+                      help="Force replace any existing security group rule.")
+    argp.add_argument("--no-confirm", required=False,
+                      dest="confirm", action="store_false",
+                      help="Behave as if all confirmation questions were answered yes.")
     argp.add_argument("--security-group-name", required=False,
                       help=f"Security group name to updaate. Default is C4NetworkMainApplicationSecurityGroup.")
     argp.add_argument("--sentieon-ip-address", required=False,
@@ -346,9 +381,6 @@ def main(override_argv: Optional[list] = None) -> None:
                       help=f"Sentieon AWS stack name to get IP address from.")
     argp.add_argument("--sentieon-stack-output-ip-address-key-name", required=False,
                       help=f"Sentieon AWS stack output IP address key name to get IP address from.")
-    argp.add_argument("--no-confirm", required=False,
-                      dest="confirm", action="store_false",
-                      help="Behave as if all confirmation questions were answered yes.")
     argp.add_argument("--show", action="store_true", required=False,
                       help="Show any senstive info in plaintext.")
     args = argp.parse_args(override_argv)
@@ -362,6 +394,7 @@ def main(override_argv: Optional[list] = None) -> None:
         args.aws_secret_access_key,
         args.aws_session_token,
         args.custom_dir,
+        args.force,
         args.security_group_name,
         args.sentieon_ip_address,
         args.sentieon_stack_name,

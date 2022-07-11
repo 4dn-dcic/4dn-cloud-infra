@@ -2,9 +2,12 @@ import os
 from typing import Optional
 from dcicutils.misc_utils import PRINT
 from .paths import (InfraDirectories, InfraFiles)
-from ..utils.misc_utils import (get_json_config_file_value,
-                                exit_with_no_action,
-                                print_exception)
+from ..utils.misc_utils import (
+    get_json_config_file_value,
+    exit_with_no_action,
+    print_exception,
+    print_warning,
+)
 from .aws import Aws
 from .aws_context import AwsContext
 
@@ -74,6 +77,7 @@ def validate_and_get_aws_credentials(credentials_dir: str,
                                      secret_access_key: str = None,
                                      region: str = None,
                                      session_token: str = None,
+                                     config_file: str = None,
                                      show: bool = False) -> (Aws, AwsContext.Credentials):
     """
     Validates the given AWS credentials which can be either the path to the AWS credentials directory;
@@ -86,6 +90,7 @@ def validate_and_get_aws_credentials(credentials_dir: str,
     :param secret_access_key: Explicitly specified AWS secret access key.
     :param region: Explicitly specified AWS region.
     :param session_token: Explicitly specified AWS session token
+    :param config_file: Custom directory config JSON file (for account number sanity checking only).
     :param show: True to show any displayed sensitive values in plaintext.
     :return: Tuple with an Aws object and AwsContext.Credentials containing the credentials.
     """
@@ -95,6 +100,11 @@ def validate_and_get_aws_credentials(credentials_dir: str,
     # Verify the AWS credentials context and get the associated AWS credentials number.
     try:
         with aws.establish_credentials(display=True, show=show) as credentials:
+            if config_file:
+                account_number_from_config_file = get_json_config_file_value("account_number", config_file)
+                if account_number_from_config_file != credentials.account_number:
+                    print_warning(f"Account number ({credentials.account_number}) does not match"
+                                  f"acount number ({account_number_from_config_file}) in config file: {config_file}")
             return aws, credentials
     except Exception as e:
         print_exception(e)

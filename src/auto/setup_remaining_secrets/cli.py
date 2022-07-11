@@ -303,6 +303,7 @@ def gather_secrets_to_update(
                                                             aws_secret_access_key,
                                                             aws_region,
                                                             aws_session_token,
+                                                            config_file,
                                                             show)
 
     # Print the relevant AWS secret names we are dealing with.

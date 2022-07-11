@@ -49,6 +49,7 @@ def update_kms_policy(
                                                             aws_secret_access_key,
                                                             aws_region,
                                                             aws_session_token,
+                                                            config_file,
                                                             show)
 
     # Validate/get the S3 encryption key ID from KMS (iff s3.bucket.encryption is true in config file).
