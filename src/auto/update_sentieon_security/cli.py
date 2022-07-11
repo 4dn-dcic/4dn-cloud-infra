@@ -313,13 +313,6 @@ def update_sentieon_security(
         # Validate/get and print the target security group name, and get associated security group ID.
         security_group_name, security_group_id = validate_and_get_target_security_group_name(aws, security_group_name)
 
-        # Get the existing security group rules for the target security group ID.
-#       existing_inbound_security_group_rules, existing_outbound_security_group_rules = aws.get_security_group_rules(security_group_id)
-#       if existing_inbound_security_group_rules:
-#           print(f"Existing inbound security group rules for security group ({security_group_id}): {len(existing_inbound_security_group_rules)}")
-#       if existing_outbound_security_group_rules:
-#           print(f"Existing outbound security group rules for security group ({security_group_id}): {len(existing_outbound_security_group_rules)}")
-
         # Confirm with user before taking action.
         yes = yes_or_no(f"Update this security group ({security_group_id}) with outbound rules Sentieon?")
         if not yes:
