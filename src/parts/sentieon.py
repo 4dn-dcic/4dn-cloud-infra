@@ -11,6 +11,7 @@ from ..part import C4Part
 from ..base import ConfigManager, Settings
 from .network import C4NetworkExports, C4Network
 
+
 # dmichaels/20220705: Added to set AWS Outputs value for Sentieon server IP; similar to ecs.py for DNSName.
 class C4SentieonSupportExports(C4Exports):
     """ Holds Sentieon export metadata. """

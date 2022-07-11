@@ -2,21 +2,23 @@ import io
 import json
 import mock
 import os
+from pathlib import Path
 import pytest
 import re
 import stat
 import tempfile
-from typing import Callable
 from contextlib import contextmanager
+from dcicutils.qa_utils import printed_output as mock_print, MockBoto3
 from src.auto.init_custom_dir.cli import (get_fallback_identity, main)
-from src.auto.init_custom_dir.defs import InfraDirectories, InfraFiles
-from src.auto.init_custom_dir.utils import obfuscate
-from dcicutils.qa_utils import printed_output as mock_print
+from src.auto.utils import aws_context
+from src.auto.utils.paths import InfraDirectories, InfraFiles
+from src.auto.utils.misc_utils import obfuscate
+from .testing_utils import (find_matching_line, all_lines_match)
 
 # Tests for the main init-custom-dir script.
 
 
-class Input:
+class TestData:
     aws_credentials_name = "your-credentials-name"
     account_number = "1234567890"
     s3_bucket_org = "prufrock"
@@ -34,10 +36,10 @@ def _get_standard_main_argv(aws_dir: str, aws_credentials_name: str, custom_dir:
     argv = ["--awsdir", aws_dir,
             "--credentials", aws_credentials_name,
             "--out", custom_dir,
-            "--s3org", Input.s3_bucket_org,
+            "--s3org", TestData.s3_bucket_org,
             "--s3encrypt",
-            "--auth0client", Input.auth0_client, "--auth0secret", Input.auth0_secret,
-            "--recaptchakey", Input.recaptcha_key, "--recaptchasecret", Input.recaptcha_secret]
+            "--auth0client", TestData.auth0_client, "--auth0secret", TestData.auth0_secret,
+            "--recaptchakey", TestData.recaptcha_key, "--recaptchasecret", TestData.recaptcha_secret]
     if omit_arg and omit_arg in argv:
         arg_index = argv.index(omit_arg)
         if 0 <= arg_index < len(argv) - 1:
@@ -46,34 +48,8 @@ def _get_standard_main_argv(aws_dir: str, aws_credentials_name: str, custom_dir:
     return argv
 
 
-def _rummage_for_print_message(mocked_print, regular_expression: str):
-    """
-    Searches the given print mock for the/a print call whose arguments matches
-    the given regular expression, and returns True if it finds (just) one
-    that matches, otherwise returns False.
-    """
-    for value in mocked_print.lines:
-        if re.search(regular_expression, value, re.IGNORECASE):
-            return True
-    return False
-
-
-def _rummage_for_print_message_all(mocked_print, regular_expression: str, predicate: Callable):
-    """
-    Searches the given print mock for the/a call whose argument matches
-    the given regular expression and returns True iff each/every match also
-    passes (gets a True return value from) the given predicate function
-    with that argument, otherwise returns False.
-    """
-    for value in mocked_print.lines:
-        if re.search(regular_expression, value, re.IGNORECASE):
-            if not predicate(value):
-                return False
-    return True
-
-
 @contextmanager
-def _setup_filesystem(aws_credentials_name: str, account_number: str = None):
+def _temporary_aws_credentials_dir_for_testing(aws_credentials_name: str, account_number: str = None):
     """
     Sets up our directories to use in a system temporary directory,
     which gets totally cleaned up after the with-context where this is used.
@@ -94,6 +70,9 @@ def _setup_filesystem(aws_credentials_name: str, account_number: str = None):
         os.makedirs(aws_dir)
         # aws_credentials_dir represents: /your-home/.aws_test.<your-credentials-name>
         os.makedirs(aws_credentials_dir)
+        aws_credentials_file = os.path.join(aws_credentials_dir, "credentials")
+        # credentials file placeholder
+        Path(aws_credentials_file).touch()
         if account_number:
             with io.open(test_creds_script_file, "w") as test_creds_script_fp:
                 # test_creds_script_file represents: /your-home/.aws_test.<your-credentials-name>/test_creds.sh
@@ -104,13 +83,18 @@ def _setup_filesystem(aws_credentials_name: str, account_number: str = None):
 
 def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
 
-    with _setup_filesystem(
-         Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
-         mock_print() as mocked_print, \
-         mock.patch("src.auto.init_custom_dir.cli.getpass.getuser") as mocked_getpass_getuser, \
-         mock.patch("builtins.input") as mocked_input:
+    mocked_boto3 = MockBoto3()
 
-        mocked_getpass_getuser.return_value = Input.deploying_iam_user
+    with _temporary_aws_credentials_dir_for_testing(
+            TestData.aws_credentials_name,
+            TestData.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
+         mock_print() as mocked_print, \
+         mock.patch("builtins.input") as mocked_input, \
+         mock.patch.object(aws_context, "boto3", mocked_boto3):
+
+        # The script gets the deploying_iam_user via boto3 via "sts" get_caller_identity so we mock this.
+        mocked_boto3.client("sts").put_caller_identity_for_testing(account=None, user_arn=TestData.deploying_iam_user)
+
         mocked_input.return_value = "yes"
 
         # This is the directory structure we are simulating;
@@ -130,32 +114,32 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
 
         if pre_existing_s3_encrypt_key_file:
             with io.open(s3_encrypt_key_file, "w") as s3_encrypt_key_fp:
-                s3_encrypt_key_fp.write(Input.s3_encrypt_key)
+                s3_encrypt_key_fp.write(TestData.s3_encrypt_key)
 
         # Call the main script function.
         # Normal case where custom directory does not already exist.
-        argv = _get_standard_main_argv(aws_dir, Input.aws_credentials_name, custom_dir)
+        argv = _get_standard_main_argv(aws_dir, TestData.aws_credentials_name, custom_dir)
         main(argv)
 
         # Verify existence/contents of config.json file (e.g. in /your-repos/4dn-cloud-infra/custom/config.json).
         assert os.path.isfile(config_json_file)
         with io.open(config_json_file, "r") as config_json_fp:
             config_json = json.load(config_json_fp)
-            assert config_json["account_number"] == Input.account_number
-            assert config_json["s3.bucket.org"] == Input.s3_bucket_org
-            assert config_json["deploying_iam_user"] == Input.deploying_iam_user
+            assert config_json["account_number"] == TestData.account_number
+            assert config_json["s3.bucket.org"] == TestData.s3_bucket_org
+            assert config_json["deploying_iam_user"] == TestData.deploying_iam_user
             assert config_json["identity"] == "C4DatastoreYourCredentialsNameApplicationConfiguration"
-            assert config_json["ENCODED_ENV_NAME"] == Input.aws_credentials_name
-            assert config_json["s3.bucket.encryption"] == Input.s3_bucket_encryption
+            assert config_json["ENCODED_ENV_NAME"] == TestData.aws_credentials_name
+            assert config_json["s3.bucket.encryption"] == TestData.s3_bucket_encryption
 
         # Verify existence/contents of secrets.json file (e.g. in /your-repos/4dn-cloud-infra/custom/secrets.json).
         assert os.path.isfile(secrets_json_file)
         with io.open(secrets_json_file, "r") as secrets_json_fp:
             secrets_json = json.load(secrets_json_fp)
-            assert secrets_json["Auth0Client"] == Input.auth0_client
-            assert secrets_json["Auth0Secret"] == Input.auth0_secret
-            assert secrets_json["reCaptchaKey"] == Input.recaptcha_key
-            assert secrets_json["reCaptchaSecret"] == Input.recaptcha_secret
+            assert secrets_json["Auth0Client"] == TestData.auth0_client
+            assert secrets_json["Auth0Secret"] == TestData.auth0_secret
+            assert secrets_json["reCaptchaKey"] == TestData.recaptcha_key
+            assert secrets_json["reCaptchaSecret"] == TestData.recaptcha_secret
 
         # Verify that we have custom/aws_creds directory (e.g. in /your-repos/4dn-cloud-infra/custom/config.json).
         # And that it is actually a symlink to the AWS credentials
@@ -172,7 +156,7 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
         with io.open(s3_encrypt_key_file, "r") as s3_encrypt_key_fp:
             s3_encrypt_key = s3_encrypt_key_fp.read()
             if pre_existing_s3_encrypt_key_file:
-                assert s3_encrypt_key == Input.s3_encrypt_key
+                assert s3_encrypt_key == TestData.s3_encrypt_key
             else:
                 s3_encrypt_key_file_mode = os.stat(s3_encrypt_key_file).st_mode
                 # Check that the created file mode is 400.
@@ -181,25 +165,30 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
                 assert 32 <= len(s3_encrypt_key) <= 128
 
         # Check that any secrets printed out look like they"ve been obfuscated.
-        assert _rummage_for_print_message_all(
-            mocked_print, ".*using.*secret.*", lambda arg: arg.endswith("*******"))
-        assert _rummage_for_print_message_all(
-            mocked_print, ".*using.*secret.*",
-            lambda arg: Input.auth0_secret not in arg and Input.recaptcha_secret not in arg)
+        assert all_lines_match(
+            mocked_print.lines, ".*using.*secret.*", lambda arg: arg.endswith("*******"))
+        assert all_lines_match(
+            mocked_print.lines, ".*using.*secret.*",
+            lambda arg: TestData.auth0_secret not in arg and TestData.recaptcha_secret not in arg)
 
 
 def _call_function_and_assert_exit_with_no_action(f, interrupt: bool = False) -> None:
+    mocked_boto3 = MockBoto3()
     with mock_print() as mocked_print, \
-         mock.patch("builtins.exit") as mocked_exit:
+         mock.patch("builtins.exit") as mocked_exit, \
+         mock.patch.object(aws_context, "boto3", mocked_boto3):
+        # The script gets the deploying_iam_user via boto3 via "sts" get_caller_identity so we mock this.
+        mocked_boto3.client("sts").put_caller_identity_for_testing(account=TestData.account_number,
+                                                                   user_arn=TestData.deploying_iam_user)
         mocked_exit.side_effect = Exception()
         with pytest.raises(Exception):
             f()
         if interrupt:
-            assert _rummage_for_print_message(mocked_print, ".*interrupt.*") is True
+            assert find_matching_line(mocked_print.lines, ".*interrupt.*") is not None
         assert mocked_exit.called is True
         # Check the message from the last print which should be something like: Exiting without doing anything.
         # Kinda lame.
-        assert _rummage_for_print_message(mocked_print, ".*exit.*without.*doing*") is True
+        assert find_matching_line(mocked_print.lines, ".*exit.*without.*doing*") is not None
 
 
 def test_sanity() -> None:
@@ -210,8 +199,8 @@ def test_directories_and_files() -> None:
     assert len(InfraDirectories.AWS_DIR) > 0
     assert os.path.isfile(InfraFiles.get_config_template_file())
     assert os.path.isfile(InfraFiles.get_secrets_template_file())
-    with _setup_filesystem(
-         Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir):
+    with _temporary_aws_credentials_dir_for_testing(
+         TestData.aws_credentials_name, TestData.account_number) as (aws_dir, aws_credentials_dir, custom_dir):
         assert InfraFiles.get_test_creds_script_file(aws_credentials_dir) == \
                os.path.join(aws_credentials_dir, "test_creds.sh")
         assert InfraFiles.get_config_file(custom_dir) == os.path.join(custom_dir, "config.json")
@@ -231,8 +220,8 @@ def test_main_with_pre_existing_s3_encrypt_key_file() -> None:
 
 def test_main_with_pre_existing_custom_dir() -> None:
 
-    with _setup_filesystem(
-         Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir):
+    with _temporary_aws_credentials_dir_for_testing(
+         TestData.aws_credentials_name, TestData.account_number) as (aws_dir, aws_credentials_dir, custom_dir):
 
         # This is the directory structure we are simulating;
         # well, actually creating, within a temporary directory.
@@ -252,27 +241,27 @@ def test_main_with_pre_existing_custom_dir() -> None:
         # config.json and secrets.json files and make sure we did not overwrite them.
         os.makedirs(custom_dir)
         with io.open(config_json_file, "w") as config_json_fp:
-            config_json_fp.write(Input.dummy_json_content)
+            config_json_fp.write(TestData.dummy_json_content)
         with io.open(secrets_json_file, "w") as secrets_json_fp:
-            secrets_json_fp.write(Input.dummy_json_content)
+            secrets_json_fp.write(TestData.dummy_json_content)
 
         # Call the script function.
-        argv = _get_standard_main_argv(aws_dir, Input.aws_credentials_name, custom_dir)
+        argv = _get_standard_main_argv(aws_dir, TestData.aws_credentials_name, custom_dir)
 
         # Test case if the custom directory already exists.
         # Check that we exit without doing anything.
         _call_function_and_assert_exit_with_no_action(lambda: main(argv))
 
         with io.open(config_json_file, "r") as config_json_fp:
-            assert config_json_fp.read() == Input.dummy_json_content
+            assert config_json_fp.read() == TestData.dummy_json_content
         with io.open(secrets_json_file, "r") as secrets_json_fp:
-            assert secrets_json_fp.read() == Input.dummy_json_content
+            assert secrets_json_fp.read() == TestData.dummy_json_content
 
 
 def test_main_with_no_existing_aws_credentials_dir() -> None:
 
-    with _setup_filesystem(
-         Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir):
+    with _temporary_aws_credentials_dir_for_testing(
+         TestData.aws_credentials_name, TestData.account_number) as (aws_dir, aws_credentials_dir, custom_dir):
         # Call the script function with an aws_credentials_name for which an aws_credentials_dir does not exist.
         argv = _get_standard_main_argv(aws_dir, "aws-credentials-name-with-no-associated--dir", custom_dir)
         _call_function_and_assert_exit_with_no_action(lambda: main(argv))
@@ -281,11 +270,11 @@ def test_main_with_no_existing_aws_credentials_dir() -> None:
 
 def test_main_when_answering_no_to_confirmation_prompt() -> None:
 
-    with _setup_filesystem(
-         Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
+    with _temporary_aws_credentials_dir_for_testing(
+         TestData.aws_credentials_name, TestData.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
          mock.patch("builtins.input") as mocked_input:
-        mocked_input.return_value = 'no'
-        argv = _get_standard_main_argv(aws_dir, Input.aws_credentials_name, custom_dir)
+        mocked_input.return_value = "no"
+        argv = _get_standard_main_argv(aws_dir, TestData.aws_credentials_name, custom_dir)
         _call_function_and_assert_exit_with_no_action(lambda: main(argv))
         assert not os.path.exists(custom_dir)
 
@@ -293,14 +282,13 @@ def test_main_when_answering_no_to_confirmation_prompt() -> None:
 def _test_main_exit_with_no_action_on_missing_required_input(omit_required_arg: str) -> None:
     # When a required input is missing we prompt for it and if still not specified (empty)
     # then we exit with no action. Test for this case here.
-    account_number = Input.account_number
+    account_number = TestData.account_number
     if omit_required_arg == "--account":
         # If we are omitting account number then do not create test_creds.sh with ACCOUNT_NUMBER.
         account_number = None
-    with _setup_filesystem(
-         Input.aws_credentials_name, account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
-         mock.patch("builtins.input") as mocked_input:
-        argv = _get_standard_main_argv(aws_dir, Input.aws_credentials_name, custom_dir, omit_arg=omit_required_arg)
+    with _temporary_aws_credentials_dir_for_testing(TestData.aws_credentials_name, account_number) as \
+            (aws_dir, aws_credentials_dir, custom_dir), mock.patch("builtins.input") as mocked_input:
+        argv = _get_standard_main_argv(aws_dir, TestData.aws_credentials_name, custom_dir, omit_arg=omit_required_arg)
         mocked_input.side_effect = [""]  # return value for prompt for required arg
         _call_function_and_assert_exit_with_no_action(lambda: main(argv))
 
@@ -323,20 +311,20 @@ def test_main_exit_with_no_action_on_missing_required_input_account() -> None:
 
 def test_main_exit_with_no_action_on_missing_required_input_identity() -> None:
     # This tests failure of get_identity_fallback.
-    with _setup_filesystem(
-         Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
+    with _temporary_aws_credentials_dir_for_testing(
+         TestData.aws_credentials_name, TestData.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
          mock.patch("src.auto.init_custom_dir.cli.get_fallback_identity") as mocked_get_fallback_identity:
         mocked_get_fallback_identity.return_value = None
-        argv = _get_standard_main_argv(aws_dir, Input.aws_credentials_name, custom_dir)
+        argv = _get_standard_main_argv(aws_dir, TestData.aws_credentials_name, custom_dir)
         _call_function_and_assert_exit_with_no_action(lambda: main(argv))
 
 
 def test_main_with_keyboard_interrupt() -> None:
-    with _setup_filesystem(
-         Input.aws_credentials_name, Input.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
+    with _temporary_aws_credentials_dir_for_testing(
+         TestData.aws_credentials_name, TestData.account_number) as (aws_dir, aws_credentials_dir, custom_dir), \
          mock.patch("builtins.input") as mocked_input:
         mocked_input.side_effect = [KeyboardInterrupt]
-        argv = _get_standard_main_argv(aws_dir, Input.aws_credentials_name, custom_dir)
+        argv = _get_standard_main_argv(aws_dir, TestData.aws_credentials_name, custom_dir)
         _call_function_and_assert_exit_with_no_action(lambda: main(argv), interrupt=True)
         assert not os.path.exists(custom_dir)
 

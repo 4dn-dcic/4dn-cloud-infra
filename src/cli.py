@@ -1,6 +1,9 @@
 import argparse
+import io
 import logging
 import os
+import shutil
+import tempfile
 # import json
 
 # from contextlib import contextmanager
@@ -315,12 +318,19 @@ class C4Client:
                     output_file = f"out/foursight-{args.stage}-tmp/"
                     args.output_file = output_file
                     PRINT(f"Using default output location: {output_file}")
+                elif use_stdout_and_exit:
+                    output_file = tempfile.NamedTemporaryFile().name
+                    args.output_file = output_file
 
                 stack.package_foursight_stack(args)  # <-- this will implicitly use args.stage, among others
                 if upload_change_set:
                     bucket = ConfigManager.get_config_setting(Settings.FOURSIGHT_APP_VERSION_BUCKET, default=None)
                     cls.upload_chalice_package(output_file=output_file, stack=stack, bucket=bucket)
-
+                if use_stdout_and_exit:
+                    with io.open(os.path.join(output_file, "sam.yaml"), "r") as output_file_fp:
+                        for line in output_file_fp.readlines():
+                            print(line, end='')
+                    shutil.rmtree(output_file)
             else:
                 # Handle 4dn-cloud-infra stacks
                 file_path = cls.write_and_validate_template(stack=stack,

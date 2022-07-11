@@ -22,7 +22,6 @@
 # Testing notes:
 # - External resources accesed by this module:
 #   - filesystem via:
-#     - getpass.getuser
 #     - glob.glob
 #     - io.open
 #     - os.chmod
@@ -46,34 +45,30 @@
 #     os.argv
 
 import argparse
-import getpass
 import io
 import os
 import stat
 from typing import Optional
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
-from .aws_credentials_info import AwsCredentialsInfo
-from .utils import (
-    exit_with_no_action,
-    expand_json_template_file,
-    generate_s3_encrypt_key,
-    obfuscate,
-    print_directory_tree,
-    read_env_variable_from_subshell,
-    setup_and_action
-)
-from .defs import (
-    ConfigTemplateVars,
-    InfraDirectories,
-    EnvVars,
-    InfraFiles,
-    SecretsTemplateVars
-)
 from ...names import Names
+from ..utils.aws import Aws
+from ..utils.misc_utils import (exit_with_no_action,
+                                expand_json_template_file,
+                                generate_encryption_key,
+                                get_script_exported_variable,
+                                obfuscate,
+                                print_directory_tree,
+                                setup_and_action)
+from .aws_credentials_info import AwsCredentialsInfo
+from .defs import (ConfigTemplateVars,
+                   InfraDirectories,
+                   EnvVars,
+                   InfraFiles,
+                   SecretsTemplateVars)
 
 
-def get_fallback_account_number(aws_credentials_dir: str) -> str:
+def get_fallback_account_number(aws_credentials_dir: str) -> Optional[str]:
     """
     Obtains/returns fallback account_number value by executing the test_creds.sh
     file for the chosen AWS credentials (in a sub-shell) and grabbing the value
@@ -83,24 +78,24 @@ def get_fallback_account_number(aws_credentials_dir: str) -> str:
     :return: Account number from test_creds.sh if found otherwise None.
     """
     test_creds_script_file = InfraFiles.get_test_creds_script_file(aws_credentials_dir)
-    return read_env_variable_from_subshell(test_creds_script_file, EnvVars.ACCOUNT_NUMBER)
+    return get_script_exported_variable(test_creds_script_file, EnvVars.ACCOUNT_NUMBER)
 
 
-def get_fallback_deploying_iam_user() -> str:
+def get_fallback_deploying_iam_user(aws_credentials_dir: str) -> Optional[str]:
     """
-    Obtains/returns fallback deploying_iam_user value, simply from the OS environment.
+    Obtains/returns fallback deploying_iam_user value by trnga to get it from AWS,
+    via the credentials within the given AWS credentials directory.
 
-    :return: Username as found by getpass.getuser().
+    :return: Username as described above, or None if cannot be determined.
     """
-    # TODO: This is really no good. Need to use the AWS user name.
-    # And in fact it seems like we actually need the AWS ARN for the user;
-    # e.g. arn:aws:iam::466564410312:user/david.michaels, though unclear why
-    # we didn't need this before (e.g. it seemed to work with david.michaels).
-    # In any case we will need the user to supply this explicitly via --username.
-    return getpass.getuser()
+    try:
+        with Aws(aws_credentials_dir).establish_credentials() as credentials:
+            return credentials.user_arn
+    except Exception:
+        return None
 
 
-def get_fallback_identity(aws_credentials_name: str) -> str:
+def get_fallback_identity(aws_credentials_name: str) -> Optional[str]:
     """
     Obtains/returns the 'identity', i.e. the global application configuration name using
     the same code that 4dn-cloud-infra code does (see C4Datastore.application_configuration_secret).
@@ -116,8 +111,10 @@ def get_fallback_identity(aws_credentials_name: str) -> str:
     return identity_value
 
 
-def validate_aws_credentials_info(
-        aws_dir: str, aws_credentials_name: str, confirm: bool = True, debug: bool = False) -> (str, str):
+def validate_and_get_aws_credentials_info(aws_dir: str,
+                                          aws_credentials_name: str,
+                                          confirm: bool = True,
+                                          debug: bool = False) -> (str, str):
     """
     Validates the given AWS directory and AWS credentials name and returns
     the AWS credentials name and full path to the associated AWS credentials directory.
@@ -193,10 +190,10 @@ def validate_aws_credentials_info(
     return aws_credentials_name, aws_credentials_dir
 
 
-def validate_custom_dir(custom_dir: str) -> str:
+def validate_and_get_custom_dir(custom_dir: str) -> str:
     """
     Validates the given custom directory and returns its full path.
-    Prompts for this value if not set; exit on error (if not set).
+    Exit on error (if not set).
 
     :param custom_dir: Specified custom directory.
     :return: Full path to custom directory.
@@ -215,7 +212,7 @@ def validate_custom_dir(custom_dir: str) -> str:
     return custom_dir
 
 
-def validate_account_number(account_number: str, aws_credentials_dir: str, debug: bool = False) -> str:
+def validate_and_get_account_number(account_number: str, aws_credentials_dir: str, debug: bool = False) -> str:
     """
     Validates the given account number (if specified), and returns it if/when set.
     If not specified we try to get it from test_creds.sh.
@@ -240,17 +237,19 @@ def validate_account_number(account_number: str, aws_credentials_dir: str, debug
     return account_number
 
 
-def validate_deploying_iam_user(deploying_iam_user: str) -> str:
+def validate_and_get_deploying_iam_user(deploying_iam_user: str, aws_credentials_dir: str) -> str:
     """
     Validates the given deploying IAM username and returns it if/when set.
     Prompts for this value if not set; exit on error (if not set).
-    We get the default/fallabck value from the current system username.
+    We try to get the default/fallback value from AWS, via the
+    credentials within the given AWS credentials directory.
 
     :param deploying_iam_user: Deploying IAM username value.
+    :param aws_credentials_dir: Full path to AWS credentials directory.
     :return: Deploying IAM username value.
     """
     if not deploying_iam_user:
-        deploying_iam_user = get_fallback_deploying_iam_user()
+        deploying_iam_user = get_fallback_deploying_iam_user(aws_credentials_dir)
         if not deploying_iam_user:
             PRINT("Cannot determine deploying IAM username. Use the --username option.")
             deploying_iam_user = input("Or enter your deploying IAM username: ").strip()
@@ -260,7 +259,7 @@ def validate_deploying_iam_user(deploying_iam_user: str) -> str:
     return deploying_iam_user
 
 
-def validate_identity(identity: str, aws_credentials_name: str) -> str:
+def validate_and_get_identity(identity: str, aws_credentials_name: str) -> str:
     """
     Validates the given identity (i.e. GAC name) and returns it if set.
     Does NOT prompt for this value if not set; exit on error (if not set).
@@ -280,7 +279,7 @@ def validate_identity(identity: str, aws_credentials_name: str) -> str:
     return identity
 
 
-def validate_s3_bucket_org(s3_bucket_org: str) -> str:
+def validate_and_get_s3_bucket_org(s3_bucket_org: str) -> str:
     """
     Validates the given S3 bucket organization name and returns it if/when set.
     Prompts for this value if not set; exit on error (if not set).
@@ -297,7 +296,7 @@ def validate_s3_bucket_org(s3_bucket_org: str) -> str:
     return s3_bucket_org
 
 
-def validate_auth0(auth0_client: str, auth0_secret: str) -> (str, str):
+def validate_and_get_auth0(auth0_client: str, auth0_secret: str) -> (str, str):
     """
     Validates the given Auth0 client/secret and returns them if/when set.
     Prompts for this value if not set; exit on error (if not set).
@@ -325,7 +324,7 @@ def validate_auth0(auth0_client: str, auth0_secret: str) -> (str, str):
     return auth0_client, auth0_secret
 
 
-def validate_recaptcha(recaptcha_key: str, recaptcha_secret: str) -> (str, str):
+def validate_and_get_recaptcha(recaptcha_key: str, recaptcha_secret: str) -> (str, str):
     """
     Validates the given reCAPTCHA key/secret and returns them if/when set.
     Does not prompt for this value if not set as not required.
@@ -426,25 +425,25 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
 
         if debug:
             PRINT(f"DEBUG: Current directory: {os.getcwd()}")
-            PRINT(f"DEBUG: Current username: {getpass.getuser()}")
             PRINT(f"DEBUG: Script directory: {InfraDirectories.THIS_SCRIPT_DIR}")
 
         # Validate/gather all the inputs.
-        aws_credentials_name, aws_credentials_dir \
-            = validate_aws_credentials_info(aws_dir, aws_credentials_name, confirm, debug)
-        custom_dir = validate_custom_dir(custom_dir)
-        account_number = validate_account_number(account_number, aws_credentials_dir, debug)
-        deploying_iam_user = validate_deploying_iam_user(deploying_iam_user)
-        identity = validate_identity(identity, aws_credentials_name)
-        s3_bucket_org = validate_s3_bucket_org(s3_bucket_org)
-        auth0_client, auth0_secret = validate_auth0(auth0_client, auth0_secret)
-        recaptcha_key, recaptcha_secret = validate_recaptcha(recaptcha_key, recaptcha_secret)
+        aws_credentials_name, aws_credentials_dir = validate_and_get_aws_credentials_info(aws_dir,
+                                                                                          aws_credentials_name,
+                                                                                          confirm, debug)
+        custom_dir = validate_and_get_custom_dir(custom_dir)
+        account_number = validate_and_get_account_number(account_number, aws_credentials_dir, debug)
+        deploying_iam_user = validate_and_get_deploying_iam_user(deploying_iam_user, aws_credentials_dir)
+        identity = validate_and_get_identity(identity, aws_credentials_name)
+        s3_bucket_org = validate_and_get_s3_bucket_org(s3_bucket_org)
+        auth0_client, auth0_secret = validate_and_get_auth0(auth0_client, auth0_secret)
+        recaptcha_key, recaptcha_secret = validate_and_get_recaptcha(recaptcha_key, recaptcha_secret)
 
         PRINT(f"Using S3 bucket encryption: {'Yes' if s3_bucket_encryption else 'No'}")
 
         # Generate S3 encryption key.
         # Though we will NOT overwrite s3_encrypt_key.txt if it already exists, below.
-        s3_encrypt_key = generate_s3_encrypt_key()
+        s3_encrypt_key = generate_encryption_key()
         PRINT(f"Generating S3 encryption key: {obfuscate(s3_encrypt_key)}")
 
         # Confirm with the user that everything looks okay.
@@ -495,7 +494,6 @@ def main(override_argv: Optional[list] = None) -> None:
     The main function and args parser for this CLI script.
     Calls into init_custom_dir to do the real work.
     """
-
     argp = argparse.ArgumentParser()
     argp.add_argument("--account", "-a", dest="account_number", type=str, required=False,
                       help="Your AWS account number")
@@ -522,7 +520,8 @@ def main(override_argv: Optional[list] = None) -> None:
                       help="Your reCAPTCHA secret")
     argp.add_argument("--s3org", "-n", dest="s3_bucket_org", type=str, required=False,
                       help="Your S3 bucket organization name")
-    argp.add_argument("--s3encrypt", "-e", dest="s3_bucket_encryption", action="store_true", default=False, required=False,
+    argp.add_argument("--s3encrypt", "-e", dest="s3_bucket_encryption",
+                      action="store_true", default=False, required=False,
                       help="To encrypt S3 buckets")
     argp.add_argument("--username", "-u", dest="deploying_iam_user", type=str, required=False,
                       help="Your deploying IAM username")
