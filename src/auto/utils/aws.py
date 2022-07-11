@@ -602,19 +602,16 @@ class Aws(AwsContext):
         :return: Value of the given AWS stack output key name of the given stack name, or None.
         """
         with super().establish_credentials():
-            # TODO
-            # Could/should use dcicutils.cloudformation_utils.find_stack_output but it currently
-            # searches for the given stack output key name across all stackes rather than within
-            # a given/named stack; so change to use a new version of this when we have it; which
-            # we do have now (2022-07-11) in the minor-qa-utils-cleanup branch of utils, but not
-            # merged yet to master so commented out for now, and using local code below rather
-            # than this here commented out code ...
-            # c4 = C4OrchestrationManager()
-            # return c4.find_stack_output(stack_output_key_name, value_only=True, stack_name=stack_name)
-            stacks = boto3.resource('cloudformation').stacks.all()
-            for stack in stacks:
-                if stack.name == stack_name:
-                    for stack_output in stack.outputs:
-                        if stack_output["OutputKey"] == stack_output_key_name:
-                            return stack_output["OutputValue"]
+            # Using dcicutils.cloudformation_utils.find_stack_output here even though it looks
+            # for the given stack output key name across all stack, as this output key name
+            # should be be unique across stacks. See discussion on Slack with Kent/Will/David
+            # from 2022-07-11 @ 3:19pm for some commentary on this. Was previously doing:
+            # stacks = boto3.resource('cloudformation').stacks.all()
+            # for stack in stacks:
+            #     if stack.name == stack_name:
+            #         for stack_output in stack.outputs:
+            #             if stack_output["OutputKey"] == stack_output_key_name:
+            #                 return stack_output["OutputValue"]
+            c4 = C4OrchestrationManager()
+            return c4.find_stack_output(stack_output_key_name, value_only=True)
         return None
