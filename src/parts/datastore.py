@@ -62,6 +62,7 @@ class C4DatastoreExports(C4Exports):
     APPLICATION_METADATA_BUNDLES_BUCKET = exportify('AppMetadataBundlesBucket')
     APPLICATION_TIBANNA_OUTPUT_BUCKET = exportify('AppTibannaLogsBucket')
     APPLICATION_TIBANNA_CWL_BUCKET = exportify('AppTibannaCWLBucket')
+    APPLICATION_HIGLASS_BUCKET = exportify('AppHiglassBucket')
 
     # Output SQS Queues
     APPLICATION_INDEXER_PRIMARY_QUEUE = exportify('ApplicationIndexerPrimaryQueue')
@@ -162,6 +163,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
         C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET: ConfigManager.AppBucketTemplate.METADATA_BUNDLES,
         C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET: ConfigManager.AppBucketTemplate.TIBANNA_OUTPUT,
         C4DatastoreExports.APPLICATION_TIBANNA_CWL_BUCKET: ConfigManager.AppBucketTemplate.TIBANNA_CWL,
+        C4DatastoreExports.APPLICATION_HIGLASS_BUCKET: ConfigManager.AppBucketTemplate.HIGLASS
     }
 
     # Buckets to apply the lifecycle policy to (files and wfoutput, as these are large)
@@ -243,6 +245,8 @@ class C4Datastore(C4DatastoreBase, C4Part):
             'ENCODED_S3_BUCKET_ORG': ConfigManager.get_config_setting(Settings.S3_BUCKET_ORG, default=None),
             'ENCODED_TIBANNA_OUTPUT_BUCKET':
                 "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET),
+            'ENCODED_HIGLASS_BUCKET':
+                "", # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_HIGLASS_BUCKET)
             'LANG': 'en_US.UTF-8',
             'LC_ALL': 'en_US.UTF-8',
             'RDS_HOSTNAME': None,
@@ -250,6 +254,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
             'RDS_PORT': ConfigManager.get_config_setting(Settings.RDS_DB_PORT, default=cls.DEFAULT_RDS_DB_PORT),
             'RDS_USERNAME': cls.rds_db_username(),
             'RDS_PASSWORD': None,
+            'GLOBAL_ENV_BUCKET': '',  # foursight-envs bucket
             'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY,
                                                               ConfigManager.get_s3_encrypt_key_from_file()),
             # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
