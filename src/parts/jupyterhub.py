@@ -42,7 +42,8 @@ class C4JupyterHubSupport(C4EC2Common):
                                                 instance_size=ConfigManager.get_config_setting(
                                                     Settings.JH_INSTANCE_SIZE, default=self.DEFAULT_INSTANCE_SIZE
                                                 ),
-                                                default_key=ssh_key))
+                                                default_key=ssh_key,
+                                                user_data=self.generate_jupyterhub_user_data()))
 
         # Add load balancer for the hub
         template.add_resource(self.lb_security_group(identifier=self.IDENTIFIER))
@@ -52,3 +53,24 @@ class C4JupyterHubSupport(C4EC2Common):
                                                                       target_group=target_group))
         template.add_resource(self.application_load_balancer(identifier=self.IDENTIFIER))
         return template
+
+    @staticmethod
+    def generate_jupyterhub_user_data():
+        """ User data that does the initial provisioning of the server, but some must be done server side.
+            Note that this assumes an AMD64 arch + Ubuntu style image!
+            Manual Steps:
+                1. chrony provisioning
+                2. fuse configuration
+                3. .env configuration + source
+                4. build and start images
+        """
+        return [
+            '#!/bin/bash -xe', '\n',
+            'sudo apt-get update', '\n',
+            'sudo apt-get install -y git make supervisor golang-go curl chrony', '\n',
+            'curl -O -L http://bit.ly/goofys-latest', '\n',
+            'sudo chmod +x /home/ubuntu/goofys-latest', '\n',
+            'sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"', '\n',
+            'sudo chmod +x /usr/local/bin/docker-compose', '\n',
+            'docker-compose --version', '\n',
+        ]

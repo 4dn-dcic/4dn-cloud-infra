@@ -10,6 +10,7 @@ from .ec2_common import C4EC2Common
 class C4HiglassServer(C4EC2Common):
     """
     Layer that provides a Load Balancer + EC2 instance for running our Dockerized Higlass component.
+    TODO: IAM permissions?
     """
     STACK_NAME_TOKEN = 'higlass'
     STACK_TITLE_TOKEN = 'Higlass'
@@ -56,7 +57,7 @@ class C4HiglassServer(C4EC2Common):
     @staticmethod
     def generate_higlass_user_data():
         """ User data that pulls down the Docker image for a higlass server for use on the instance.
-            Note that this assumes an Ubuntu style image!
+            Note that this assumes an AMD64 arch + Ubuntu style image!
         """
         return [
             '#!/bin/bash -xe', '\n',
