@@ -603,7 +603,7 @@ class Aws(AwsContext):
         """
         with super().establish_credentials():
             # Using dcicutils.cloudformation_utils.find_stack_output here even though it looks
-            # for the given stack output key name across all stack, as this output key name
+            # for the given stack output key name across all stacks, as this output key name
             # should be be unique across stacks. See discussion on Slack with Kent/Will/David
             # from 2022-07-11 @ 3:19pm for some commentary on this. Was previously doing:
             # stacks = boto3.resource('cloudformation').stacks.all()
