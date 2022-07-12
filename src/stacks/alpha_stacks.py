@@ -1,7 +1,7 @@
 from ..base import register_stack_creator, registered_stack_class
 from ..parts import (
     network, datastore, ecr, iam, logging, ecs, fourfront_ecs,
-    appconfig, datastore_slim, sentieon, jupyterhub, fourfront_ecs_blue_green
+    appconfig, datastore_slim, sentieon, jupyterhub, higlass, fourfront_ecs_blue_green
 )
 from ..stack import (
     C4Stack, C4Tags, C4Account, C4Part, BaseC4FoursightStack,
@@ -186,6 +186,12 @@ def c4_alpha_stack_sentieon(account: C4Account):
 def c4_alpha_stack_jupyterhub(account: C4Account):
     """ Sentieon stack, used for spinning up a Jupyterhub server for the account. """
     return create_c4_alpha_stack(name='jupyterhub', account=account)
+
+
+@register_stack_creator(name='higlass', kind='alpha', implementation_class=higlass.C4HiglassServer)
+def c4_alpha_stack_jupyterhub(account: C4Account):
+    """ Sentieon stack, used for spinning up a Higlass server for the account. """
+    return create_c4_alpha_stack(name='higlass', account=account)
 
 
 @register_stack_creator(name='foursight', kind='alpha', implementation_class=C4FoursightCGAPStack)

@@ -1,6 +1,7 @@
 from troposphere import (
-    Ref, Template, Parameter,
+    Ref, Parameter, Join,
     elasticloadbalancingv2 as elbv2,
+    Base64
 )
 from troposphere.ec2 import (
     SecurityGroup, SecurityGroupEgress, SecurityGroupIngress, SecurityGroupRule,
@@ -111,7 +112,7 @@ class C4EC2Common(C4Part):
             ),
         ]
 
-    def ec2_instance(self, *, identifier, instance_size, default_key) -> Instance:
+    def ec2_instance(self, *, identifier, instance_size, default_key, user_data=['']) -> Instance:
         """ Builds an EC2 instance for use with the application """
         logical_id = self.name.logical_id(f'{identifier}')
         network_interface_logical_id = self.name.logical_id(f'{identifier}NetworkInterface')
@@ -128,7 +129,8 @@ class C4EC2Common(C4Part):
                 GroupSet=[Ref(self.application_security_group(identifier=identifier))],
                 SubnetId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNETS[0]),
             )],
-            KeyName=Ref(self.ssh_key(identifier=identifier, default=default_key))
+            KeyName=Ref(self.ssh_key(identifier=identifier, default=default_key)),
+            UserData=Base64(Join('', user_data))
         )
 
     def lb_security_group(self, *, identifier) -> SecurityGroup:

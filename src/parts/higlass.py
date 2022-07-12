@@ -41,7 +41,8 @@ class C4HiglassServer(C4EC2Common):
                                                 instance_size=ConfigManager.get_config_setting(
                                                     Settings.HIGLASS_INSTANCE_SIZE, default=self.DEFAULT_INSTANCE_SIZE
                                                 ),
-                                                default_key=ssh_key))
+                                                default_key=ssh_key,
+                                                user_data=self.generate_higlass_user_data()))
 
         # Add load balancer for the hub
         template.add_resource(self.lb_security_group(identifier=self.IDENTIFIER))
@@ -51,3 +52,27 @@ class C4HiglassServer(C4EC2Common):
                                                                       target_group=target_group))
         template.add_resource(self.application_load_balancer(identifier=self.IDENTIFIER))
         return template
+
+    @staticmethod
+    def generate_higlass_user_data():
+        """ User data that pulls down the Docker image for a higlass server for use on the instance.
+            Note that this assumes an Ubuntu style image!
+        """
+        return [
+            '#!/bin/bash -xe', '\n',
+            'sudo apt-get update', '\n',
+            'sudo apt-get install apt-transport-https ca-certificates curl software-properties-common git', '\n',
+            'curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -', '\n',
+            'sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"', '\n',
+            'sudo apt update', '\n'
+            'apt-cache policy docker-ce', '\n',
+            'sudo apt install docker-ce awscli', '\n',
+            'mkdir hg-data', '\n',
+            'mkdir hg-tmp', '\n',
+            'aws s3 sync s3://cgap-higlass/hg-data hg-data', '\n',
+            'sudo docker pull higlass/higlass-docker', '\n',
+            'sudo git clone https://github.com/dbmi-bgm/higlass-docker-setup', '\n',
+            'cd higlass-docker-setup', '\n',
+            'sudo -E ./start_production.sh'
+        ]
+
