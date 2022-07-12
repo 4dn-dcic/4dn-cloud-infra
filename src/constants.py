@@ -102,6 +102,10 @@ class Settings:
     JH_SSH_KEY = 'jupyterhub.ssh_key'
     JH_INSTANCE_SIZE = 'jupyterhub.instance_size'
 
+    # Higlass Options
+    HIGLASS_SSH_KEY = 'higlass.ssh_key'
+    HIGLASS_INSTANCE_SIZE = 'higlass.instance_size'
+
     # Secure AMI
     HMS_SECURE_AMI = 'hms.secure_ami'
 

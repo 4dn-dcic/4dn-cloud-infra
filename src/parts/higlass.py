@@ -7,15 +7,15 @@ from .network import C4NetworkExports
 from .ec2_common import C4EC2Common
 
 
-class C4JupyterHubSupport(C4EC2Common):
+class C4HiglassServer(C4EC2Common):
     """
-    Layer that provides a Load Balancer + EC2 instance for running our Dockerized JH component.
+    Layer that provides a Load Balancer + EC2 instance for running our Dockerized Higlass component.
     """
-    STACK_NAME_TOKEN = 'jupyterhub'
-    STACK_TITLE_TOKEN = 'Jupyterhub'
+    STACK_NAME_TOKEN = 'higlass'
+    STACK_TITLE_TOKEN = 'Higlass'
     NETWORK_EXPORTS = C4NetworkExports()
     DEFAULT_INSTANCE_SIZE = 'c5.large'
-    IDENTIFIER = 'JupyterHub'
+    IDENTIFIER = 'Higlass'
 
     def build_template(self, template: Template) -> Template:
         # Network Stack Parameter
@@ -27,12 +27,11 @@ class C4JupyterHubSupport(C4EC2Common):
 
         # SSH Key for access
         ssh_key = self.ssh_key(identifier=self.IDENTIFIER,
-                               default=ConfigManager.get_config_setting(Settings.JH_SSH_KEY))
+                               default=ConfigManager.get_config_setting(Settings.HIGLASS_SSH_KEY))
         template.add_parameter(ssh_key)
 
         # TODO: ACM certificate parameter?
 
-        # Security Group
         template.add_resource(self.application_security_group(identifier=self.IDENTIFIER))
         for rule in self.application_security_rules(identifier=self.IDENTIFIER):
             template.add_resource(rule)
@@ -40,7 +39,7 @@ class C4JupyterHubSupport(C4EC2Common):
         # JupyterHub instance
         template.add_resource(self.ec2_instance(identifier=self.IDENTIFIER,
                                                 instance_size=ConfigManager.get_config_setting(
-                                                    Settings.JH_INSTANCE_SIZE, default=self.DEFAULT_INSTANCE_SIZE
+                                                    Settings.HIGLASS_INSTANCE_SIZE, default=self.DEFAULT_INSTANCE_SIZE
                                                 ),
                                                 default_key=ssh_key))
 
