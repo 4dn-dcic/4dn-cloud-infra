@@ -112,6 +112,10 @@ class Settings:
     # S3 KMS ServerSide Encryption Key
     S3_ENCRYPT_KEY_ID = 's3.encrypt_key_id'
 
+    # CodeBuild options
+    CODEBUILD_REPOSITORY_URL = 'codebuild.repo_url'
+    CODEBUILD_DEPLOY_BRANCH = 'codebuild.build_branch'
+
 
 # dmichaels/2022-06-06: Factored out from base.py.
 COMMON_STACK_PREFIX = "c4-"
