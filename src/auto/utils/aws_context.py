@@ -20,7 +20,7 @@ class AwsContext:
         aws = AwsContext(your_aws_credentials_directory_or_access_key_id_and_secret_access_key)
         with aws.establish_credentials() as credentials:
             do_something_with_boto3()
-            # if desired reference/use credentials values ...
+            # if desired reference/use credentials values like so:
             aws_access_key_id = credentials.access_key_id
             aws_secret_access_key = credentials.secret_access_key
             aws_region = credentials.region
@@ -72,23 +72,19 @@ class AwsContext:
 
         :param display: If True then print summary of AWS credentials.
         :param show: If True and display True show in plaintext sensitive info for AWS credentials summary.
-        :return: Yields named tuple with: access_key_id, secret_access_key, region, account_number, user_arn.
+        :return: Yields populated (nested class) Credentials object.
         """
 
-        # TODO: Should we require all credentials, INCLUDING region, to come from EITHER
-        # given arguments (i.e. command-line, ultimately) XOR from given AWS credentials
-        # directory? I.e. so as not to split between them which may create some confusion.
-
         def unset_environ(environment_variables: list) -> dict:
-            saved_environ = {}
+            saved_environment_variables = {}
             for environment_variable in environment_variables:
-                saved_environ[environment_variable] = os.environ.pop(environment_variable, None)
+                saved_environment_variables[environment_variable] = os.environ.pop(environment_variable, None)
                 if environment_variable.endswith("_FILE"):
                     os.environ[environment_variable] = "/dev/null"
-            return saved_environ
+            return saved_environment_variables
 
-        def restore_environ(saved_environ: dict) -> None:
-            for saved_environ_key, saved_environ_value in saved_environ.items():
+        def restore_environ(saved_environment_variables: dict) -> None:
+            for saved_environ_key, saved_environ_value in saved_environment_variables.items():
                 if saved_environ_value is not None:
                     os.environ[saved_environ_key] = saved_environ_value
                 else:
@@ -111,7 +107,6 @@ class AwsContext:
         # Then our boto3 usage failed (here) with AWS credentials environment variables set.
         # Doing this just once (per AwsContext object creation) so as not to totally
         # undermine the (probably beneficial) caching that boto3 is trying to do.
-        #
         # Ref: https://stackoverflow.com/questions/36894947/boto3-uses-old-credentials
         # Ref: https://github.com/boto/boto3/issues/1574
         if self._reset_boto3_default_session:

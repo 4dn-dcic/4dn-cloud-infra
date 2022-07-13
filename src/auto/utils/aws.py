@@ -373,7 +373,7 @@ class Aws(AwsContext):
             security_group_id = security_groups[0].get("GroupId")
             return security_group_id
 
-    def create_inbound_security_group_rule(self, security_group_id: str, security_group_rule: dict) -> dict:
+    def create_inbound_security_group_rule(self, security_group_id: str, security_group_rule: dict) -> None:
         """
         Creates the given AWS inbound security group rule for the given AWS security group ID.
 
@@ -383,10 +383,10 @@ class Aws(AwsContext):
         """
         with super().establish_credentials():
             ec2 = boto3.client('ec2')
-            return ec2.authorize_security_group_ingress(GroupId=security_group_id,
-                                                        IpPermissions=[security_group_rule])
+            ec2.authorize_security_group_ingress(GroupId=security_group_id,
+                                                 IpPermissions=[security_group_rule])
 
-    def create_outbound_security_group_rule(self, security_group_id: str, security_group_rule: dict) -> dict:
+    def create_outbound_security_group_rule(self, security_group_id: str, security_group_rule: dict) -> None:
         """
         Creates the given AWS outbound security group outbound rule for the given AWS security group ID.
 
@@ -396,8 +396,8 @@ class Aws(AwsContext):
         """
         with super().establish_credentials():
             ec2 = boto3.client('ec2')
-            return ec2.authorize_security_group_egress(GroupId=security_group_id,
-                                                       IpPermissions=[security_group_rule])
+            ec2.authorize_security_group_egress(GroupId=security_group_id,
+                                                IpPermissions=[security_group_rule])
 
     def delete_inbound_security_group_rule(self, security_group_id: str, security_group_rule_id: str) -> None:
         """
@@ -408,8 +408,8 @@ class Aws(AwsContext):
         """
         with super().establish_credentials():
             ec2 = boto3.client('ec2')
-            return ec2.revoke_security_group_ingress(GroupId=security_group_id,
-                                                     SecurityGroupRuleIds=[security_group_rule_id])
+            ec2.revoke_security_group_ingress(GroupId=security_group_id,
+                                              SecurityGroupRuleIds=[security_group_rule_id])
 
     def delete_outbound_security_group_rule(self, security_group_id: str, security_group_rule_id: str) -> None:
         """
@@ -420,8 +420,8 @@ class Aws(AwsContext):
         """
         with super().establish_credentials():
             ec2 = boto3.client('ec2')
-            return ec2.revoke_security_group_egress(GroupId=security_group_id,
-                                                    SecurityGroupRuleIds=[security_group_rule_id])
+            ec2.revoke_security_group_egress(GroupId=security_group_id,
+                                             SecurityGroupRuleIds=[security_group_rule_id])
 
     @staticmethod
     def find_security_group_rule(

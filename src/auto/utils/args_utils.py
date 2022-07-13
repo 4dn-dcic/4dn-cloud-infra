@@ -30,4 +30,4 @@ def validate_aws_credentials_args(args) -> None:
        and not (args.aws_access_key_id and args.aws_secret_access_key)):
         exit_with_no_action("Either none or both --aws-access-key-id and --aws-secret-access-key must be specified.")
     if args.aws_access_key_id and args.aws_credentials_dir:
-        exit_with_no_action("Cannot specify both --aws-credentials-dir and --aws-access-key-id/--aws-secret-access-key.")
+        exit_with_no_action("Cannot specify both --aws-credentials-dir and --aws-access-key-id.")
