@@ -4,7 +4,7 @@ import re
 from typing import Optional
 from dcicutils.cloudformation_utils import C4OrchestrationManager
 from dcicutils.command_utils import yes_or_no
-from dcicutils.misc_utils import PRINT
+from dcicutils.misc_utils import ignored, PRINT
 from .aws_context import AwsContext
 from .misc_utils import (obfuscate, print_exception, should_obfuscate)
 
@@ -373,31 +373,33 @@ class Aws(AwsContext):
             security_group_id = security_groups[0].get("GroupId")
             return security_group_id
 
-    def create_inbound_security_group_rule(self, security_group_id: str, security_group_rule: dict) -> None:
+    def create_inbound_security_group_rule(self, security_group_id: str, security_group_rule: dict) -> str:
         """
         Creates the given AWS inbound security group rule for the given AWS security group ID.
 
         :param security_group_id: AWS security group ID.
         :param security_group_rule: AWS inbound security group rule.
-        :return: Response from the boto3 call to create the inbound security group rule.
+        :return: Security group rule ID of the newly created inbound rule.
         """
         with super().establish_credentials():
             ec2 = boto3.client('ec2')
-            ec2.authorize_security_group_ingress(GroupId=security_group_id,
-                                                 IpPermissions=[security_group_rule])
+            response = ec2.authorize_security_group_ingress(GroupId=security_group_id,
+                                                            IpPermissions=[security_group_rule])
+            return response["SecurityGroupRules"][0]["SecurityGroupRuleId"]
 
-    def create_outbound_security_group_rule(self, security_group_id: str, security_group_rule: dict) -> None:
+    def create_outbound_security_group_rule(self, security_group_id: str, security_group_rule: dict) -> str:
         """
         Creates the given AWS outbound security group outbound rule for the given AWS security group ID.
 
         :param security_group_id: AWS security group ID.
         :param security_group_rule: AWS outbound security group rule.
-        :return: Response from the boto3 call to create the outbound security group rule.
+        :return: Security group rule ID of the newly created outbound rule.
         """
         with super().establish_credentials():
             ec2 = boto3.client('ec2')
-            ec2.authorize_security_group_egress(GroupId=security_group_id,
-                                                IpPermissions=[security_group_rule])
+            response = ec2.authorize_security_group_egress(GroupId=security_group_id,
+                                                           IpPermissions=[security_group_rule])
+            return response["SecurityGroupRules"][0]["SecurityGroupRuleId"]
 
     def delete_inbound_security_group_rule(self, security_group_id: str, security_group_rule_id: str) -> None:
         """
@@ -439,7 +441,7 @@ class Aws(AwsContext):
         :param existing_security_group_rules: List of AWS security group rules.
         :param security_group_rule: AWS security group rule.
         :param outbound: True if finding and outbound (egress) rule, otherwise and inbound (ingress) rule.
-        :return: AWS security group rule from the given existing rules that matches the given rule.
+        :return: AWS security group rule from the given existing rules that matches the given rule, or None.
         """
         for existing_security_group_rule in existing_security_group_rules:
             if (security_group_rule.get("IpProtocol") == existing_security_group_rule.get("IpProtocol")
@@ -495,7 +497,9 @@ class Aws(AwsContext):
         Not sure this is really worth it. Just to print like this (for example):
         Output security group sg-0561068965d07c4af rule already exists: Custom TCP | TCP | 8990 | 10.0.68.248/32
         Rather than this (for example):
-        Output security group sg-0561068965d07c4af rule already exists: {'IpProtocol': 'icmp', 'FromPort': -1, 'ToPort': -1, 'IpRanges': [{'CidrIp': '0.0.0.0/0', 'Description': 'ICMP for sentieon server'}]}
+        Output security group sg-0561068965d07c4af rule already exists:
+        {'IpProtocol': 'icmp', 'FromPort': -1, 'ToPort': -1,
+         'IpRanges': [{'CidrIp': '0.0.0.0/0', 'Description': 'ICMP for sentieon server'}]}
 
         :param security_group_rule: AWS security group rule.
         :return: String representing the given AWS security group rule.
@@ -601,6 +605,7 @@ class Aws(AwsContext):
         :param stack_output_key_name: AWS stack output key name.
         :return: Value of the given AWS stack output key name of the given stack name, or None.
         """
+        ignored(stack_name)
         with super().establish_credentials():
             # Using dcicutils.cloudformation_utils.find_stack_output here even though it looks
             # for the given stack output key name across all stacks, as this output key name

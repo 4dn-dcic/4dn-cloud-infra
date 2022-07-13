@@ -25,6 +25,105 @@ from ..utils.validate_utils import (
 )
 
 
+def get_inbound_security_rules_to_define() -> list:
+    """
+    Returns these inbound security group rules which should be defined for the AWS target security group:
+
+    - Type: All ICMP - IPv4
+      Protocol: ICMP
+      Port range: All
+      Destination: Custom 0.0.0.0/0
+      Description: ICMP for sentieon server
+
+    :return: Outbound security group rules to define.
+    """
+    return [{
+        "IpProtocol": "icmp",
+        "FromPort": -1,
+        "ToPort": -1,
+        "IpRanges": [{"CidrIp": "0.0.0.0/0", "Description": "ICMP for sentieon server"}],
+    }]
+
+
+def get_outbound_security_rules_to_define(sentieon_ip_address: str) -> list:
+    """
+    Returns these outbound security group rules which should be defined for the AWS target security group:
+
+    - Type: Custom TCP
+      Protocol: TCP
+      Port range: 8990
+      Destination: Custom <ip-address-of-sentieon-ec2-instance-from-stack-output>/32
+      Description: allows communication with sentieon server
+
+    - Type: Custom ICMP - IPv4
+      Protocol: Destination Unreachable
+      Port range: All
+      Destination: Custom | 0.0.0.0/0
+      Description: ICMP for sentieon server
+
+    - Type: Custom ICMP - IPv4
+      Protocol: Echo Request
+      Port range: N/A
+      Destination: Custom | 0.0.0.0/0
+      Description: ICMP for sentieon server
+
+    - Type: Custom ICMP - IPv4
+      Protocol: Source Quench
+      Port range: N/A
+      Destination: Custom | 0.0.0.0/0
+      Description: ICMP for sentieon server
+
+    - Type: Custom ICMP - IPv4
+      Protocol: Time Exceeded
+      Port range: All
+      Destination: Custom | 0.0.0.0/0
+      Description: ICMP for sentieon server
+
+    :param sentieon_ip_address: Sentieon server IP address.
+    :return: Outbound security group rules to define.
+    """
+    def outbound_tcp_security_group_rule(ip_address: str) -> dict:
+        return {
+            "IpProtocol": "tcp",
+            "FromPort": 8990,
+            "ToPort": 8990,
+            "IpRanges": [{"CidrIp": ip_address + "/32",
+                          "Description": "allows communication with sentieon server"}],
+        }
+
+    def outbound_icmp_security_group_rule(from_port: int) -> dict:
+        return {
+            "IpProtocol": "icmp",
+            "FromPort": from_port,
+            "ToPort": -1,
+            "IpRanges": [{"CidrIp": "0.0.0.0/0", "Description": "ICMP for sentieon server"}],
+        }
+
+    # N.B. Had trouble finding values for the ICMP protocols (e.g. Source Quench, et cetera).
+    # In fact only found a clue at this link:
+    # Ref: https://github.com/VoyagerInnovations/secgroup_approval/blob/master/revertSecurityGroup.py
+    # Where we gleaned the following strategy for setting these, which does seem to work:
+    # FYI note this link says: ICMP has no concept of ports, as TCP/UDP do, but instead uses types/codes.
+    # Ref: https://www.sciencedirect.com/topics/computer-science/internet-control-message-protocol
+    #
+    # Protocol: Destination Unreachable
+    #      Use: FromPort = 3 and ToPort = -1
+    # Protocol: Echo Request
+    #      Use: FromPort = 8 and ToPort = -1
+    # Protocol: Source Quench
+    #      Use: FromPort = 4 and ToPort = -1
+    # Protocol: Time Exceeded
+    #      Use: FromPort = 11 and ToPort = -1
+
+    return [
+        outbound_tcp_security_group_rule(sentieon_ip_address),
+        outbound_icmp_security_group_rule(3),  # Destination unreachable
+        outbound_icmp_security_group_rule(8),  # Echo request
+        outbound_icmp_security_group_rule(4),  # Source quench
+        outbound_icmp_security_group_rule(11)  # Time exceeded
+    ]
+
+
 def validate_and_get_sentieon_server_ip_address(aws: Aws,
                                                 aws_credentials_name: str,
                                                 sentieon_ip_address: str,
@@ -117,60 +216,56 @@ def print_duplicate_security_group_message(exception: Exception,
     return False
 
 
+def summarize_security_group_rules_to_define(security_group_id: str, sentieon_ip_address: str) -> None:
+    inbound_security_group_rules_to_define = get_inbound_security_rules_to_define()
+    for rule in inbound_security_group_rules_to_define:
+        print(f"Inbound security group ({security_group_id}) rule to define:"
+              f" {Aws.get_security_group_rule_display_value(rule)}")
+    outbound_security_group_rules_to_define = get_outbound_security_rules_to_define(sentieon_ip_address)
+    for rule in outbound_security_group_rules_to_define:
+        print(f"Outbound security group ({security_group_id}) rule to define:"
+              f" {Aws.get_security_group_rule_display_value(rule)}")
+
+
 def update_inbound_security_group_rules(
         aws: Aws,
         security_group_id: str,
         force: bool = False
 ) -> None:
     """
-    Adds these inbound security group rules to the given/named AWS target security group:
-
-    - Type: All ICMP - IPv4
-      Protocol: ICMP
-      Port range: All
-      Destination: Custom 0.0.0.0/0
-      Description: ICMP for sentieon server
+    Adds the inbound security group rules to the given/named AWS target security group:
 
     :param aws: Aws object.
     :param security_group_id: Target AWS security group ID.
     :param force: True to replace any existing security group rule before creation.
     """
 
-    # First get the list of inbound security group rules for the given security group ID.
+    # Get the inbound security group rules to define.
+    inbound_security_rules_to_define = get_inbound_security_rules_to_define()
+
+    # Get a list of inbound security group rules for the given security group ID.
     existing_inbound_security_group_rules = aws.get_inbound_security_group_rules(security_group_id)
 
-    # Define the inbound security group rule.
-    security_group_rule = {
-        "IpProtocol": "icmp",
-        "FromPort": -1,
-        "ToPort": -1,
-        "IpRanges": [{"CidrIp": "0.0.0.0/0",
-                      "Description": "ICMP for sentieon server"}],
-    }
-
-    # See if this new security group rule is already defined.
-    existing_security_group_rule = aws.find_inbound_security_group_rule(existing_inbound_security_group_rules,
-                                                                        security_group_rule)
-    if existing_security_group_rule is not None:
-        existing_security_group_rule_id = existing_security_group_rule.get("SecurityGroupRuleId")
-        if force:
-            print(f"Removing existing inbound security"
-                  f" group ({security_group_id}) rule ({existing_security_group_rule_id}):"
-                  f" {Aws.get_security_group_rule_display_value(security_group_rule)}")
-            aws.delete_inbound_security_group_rule(security_group_id, existing_security_group_rule_id)
-        else:
-            print(f"Inbound security group ({security_group_id}) rule ({existing_security_group_rule_id})"
-                  f" already exists: {Aws.get_security_group_rule_display_value(security_group_rule)}")
-            return
-
-    # Create the inbound security group rule.
-    try:
-        print(f"Creating inbound security"
-              f" group ({security_group_id}) rule: {Aws.get_security_group_rule_display_value(security_group_rule)}")
-        aws.create_inbound_security_group_rule(security_group_id, security_group_rule)
-    except Exception as e:
-        if not print_duplicate_security_group_message(e, security_group_id, security_group_rule, outbound=False):
-            print_exception(e)
+    for rule in inbound_security_rules_to_define:
+        existing_rule = aws.find_inbound_security_group_rule(existing_inbound_security_group_rules, rule)
+        if existing_rule:
+            existing_rule_id = existing_rule.get("SecurityGroupRuleId")
+            if force:
+                print(f"Removing existing inbound security group rule ({existing_rule_id}):"
+                      f" {Aws.get_security_group_rule_display_value(rule)}")
+                aws.delete_inbound_security_group_rule(security_group_id, existing_rule_id)
+            else:
+                print(f"Inbound security group rule ({existing_rule_id})"
+                      f" already exists: {Aws.get_security_group_rule_display_value(rule)} -> No action")
+                continue
+        try:
+            print(f"Creating inbound security"
+                  f" group ({security_group_id}) rule: {Aws.get_security_group_rule_display_value(rule)}", end="")
+            created_inbound_security_group_rule_id = aws.create_inbound_security_group_rule(security_group_id, rule)
+            print(f" -> {created_inbound_security_group_rule_id}")
+        except Exception as e:
+            if not print_duplicate_security_group_message(e, security_group_id, rule, outbound=False):
+                print_exception(e)
 
 
 def update_outbound_security_group_rules(
@@ -180,37 +275,7 @@ def update_outbound_security_group_rules(
         force: bool = False
 ) -> None:
     """
-    Adds these outbound security group rules to the given/named AWS target security group:
-
-    - Type: Custom TCP
-      Protocol: TCP
-      Port range: 8990
-      Destination: Custom <ip-address-of-sentieon-ec2-instance-from-stack-output>/32
-      Description: allows communication with sentieon server
-
-    - Type: Custom ICMP - IPv4
-      Protocol: Destination Unreachable
-      Port range: All
-      Destination: Custom | 0.0.0.0/0
-      Description: ICMP for sentieon server
-
-    - Type: Custom ICMP - IPv4
-      Protocol: Echo Request
-      Port range: N/A
-      Destination: Custom | 0.0.0.0/0
-      Description: ICMP for sentieon server
-
-    - Type: Custom ICMP - IPv4
-      Protocol: Source Quench
-      Port range: N/A
-      Destination: Custom | 0.0.0.0/0
-      Description: ICMP for sentieon server
-
-    - Type: Custom ICMP - IPv4
-      Protocol: Time Exceeded
-      Port range: All
-      Destination: Custom | 0.0.0.0/0
-      Description: ICMP for sentieon server
+    Adds the outbound security group rules to the given/named AWS target security group:
 
     :param aws: Aws object.
     :param security_group_id: Target AWS security group ID.
@@ -218,78 +283,33 @@ def update_outbound_security_group_rules(
     :param force: True to replace any existing security group rule before creation.
     """
 
-    # N.B. Had trouble finding values for the ICMP protocols (e.g. Source Quench, et cetera).
-    # In fact only found a clue at this link:
-    # Ref: https://github.com/VoyagerInnovations/secgroup_approval/blob/master/revertSecurityGroup.py
-    # Where we gleaned the following strategy for setting these, which does seem to work:
-    # FYI note this link says: ICMP has no concept of ports, as TCP/UDP do, but instead uses types/codes.
-    # Ref: https://www.sciencedirect.com/topics/computer-science/internet-control-message-protocol
-    #
-    # Protocol: Destination Unreachable
-    #      Use: FromPort = 3 and ToPort = -1
-    # Protocol: Echo Request
-    #      Use: FromPort = 8 and ToPort = -1
-    # Protocol: Source Quench
-    #      Use: FromPort = 4 and ToPort = -1
-    # Protocol: Time Exceeded
-    #      Use: FromPort = 11 and ToPort = -1
+    # Get the outbound security group rules to define.
+    outbound_security_rules_to_define = get_outbound_security_rules_to_define(sentieon_ip_address)
 
-    # First get the list of outbound security group rules for the given security group ID.
+    # Get a list of outbound security group rules for the given security group ID.
     existing_outbound_security_group_rules = aws.get_outbound_security_group_rules(security_group_id)
 
-    def create_outbound_security_group_rule(security_group_rule: dict) -> None:
+    # See if any rules already exist for the rules to define.
+    for rule in outbound_security_rules_to_define:
+        existing_rule = aws.find_outbound_security_group_rule(existing_outbound_security_group_rules, rule)
+        if existing_rule:
+            existing_rule_id = existing_rule.get("SecurityGroupRuleId")
+            if force:
+                print(f"Removing existing outbound security group rule ({existing_rule_id}):"
+                      f" {Aws.get_security_group_rule_display_value(rule)}")
+                aws.delete_outbound_security_group_rule(security_group_id, existing_rule_id)
+            else:
+                print(f"Outbound security group rule ({existing_rule_id})"
+                      f" already exists: {Aws.get_security_group_rule_display_value(rule)} -> No action")
+                continue
         try:
-            existing_security_group_rule = aws.find_outbound_security_group_rule(
-                                              existing_outbound_security_group_rules,
-                                              security_group_rule)
-            if existing_security_group_rule is not None:
-                existing_security_group_rule_id = existing_security_group_rule.get("SecurityGroupRuleId")
-                if force:
-                    print(f"Removing existing outbound security"
-                          f" group ({security_group_id}) rule ({existing_security_group_rule_id}):"
-                          f" {Aws.get_security_group_rule_display_value(existing_security_group_rule)}")
-                    aws.delete_outbound_security_group_rule(security_group_id, existing_security_group_rule_id)
-                else:
-                    print(f"Outbound security group ({security_group_id}) rule ({existing_security_group_rule_id})"
-                          f" already exists: {Aws.get_security_group_rule_display_value(existing_security_group_rule)}")
-                    return
             print(f"Creating outbound security"
-                  f" group ({security_group_id}) rule:"
-                  f" {Aws.get_security_group_rule_display_value(security_group_rule)}")
-            aws.create_outbound_security_group_rule(security_group_id, security_group_rule)
+                  f" group ({security_group_id}) rule: {Aws.get_security_group_rule_display_value(rule)}", end="")
+            created_outbound_security_group_rule_id = aws.create_outbound_security_group_rule(security_group_id, rule)
+            print(f" -> {created_outbound_security_group_rule_id}")
         except Exception as e:
-            if not print_duplicate_security_group_message(e, security_group_id, security_group_rule, outbound=True):
+            if not print_duplicate_security_group_message(e, security_group_id, rule, outbound=False):
                 print_exception(e)
-
-    def create_outbound_icmp_security_group_rule(from_port: int) -> None:
-        security_group_rule = {
-            "IpProtocol": "icmp",
-            "FromPort": from_port,
-            "ToPort": -1,
-            "IpRanges": [{"CidrIp": "0.0.0.0/0", "Description": "ICMP for sentieon server"}],
-        }
-        create_outbound_security_group_rule(security_group_rule)
-
-    # Create the outbound port 8990 security group rules.
-    sentieon_server_cidr = sentieon_ip_address + "/32"
-    outbound_security_group_rule = {
-        "IpProtocol": "tcp",
-        "FromPort": 8990,
-        "ToPort": 8990,
-        "IpRanges": [{"CidrIp": sentieon_server_cidr,
-                      "Description": "allows communication with sentieon server"}],
-    }
-    create_outbound_security_group_rule(outbound_security_group_rule)
-
-    # Create the outbound ICMP security group rules.
-    icmp_port_destination_unreachable = 3
-    icmp_port_echo_request = 8
-    icmp_port_source_quench = 4
-    icmp_port_time_exceeded = 11
-    create_outbound_icmp_security_group_rule(icmp_port_destination_unreachable)
-    create_outbound_icmp_security_group_rule(icmp_port_echo_request)
-    create_outbound_icmp_security_group_rule(icmp_port_source_quench)
-    create_outbound_icmp_security_group_rule(icmp_port_time_exceeded)
 
 
 def update_sentieon_security(
@@ -344,8 +364,11 @@ def update_sentieon_security(
         # Validate/get and print the target security group name, and get associated security group ID.
         security_group_name, security_group_id = validate_and_get_target_security_group_name(aws, security_group_name)
 
+        # Print summary of security group rules to define.
+        summarize_security_group_rules_to_define(security_group_id, sentieon_ip_address)
+
         # Confirm with user before taking action.
-        yes = yes_or_no(f"Update this security group ({security_group_id}) with outbound rules Sentieon?")
+        yes = yes_or_no(f"Define these security group rules for security group ({security_group_id})?")
         if not yes:
             exit_with_no_action()
 
