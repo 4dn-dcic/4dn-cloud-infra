@@ -1,7 +1,8 @@
 from ..base import register_stack_creator, registered_stack_class
 from ..parts import (
     network, datastore, ecr, iam, logging, ecs, fourfront_ecs,
-    appconfig, datastore_slim, sentieon, jupyterhub, higlass, fourfront_ecs_blue_green
+    appconfig, datastore_slim, sentieon, jupyterhub, higlass, fourfront_ecs_blue_green,
+    codebuild
 )
 from ..stack import (
     C4Stack, C4Tags, C4Account, C4Part, BaseC4FoursightStack,
@@ -184,14 +185,20 @@ def c4_alpha_stack_sentieon(account: C4Account):
 
 @register_stack_creator(name='jupyterhub', kind='alpha', implementation_class=jupyterhub.C4JupyterHubSupport)
 def c4_alpha_stack_jupyterhub(account: C4Account):
-    """ Sentieon stack, used for spinning up a Jupyterhub server for the account. """
+    """ EC2 webapp stack, used for spinning up a Jupyterhub server for the account. """
     return create_c4_alpha_stack(name='jupyterhub', account=account)
 
 
 @register_stack_creator(name='higlass', kind='alpha', implementation_class=higlass.C4HiglassServer)
-def c4_alpha_stack_jupyterhub(account: C4Account):
-    """ Sentieon stack, used for spinning up a Higlass server for the account. """
+def c4_alpha_stack_higlass(account: C4Account):
+    """ EC2 webapp stack, used for spinning up a Higlass server for the account. """
     return create_c4_alpha_stack(name='higlass', account=account)
+
+
+@register_stack_creator(name='codebuild', kind='alpha', implementation_class=codebuild.C4CodeBuild)
+def c4_alpha_stack_codebuild(account: C4Account):
+    """ Codebuild stack, used for building a codebuild job for building the portal image. """
+    return create_c4_alpha_stack(name='codebuild', account=account)
 
 
 @register_stack_creator(name='foursight', kind='alpha', implementation_class=C4FoursightCGAPStack)
