@@ -309,7 +309,7 @@ class Aws(AwsContext):
             key_policy_string = json.dumps(key_policy_json)
             kms.put_key_policy(KeyId=key_id, Policy=key_policy_string, PolicyName="default")
 
-    def get_security_group_rules(self, security_group_id: str, outbound: bool) -> (list, list):
+    def get_security_group_rules(self, security_group_id: str, outbound: bool) -> Optional[list]:
         """
         Returns the list of inbound or outbound, depending on the give outbound flag,
         AWS security group rules, for the given AWS security group ID; or None if none found.
@@ -334,7 +334,7 @@ class Aws(AwsContext):
                 return None
             return security_group_rules
 
-    def get_inbound_security_group_rules(self, security_group_id: str) -> (list, list):
+    def get_inbound_security_group_rules(self, security_group_id: str) -> Optional[list]:
         """
         Returns the list of inbound AWS security group rules for the given AWS security group ID;
         or None if none found.
@@ -344,7 +344,7 @@ class Aws(AwsContext):
         """
         return self.get_security_group_rules(security_group_id, outbound=False)
 
-    def get_outbound_security_group_rules(self, security_group_id: str) -> (list, list):
+    def get_outbound_security_group_rules(self, security_group_id: str) -> Optional[list]:
         """
         Returns the list of outbound AWS security group rules for the given AWS security group ID;
         or None if none found.
@@ -455,7 +455,8 @@ class Aws(AwsContext):
         return None
 
     @staticmethod
-    def find_inbound_security_group_rule(existing_security_group_rules: list, security_group_rule: dict) -> dict:
+    def find_inbound_security_group_rule(existing_security_group_rules: list,
+                                         security_group_rule: dict) -> Optional[dict]:
         """
         Returns from the given existing AWS inbound security group rules, the (single) one that matches
         the given security group rule, or None if no matches found. The former is as returned by the
@@ -470,7 +471,8 @@ class Aws(AwsContext):
         return Aws.find_security_group_rule(existing_security_group_rules, security_group_rule, outbound=False)
 
     @staticmethod
-    def find_outbound_security_group_rule(existing_security_group_rules: list, security_group_rule: dict) -> dict:
+    def find_outbound_security_group_rule(existing_security_group_rules: list,
+                                          security_group_rule: dict) -> Optional[dict]:
         """
         Returns from the given existing AWS inbound security group rules, the (single) one that matches
         the given security group rule, or None if no matches found. The former is as returned by the
@@ -605,7 +607,6 @@ class Aws(AwsContext):
         :param stack_output_key_name: AWS stack output key name.
         :return: Value of the given AWS stack output key name of the given stack name, or None.
         """
-        ignored(stack_name)
         with super().establish_credentials():
             # Using dcicutils.cloudformation_utils.find_stack_output here even though it looks
             # for the given stack output key name across all stacks, as this output key name
@@ -617,6 +618,7 @@ class Aws(AwsContext):
             #         for stack_output in stack.outputs:
             #             if stack_output["OutputKey"] == stack_output_key_name:
             #                 return stack_output["OutputValue"]
+            ignored(stack_name)
             c4 = C4OrchestrationManager()
             return c4.find_stack_output(stack_output_key_name, value_only=True)
         return None
