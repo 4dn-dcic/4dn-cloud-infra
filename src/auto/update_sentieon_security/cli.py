@@ -132,7 +132,7 @@ def validate_and_get_sentieon_server_ip_address(aws: Aws,
     """
     Validates, prints, and returns the Sentieon server IP address based on the given Sentieon IP
     address (if specified), AWS credentials name, Sentieon AWS stack name (if specified),
-    and Sentieon AWS stack output IP address key name (if specified).
+    and Sentieon AWS stack output IP address key name (if specified); exit on error (if not set).
 
     :param aws: Aws object.
     :param aws_credentials_name: AWS credentials name (e.g. cgap-supertest).
@@ -172,7 +172,7 @@ def validate_and_get_target_security_group_name(aws: Aws, security_group_name: s
     """
     Validates the given target security group name and returns its value; defaults to a value
     returned by 4d-cloud-infra code if not given. And also returns the security group ID
-    associated with this security group name.
+    associated with this security group name; exit on error (if not set).
 
     :param aws: Aws object.
     :param security_group_name: Target AWS security group name.
@@ -190,6 +190,23 @@ def validate_and_get_target_security_group_name(aws: Aws, security_group_name: s
     return security_group_name, security_group_id
 
 
+def summarize_security_group_rules_to_define(security_group_id: str, sentieon_ip_address: str) -> None:
+    """
+    Print a summary of the inbound/outbound rules to be defined.
+
+    :param security_group_id: Security group ID.
+    :param sentieon_ip_address: IP address of the Sentieon server.
+    """
+    inbound_security_group_rules_to_define = get_inbound_security_rules_to_define()
+    for rule in inbound_security_group_rules_to_define:
+        print(f"Inbound security group ({security_group_id}) rule to define:"
+              f" {Aws.get_security_group_rule_display_value(rule)}")
+    outbound_security_group_rules_to_define = get_outbound_security_rules_to_define(sentieon_ip_address)
+    for rule in outbound_security_group_rules_to_define:
+        print(f"Outbound security group ({security_group_id}) rule to define:"
+              f" {Aws.get_security_group_rule_display_value(rule)}")
+
+
 def print_duplicate_security_group_message(exception: Exception,
                                            security_group_id: str,
                                            security_group_rule: dict,
@@ -203,6 +220,7 @@ def print_duplicate_security_group_message(exception: Exception,
     :param security_group_id: AWS security group ID.
     :param security_group_rule: AWS security group rule.
     :param outbound: True if related to outbound (egress) rule, otherwise inbound (ingress).
+    :return: True if the given exception is for a boto3 duplicate security rule creation, otherwise False.
     """
     if isinstance(exception, Boto3ClientException):
         if exception.response:
@@ -214,17 +232,6 @@ def print_duplicate_security_group_message(exception: Exception,
                           f" already exists: {Aws.get_security_group_rule_display_value(security_group_rule)}")
                     return True
     return False
-
-
-def summarize_security_group_rules_to_define(security_group_id: str, sentieon_ip_address: str) -> None:
-    inbound_security_group_rules_to_define = get_inbound_security_rules_to_define()
-    for rule in inbound_security_group_rules_to_define:
-        print(f"Inbound security group ({security_group_id}) rule to define:"
-              f" {Aws.get_security_group_rule_display_value(rule)}")
-    outbound_security_group_rules_to_define = get_outbound_security_rules_to_define(sentieon_ip_address)
-    for rule in outbound_security_group_rules_to_define:
-        print(f"Outbound security group ({security_group_id}) rule to define:"
-              f" {Aws.get_security_group_rule_display_value(rule)}")
 
 
 def update_inbound_security_group_rules(
@@ -241,13 +248,13 @@ def update_inbound_security_group_rules(
     """
 
     # Get the inbound security group rules to define.
-    inbound_security_rules_to_define = get_inbound_security_rules_to_define()
+    rules = get_inbound_security_rules_to_define()
 
     # Get a list of inbound security group rules for the given security group ID.
-    existing_inbound_security_group_rules = aws.get_inbound_security_group_rules(security_group_id)
+    existing_rules = aws.get_inbound_security_group_rules(security_group_id)
 
-    for rule in inbound_security_rules_to_define:
-        existing_rule = aws.find_inbound_security_group_rule(existing_inbound_security_group_rules, rule)
+    for rule in rules:
+        existing_rule = aws.find_inbound_security_group_rule(existing_rules, rule)
         if existing_rule:
             existing_rule_id = existing_rule.get("SecurityGroupRuleId")
             if force:
@@ -261,8 +268,8 @@ def update_inbound_security_group_rules(
         try:
             print(f"Creating inbound security"
                   f" group ({security_group_id}) rule: {Aws.get_security_group_rule_display_value(rule)}", end="")
-            created_inbound_security_group_rule_id = aws.create_inbound_security_group_rule(security_group_id, rule)
-            print(f" -> {created_inbound_security_group_rule_id}")
+            created_rule_id = aws.create_inbound_security_group_rule(security_group_id, rule)
+            print(f" -> {created_rule_id}")
         except Exception as e:
             if not print_duplicate_security_group_message(e, security_group_id, rule, outbound=False):
                 print_exception(e)
@@ -284,14 +291,14 @@ def update_outbound_security_group_rules(
     """
 
     # Get the outbound security group rules to define.
-    outbound_security_rules_to_define = get_outbound_security_rules_to_define(sentieon_ip_address)
+    rules = get_outbound_security_rules_to_define(sentieon_ip_address)
 
     # Get a list of outbound security group rules for the given security group ID.
-    existing_outbound_security_group_rules = aws.get_outbound_security_group_rules(security_group_id)
+    existing_rules = aws.get_outbound_security_group_rules(security_group_id)
 
     # See if any rules already exist for the rules to define.
-    for rule in outbound_security_rules_to_define:
-        existing_rule = aws.find_outbound_security_group_rule(existing_outbound_security_group_rules, rule)
+    for rule in rules:
+        existing_rule = aws.find_outbound_security_group_rule(existing_rules, rule)
         if existing_rule:
             existing_rule_id = existing_rule.get("SecurityGroupRuleId")
             if force:
@@ -305,8 +312,8 @@ def update_outbound_security_group_rules(
         try:
             print(f"Creating outbound security"
                   f" group ({security_group_id}) rule: {Aws.get_security_group_rule_display_value(rule)}", end="")
-            created_outbound_security_group_rule_id = aws.create_outbound_security_group_rule(security_group_id, rule)
-            print(f" -> {created_outbound_security_group_rule_id}")
+            created_rule_id = aws.create_outbound_security_group_rule(security_group_id, rule)
+            print(f" -> {created_rule_id}")
         except Exception as e:
             if not print_duplicate_security_group_message(e, security_group_id, rule, outbound=False):
                 print_exception(e)
