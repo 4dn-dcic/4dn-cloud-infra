@@ -7,10 +7,10 @@ from troposphere.ec2 import (
     Subnet, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment, NatGateway, EIP, Instance, NetworkInterfaceProperty,
     VPCEndpoint,
 )
-from ..base import ConfigManager, Settings, exportify
+from ..base import ConfigManager, Settings
 from typing import List
 from ..constants import C4NetworkBase
-from ..exports import C4Exports
+from ..exports import C4Exports, exportify
 from ..names import Names
 from ..part import C4Part
 
