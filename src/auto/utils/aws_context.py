@@ -29,8 +29,10 @@ class AwsContext:
     """
 
     def __init__(self,
-                 aws_credentials_dir: str,
-                 aws_access_key_id: str = None, aws_secret_access_key: str = None, aws_region: str = None,
+                 aws_credentials_dir: str = None,
+                 aws_access_key_id: str = None,
+                 aws_secret_access_key: str = None,
+                 aws_region: str = None,
                  aws_session_token: str = None) -> None:
         """
         Constructor which stores the given AWS credentials directory, and AWS access key ID
@@ -41,6 +43,7 @@ class AwsContext:
         :param aws_access_key_id: AWS credentials access key ID.
         :param aws_secret_access_key: AWS credentials secret access key.
         :param aws_region: AWS credentials region.
+        :param aws_session_token: AWS session token. NOTE: Not yet tested at all.
         """
         self._aws_access_key_id = aws_access_key_id
         self._aws_secret_access_key = aws_secret_access_key
@@ -51,8 +54,11 @@ class AwsContext:
 
     class Credentials:
         def __init__(self,
+                     credentials_dir: str, credentials_dir_symlink_target: str,
                      access_key_id: str, secret_access_key: str, region: str,
                      account_number: str, user_arn: str) -> None:
+            self.credentials_dir = credentials_dir
+            self.credentials_dir_symlink_target = credentials_dir_symlink_target
             self.access_key_id = access_key_id
             self.secret_access_key = secret_access_key
             self.region = region
@@ -70,7 +76,7 @@ class AwsContext:
         manager context) blow away any pertinent AWS credentials related environment variables,
         and set them appropriately based on given EXPLICITLY specified credentials information.
 
-        :param display: If True then print summary of AWS credentials.
+        :param display: If True then PRINT summary of AWS credentials.
         :param show: If True and display True show in plaintext sensitive info for AWS credentials summary.
         :return: Yields populated (nested class) Credentials object.
         """
@@ -114,6 +120,7 @@ class AwsContext:
             self._reset_boto3_default_session = False
         try:
             # Setup AWS environment variables for our specified credentials.
+            aws_credentials_dir = aws_credentials_dir_symlink_target = None
             if self._aws_access_key_id and self._aws_secret_access_key:
                 os.environ["AWS_ACCESS_KEY_ID"] = self._aws_access_key_id
                 os.environ["AWS_SECRET_ACCESS_KEY"] = self._aws_secret_access_key
@@ -127,14 +134,8 @@ class AwsContext:
                 if not os.path.isfile(aws_credentials_file):
                     raise Exception(f"AWS credentials file not found: {aws_credentials_file}")
                 os.environ["AWS_SHARED_CREDENTIALS_FILE"] = aws_credentials_file
-                if display:
-                    aws_credentials_dir_symlink_target = \
-                        os.readlink(aws_credentials_dir) if os.path.islink(aws_credentials_dir) else None
-                    if aws_credentials_dir_symlink_target:
-                        PRINT(f"Your AWS credentials directory (link): {aws_credentials_dir}@ ->")
-                        PRINT(f"Your AWS credentials directory (real): {aws_credentials_dir_symlink_target}")
-                    else:
-                        PRINT(f"Your AWS credentials directory: {aws_credentials_dir}")
+                aws_credentials_dir_symlink_target = (os.readlink(aws_credentials_dir)
+                                                      if os.path.islink(aws_credentials_dir) else None)
             else:
                 raise Exception(f"No AWS credentials specified.")
             if self._aws_region:
@@ -147,14 +148,30 @@ class AwsContext:
             # Setup AWS boto3 session/client to get basic AWS credentials info;
             session = boto3.session.Session()
             session_credentials = session.get_credentials()
+            if not session_credentials:
+                raise Exception("AWS session credentials cannot be determined.")
             caller_identity = boto3.client("sts").get_caller_identity()
+            if not session_credentials:
+                raise Exception("AWS caller identity cannot be determined.")
+            account_number = caller_identity["Account"]
+            user_arn = caller_identity["Arn"]
 
-            credentials = AwsContext.Credentials(session_credentials.access_key,
-                                                 session_credentials.secret_key,
-                                                 session.region_name,
-                                                 caller_identity["Account"],
-                                                 caller_identity["Arn"])
+            if not account_number:
+                raise Exception("AWS account number cannot be determined.")
+
+            credentials = AwsContext.Credentials(credentials_dir=aws_credentials_dir,
+                                                 credentials_dir_symlink_target=aws_credentials_dir_symlink_target,
+                                                 access_key_id=session_credentials.access_key,
+                                                 secret_access_key=session_credentials.secret_key,
+                                                 region=session.region_name,
+                                                 account_number=account_number,
+                                                 user_arn=user_arn)
             if display:
+                if aws_credentials_dir_symlink_target:
+                    PRINT(f"Your AWS credentials directory (link): {aws_credentials_dir}@ ->")
+                    PRINT(f"Your AWS credentials directory (real): {aws_credentials_dir_symlink_target}")
+                else:
+                    PRINT(f"Your AWS credentials directory: {aws_credentials_dir}")
                 PRINT(f"Your AWS access key: {credentials.access_key_id}")
                 PRINT(f"Your AWS access secret: {obfuscate(credentials.secret_access_key, show)}")
                 PRINT(f"Your AWS region: {credentials.region}")

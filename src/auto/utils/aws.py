@@ -629,7 +629,7 @@ class Aws(AwsContext):
         if no CORS policies exist; or None if the given bucket not found or some other error occurred.
 
         :param bucket_name: AWS S3 bucket name.
-        :return: List of CORS rules for the given AwS S3 bucket name, or empty list, or None.
+        :return: List of CORS rules for the given AWS S3 bucket name, or EMPTY list, or None.
         """
         with super().establish_credentials():
             s3 = boto3.client('s3')

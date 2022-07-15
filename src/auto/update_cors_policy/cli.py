@@ -14,14 +14,13 @@ from ..utils.misc_utils import (
     setup_and_action,
 )
 from ..utils.validate_utils import (
-    validate_and_get_aws_credentials, validate_and_get_aws_credentials_dir,
-    validate_and_get_aws_credentials_name, validate_and_get_custom_dir
+    validate_and_get_aws_credentials,
 )
 
 
 def get_app_files_bucket_name(aws: Aws, aws_credentials_name: str) -> str:
     """
-    Returns the S3 bucket name for the application files. 
+    Returns the S3 bucket name for the application files.
     """
     stack_name = Names.datastore_stack_name(aws_credentials_name)
     stack_output_key_name = Names.datastore_stack_output_app_files_bucket_key(aws_credentials_name)
@@ -30,7 +29,7 @@ def get_app_files_bucket_name(aws: Aws, aws_credentials_name: str) -> str:
 
 def get_app_wfout_bucket_name(aws: Aws, aws_credentials_name: str) -> str:
     """
-    Returns the S3 bucket name for the application wfoutput. 
+    Returns the S3 bucket name for the application wfoutput.
     """
     stack_name = Names.datastore_stack_name(aws_credentials_name)
     stack_output_key_name = Names.datastore_stack_output_app_wfout_bucket_key(aws_credentials_name)
@@ -130,32 +129,23 @@ def update_cors_policy(
     Main logical entry point for this script.
     Gathers, prints, confirms, and updates the CORS policy for the given S3 bucket.
     """
+    PRINT(f"Updating 4dn-cloud-infra CORS policy rules for S3 bucket.")
 
     with setup_and_action() as setup_and_action_state:
 
-        # Gather the basic info.
-        custom_dir, config_file = validate_and_get_custom_dir(custom_dir)
-        aws_credentials_name = validate_and_get_aws_credentials_name(aws_credentials_name, config_file)
-        aws_credentials_dir = validate_and_get_aws_credentials_dir(aws_credentials_dir, custom_dir)
-
-        # Print header and basic info.
-        PRINT(f"Updating 4dn-cloud-infra CORS policy rules for S3 bucket(s).")
-        PRINT(f"Your custom directory: {custom_dir}")
-        PRINT(f"Your custom config file: {config_file}")
-        PRINT(f"Your AWS credentials name: {aws_credentials_name}")
-
-        # Validate and print basic AWS credentials info.
-        aws, aws_credentials = validate_and_get_aws_credentials(aws_credentials_dir,
-                                                                aws_access_key_id,
-                                                                aws_secret_access_key,
-                                                                aws_region,
-                                                                aws_session_token,
-                                                                config_file,
-                                                                show)
+        # Validate/get and print basic AWS credentials info.
+        aws = validate_and_get_aws_credentials(aws_credentials_name,
+                                               aws_credentials_dir,
+                                               custom_dir,
+                                               aws_access_key_id,
+                                               aws_secret_access_key,
+                                               aws_region,
+                                               aws_session_token,
+                                               show)
 
         if not bucket_name:
             print(f"AWS S3 bucket name required. Use the --bucket option.")
-            print_suggested_buckets(aws, aws_credentials_name)
+            print_suggested_buckets(aws, aws.credentials_name)
             exit_with_no_action()
 
         print(f"S3 bucket for which to update the CORS policy: {bucket_name}")
@@ -170,7 +160,7 @@ def update_cors_policy(
 
         if cors_rules is None:
             print(f"S3 bucket not found: {bucket_name}")
-            print_suggested_buckets(aws, aws_credentials_name)
+            print_suggested_buckets(aws, aws.credentials_name)
             exit_with_no_action()
         elif len(cors_rules) == 0:
             print(f"No CORS policy currently set for this S3 bucket: {bucket_name}")

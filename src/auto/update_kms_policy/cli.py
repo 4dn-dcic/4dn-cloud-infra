@@ -11,8 +11,7 @@ from ..utils.misc_utils import (
     exit_with_no_action
 )
 from ..utils.validate_utils import (
-    validate_and_get_aws_credentials, validate_and_get_aws_credentials_dir,
-    validate_and_get_aws_credentials_name, validate_and_get_custom_dir,
+    validate_and_get_aws_credentials,
     validate_and_get_s3_encrypt_key_id,
 )
 
@@ -31,31 +30,22 @@ def update_kms_policy(
     """
     Main logical entry point for this script. Gathers, prints, confirms, and updates the KMS policy for Foursight.
     """
-
-    # Gather the basic info.
-    custom_dir, config_file = validate_and_get_custom_dir(custom_dir)
-    aws_credentials_name = validate_and_get_aws_credentials_name(aws_credentials_name, config_file)
-    aws_credentials_dir = validate_and_get_aws_credentials_dir(aws_credentials_dir, custom_dir)
-
-    # Print header and basic info.
     PRINT(f"Updating 4dn-cloud-infra KMS policy for Foursight IAM roles.")
-    PRINT(f"Your custom directory: {custom_dir}")
-    PRINT(f"Your custom config file: {config_file}")
-    PRINT(f"Your AWS credentials name: {aws_credentials_name}")
 
-    # Validate and print basic AWS credentials info.
-    aws, aws_credentials = validate_and_get_aws_credentials(aws_credentials_dir,
-                                                            aws_access_key_id,
-                                                            aws_secret_access_key,
-                                                            aws_region,
-                                                            aws_session_token,
-                                                            config_file,
-                                                            show)
+    # Validate/get and print basic AWS credentials info.
+    aws = validate_and_get_aws_credentials(aws_credentials_name,
+                                           aws_credentials_dir,
+                                           custom_dir,
+                                           aws_access_key_id,
+                                           aws_secret_access_key,
+                                           aws_region,
+                                           aws_session_token,
+                                           show)
 
     # Validate/get the S3 encryption key ID from KMS (iff s3.bucket.encryption is true in config file).
-    kms_key_id = validate_and_get_s3_encrypt_key_id(s3_encrypt_key_id, config_file, aws)
+    kms_key_id = validate_and_get_s3_encrypt_key_id(s3_encrypt_key_id, aws.custom_config_file, aws)
     if not kms_key_id:
-        s3_bucket_encryption = get_json_config_file_value("s3.bucket.encryption", config_file)
+        s3_bucket_encryption = get_json_config_file_value("s3.bucket.encryption", aws.custom_config_file)
         if not s3_bucket_encryption:
             exit_with_no_action("No KMS key found."
                                 "And encryption not enabled (via s3.bucket.encryption in config file).")
