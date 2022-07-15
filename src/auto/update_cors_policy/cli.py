@@ -5,6 +5,8 @@ import json
 from typing import Optional
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
+from ...names import Names
+from ..utils.aws import Aws
 from ..utils.args_utils import add_aws_credentials_args, validate_aws_credentials_args
 from ..utils.paths import InfraDirectories
 from ..utils.misc_utils import (
@@ -15,6 +17,24 @@ from ..utils.validate_utils import (
     validate_and_get_aws_credentials, validate_and_get_aws_credentials_dir,
     validate_and_get_aws_credentials_name, validate_and_get_custom_dir
 )
+
+
+def get_app_files_bucket_name(aws: Aws, aws_credentials_name: str) -> str:
+    """
+    Returns the S3 bucket name for the application files. 
+    """
+    stack_name = Names.datastore_stack_name(aws_credentials_name)
+    stack_output_key_name = Names.datastore_stack_output_app_files_bucket_key(aws_credentials_name)
+    return aws.get_stack_output_value(stack_name, stack_output_key_name)
+
+
+def get_app_wfout_bucket_name(aws: Aws, aws_credentials_name: str) -> str:
+    """
+    Returns the S3 bucket name for the application wfoutput. 
+    """
+    stack_name = Names.datastore_stack_name(aws_credentials_name)
+    stack_output_key_name = Names.datastore_stack_output_app_wfout_bucket_key(aws_credentials_name)
+    return aws.get_stack_output_value(stack_name, stack_output_key_name)
 
 
 def amend_cors_rules(cors_rules: list, url: str) -> True:
@@ -75,6 +95,26 @@ def get_relevant_cors_rule(cors_rules: list) -> Optional[list]:
     return None
 
 
+def print_suggested_buckets(aws: Aws, aws_credentials_name: str) -> None:
+
+    def print_suggested_bucket(bucket_name: str) -> None:
+        print(f"- {bucket_name}")
+        cors_rules = aws.get_cors_rules(bucket_name)
+        existing_rule_urls = get_relevant_cors_rule(cors_rules)
+        if existing_rule_urls:
+            #print("  Relevant CORS rule for these URLs:")
+            [print(f"  - {existing_rule_url}") for existing_rule_url in existing_rule_urls]
+        else:
+            pass
+            #print("  No relevant CORS rule.")
+
+    print(f"Here are the suggested buckets (with any relevant CORS rule URLs):")
+    app_files_bucket_name = get_app_files_bucket_name(aws, aws_credentials_name)
+    print_suggested_bucket(app_files_bucket_name)
+    app_wfout_bucket_name = get_app_wfout_bucket_name(aws, aws_credentials_name)
+    print_suggested_bucket(app_wfout_bucket_name)
+
+
 def update_cors_policy(
         aws_access_key_id: str,
         aws_credentials_dir: str,
@@ -114,11 +154,21 @@ def update_cors_policy(
                                                                 config_file,
                                                                 show)
 
+        if not bucket_name:
+            print(f"AWS S3 bucket name required. Use the --bucket option.")
+            print_suggested_buckets(aws, aws_credentials_name)
+            exit_with_no_action()
+
+        print(f"S3 bucket for which to update the CORS policy: {bucket_name}")
+        print(f"URL for which to update S3 bucket CORS policy: {url}")
+
         # Get currently defined CORS rules from AWS for the bucket.
         cors_rules = aws.get_cors_rules(bucket_name)
 
         if cors_rules is None:
-            exit_with_no_action(f"S3 bucket not found: {bucket_name}")
+            print(f"S3 bucket not found: {bucket_name}")
+            print_suggested_buckets(aws, aws_credentials_name)
+            exit_with_no_action()
 
         if debug:
             print(f"DEBUG: Existing CORS rules for the S3 bucket: {bucket_name}")
@@ -127,18 +177,14 @@ def update_cors_policy(
         # Enumerate URLs currently assocatied with relevant CORS rule, if any.
         existing_rule_urls = get_relevant_cors_rule(cors_rules)
         if existing_rule_urls:
-            print(f"CORS policy rule already exists for this S3 bucket for URLs below: {bucket_name}")
+            print(f"CORS policy rule with below URLs currently exist for given S3 bucket: {bucket_name}")
             [print(f"- {existing_rule_url}") for existing_rule_url in existing_rule_urls]
 
         # Amend the currently defined CORS rules with one for the given URL.
         if not amend_cors_rules(cors_rules, url):
-            exit_with_no_action(f"CORS policy already has a policy rule for: {url}")
+            exit_with_no_action(f"CORS policy already has a policy rule for given URL: {url}")
 
-        # Here we want to update the CORS rule. Summarize before confirmation.
-        print(f"S3 bucket for which to update the CORS policy: {bucket_name}")
-        print(f"URL for which to update S3 bucket CORS policy: {url}")
-
-        # Confirm the update.
+        # Here we want to update the CORS rule. Confirm.
         yes = yes_or_no("Continue with update?")
         if not yes:
             exit_with_no_action()
@@ -162,8 +208,7 @@ def main(override_argv: Optional[list] = None) -> None:
     argp.add_argument("--no-confirm", required=False,
                       dest="confirm", action="store_false",
                       help="Behave as if all confirmation questions were answered yes.")
-    # TODO: Make the --bucket option not required and suggest buckets (the files and wfoutput ones).
-    argp.add_argument("--bucket", required=True,
+    argp.add_argument("--bucket", required=False,
                       dest="bucket_name",
                       help="S3 encryption key ID.")
     argp.add_argument("--url", required=True,
