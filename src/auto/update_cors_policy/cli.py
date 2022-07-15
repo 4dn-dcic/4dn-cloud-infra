@@ -140,7 +140,7 @@ def update_cors_policy(
         aws_credentials_dir = validate_and_get_aws_credentials_dir(aws_credentials_dir, custom_dir)
 
         # Print header and basic info.
-        PRINT(f"Updating 4dn-cloud-infra CORS policy for S3 bucket(s).")
+        PRINT(f"Updating 4dn-cloud-infra CORS policy rules for S3 bucket(s).")
         PRINT(f"Your custom directory: {custom_dir}")
         PRINT(f"Your custom config file: {config_file}")
         PRINT(f"Your AWS credentials name: {aws_credentials_name}")
