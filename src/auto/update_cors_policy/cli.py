@@ -102,7 +102,6 @@ def print_suggested_buckets(aws: Aws, aws_credentials_name: str) -> None:
         cors_rules = aws.get_cors_rules(bucket_name)
         existing_rule_urls = get_relevant_cors_rule(cors_rules)
         if existing_rule_urls:
-            #print("  Relevant CORS rule for these URLs:")
             [print(f"  - {existing_rule_url}") for existing_rule_url in existing_rule_urls]
         else:
             pass
