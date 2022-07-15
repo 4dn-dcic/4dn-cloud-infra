@@ -164,20 +164,23 @@ def update_cors_policy(
         # Get currently defined CORS rules from AWS for the bucket.
         cors_rules = aws.get_cors_rules(bucket_name)
 
+        if debug and cors_rules:
+            print(f"DEBUG: Existing CORS rules for the S3 bucket: {bucket_name}")
+            print(json.dumps(cors_rules, default=str, indent=2))
+
         if cors_rules is None:
             print(f"S3 bucket not found: {bucket_name}")
             print_suggested_buckets(aws, aws_credentials_name)
             exit_with_no_action()
-
-        if debug:
-            print(f"DEBUG: Existing CORS rules for the S3 bucket: {bucket_name}")
-            print(json.dumps(cors_rules, default=str, indent=2))
-
-        # Enumerate URLs currently assocatied with relevant CORS rule, if any.
-        existing_rule_urls = get_relevant_cors_rule(cors_rules)
-        if existing_rule_urls:
-            print(f"CORS policy rule with below URLs currently exist for given S3 bucket: {bucket_name}")
-            [print(f"- {existing_rule_url}") for existing_rule_url in existing_rule_urls]
+        elif len(cors_rules) == 0:
+            print(f"No CORS policy currently set for this S3 bucket: {bucket_name}")
+        else:
+            existing_rule_urls = get_relevant_cors_rule(cors_rules)
+            if existing_rule_urls:
+                print(f"CORS policy rule with below URLs currently exist for given S3 bucket: {bucket_name}")
+                [print(f"- {existing_rule_url}") for existing_rule_url in existing_rule_urls]
+            else:
+                print(f"No relevant CORS policy rule currently set for this S3 bucket: {bucket_name}")
 
         # Amend the currently defined CORS rules with one for the given URL.
         if not amend_cors_rules(cors_rules, url):
