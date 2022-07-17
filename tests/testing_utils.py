@@ -1,10 +1,13 @@
 from contextlib import contextmanager
 import io
 import json
+import mock
 import os
 import re
 import tempfile
 from typing import Callable, Optional
+from dcicutils import cloudformation_utils
+from src.auto.utils import aws, aws_context
 
 
 @contextmanager
@@ -62,6 +65,22 @@ def temporary_custom_dir_for_testing(aws_credentials_name: str,
                 config_json["s3.bucket.encryption"] = True
             config_file_fp.write(json.dumps(config_json))
         yield custom_dir
+
+
+@contextmanager
+def temporary_custom_and_aws_credentials_dirs_for_testing(mocked_boto, test_data):
+    mocked_boto.client("sts").put_caller_identity_for_testing(test_data.aws_account_number, test_data.aws_user_arn)
+    with temporary_aws_credentials_dir_for_testing(
+            test_data.aws_access_key_id,
+            test_data.aws_secret_access_key,
+            test_data.aws_region) as aws_credentials_dir, \
+         temporary_custom_dir_for_testing(
+            test_data.aws_credentials_name,
+            test_data.aws_account_number, True) as custom_dir, \
+         mock.patch.object(cloudformation_utils, "boto3", mocked_boto), \
+         mock.patch.object(aws_context, "boto3", mocked_boto), \
+         mock.patch.object(aws, "boto3", mocked_boto):
+        yield custom_dir, aws_credentials_dir
 
 
 def find_matching_line(lines: list, regular_expression: str, predicate: Optional[Callable] = None) -> Optional[str]:
