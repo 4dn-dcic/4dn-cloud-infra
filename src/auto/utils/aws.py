@@ -444,7 +444,7 @@ class Aws(AwsContext):
         :param outbound: True if finding and outbound (egress) rule, otherwise and inbound (ingress) rule.
         :return: AWS security group rule from the given existing rules that matches the given rule, or None.
         """
-        for existing_security_group_rule in existing_security_group_rules:
+        for existing_security_group_rule in existing_security_group_rules or []:
             if (security_group_rule.get("IpProtocol") == existing_security_group_rule.get("IpProtocol")
                and security_group_rule.get("FromPort") == existing_security_group_rule.get("FromPort")
                and security_group_rule.get("ToPort") == existing_security_group_rule.get("ToPort")
