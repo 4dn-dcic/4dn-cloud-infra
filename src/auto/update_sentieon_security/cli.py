@@ -19,13 +19,10 @@ from ..utils.misc_utils import (
 )
 from ..utils.validate_utils import (
     validate_and_get_aws_credentials,
-    validate_and_get_aws_credentials_dir,
-    validate_and_get_aws_credentials_name,
-    validate_and_get_custom_dir,
 )
 
 
-def get_inbound_security_rules_to_define() -> list:
+def get_sentieon_compute_node_inbound_security_group_rules() -> list:
     """
     Returns these inbound security group rules which should be defined for the AWS target security group:
 
@@ -45,7 +42,7 @@ def get_inbound_security_rules_to_define() -> list:
     }]
 
 
-def get_outbound_security_rules_to_define(sentieon_ip_address: str) -> list:
+def get_sentieon_compute_node_outbound_security_group_rules(sentieon_ip_address: str) -> list:
     """
     Returns these outbound security group rules which should be defined for the AWS target security group:
 
@@ -197,11 +194,11 @@ def summarize_security_group_rules_to_define(security_group_id: str, sentieon_ip
     :param security_group_id: Security group ID.
     :param sentieon_ip_address: IP address of the Sentieon server.
     """
-    inbound_security_group_rules_to_define = get_inbound_security_rules_to_define()
+    inbound_security_group_rules_to_define = get_sentieon_compute_node_inbound_security_group_rules()
     for rule in inbound_security_group_rules_to_define:
         print(f"Inbound security group ({security_group_id}) rule to define:"
               f" {Aws.get_security_group_rule_display_value(rule)}")
-    outbound_security_group_rules_to_define = get_outbound_security_rules_to_define(sentieon_ip_address)
+    outbound_security_group_rules_to_define = get_sentieon_compute_node_outbound_security_group_rules(sentieon_ip_address)
     for rule in outbound_security_group_rules_to_define:
         print(f"Outbound security group ({security_group_id}) rule to define:"
               f" {Aws.get_security_group_rule_display_value(rule)}")
@@ -248,7 +245,7 @@ def update_inbound_security_group_rules(
     """
 
     # Get the inbound security group rules to define.
-    rules = get_inbound_security_rules_to_define()
+    rules = get_sentieon_compute_node_inbound_security_group_rules()
 
     # Get a list of inbound security group rules for the given security group ID.
     existing_rules = aws.get_inbound_security_group_rules(security_group_id)
@@ -291,7 +288,7 @@ def update_outbound_security_group_rules(
     """
 
     # Get the outbound security group rules to define.
-    rules = get_outbound_security_rules_to_define(sentieon_ip_address)
+    rules = get_sentieon_compute_node_outbound_security_group_rules(sentieon_ip_address)
 
     # Get a list of outbound security group rules for the given security group ID.
     existing_rules = aws.get_outbound_security_group_rules(security_group_id)
@@ -338,32 +335,23 @@ def update_sentieon_security(
     Main logical entry point for this script.
     Gathers, prints, confirms, and updates the application security group for Sentieon.
     """
+    PRINT(f"Updating 4dn-cloud-infra application security group for use as Sentieon compute node.")
 
     with setup_and_action() as setup_and_action_state:
 
-        # Gather the basic info.
-        custom_dir, config_file = validate_and_get_custom_dir(custom_dir)
-        aws_credentials_name = validate_and_get_aws_credentials_name(aws_credentials_name, config_file)
-        aws_credentials_dir = validate_and_get_aws_credentials_dir(aws_credentials_dir, custom_dir)
-
-        # Print header and basic info.
-        PRINT(f"Updating 4dn-cloud-infra application security group for use as Sentieon compute node.")
-        PRINT(f"Your custom directory: {custom_dir}")
-        PRINT(f"Your custom config file: {config_file}")
-        PRINT(f"Your AWS credentials name: {aws_credentials_name}")
-
         # Validate/get and print basic AWS credentials info.
-        aws, aws_credentials = validate_and_get_aws_credentials(aws_credentials_dir,
-                                                                aws_access_key_id,
-                                                                aws_secret_access_key,
-                                                                aws_region,
-                                                                aws_session_token,
-                                                                config_file,
-                                                                show)
+        aws = validate_and_get_aws_credentials(aws_credentials_name,
+                                               aws_credentials_dir,
+                                               custom_dir,
+                                               aws_access_key_id,
+                                               aws_secret_access_key,
+                                               aws_region,
+                                               aws_session_token,
+                                               show)
 
         # Validate/get and print the Sentieon server IP address.
         sentieon_ip_address = validate_and_get_sentieon_server_ip_address(aws,
-                                                                          aws_credentials_name,
+                                                                          aws.credentials_name,
                                                                           sentieon_ip_address,
                                                                           sentieon_stack_name,
                                                                           sentieon_stack_output_ip_address_key_name)

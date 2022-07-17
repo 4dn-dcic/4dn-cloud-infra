@@ -6,6 +6,10 @@
 Change Log
 ----------
 
+3.2.4
+=====
+* Added ``update-cors-policy`` poetry script target to S3 bucket CORS permission policy.
+
 3.2.3
 =====
 * Added ``update-sentieon-security`` poetry script target to automate Sentieon compute node security group.

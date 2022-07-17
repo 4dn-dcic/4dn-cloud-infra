@@ -1,4 +1,5 @@
 import boto3
+import botocore
 import json
 import re
 from typing import Optional
@@ -443,7 +444,7 @@ class Aws(AwsContext):
         :param outbound: True if finding and outbound (egress) rule, otherwise and inbound (ingress) rule.
         :return: AWS security group rule from the given existing rules that matches the given rule, or None.
         """
-        for existing_security_group_rule in existing_security_group_rules:
+        for existing_security_group_rule in existing_security_group_rules or []:
             if (security_group_rule.get("IpProtocol") == existing_security_group_rule.get("IpProtocol")
                and security_group_rule.get("FromPort") == existing_security_group_rule.get("FromPort")
                and security_group_rule.get("ToPort") == existing_security_group_rule.get("ToPort")
@@ -497,11 +498,11 @@ class Aws(AwsContext):
 
         NOTE:
         Not sure this is really worth it. Just to print like this (for example):
-        Output security group sg-0561068965d07c4af rule already exists: Custom TCP | TCP | 8990 | 10.0.68.248/32
+        - Output security group sg-0561068965d07c4af rule already exists: Custom TCP | TCP | 8990 | 10.0.68.248/32
         Rather than this (for example):
-        Output security group sg-0561068965d07c4af rule already exists:
-        {'IpProtocol': 'icmp', 'FromPort': -1, 'ToPort': -1,
-         'IpRanges': [{'CidrIp': '0.0.0.0/0', 'Description': 'ICMP for sentieon server'}]}
+        - Output security group sg-0561068965d07c4af rule already exists:
+          {'IpProtocol': 'icmp', 'FromPort': -1, 'ToPort': -1,
+           'IpRanges': [{'CidrIp': '0.0.0.0/0', 'Description': 'ICMP for sentieon server'}]}
 
         :param security_group_rule: AWS security group rule.
         :return: String representing the given AWS security group rule.
@@ -621,4 +622,39 @@ class Aws(AwsContext):
             ignored(stack_name)
             c4 = C4OrchestrationManager()
             return c4.find_stack_output(stack_output_key_name, value_only=True)
+
+    def get_cors_rules(self, bucket_name: str) -> Optional[list]:
+        """
+        Returns the list of AWS CORS policies/rules for the given AWS S3 bucket name; or an EMPTY list
+        if no CORS policies exist; or None if the given bucket not found or some other error occurred.
+
+        :param bucket_name: AWS S3 bucket name.
+        :return: List of CORS rules for the given AWS S3 bucket name, or EMPTY list, or None.
+        """
+        with super().establish_credentials():
+            s3 = boto3.client('s3')
+            try:
+                response = s3.get_bucket_cors(Bucket=bucket_name)
+                if response:
+                    cors_rules = response.get("CORSRules")
+                    if isinstance(cors_rules, list):
+                        return cors_rules
+            except botocore.exceptions.ClientError as e:
+                error = e.response.get("Error")
+                if error and error.get("Code") == "NoSuchCORSConfiguration":
+                    # This is so caller can differentiate between a non-existent
+                    # bucket (where we return None below) and a bucket with no
+                    # CORS policy rules defined, where we return an empty list here.
+                    return []
         return None
+
+    def put_cors_rules(self, bucket_name: str, cors_rules: list) -> None:
+        """
+        Updates the AWS S3 bucket with the given CORS policy rules.
+
+        :param bucket_name: AWS S3 bucket name.
+        :param cors_rules: List of AWS CORS rules to set for the given AWS S3 bucket.
+        """
+        with super().establish_credentials():
+            s3 = boto3.client('s3')
+            s3.put_bucket_cors(Bucket=bucket_name, CORSConfiguration={"CORSRules": cors_rules})

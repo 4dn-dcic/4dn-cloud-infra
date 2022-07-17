@@ -9,6 +9,7 @@ from .constants import (
     C4NetworkBase,
     C4SentieonSupportBase
 )
+from .exports import C4DatastoreExportsMixin, exportify
 from .mixins import StackNameBaseMixin
 
 
@@ -16,7 +17,7 @@ class Names(StackNameBaseMixin):
 
     # dmichaels/2022-06-06: Factored out from StackNameMixin.suggest_stack_name() in part.py.
     @staticmethod
-    def suggest_stack_name(title_token, name_token, qualifier):
+    def suggest_stack_name(title_token, name_token, qualifier) -> C4Name:
         qualifier_suffix = f"-{qualifier}"
         qualifier_camel = camelize(qualifier)
         return C4Name(name=f'{COMMON_STACK_PREFIX}{name_token}{qualifier_suffix}',
@@ -24,24 +25,40 @@ class Names(StackNameBaseMixin):
                                    if title_token else None),
                       string_to_trim=qualifier_camel)
 
+    # dmichaels/2022-07-14: Created to get datastore stack name.
+    @classmethod
+    def datastore_stack_name_object(cls, env_name: str) -> C4Name:
+        title_token = C4DatastoreBase.STACK_TITLE_TOKEN  # Datastore (in constants.py, from C4DatastoreBase.STACK_TITLE_TOKEN)
+        name_token = C4DatastoreBase.STACK_NAME_TOKEN    # datastore (in constants.py, from C4DatastoreBase.STACK_NAME_TOKEN)
+        qualifier = env_name
+        return cls.suggest_stack_name(title_token, name_token, qualifier)
+
+    @classmethod
+    def datastore_stack_name(cls, env_name: str) -> C4Name:
+        return cls.datastore_stack_name_object(env_name).stack_name
+
+    # dmichaels/2022-07-14: Created to get datastore stack output key name for the app files S3 bucket.
+    @classmethod
+    def datastore_stack_output_app_files_bucket_key(cls, env_name: str, c4name: C4Name = None) -> str:
+        return cls.datastore_stack_name_object(env_name).logical_id(C4DatastoreExportsMixin.APPLICATION_FILES_BUCKET)
+
+    # dmichaels/2022-07-14: Created to get datastore stack output key name for the app wfout S3 bucket.
+    @classmethod
+    def datastore_stack_output_app_wfout_bucket_key(cls, env_name: str, c4name: C4Name = None) -> str:
+        return cls.datastore_stack_name_object(env_name).logical_id(C4DatastoreExportsMixin.APPLICATION_WFOUT_BUCKET)
+
     # dmichaels/2022-06-06: Factored out from C4Datastore.application_configuration_secret() in datastore.py.
     @classmethod
     def application_configuration_secret(cls, env_name: str, c4name: C4Name = None) -> str:
         if not c4name:
-            title_token = C4DatastoreBase.STACK_TITLE_TOKEN  # Datastore (in constants.py, from C4Datastore.STACK_TITLE_TOKEN)
-            name_token = C4DatastoreBase.STACK_NAME_TOKEN    # datastore (in constants.py, from C4Datastore.STACK_NAME_TOKEN)
-            qualifier = env_name
-            c4name = cls.suggest_stack_name(title_token, name_token, qualifier)
+            c4name = cls.datastore_stack_name_object(env_name)
         return c4name.logical_id(camelize(env_name) + C4DatastoreBase.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
 
     # dmichaels/2022-06-20: Factored out from C4Datastore.rds_secret_logical_id() in datastore.py.
     @classmethod
     def rds_secret_logical_id(cls, env_name: str, c4name: C4Name = None) -> str:
         if not c4name:
-            title_token = C4DatastoreBase.STACK_TITLE_TOKEN  # Datastore (in constants.py, from C4Datastore.STACK_TITLE_TOKEN)
-            name_token = C4DatastoreBase.STACK_NAME_TOKEN    # datastore (in constants.py, from C4Datastore.STACK_NAME_TOKEN)
-            qualifier = env_name
-            c4name = cls.suggest_stack_name(title_token, name_token, qualifier)
+            c4name = cls.datastore_stack_name_object(env_name)
         return c4name.logical_id(camelize(env_name) + C4DatastoreBase.RDS_SECRET_NAME_SUFFIX, context='rds_secret_logical_id')
 
     # dmichaels/2022-06-22: Factored out from C4IAM.suggest_sharing_qualifier() in part.py.
@@ -67,11 +84,15 @@ class Names(StackNameBaseMixin):
     # C4SentieonSupport.suggest_stack_name() but without importing sentieon.py which pulls in
     # base.py which is problematic for automation scripts (e.g. update-sentieon-security-groups).
     @classmethod
-    def sentieon_stack_name(cls, env_name: str) -> str:
+    def sentieon_stack_name_object(cls, env_name: str) -> C4Name:
         title_token = C4SentieonSupportBase.STACK_TITLE_TOKEN  # Sentieon (in constants.py, from C4SentieonSupport.STACK_TITLE_TOKEN)
         name_token = C4SentieonSupportBase.STACK_NAME_TOKEN    # sentieon (in constants.py, from C4SentieonSupport.STACK_NAME_TOKEN)
         qualifier = env_name
-        return cls.suggest_stack_name(title_token, name_token, qualifier).stack_name
+        return cls.suggest_stack_name(title_token, name_token, qualifier)
+
+    @classmethod
+    def sentieon_stack_name(cls, env_name: str) -> str:
+        return cls.sentieon_stack_name_object(env_name).stack_name
 
     # dmichaels/2022-07-05: New to get stack output key name for Senteion server IP;
     # C4SentieonSupportExports.output_server_ip_key uses this common code.
