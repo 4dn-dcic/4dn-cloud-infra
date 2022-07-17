@@ -172,6 +172,10 @@ def print_exception(exception) -> None:
     PRINT(get_exception_string(exception))
 
 
+def print_warning(message: str) -> None:
+    PRINT(f"WARNING: {message}")
+
+
 def exit_with_no_action(*messages, status: int = 1) -> None:
     """
     Prints the given message (if any), and another message indicating
@@ -196,7 +200,7 @@ def exit_with_partial_action(*messages, status: int = 1) -> None:
     """
     for message in messages:
         PRINT(message)
-    PRINT("WARNING: Exiting mid-action!")
+    print_warning("Exiting mid-action!")
     exit(status)
 
 

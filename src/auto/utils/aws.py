@@ -1,9 +1,11 @@
 import boto3
+import botocore
 import json
 import re
 from typing import Optional
+from dcicutils.cloudformation_utils import C4OrchestrationManager
 from dcicutils.command_utils import yes_or_no
-from dcicutils.misc_utils import PRINT
+from dcicutils.misc_utils import ignored, PRINT
 from .aws_context import AwsContext
 from .misc_utils import (obfuscate, print_exception, should_obfuscate)
 
@@ -307,3 +309,352 @@ class Aws(AwsContext):
             kms = boto3.client("kms")
             key_policy_string = json.dumps(key_policy_json)
             kms.put_key_policy(KeyId=key_id, Policy=key_policy_string, PolicyName="default")
+
+    def get_security_group_rules(self, security_group_id: str, outbound: bool) -> Optional[list]:
+        """
+        Returns the list of inbound or outbound, depending on the give outbound flag,
+        AWS security group rules, for the given AWS security group ID; or None if none found.
+
+        :param security_group_id: AWS security group ID.
+        :param outbound: True if outbound (egress) rules are desired, otherwise inbound (ingress).
+        :return: List of inbound or outbound AWS security group rules for the given security group ID, or None.
+        """
+        with super().establish_credentials():
+            ec2 = boto3.client('ec2')
+            security_group_rules_filter = [{"Name": "group-id", "Values": [security_group_id]}]
+            security_group_rules = ec2.describe_security_group_rules(Filters=security_group_rules_filter)
+            if not security_group_rules:
+                return None
+            security_group_rules = security_group_rules.get("SecurityGroupRules")
+            if not security_group_rules:
+                return None
+            security_group_rules = [security_group_rule
+                                    for security_group_rule in security_group_rules
+                                    if outbound == security_group_rule.get("IsEgress")]
+            if not security_group_rules:
+                return None
+            return security_group_rules
+
+    def get_inbound_security_group_rules(self, security_group_id: str) -> Optional[list]:
+        """
+        Returns the list of inbound AWS security group rules for the given AWS security group ID;
+        or None if none found.
+
+        :param security_group_id: AWS security group ID.
+        :return: List of inbound AWS security group rules for the given security group ID, or None.
+        """
+        return self.get_security_group_rules(security_group_id, outbound=False)
+
+    def get_outbound_security_group_rules(self, security_group_id: str) -> Optional[list]:
+        """
+        Returns the list of outbound AWS security group rules for the given AWS security group ID;
+        or None if none found.
+
+        :param security_group_id: AWS security group ID.
+        :return: List of outbound AWS security group rules for the given security group ID, or None.
+        """
+        return self.get_security_group_rules(security_group_id, outbound=True)
+
+    def find_security_group_id(self, security_group_name: str) -> Optional[str]:
+        """
+        Returns the AWS security group ID for the given AWS security group name.
+
+        :param security_group_name: AWS security group name.
+        :return: AWS security group ID for the given AWS security group name.
+        """
+        with super().establish_credentials():
+            ec2 = boto3.client('ec2')
+            security_group_filter = [{"Name": "tag:Name", "Values": [security_group_name]}]
+            security_groups = ec2.describe_security_groups(Filters=security_group_filter)
+            if not security_groups:
+                return None
+            security_groups = security_groups.get("SecurityGroups")
+            if not security_groups or len(security_groups) != 1:
+                return None
+            security_group_id = security_groups[0].get("GroupId")
+            return security_group_id
+
+    def create_inbound_security_group_rule(self, security_group_id: str, security_group_rule: dict) -> str:
+        """
+        Creates the given AWS inbound security group rule for the given AWS security group ID.
+
+        :param security_group_id: AWS security group ID.
+        :param security_group_rule: AWS inbound security group rule.
+        :return: Security group rule ID of the newly created inbound rule.
+        """
+        with super().establish_credentials():
+            ec2 = boto3.client('ec2')
+            response = ec2.authorize_security_group_ingress(GroupId=security_group_id,
+                                                            IpPermissions=[security_group_rule])
+            return response["SecurityGroupRules"][0]["SecurityGroupRuleId"]
+
+    def create_outbound_security_group_rule(self, security_group_id: str, security_group_rule: dict) -> str:
+        """
+        Creates the given AWS outbound security group outbound rule for the given AWS security group ID.
+
+        :param security_group_id: AWS security group ID.
+        :param security_group_rule: AWS outbound security group rule.
+        :return: Security group rule ID of the newly created outbound rule.
+        """
+        with super().establish_credentials():
+            ec2 = boto3.client('ec2')
+            response = ec2.authorize_security_group_egress(GroupId=security_group_id,
+                                                           IpPermissions=[security_group_rule])
+            return response["SecurityGroupRules"][0]["SecurityGroupRuleId"]
+
+    def delete_inbound_security_group_rule(self, security_group_id: str, security_group_rule_id: str) -> None:
+        """
+        Deletes the AWS inbound security group rule for the given security group ID and security group rule ID.
+
+        :param security_group_id: AWS security group ID.
+        :param security_group_rule_id: AWS security group rule ID.
+        """
+        with super().establish_credentials():
+            ec2 = boto3.client('ec2')
+            ec2.revoke_security_group_ingress(GroupId=security_group_id,
+                                              SecurityGroupRuleIds=[security_group_rule_id])
+
+    def delete_outbound_security_group_rule(self, security_group_id: str, security_group_rule_id: str) -> None:
+        """
+        Deletes the AWS outbound security group rule for the given security group ID and security group rule ID.
+
+        :param security_group_id: AWS security group ID.
+        :param security_group_rule_id: AWS security group rule ID.
+        """
+        with super().establish_credentials():
+            ec2 = boto3.client('ec2')
+            ec2.revoke_security_group_egress(GroupId=security_group_id,
+                                             SecurityGroupRuleIds=[security_group_rule_id])
+
+    @staticmethod
+    def find_security_group_rule(
+            existing_security_group_rules: list,
+            security_group_rule: dict,
+            outbound: bool
+    ) -> Optional[dict]:
+        """
+        Returns from the given existing AWS security group rules, the (single) one that matches the
+        given security group rule, or None if no matches found. The former is as returned by the
+        boto3 ec2 describe_security_group_rules function; the latter is as passed to the boto3
+        ec2 authorize_security_group_ingress or authorize_security_group_eggress functions.
+        N.B. Ignores the description portion of the rule in comparison.
+
+        :param existing_security_group_rules: List of AWS security group rules.
+        :param security_group_rule: AWS security group rule.
+        :param outbound: True if finding and outbound (egress) rule, otherwise and inbound (ingress) rule.
+        :return: AWS security group rule from the given existing rules that matches the given rule, or None.
+        """
+        for existing_security_group_rule in existing_security_group_rules or []:
+            if (security_group_rule.get("IpProtocol") == existing_security_group_rule.get("IpProtocol")
+               and security_group_rule.get("FromPort") == existing_security_group_rule.get("FromPort")
+               and security_group_rule.get("ToPort") == existing_security_group_rule.get("ToPort")
+               and outbound == existing_security_group_rule.get("IsEgress")):
+                security_group_rule_ip_ranges = security_group_rule.get("IpRanges")
+                if isinstance(security_group_rule_ip_ranges, list) and len(security_group_rule_ip_ranges) == 1:
+                    if security_group_rule_ip_ranges[0].get("CidrIp") == existing_security_group_rule.get("CidrIpv4"):
+                        return existing_security_group_rule
+        return None
+
+    @staticmethod
+    def find_inbound_security_group_rule(existing_security_group_rules: list,
+                                         security_group_rule: dict) -> Optional[dict]:
+        """
+        Returns from the given existing AWS inbound security group rules, the (single) one that matches
+        the given security group rule, or None if no matches found. The former is as returned by the
+        boto3 ec2 describe_security_group_rules function; the latter is as passed to the boto3
+        ec2 authorize_security_group_ingress functions.
+        N.B. Ignores the description portion of the rule in comparison.
+
+        :param existing_security_group_rules: List of AWS security group rules.
+        :param security_group_rule: AWS security group rule.
+        :return: AWS inbound security group rule from the given existing rules that matches the given rule.
+        """
+        return Aws.find_security_group_rule(existing_security_group_rules, security_group_rule, outbound=False)
+
+    @staticmethod
+    def find_outbound_security_group_rule(existing_security_group_rules: list,
+                                          security_group_rule: dict) -> Optional[dict]:
+        """
+        Returns from the given existing AWS inbound security group rules, the (single) one that matches
+        the given security group rule, or None if no matches found. The former is as returned by the
+        boto3 ec2 describe_security_group_rules function; the latter is as passed to the boto3
+        ec2 authorize_security_group_ingress functions.
+        N.B. Ignores the description portion of the rule in comparison.
+
+        :param existing_security_group_rules: List of AWS security group rules.
+        :param security_group_rule: AWS security group rule.
+        :return: AWS inbound security group rule from the given existing rules that matches the given rule.
+        """
+        return Aws.find_security_group_rule(existing_security_group_rules, security_group_rule, outbound=True)
+
+    @staticmethod
+    def get_security_group_rule_display_value(security_group_rule: dict) -> str:
+        """
+        Returns a rather specialized string version for display purposes of the given AWS security group rule,
+        geared toward normal/expected results, but should display relevant in any case. The given security
+        group rule is in a (dict) form which may as returned by the boto3 ec2 describe_security_group_rules
+        function or as is passed to the boto3 ec2 authorize_security_group_{ingress/egress} functions.
+        Does not include the description.
+
+        NOTE:
+        Not sure this is really worth it. Just to print like this (for example):
+        - Output security group sg-0561068965d07c4af rule already exists: Custom TCP | TCP | 8990 | 10.0.68.248/32
+        Rather than this (for example):
+        - Output security group sg-0561068965d07c4af rule already exists:
+          {'IpProtocol': 'icmp', 'FromPort': -1, 'ToPort': -1,
+           'IpRanges': [{'CidrIp': '0.0.0.0/0', 'Description': 'ICMP for sentieon server'}]}
+
+        :param security_group_rule: AWS security group rule.
+        :return: String representing the given AWS security group rule.
+        """
+
+        # FYI: Example output from boto3.client('ec2')..describe_security_group_rules():
+        # [{ "SecurityGroupRuleId": "sgr-03d1404ed170ba21f",
+        #    "GroupId": "sg-0561068965d07c4af",
+        #    "IsEgress": false,
+        #    "IpProtocol": "tcp",
+        #    "FromPort": 443,
+        #    "ToPort": 443,
+        #    "CidrIpv4": "10.0.0.0/16",
+        #    "Description": "allows inbound traffic on tcp port 443",
+        #    "Tags": []
+        #  },
+        #  { "SecurityGroupRuleId": "sgr-004642a15cf58f9ad",
+        #    "GroupId": "sg-0561068965d07c4af",
+        #    "IsEgress": true,
+        #    "IpProtocol": "icmp",
+        #    "FromPort": 4,
+        #    "ToPort": -1,
+        #    "CidrIpv4": "0.0.0.0/0",
+        #    "Description": "ICMP for sentieon server",
+        #    "Tags": []
+        # }]
+        #
+        # FYI: Example input to boto3.client('ec2').authorize_security_group_egress():
+        # [{ "IpProtocol": "tcp",
+        #    "FromPort": 8990,
+        #    "ToPort": 8990,
+        #    "IpRanges": [{ "CidrIp": sentieon_server_cidr,
+        #                   "Description": "allows communication with sentieon server" }],
+        # }]
+        from_port = security_group_rule.get("FromPort")
+        to_port = security_group_rule.get("ToPort")
+        ip_protocol = security_group_rule.get("IpProtocol")
+        rule_protocol = ip_protocol.upper()
+        rule_port_range = from_port
+        rule_source_or_destination = security_group_rule.get("CidrIpv4")
+        if not rule_source_or_destination:
+            ip_ranges = security_group_rule.get("IpRanges")
+            if ip_ranges:
+                rule_source_or_destination = ip_ranges[0].get("CidrIp")
+        if ip_protocol == "tcp" and from_port == to_port == 22:
+            rule_type = "SSH"
+        elif ip_protocol == "tcp" and from_port == to_port == 80:
+            rule_type = "HTTP"
+        elif ip_protocol == "tcp" and from_port == to_port == 443:
+            rule_type = "HTTPS"
+        elif ip_protocol == "icmp" and to_port == -1:
+            if from_port == -1:
+                rule_type = "Custom ICMP - IPv4"
+            else:
+                rule_type = "All ICMP - IPv4"
+            if from_port == 3:
+                rule_protocol = "Destination Unreachable"
+                rule_port_range = "All"
+            elif from_port == 4:
+                rule_protocol = "Source Quench"
+                rule_port_range = "N/A"
+            elif from_port == 8:
+                rule_protocol = "Echo Request"
+                rule_port_range = "N/A"
+            elif from_port == 11:
+                rule_protocol = "Time Exceeded"
+                rule_port_range = "All"
+            else:
+                rule_protocol = "ICMP"
+                if from_port < 0:
+                    rule_port_range = "All"
+                else:
+                    rule_port_range = f"{from_port}"
+        else:
+            if ip_protocol == "tcp":
+                rule_type = "Custom TCP"
+            else:
+                rule_type = ip_protocol.upper()
+            rule_protocol = ip_protocol.upper()
+            if to_port < 0:
+                to_port = "N/A"
+            if from_port < 0:
+                from_port = "N/A"
+            if to_port is not None:
+                if from_port is not None:
+                    if to_port == from_port:
+                        rule_port_range = f"{to_port}"
+                    else:
+                        rule_port_range = f"{from_port} - {to_port}"
+                else:
+                    rule_port_range = f"{to_port}"
+            elif from_port is not None:
+                rule_port_range = f"{from_port}"
+            else:
+                rule_port_range = "N/A"
+        return f"{rule_type} | {rule_protocol} | {rule_port_range} | {rule_source_or_destination}"
+
+    def get_stack_output_value(self, stack_name: str, stack_output_key_name: str) -> Optional[str]:
+        """
+        Returns the value of the given AWS stack output key name of the given stack name.
+
+        :param stack_name: AWS stack name.
+        :param stack_output_key_name: AWS stack output key name.
+        :return: Value of the given AWS stack output key name of the given stack name, or None.
+        """
+        with super().establish_credentials():
+            # Using dcicutils.cloudformation_utils.find_stack_output here even though it looks
+            # for the given stack output key name across all stacks, as this output key name
+            # should be be unique across stacks. See discussion on Slack with Kent/Will/David
+            # from 2022-07-11 @ 3:19pm for some commentary on this. Was previously doing:
+            # stacks = boto3.resource('cloudformation').stacks.all()
+            # for stack in stacks:
+            #     if stack.name == stack_name:
+            #         for stack_output in stack.outputs:
+            #             if stack_output["OutputKey"] == stack_output_key_name:
+            #                 return stack_output["OutputValue"]
+            ignored(stack_name)
+            c4 = C4OrchestrationManager()
+            return c4.find_stack_output(stack_output_key_name, value_only=True)
+
+    def get_cors_rules(self, bucket_name: str) -> Optional[list]:
+        """
+        Returns the list of AWS CORS policies/rules for the given AWS S3 bucket name; or an EMPTY list
+        if no CORS policies exist; or None if the given bucket not found or some other error occurred.
+
+        :param bucket_name: AWS S3 bucket name.
+        :return: List of CORS rules for the given AWS S3 bucket name, or EMPTY list, or None.
+        """
+        with super().establish_credentials():
+            s3 = boto3.client('s3')
+            try:
+                response = s3.get_bucket_cors(Bucket=bucket_name)
+                if response:
+                    cors_rules = response.get("CORSRules")
+                    if isinstance(cors_rules, list):
+                        return cors_rules
+            except botocore.exceptions.ClientError as e:
+                error = e.response.get("Error")
+                if error and error.get("Code") == "NoSuchCORSConfiguration":
+                    # This is so caller can differentiate between a non-existent
+                    # bucket (where we return None below) and a bucket with no
+                    # CORS policy rules defined, where we return an empty list here.
+                    return []
+        return None
+
+    def put_cors_rules(self, bucket_name: str, cors_rules: list) -> None:
+        """
+        Updates the AWS S3 bucket with the given CORS policy rules.
+
+        :param bucket_name: AWS S3 bucket name.
+        :param cors_rules: List of AWS CORS rules to set for the given AWS S3 bucket.
+        """
+        with super().establish_credentials():
+            s3 = boto3.client('s3')
+            s3.put_bucket_cors(Bucket=bucket_name, CORSConfiguration={"CORSRules": cors_rules})

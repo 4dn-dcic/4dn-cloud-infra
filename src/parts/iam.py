@@ -7,10 +7,10 @@ from awacs.ecr import (
 )
 from troposphere import Region, AccountId, Template, Ref, Output, Join
 from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey, ManagedPolicy
-from ..base import exportify, ConfigManager, Settings
+from ..base import ConfigManager, Settings
 from ..constants import C4IAMBase
 from ..part import C4Part
-from ..exports import C4Exports
+from ..exports import C4Exports, exportify
 from ..names import Names
 
 

@@ -93,7 +93,7 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
          mock.patch.object(aws_context, "boto3", mocked_boto3):
 
         # The script gets the deploying_iam_user via boto3 via "sts" get_caller_identity so we mock this.
-        mocked_boto3.client("sts").put_caller_identity_for_testing(account=None, user_arn=TestData.deploying_iam_user)
+        mocked_boto3.client("sts").put_caller_identity_for_testing(account=TestData.account_number, user_arn=TestData.deploying_iam_user)
 
         mocked_input.return_value = "yes"
 
