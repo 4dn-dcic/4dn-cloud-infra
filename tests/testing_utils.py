@@ -21,7 +21,7 @@ def temporary_aws_credentials_dir_for_testing(aws_access_key_id: str,
 
     :param aws_access_key_id: AWS access key ID
     :param aws_secret_access_key: AWS secret access key
-    :param aws_secret_access_key: AWS region name
+    :param aws_region: AWS region name
     :return: Yields full path to the temporary credentials directory.
     """
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -58,7 +58,7 @@ def temporary_custom_dir_for_testing(aws_credentials_name: str,
         os.makedirs(custom_dir)
         config_file = os.path.join(custom_dir, "config.json")
         with io.open(config_file, "w") as config_file_fp:
-            config_json = {}
+            config_json = dict()
             config_json["account_number"] = aws_account_number
             config_json["ENCODED_ENV_NAME"] = aws_credentials_name
             if encryption_enabled:
@@ -88,7 +88,7 @@ def find_matching_line(lines: list, regular_expression: str, predicate: Optional
     Searches the given print mock for the/a print call whose argument matches the given regular
     expression, and returns that argument for the first one that matches; if not found returns None.
 
-    :param mocked_print: Mock print object.
+    :param lines: List/array of lines.
     :param regular_expression: Regular expression to look for in mock print values/lines.
     :param predicate: Optional function taking matched line and returning a True or False indicating match or not.
     :return: First message matching the given regular expression or None if not found.
@@ -107,7 +107,7 @@ def all_lines_match(lines: list, regular_expression: str, predicate: Callable) -
     expression and returns True iff EVERY match ALSO passes (gets a True return value
     from) the given predicate function with that argument, otherwise returns False.
 
-    :param mocked_print: Mock print object.
+    :param lines: List/array of lines.
     :param regular_expression: Regular expression to look for in mock print output values/lines.
     :param predicate: Function taking matched line and returning a True or False indicating match or not.
     :return: True if ALL matched mock print values/lines passes the given predicate test otherwise False.
