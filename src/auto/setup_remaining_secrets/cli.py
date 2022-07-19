@@ -73,7 +73,6 @@ from ...constants import Settings
 from ...names import Names
 from ..utils.args_utils import add_aws_credentials_args, validate_aws_credentials_args
 from ..utils.aws import Aws
-from ..utils.aws_context import AwsContext
 from ..utils.paths import (InfraDirectories)
 from ..utils.misc_utils import (get_json_config_file_value,
                                 exit_with_no_action,
@@ -82,9 +81,6 @@ from ..utils.misc_utils import (get_json_config_file_value,
                                 setup_and_action,
                                 should_obfuscate)
 from ..utils.validate_utils import (validate_and_get_aws_credentials,
-                                    validate_and_get_aws_credentials_dir,
-                                    validate_and_get_aws_credentials_name,
-                                    validate_and_get_custom_dir,
                                     validate_and_get_s3_encrypt_key_id)
 from .defs import (GacSecretKeyName, RdsSecretKeyName)
 
@@ -129,31 +125,6 @@ def validate_and_get_rds_secret_name(rds_secret_name: str, aws_credentials_name:
         if not rds_secret_name:
             exit_with_no_action(f"ERROR: AWS RDS application secret name cannot be determined.")
     return rds_secret_name
-
-
-def validate_and_get_account_number(account_number: str,
-                                    config_file: str,
-                                    aws_credentials: AwsContext.Credentials) -> str:
-    """
-    Validates the given AWS account number and returns its value. If not set gets it from the
-    given AwsContext.Credentials object. Also gets this value from the given JSON config file.
-    Exits with error if these do not match each other, or if the value cannot be determined.
-
-    :param account_number: Explicitly specified AWS account number.
-    :param config_file: Full path to the JSON config file.
-    :param aws_credentials: AwsContext.Credentials object with valid AWS credentials.
-    :return: AWS account number.
-    """
-    # If account number does not agree with what's in the config file then error out.
-    if not account_number:
-        account_number = aws_credentials.account_number
-        if not account_number:
-            exit_with_no_action("ERROR: AWS account number cannot be determined.")
-    account_number_from_config_file = get_json_config_file_value("account_number", config_file)
-    if account_number != account_number_from_config_file:
-        exit_with_no_action(f"ERROR: Account number in your config file ({account_number})"
-                            f" does not match AWS ({account_number_from_config_file}).")
-    return account_number
 
 
 def validate_and_get_federated_user_name(federated_user_name: str,
@@ -279,45 +250,36 @@ def gather_secrets_to_update(
     :return: Tuple containing the GAC secret name, secret values to update, and Aws object.
     """
 
+    # Validate/get and print basic AWS credentials info.
+    aws = validate_and_get_aws_credentials(aws_credentials_name,
+                                           aws_credentials_dir,
+                                           custom_dir,
+                                           aws_access_key_id,
+                                           aws_secret_access_key,
+                                           aws_region,
+                                           aws_session_token,
+                                           show)
+
+    # Get the relevant AWS secret names.
+    gac_secret_name = validate_and_get_gac_secret_name(gac_secret_name, aws.credentials_name)
+    rds_secret_name = validate_and_get_rds_secret_name(rds_secret_name, aws.credentials_name)
+
+    # Print the relevant AWS secret names we are dealing with.
+    PRINT(f"AWS global application config secret to update: {gac_secret_name}")
+    PRINT(f"AWS RDS application config secret to update: {rds_secret_name}")
+
     # Intialize the dictionary secrets to set, which we will collect here.
     secrets_to_update = {}
 
-    # Gather the basic info.
-    custom_dir, config_file = validate_and_get_custom_dir(custom_dir)
-    aws_credentials_name = validate_and_get_aws_credentials_name(aws_credentials_name, config_file)
-    aws_credentials_dir = validate_and_get_aws_credentials_dir(aws_credentials_dir, custom_dir)
-
-    # Get the relevant AWS secret names.
-    gac_secret_name = validate_and_get_gac_secret_name(gac_secret_name, aws_credentials_name)
-    rds_secret_name = validate_and_get_rds_secret_name(rds_secret_name, aws_credentials_name)
-
-    # Print header and basic info.
-    PRINT(f"Setting up 4dn-cloud-infra remaining AWS secrets for: {gac_secret_name}")
-    PRINT(f"Your custom directory: {custom_dir}")
-    PRINT(f"Your custom config file: {config_file}")
-    PRINT(f"Your AWS credentials name: {aws_credentials_name}")
-
-    # Validate and print basic AWS credentials info.
-    aws, aws_credentials = validate_and_get_aws_credentials(aws_credentials_dir,
-                                                            aws_access_key_id,
-                                                            aws_secret_access_key,
-                                                            aws_region,
-                                                            aws_session_token,
-                                                            show)
-
-    # Print the relevant AWS secret names we are dealing with.
-    PRINT(f"AWS global application config secret name: {gac_secret_name}")
-    PRINT(f"AWS RDS application config secret name: {rds_secret_name}")
-
-    # Validate/get the account number.
-    account_number = validate_and_get_account_number(aws_account_number, config_file, aws_credentials)
-    secrets_to_update[GacSecretKeyName.ACCOUNT_NUMBER] = account_number
+    # Get the account number; error out in validate_and_get_aws_credentials
+    # if not set, or inconsistent with account number in config file.
+    secrets_to_update[GacSecretKeyName.ACCOUNT_NUMBER] = aws.credentials.account_number
 
     # Validate/get the global application config secret name (aka "identity" aka GAC).
     secrets_to_update[GacSecretKeyName.ENCODED_IDENTITY] = gac_secret_name
 
     # Validate/get the ElasticSearch server (host/port).
-    elasticsearch_server = validate_and_get_elasticsearch_endpoint(elasticsearch_server, aws_credentials_name, aws)
+    elasticsearch_server = validate_and_get_elasticsearch_endpoint(elasticsearch_server, aws.credentials_name, aws)
     secrets_to_update[GacSecretKeyName.ENCODED_ES_SERVER] = elasticsearch_server
 
     # Validate/get the RDS host/password.
@@ -329,13 +291,13 @@ def gather_secrets_to_update(
     secrets_to_update[GacSecretKeyName.RDS_PASSWORD] = rds_password
 
     # Validate/get the S3 encryption key ID from KMS (iff s3.bucket.encryption is true in config file).
-    s3_encrypt_key_id = validate_and_get_s3_encrypt_key_id(s3_encrypt_key_id, config_file, aws)
+    s3_encrypt_key_id = validate_and_get_s3_encrypt_key_id(s3_encrypt_key_id, aws.custom_config_file, aws)
     secrets_to_update[GacSecretKeyName.ENCODED_S3_ENCRYPT_KEY_ID] = s3_encrypt_key_id
 
     # Validate/get the federated user name (needed to create the security access key pair, below).
     federated_user_name = validate_and_get_federated_user_name(federated_user_name,
-                                                               aws_credentials_name,
-                                                               config_file,
+                                                               aws.credentials_name,
+                                                               aws.custom_config_file,
                                                                aws)
 
     # Validate/create the security access key/secret pair for the IAM federated user.
@@ -412,6 +374,7 @@ def setup_remaining_secrets(
     Main logical entry point for this script. Gathers, prints, confirms, and update various values
     in the AWS secrets manager for the global application config secret (aka "identity" aka GAC).
     """
+    PRINT(f"Setting up 4dn-cloud-infra remaining AWS secrets.")
 
     with setup_and_action() as setup_and_action_state:
 

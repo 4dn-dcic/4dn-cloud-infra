@@ -443,13 +443,6 @@ def configured_main_command(debug=False):
     return _command_wrapper
 
 
-USE_SHORT_EXPORT_NAMES = True  # TODO: Remove when debugged
-
-
-def exportify(name):
-    return name if USE_SHORT_EXPORT_NAMES else f"Export{name}"
-
-
 VALID_APP_KINDS = ['cgap', 'ff']
 
 APP_KIND = ConfigManager.get_config_setting(Settings.APP_KIND)

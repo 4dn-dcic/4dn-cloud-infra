@@ -24,57 +24,17 @@ from troposphere.s3 import (
 )
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
-from ..base import ConfigManager, exportify, COMMON_STACK_PREFIX
-from ..constants import Settings, Secrets, C4DatastoreBase
-from ..exports import C4Exports
+from ..base import ConfigManager, COMMON_STACK_PREFIX
+from ..constants import C4DatastoreBase, Settings, Secrets
+from ..exports import C4DatastoreExportsMixin, C4Exports
 from ..part import C4Part
 from .network import C4NetworkExports
 from .iam import C4IAMExports
 from ..names import Names
 
 
-class C4DatastoreExports(C4Exports):
+class C4DatastoreExports(C4Exports, C4DatastoreExportsMixin):
     """ Holds datastore export metadata. """
-    # Output ES URL for use by foursight/application
-    ES_URL = exportify('ElasticSearchURL')
-    BLUE_ES_URL = exportify('BlueESURL')
-    GREEN_ES_URL = exportify('GreenESURL')
-
-    # RDS Exports
-    RDS_URL = exportify('RdsUrl')
-    RDS_PORT = exportify('RdsPort')
-
-    # Output secrets info
-    APPLICATION_CONFIGURATION_SECRET_NAME = exportify("ApplicationConfigurationSecretName")
-
-    # Output env bucket and result bucket
-    FOURSIGHT_ENV_BUCKET = exportify('FoursightEnvBucket')
-    FOURSIGHT_RESULT_BUCKET = exportify('FoursightResultBucket')
-    FOURSIGHT_APPLICATION_VERSION_BUCKET = exportify('FoursightApplicationVersionBucket')
-
-    # Output production S3 bucket information
-    # NOTE: Some of these have output names for historical reasons that do not well match what the bucket names are.
-    #       The names are just formal names, so we'll live with that for now. -kmp 29-Aug-2021
-    APPLICATION_SYSTEM_BUCKET = exportify('AppSystemBucket')
-    APPLICATION_WFOUT_BUCKET = exportify('AppWfoutBucket')
-    APPLICATION_FILES_BUCKET = exportify('AppFilesBucket')
-    APPLICATION_BLOBS_BUCKET = exportify('AppBlobsBucket')
-    APPLICATION_METADATA_BUNDLES_BUCKET = exportify('AppMetadataBundlesBucket')
-    APPLICATION_TIBANNA_OUTPUT_BUCKET = exportify('AppTibannaLogsBucket')
-    APPLICATION_TIBANNA_CWL_BUCKET = exportify('AppTibannaCWLBucket')
-    APPLICATION_HIGLASS_BUCKET = exportify('AppHiglassBucket')
-
-    # Output SQS Queues
-    APPLICATION_INDEXER_PRIMARY_QUEUE = exportify('ApplicationIndexerPrimaryQueue')
-    APPLICATION_INDEXER_SECONDAY_QUEUE = exportify('ApplicationIndexerSecondaryQueue')
-    APPLICATION_INDEXER_DLQ = exportify('ApplicationIndexerDLQ')
-    APPLICATION_INGESTION_QUEUE = exportify('ApplicationIngestionQueue')
-    APPLICATION_INDEXER_REALTIME_QUEUE = exportify('ApplicationIndexerRealtimeQueue')  # unused
-
-    # e.g., name will be C4DatastoreTrialAlphaExportElasticSearchURL
-    #       or might not contain '...Alpha...'
-    _ES_URL_EXPORT_PATTERN = re.compile(f'.*Datastore.*{ES_URL}.*')
-    # _ES_URL_EXPORT_PATTERN = re.compile('.*Datastore.*ElasticSearchURL.*')
 
     @classmethod
     def get_es_url(cls):
@@ -97,7 +57,7 @@ class C4DatastoreExports(C4Exports):
     def get_env_bucket(cls):
         return ConfigManager.find_stack_output(cls._ENV_BUCKET_EXPORT_PATTERN.match, value_only=True)
 
-    _TIBANNA_OUTPUT_BUCKET_PATTERN = re.compile(f".*Datastore.*{APPLICATION_TIBANNA_OUTPUT_BUCKET}")
+    _TIBANNA_OUTPUT_BUCKET_PATTERN = re.compile(f".*Datastore.*{C4DatastoreExportsMixin.APPLICATION_TIBANNA_OUTPUT_BUCKET}")
 
     @classmethod
     def get_tibanna_output_bucket(cls):

@@ -147,3 +147,9 @@ class C4IAMBase:
 class C4SentieonSupportBase:
     STACK_NAME_TOKEN = 'sentieon'
     STACK_TITLE_TOKEN = 'Sentieon'
+
+
+# dmichaels/2022-07-06: Factored out from network.py.
+class C4NetworkBase:
+    STACK_NAME_TOKEN = 'network'
+    STACK_TITLE_TOKEN = 'Network'
