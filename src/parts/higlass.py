@@ -1,5 +1,5 @@
 from troposphere import (
-    Template, Parameter,
+    Template, Parameter, Ref
 )
 
 from ..base import ConfigManager, Settings
@@ -27,8 +27,8 @@ class C4HiglassServer(C4EC2Common):
         ))
 
         # SSH Key for access
-        ssh_key = self.ssh_key(identifier=self.IDENTIFIER,
-                               default=ConfigManager.get_config_setting(Settings.HIGLASS_SSH_KEY))
+        higlass_key = ConfigManager.get_config_setting(Settings.HIGLASS_SSH_KEY)
+        ssh_key = self.ssh_key(identifier=self.IDENTIFIER, default=higlass_key)
         template.add_parameter(ssh_key)
 
         # TODO: ACM certificate parameter?
@@ -42,7 +42,7 @@ class C4HiglassServer(C4EC2Common):
                                                 instance_size=ConfigManager.get_config_setting(
                                                     Settings.HIGLASS_INSTANCE_SIZE, default=self.DEFAULT_INSTANCE_SIZE
                                                 ),
-                                                default_key=ssh_key,
+                                                default_key=Ref(ssh_key),
                                                 user_data=self.generate_higlass_user_data()))
 
         # Add load balancer for the hub
