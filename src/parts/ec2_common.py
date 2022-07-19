@@ -71,7 +71,7 @@ class C4EC2Common(C4Part):
                 ToPort=22,
             ),
 
-            # HTTP to/from LB
+            # HTTP from LB
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationHTTPInboundAllAccess'),
                 CidrIp=C4Network.CIDR_BLOCK,
@@ -81,9 +81,9 @@ class C4EC2Common(C4Part):
                 FromPort=80,
                 ToPort=80,
             ),
-            SecurityGroupEgress(
+            SecurityGroupEgress(  # need to be able to call out anywhere to reach internet
                 self.name.logical_id('ApplicationHTTPOutboundAllAccess'),
-                CidrIp=C4Network.CIDR_BLOCK,
+                CidrIp='0.0.0.0/0',
                 Description='allows outbound traffic on tcp port 80',
                 GroupId=Ref(self.application_security_group(identifier=identifier)),
                 IpProtocol='tcp',
@@ -91,7 +91,7 @@ class C4EC2Common(C4Part):
                 ToPort=80,
             ),
 
-            # HTTPS to/from LB
+            # HTTPS from LB
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationHTTPSInboundAllAccess'),
                 CidrIp=C4Network.CIDR_BLOCK,
@@ -101,9 +101,9 @@ class C4EC2Common(C4Part):
                 FromPort=443,
                 ToPort=443,
             ),
-            SecurityGroupEgress(
+            SecurityGroupEgress(  # need to be able to call out anywhere to reach internet
                 self.name.logical_id('ApplicationHTTPSOutboundAllAccess'),
-                CidrIp=C4Network.CIDR_BLOCK,
+                CidrIp='0.0.0.0/0',
                 Description='allows outbound traffic on tcp port 443',
                 GroupId=Ref(self.application_security_group(identifier=identifier)),
                 IpProtocol='tcp',
@@ -124,10 +124,11 @@ class C4EC2Common(C4Part):
             InstanceType=ConfigManager.get_config_setting(instance_size, default=self.DEFAULT_INSTANCE_SIZE),
             NetworkInterfaces=[NetworkInterfaceProperty(
                 network_interface_logical_id,
-                AssociatePublicIpAddress=True,
+                AssociatePublicIpAddress=True,  # must proxy jump to these instances
                 DeviceIndex=0,
                 GroupSet=[Ref(self.application_security_group(identifier=identifier))],
-                SubnetId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNETS[0]),
+                # always pick subnet A since it is guaranteed to exist
+                SubnetId=self.NETWORK_EXPORTS.import_value(sorted(C4NetworkExports.PRIVATE_SUBNETS)[0]),
             )],
             KeyName=Ref(self.ssh_key(identifier=identifier, default=default_key)),
             UserData=Base64(Join('', user_data))
@@ -183,7 +184,7 @@ class C4EC2Common(C4Part):
         return elbv2.TargetGroup(
             logical_id,
             HealthCheckIntervalSeconds=60,
-            HealthCheckPath='/health?format=json',
+            HealthCheckPath=health_path,
             HealthCheckProtocol='HTTP',
             HealthCheckTimeoutSeconds=10,
             Matcher=elbv2.Matcher(HttpCode='200'),
@@ -220,7 +221,7 @@ class C4EC2Common(C4Part):
             SecurityGroups=[
                 Ref(self.lb_security_group(identifier=identifier))
             ],
-            Subnets=[self.NETWORK_EXPORTS.import_value(subnet_key) for subnet_key in C4NetworkExports.PUBLIC_SUBNETS],
+            Subnets=[self.NETWORK_EXPORTS.import_value(subnet_key) for subnet_key in C4NetworkExports.PUBLIC_SUBNETS[:2]],
             Tags=self.tags.cost_tag_array(name=logical_id),
             Type='application',
         )

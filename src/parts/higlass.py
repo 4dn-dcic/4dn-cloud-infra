@@ -17,6 +17,7 @@ class C4HiglassServer(C4EC2Common):
     NETWORK_EXPORTS = C4NetworkExports()
     DEFAULT_INSTANCE_SIZE = 'c5.large'
     IDENTIFIER = 'Higlass'
+    HEALTH_CHECK_PATH = '/api/v1/tilesets/'
 
     def build_template(self, template: Template) -> Template:
         # Network Stack Parameter
@@ -47,7 +48,7 @@ class C4HiglassServer(C4EC2Common):
 
         # Add load balancer for the hub
         template.add_resource(self.lb_security_group(identifier=self.IDENTIFIER))
-        target_group = self.lbv2_target_group(identifier=self.IDENTIFIER)
+        target_group = self.lbv2_target_group(identifier=self.IDENTIFIER, health_path=self.HEALTH_CHECK_PATH)
         template.add_resource(target_group)
         template.add_resource(self.application_load_balancer_listener(identifier=self.IDENTIFIER,
                                                                       target_group=target_group))

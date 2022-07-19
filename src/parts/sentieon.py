@@ -1,9 +1,8 @@
-from troposphere import GetAtt, Join, Output, Ref, Template, Parameter
+from troposphere import GetAtt, Output, Ref, Template, Parameter
 from troposphere.ec2 import (
     SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
     Instance, NetworkInterfaceProperty,
 )
-from dcicutils.cloudformation_utils import camelize
 from ..constants import C4SentieonSupportBase
 from ..exports import C4Exports
 from ..names import Names
@@ -30,6 +29,7 @@ class C4SentieonSupportExports(C4Exports):
 class C4SentieonSupport(C4SentieonSupportBase, C4Part):
     """
     Layer that provides an EC2 and associated resources for a Sentieon license server
+    This server doubles as a bastion host as well
     """
     SENTIEON_MASTER_CIDR = '52.89.132.242/32'
     # dmichaels/2022-07-05: Factored out into constants.py.
