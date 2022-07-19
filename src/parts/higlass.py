@@ -65,13 +65,11 @@ class C4HiglassServer(C4EC2Common):
             'sudo apt-get install apt-transport-https ca-certificates curl software-properties-common git', '\n',
             'curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -', '\n',
             'sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"', '\n',
-            'sudo apt update', '\n'
-            'apt-cache policy docker-ce', '\n',
-            'sudo apt install docker-ce awscli', '\n',
-            'mkdir hg-data', '\n',
+            'sudo apt update; apt-cache policy docker-ce', '\n'
+            'sudo apt install --assume-yes docker-ce', '\n',
             'mkdir hg-tmp', '\n',
-            'aws s3 sync s3://cgap-higlass/hg-data hg-data', '\n',
-            'sudo docker pull higlass/higlass-docker', '\n',
+            'curl https://cgap-higlass.s3.amazonaws.com/hg-data/higlass-server-data.tar.gz --output higlass-server-data.tar.gz', '\n',
+            'tar -xzvf higlass-server-data.tar.gz', '\n',
             'sudo git clone https://github.com/dbmi-bgm/higlass-docker-setup', '\n',
             'cd higlass-docker-setup', '\n',
             'sudo -E ./start_production.sh'
