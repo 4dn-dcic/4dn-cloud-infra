@@ -68,9 +68,9 @@ class C4HiglassServer(C4EC2Common):
             'sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"', '\n',
             'sudo apt update; apt-cache policy docker-ce', '\n'
             'sudo apt install --assume-yes docker-ce', '\n',
-            'mkdir hg-tmp', '\n',
+            'mkdir ~/hg-tmp', '\n',
             'curl https://cgap-higlass.s3.amazonaws.com/hg-data/higlass-server-data.tar.gz --output higlass-server-data.tar.gz', '\n',
-            'tar -xzvf higlass-server-data.tar.gz', '\n',
+            'tar -xzvf higlass-server-data.tar.gz --directory ~', '\n',
             'sudo git clone https://github.com/dbmi-bgm/higlass-docker-setup', '\n',
             'cd higlass-docker-setup', '\n',
             'sudo -E ./start_production.sh'
