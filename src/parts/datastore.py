@@ -214,7 +214,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
             'RDS_PORT': ConfigManager.get_config_setting(Settings.RDS_DB_PORT, default=cls.DEFAULT_RDS_DB_PORT),
             'RDS_USERNAME': cls.rds_db_username(),
             'RDS_PASSWORD': None,
-            'GLOBAL_ENV_BUCKET': '',  # foursight-envs bucket
+            'GLOBAL_ENV_BUCKET': cls.resolve_bucket_name(ConfigManager.FSBucketTemplate.ENVS),  # foursight-envs bucket
             'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY,
                                                               ConfigManager.get_s3_encrypt_key_from_file()),
             # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
