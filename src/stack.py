@@ -204,7 +204,7 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
             trial_creds=self.trial_creds,
             # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
             # On the second attempt to create the stack, the physical resource ID will be used.
-            check_runner=("c4-foursight-fourfront-production-stac-CheckRunner-MW4VHuCIsDXc")
+            check_runner=(ConfigManager.get_config_setting(Settings.FOURSIGHT_CHECK_RUNNER))
         )
 
     class PackageDeploy(PackageDeploy_from_app):

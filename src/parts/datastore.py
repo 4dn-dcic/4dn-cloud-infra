@@ -123,7 +123,6 @@ class C4Datastore(C4DatastoreBase, C4Part):
         C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET: ConfigManager.AppBucketTemplate.METADATA_BUNDLES,
         C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET: ConfigManager.AppBucketTemplate.TIBANNA_OUTPUT,
         C4DatastoreExports.APPLICATION_TIBANNA_CWL_BUCKET: ConfigManager.AppBucketTemplate.TIBANNA_CWL,
-        C4DatastoreExports.APPLICATION_HIGLASS_BUCKET: ConfigManager.AppBucketTemplate.HIGLASS
     }
 
     # Buckets to apply the lifecycle policy to (files and wfoutput, as these are large)

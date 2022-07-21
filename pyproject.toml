@@ -9,36 +9,38 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.7,<3.8"
-awacs = "^1.0.4"
-awscli = ">=1.22.55"
-boto3 = "^1.21.0"
-botocore = "^1.24.0"
-chalice = "^1.26.6"
-dcicutils = "3.14.1.3b45"
+python = ">=3.7.1,<3.8"
+awacs = "1.0.4"
+awscli = "1.25.34"
+boto3 = "^1.24.34"
+botocore = "^1.27.34"
+chalice = "1.27.1"
+dcicutils = "3.16.0.3b64"
 #lock foursight to deploy foursight-ff
-#foursight = "1.10.3.1b4"
+foursight = "1.10.7.1b3"
 #lock foursight-cgap to deploy foursight-cgap
-foursight-cgap = "^1.6.0"
-foursight-core = "^0.6.0"
+#foursight-cgap = "^1.6.0"
+foursight-core = "0.6.1.2b23"
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
 # python-levenshtein = "^0.12.2"
 pbkdf2 = "1.3"
-submit-cgap = "^1.3.0"
-magma-suite = "^0.2.8"
-prettytable = "^3.3.0"
-tibanna = "1.9.1"
-tibanna-ff = "1.0.0"
-tqdm = "^4.62.3"
-troposphere = "^3.2.2"
+submit-cgap = "1.3.0"
+magma-suite = "0.2.8"
+prettytable = "3.3.0"
+tibanna = "2.0.0"
+tibanna-ff = "1.1.0"
+tqdm = "4.62.3"
+troposphere = "3.2.2"
 
 [tool.poetry.dev-dependencies]
-jupyter = "^1.0.0"
-cfn-flip = "^1.2.3"  # do we need to specify this explicitly? -kmp 27-Jul-2021
-cfn-lint = "^0.48.3"  # a secondary check that catches more things than standard validate - Will 4/1/2021
-boto3-stubs = "^1.18.31"
-botocore-stubs = "^1.21.31"
+jupyter = "1.0.0"
+numpy = "1.21.6"  # added to allow to lock, last viable version for 3.7 - Will July 21 2022
+pandas = "1.3.5"  # added to allow to lock, last viable version for 3.7 - Will July 21 2022
+cfn-flip = "1.2.3"  # do we need to specify this explicitly? -kmp 27-Jul-2021
+cfn-lint = "0.48.3"  # a secondary check that catches more things than standard validate - Will 4/1/2021
+boto3-stubs = "^1.24.34"
+botocore-stubs = "^1.27.34"
 # Linting generally
 flake8 = ">=3.9.2"
 # pygments is used by PyCharm
