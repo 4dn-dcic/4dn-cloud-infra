@@ -102,11 +102,19 @@ class Settings:
     JH_SSH_KEY = 'jupyterhub.ssh_key'
     JH_INSTANCE_SIZE = 'jupyterhub.instance_size'
 
+    # Higlass Options
+    HIGLASS_SSH_KEY = 'higlass.ssh_key'
+    HIGLASS_INSTANCE_SIZE = 'higlass.instance_size'
+
     # Secure AMI
     HMS_SECURE_AMI = 'hms.secure_ami'
 
     # S3 KMS ServerSide Encryption Key
     S3_ENCRYPT_KEY_ID = 's3.encrypt_key_id'
+
+    # CodeBuild options
+    CODEBUILD_REPOSITORY_URL = 'codebuild.repo_url'
+    CODEBUILD_DEPLOY_BRANCH = 'codebuild.build_branch'
 
 
 # dmichaels/2022-06-06: Factored out from base.py.
