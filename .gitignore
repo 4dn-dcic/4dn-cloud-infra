@@ -73,6 +73,9 @@ scripts/delete_pending_buckets.data.txt
 # Pyenv
 .python-version
 
+# Kent's environment tools
+.python-cmd
+
 # Jupyter notebooks
 *.ipynb_checkpoints
 foursight_development/*.ipynb
