@@ -72,6 +72,8 @@ scripts/delete_pending_buckets.data.txt
 
 # Pyenv
 .python-version
+# KMP's env tools
+.python-cmd
 
 # Jupyter notebooks
 *.ipynb_checkpoints

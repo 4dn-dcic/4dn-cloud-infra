@@ -15,7 +15,7 @@ awscli = "1.25.34"
 boto3 = "^1.24.34"
 botocore = "^1.27.34"
 chalice = "1.27.1"
-dcicutils = "3.16.0.3b64"
+dcicutils = "3.16.0.3b68"
 #lock foursight to deploy foursight-ff
 foursight = "1.10.7.1b3"
 #lock foursight-cgap to deploy foursight-cgap
@@ -48,6 +48,13 @@ pygments = ">=2.10.0"
 pytest = ">=5.1.2"  # 5.1.2 is needed by foursight-cgap, but otherwise we'd be happier for a higher version
 
 [tool.poetry.scripts]
+# dcicutils commands
+add-image-tag = "dcicutils.ecr_scripts:add_image_tag_main"
+show-global-env-bucket = "dcicutils.env_scripts:show_global_env_bucket_main"
+show-image-manifest = "dcicutils.ecr_scripts:show_image_manifest_main"
+show-image-catalog = "dcicutils.ecr_scripts:show_image_catalog_main"
+unrelease-most-recent-image = "dcicutils.ecr_scripts:unrelease_most_recent_image_main"
+# 4dn-cloud-infra commands
 assure-global-bucket-env = "src.commands.assure_global_env_bucket:main"
 cli = "src.cli:cli"
 create-demo-metawfr = "src.commands.create_demo_metawfr:main"
