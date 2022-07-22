@@ -17,10 +17,12 @@ botocore = "^1.27.34"
 chalice = "1.27.1"
 dcicutils = "3.16.0.3b68"
 #lock foursight to deploy foursight-ff
-foursight = { path = "../foursight", develop = false }
+#foursight = { path = "../foursight", develop = false }
+foursight = "2.0.0.1b0"
 #lock foursight-cgap to deploy foursight-cgap
 #foursight-cgap = "^1.6.0"
-foursight-core = { path = "../foursight-core", develop = false }
+#foursight-core = { path = "../foursight-core", develop = false }
+foursight-core = "0.7.0.1b5"
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
 # python-levenshtein = "^0.12.2"
