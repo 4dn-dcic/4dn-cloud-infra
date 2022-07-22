@@ -7,6 +7,7 @@ from dcicutils.misc_utils import PRINT, full_class_name
 from os.path import dirname
 from troposphere import Template
 from .base import ConfigManager
+from .names import Names
 from .constants import Secrets, Settings
 from .part import C4Name, C4Tags, C4Account, C4Part, StackNameMixin
 from .parts.datastore import C4DatastoreExports
@@ -95,6 +96,21 @@ class BaseC4FoursightStack(BaseC4Stack, StackNameMixin):
     def package_foursight_stack(self, args):
         class_name = full_class_name(self)
         raise NotImplementedError(f"{class_name} does not implement required method 'package_foursight_stack'.")
+
+    @classmethod
+    def suggest_stack_name(cls, name=None):
+        """ Overriden so you can change the sharing qualifier by passing foursight.app_name in
+            config.json - used to have multiple foursight deployments per account.
+            ie: set "foursight.app_name": "development" --> stack name = 'c4-foursight-development-stack'
+        """
+        title_token = cls.stack_title_token()
+        name_token = cls.STACK_NAME_TOKEN
+        fs_app_name = ConfigManager.get_config_setting(Settings.FOURSIGHT_APP_NAME, default=None)
+        if fs_app_name:
+            qualifier = fs_app_name
+        else:
+            qualifier = cls.suggest_sharing_qualifier()
+        return Names.suggest_stack_name(title_token, name_token, qualifier)
 
 
 def get_trial_creds(env_name: str):

@@ -95,6 +95,7 @@ class Settings:
     FOURSIGHT_ES_URL = 'foursight.es_url'
     FOURSIGHT_APP_VERSION_BUCKET = 'foursight.application_version_bucket'
     FOURSIGHT_CHECK_RUNNER = 'foursight.check_runner'  # for use with FF
+    FOURSIGHT_APP_NAME = 'foursight.app_name'  # so can be different from ENV_NAME
 
     # Sentieon Options
     SENTIEON_SSH_KEY = 'sentieon.ssh_key'

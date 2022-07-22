@@ -1,4 +1,4 @@
-from ..base import register_stack_creator, registered_stack_class
+from ..base import register_stack_creator, registered_stack_class, ConfigManager, Settings
 from ..parts import (
     network, datastore, ecr, iam, logging, ecs, fourfront_ecs,
     appconfig, datastore_slim, sentieon, jupyterhub, higlass, fourfront_ecs_blue_green,
