@@ -122,8 +122,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
         C4DatastoreExports.APPLICATION_SYSTEM_BUCKET: ConfigManager.AppBucketTemplate.SYSTEM,
         C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET: ConfigManager.AppBucketTemplate.METADATA_BUNDLES,
         C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET: ConfigManager.AppBucketTemplate.TIBANNA_OUTPUT,
-        C4DatastoreExports.APPLICATION_TIBANNA_CWL_BUCKET: ConfigManager.AppBucketTemplate.TIBANNA_CWL,
-        C4DatastoreExports.APPLICATION_HIGLASS_BUCKET: ConfigManager.AppBucketTemplate.HIGLASS
+        C4DatastoreExports.APPLICATION_TIBANNA_CWL_BUCKET: ConfigManager.AppBucketTemplate.TIBANNA_CWL
     }
 
     # Buckets to apply the lifecycle policy to (files and wfoutput, as these are large)
@@ -205,8 +204,6 @@ class C4Datastore(C4DatastoreBase, C4Part):
             'ENCODED_S3_BUCKET_ORG': ConfigManager.get_config_setting(Settings.S3_BUCKET_ORG, default=None),
             'ENCODED_TIBANNA_OUTPUT_BUCKET':
                 "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET),
-            'ENCODED_HIGLASS_BUCKET':
-                "", # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_HIGLASS_BUCKET)
             'LANG': 'en_US.UTF-8',
             'LC_ALL': 'en_US.UTF-8',
             'RDS_HOSTNAME': None,
