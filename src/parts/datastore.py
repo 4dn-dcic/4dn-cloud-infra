@@ -177,6 +177,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
 
     @classmethod
     def application_configuration_template(cls):
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         result = cls.add_placeholders({
             'deploying_iam_user': ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER),  # required
             'ACCOUNT_NUMBER': cls.CONFIGURATION_PLACEHOLDER,
@@ -184,9 +185,9 @@ class C4Datastore(C4DatastoreBase, C4Part):
             'S3_AWS_SECRET_ACCESS_KEY': None,
             'ENCODED_AUTH0_CLIENT': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
             'ENCODED_AUTH0_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET, default=None),
-            'ENV_NAME':  ConfigManager.get_config_setting(Settings.ENV_NAME),
+            'ENV_NAME':  env_name,
             'ENCODED_APPLICATION_BUCKET_PREFIX': cls.resolve_bucket_name("{application_prefix}"),
-            'ENCODED_BS_ENV':  ConfigManager.get_config_setting(Settings.ENV_NAME),
+            'ENCODED_BS_ENV':  env_name,
             'ENCODED_DATA_SET': 'deploy',
             'ENCODED_ES_SERVER': C4DatastoreExports.get_es_url(),  # None,
             'ENCODED_FOURSIGHT_BUCKET_PREFIX': cls.resolve_bucket_name("{foursight_prefix}"),
@@ -208,6 +209,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
             'LC_ALL': 'en_US.UTF-8',
             'RDS_HOSTNAME': None,
             'RDS_DB_NAME': ConfigManager.get_config_setting(Settings.RDS_DB_NAME, default=cls.DEFAULT_RDS_DB_NAME),
+            'RDS_NAME': ConfigManager.get_config_setting(Settings.RDS_NAME, default=None) or f"rds-{env_name}",
             'RDS_PORT': ConfigManager.get_config_setting(Settings.RDS_DB_PORT, default=cls.DEFAULT_RDS_DB_PORT),
             'RDS_USERNAME': cls.rds_db_username(),
             'RDS_PASSWORD': None,
