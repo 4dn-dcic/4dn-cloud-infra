@@ -8,6 +8,7 @@ from os.path import dirname
 from troposphere import Template
 from .base import ConfigManager
 from .constants import Secrets, Settings
+from .names import Names
 from .part import C4Name, C4Tags, C4Account, C4Part, StackNameMixin
 from .parts.datastore import C4DatastoreExports
 from .parts.network import C4NetworkExports
@@ -139,8 +140,11 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
         # # TODO (C4-692): foursight-core presently wants us to pass an 'args' argument (from 'argparser').
         # #       It should instead ask for all the various arguments it plans to look at.
         # with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
+        # dmichaels/20220725: Pass in identity to build_config_and_package (C4-826) to identity-ize Foursight.
+        identity = Names.application_configuration_secret(ConfigManager.get_config_setting(Settings.ENV_NAME), self.name)
         self.PackageDeploy.build_config_and_package(
             args,  # this should not be needed any more, but we didn't quite write the code that way
+            identity=identity,
             merge_template=args.merge_template,
             output_file=args.output_file,
             stage=args.stage,
