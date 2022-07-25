@@ -121,7 +121,8 @@ def validate_and_get_aws_credentials(credentials_name: str,
     try:
         with aws.establish_credentials(display=True, show=show) as credentials:
             if custom_config_file:
-                account_number_from_custom_config_file = get_json_config_file_value("account_number", custom_config_file)
+                account_number_from_custom_config_file = get_json_config_file_value("account_number",
+                                                                                    custom_config_file)
                 if account_number_from_custom_config_file != credentials.account_number:
                     exit_with_no_action(f"ERROR: AWS account number ({credentials.account_number}) does not match"
                                         f" value ({account_number_from_custom_config_file})"

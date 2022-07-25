@@ -198,7 +198,8 @@ def summarize_security_group_rules_to_define(security_group_id: str, sentieon_ip
     for rule in inbound_security_group_rules_to_define:
         print(f"Inbound security group ({security_group_id}) rule to define:"
               f" {Aws.get_security_group_rule_display_value(rule)}")
-    outbound_security_group_rules_to_define = get_sentieon_compute_node_outbound_security_group_rules(sentieon_ip_address)
+    outbound_security_group_rules_to_define = \
+        get_sentieon_compute_node_outbound_security_group_rules(sentieon_ip_address)
     for rule in outbound_security_group_rules_to_define:
         print(f"Outbound security group ({security_group_id}) rule to define:"
               f" {Aws.get_security_group_rule_display_value(rule)}")

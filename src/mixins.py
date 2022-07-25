@@ -7,6 +7,7 @@
 # dmichaels/2022-06-22: Factored out from StackNameMixin in part.py.
 class StackNameBaseMixin:
     SHARING = 'env'
+
     def sharing_qualifiers(env_name: str, ecosystem: str):
         _SHARING_QUALIFIERS = {
             'env': f"{env_name}",

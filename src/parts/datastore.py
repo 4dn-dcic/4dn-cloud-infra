@@ -508,7 +508,8 @@ class C4Datastore(C4DatastoreBase, C4Part):
                         'Principal': {'AWS': [
                             Join('', ['arn:aws:iam::', AccountId, ':user/',
                                       self.IAM_EXPORTS.import_value(C4IAMExports.S3_IAM_USER)]),
-                            # dmichaels/2022-06-17: Added to ECS_ASSUMED_IAM_ROLE to allow access to S3 with encrypted account.
+                            # dmichaels/2022-06-17:
+                            # Added to ECS_ASSUMED_IAM_ROLE to allow access to S3 with encrypted account.
                             Join('', ['arn:aws:iam::', AccountId, ':user/',
                                       self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)])
         ]},

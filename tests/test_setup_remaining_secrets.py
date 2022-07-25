@@ -84,7 +84,8 @@ def test_setup_remaining_secrets_without_overwriting_existing_secrets() -> None:
 
 
 def test_get_federated_user_name_pattern() -> None:
-    federated_user_name_pattern = Names.ecs_s3_iam_user_logical_id(None, TestData.aws_credentials_name, DEFAULT_ECOSYSTEM)
+    federated_user_name_pattern = Names.ecs_s3_iam_user_logical_id(None,
+                                                                   TestData.aws_credentials_name, DEFAULT_ECOSYSTEM)
     assert federated_user_name_pattern == "C4IAMMainApplicationS3Federator"
 
 
