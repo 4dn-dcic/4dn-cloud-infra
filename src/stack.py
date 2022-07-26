@@ -141,7 +141,7 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
         # #       It should instead ask for all the various arguments it plans to look at.
         # with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
         # dmichaels/20220725: Pass in identity to build_config_and_package (C4-826) to identity-ize Foursight.
-        identity = Names.application_configuration_secret(ConfigManager.get_config_setting(Settings.ENV_NAME), self.name)
+        identity = Names.application_configuration_secret(ConfigManager.get_config_setting(Settings.ENV_NAME))
         self.PackageDeploy.build_config_and_package(
             args,  # this should not be needed any more, but we didn't quite write the code that way
             identity=identity,
