@@ -6,6 +6,7 @@ from chalice import Chalice, Response, Cron
 from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
 from dcicutils.exceptions import InvalidParameterError
 from dcicutils.misc_utils import environ_bool, remove_suffix, ignored
+from dcicutils.obfuscation_utils import obfuscate_dict
 from foursight_core.deploy import Deploy
 
 
@@ -60,13 +61,26 @@ class SingletonManager():  # TODO: Move to dcicutils
 class AppUtils(AppUtils_from_cgap):
     # overwriting parent class
     prefix = FOURSIGHT_PREFIX
-    FAVICON = 'https://cgap.hms.harvard.edu/static/img/favicon-fs.ico'
+    #FAVICON = 'https://cgap.hms.harvard.edu/static/img/favicon-fs.ico'
+    FAVICON = 'https://cgap-dbmi.hms.harvard.edu/favicon.ico'
     host = HOST
     package_name = 'chalicelib'
     # check_setup is moved to vendor/ where it will be automatically placed at top level
     check_setup_dir = os.path.dirname(__file__)
     # This will heuristically mostly title-case te DEFAULT_ENV but will put CGAP in all-caps.
     html_main_title = f'Foursight-{DEFAULT_ENV}'.title().replace("Cgap", "CGAP")  # was 'Foursight-CGAP-Mastertest'
+
+    # dmichaels/2022-07-27:
+    # Since we (as of late July 2022) setup some Foursight os.environ values in the
+    # constructor for foursight-core/AppUtils{Core}, from which AppUtils_from_cgap here
+    # is derived, we need to re-define variables based on os.environ in this constructor.
+    def __init__(self):
+        super().__init__()
+        global DEFAULT_ENV, HOST
+        DEFAULT_ENV = os.environ.get("ENV_NAME", "cgap-still-uninitialized")
+        self.html_main_title = f'Foursight-{DEFAULT_ENV}'.title().replace("Cgap", "CGAP")
+        HOST = os.environ.get("ES_HOST")
+        self.host = HOST
 
 
 if DEBUG_CHALICE:
@@ -368,6 +382,13 @@ def get_environment_route(environ):
 #         return app_utils_manager.singleton.run_delete_environment(environ)
 #     else:
 #         return app_utils_manager.singleton.forbidden_response()
+
+
+# dmichaels/2022-07-27:
+# For testing/debugging/troubleshooting, dump the os.environ (with senstive data obfuscated).
+@app.route('/view/osenviron', methods=['GET'])
+def get_osenviron():
+    return obfuscate_dict(dict(os.environ))
 
 
 #######################
