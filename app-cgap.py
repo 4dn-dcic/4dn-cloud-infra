@@ -386,8 +386,8 @@ def get_environment_route(environ):
 
 # dmichaels/2022-07-27:
 # For testing/debugging/troubleshooting, dump the os.environ (with senstive data obfuscated).
-@app.route('/view/osenviron', methods=['GET'])
-def get_osenviron():
+@app.route('/debug/environ', methods=['GET'])
+def get_debug_environ():
     return obfuscate_dict(dict(os.environ))
 
 
