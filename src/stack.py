@@ -145,6 +145,7 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
         self.PackageDeploy.build_config_and_package(
             args,  # this should not be needed any more, but we didn't quite write the code that way
             identity=identity,
+            stack_name=self.name.stack_name,
             merge_template=args.merge_template,
             output_file=args.output_file,
             stage=args.stage,
