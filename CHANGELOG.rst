@@ -6,6 +6,10 @@
 Change Log
 ----------
 
+3.4.0
+=====
+* Changes for C4-826 to IDENTITY-ize Foursight.
+
 3.2.4
 =====
 * Added ``update-cors-policy`` poetry script target to S3 bucket CORS permission policy.
