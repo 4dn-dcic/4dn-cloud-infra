@@ -10,7 +10,7 @@ Change Log
 =====
 * Changes for C4-826 to IDENTITY-ize Foursight.
   Up foursight-core to version 0.7.4.2b4.
-  Up foursight-cgap to version 1.8.2.1b5.
+  Up foursight-cgap to version 1.8.2.1b6.
 
 3.2.4
 =====
