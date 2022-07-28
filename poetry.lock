@@ -104,14 +104,14 @@ dev = ["coverage (>=5.3,<6.0)", "flake8 (>=3.8.4,<3.9.0)", "tox (>=3.24,<4.0)", 
 
 [[package]]
 name = "awscli"
-version = "1.25.37"
+version = "1.25.39"
 description = "Universal Command Line Environment for AWS."
 category = "main"
 optional = false
 python-versions = ">= 3.7"
 
 [package.dependencies]
-botocore = "1.27.37"
+botocore = "1.27.39"
 colorama = ">=0.2.5,<0.4.5"
 docutils = ">=0.10,<0.17"
 PyYAML = ">=3.10,<5.5"
@@ -180,14 +180,14 @@ wcwidth = ">=0.1.4"
 
 [[package]]
 name = "boto3"
-version = "1.24.37"
+version = "1.24.39"
 description = "The AWS SDK for Python"
 category = "main"
 optional = false
 python-versions = ">= 3.7"
 
 [package.dependencies]
-botocore = ">=1.27.37,<1.28.0"
+botocore = ">=1.27.39,<1.28.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.6.0,<0.7.0"
 
@@ -196,8 +196,8 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "boto3-stubs"
-version = "1.24.37"
-description = "Type annotations for boto3 1.24.37 generated with mypy-boto3-builder 7.10.1"
+version = "1.24.39"
+description = "Type annotations for boto3 1.24.39 generated with mypy-boto3-builder 7.10.1"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
@@ -523,7 +523,7 @@ xray = ["mypy-boto3-xray (>=1.24.0,<1.25.0)"]
 
 [[package]]
 name = "botocore"
-version = "1.27.37"
+version = "1.27.39"
 description = "Low-level, data-driven core of boto 3."
 category = "main"
 optional = false
@@ -539,8 +539,8 @@ crt = ["awscrt (==0.13.8)"]
 
 [[package]]
 name = "botocore-stubs"
-version = "1.27.37"
-description = "Type annotations for botocore 1.27.37 generated with mypy-boto3-builder 7.10.1"
+version = "1.27.39"
+description = "Type annotations for botocore 1.27.39 generated with mypy-boto3-builder 7.10.1"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
@@ -604,6 +604,18 @@ junit-xml = ">=1.9,<2.0"
 networkx = {version = ">=2.4,<3.0", markers = "python_version >= \"3.5\""}
 pyyaml = {version = "*", markers = "python_version != \"3.4\""}
 six = ">=1.11"
+
+[[package]]
+name = "cgap-pipeline-utils"
+version = "23.0"
+description = "Collection of utilities for cgap-pipeline"
+category = "main"
+optional = false
+python-versions = ">=3.6, <3.8"
+
+[package.dependencies]
+dcicutils = ">=1.19.0"
+magma-suite = ">=0.2.1"
 
 [[package]]
 name = "chalice"
@@ -795,34 +807,30 @@ pycodestyle = ">=2.8.0,<2.9.0"
 pyflakes = ">=2.4.0,<2.5.0"
 
 [[package]]
-name = "foursight"
-version = "2.0.0.1b2"
+name = "foursight-cgap"
+version = "2.0.0.1b1"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
 python-versions = ">=3.7,<3.8"
 
 [package.dependencies]
-boto3 = ">=1.24.36"
-botocore = ">=1.27.36"
+cgap-pipeline-utils = "23.0"
 click = ">=7.1.2,<8.0.0"
-dcicutils = ">=4.0.1,<5.0.0"
+dcicutils = ">=4.0.0,<5.0.0"
 elasticsearch = ">=6.8.1,<7.0.0"
 elasticsearch-dsl = ">=6.4.0,<7.0.0"
 foursight-core = ">=0.7.4.1b0,<0.8.0.0"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
-google-api-python-client = ">=1.7.4,<2.0.0"
-gspread = ">=3.6.0"
+google-api-python-client = ">=1.12.5,<2.0.0"
 Jinja2 = "2.10.1"
+magma-suite = "1.0.0"
 MarkupSafe = "1.1.1"
-numpy = ">=1.21.6"
-oauth2client = ">=4.1.3"
-pandas = ">=1.1.5"
 PyJWT = "1.5.3"
 pytest = "5.1.2"
 pytz = ">=2020.1,<2021.0"
-tibanna_ff = ">=0.22.5"
+tibanna-ff = ">=1.0.0,<2.0.0"
 
 [[package]]
 name = "foursight-core"
@@ -958,21 +966,6 @@ httplib2 = ">=0.15.0"
 six = "*"
 
 [[package]]
-name = "google-auth-oauthlib"
-version = "0.5.2"
-description = "Google Authentication Library"
-category = "main"
-optional = false
-python-versions = ">=3.6"
-
-[package.dependencies]
-google-auth = ">=1.0.0"
-requests-oauthlib = ">=0.7.0"
-
-[package.extras]
-tool = ["click (>=6.0.0)"]
-
-[[package]]
 name = "googleapis-common-protos"
 version = "1.56.4"
 description = "Common protobufs used in Google APIs"
@@ -985,18 +978,6 @@ protobuf = ">=3.15.0,<5.0.0dev"
 
 [package.extras]
 grpc = ["grpcio (>=1.0.0,<2.0.0dev)"]
-
-[[package]]
-name = "gspread"
-version = "5.4.0"
-description = "Google Spreadsheets Python API"
-category = "main"
-optional = false
-python-versions = ">=3.6, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
-
-[package.dependencies]
-google-auth = ">=1.12.0"
-google-auth-oauthlib = ">=0.4.1"
 
 [[package]]
 name = "httplib2"
@@ -1035,7 +1016,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 
 [[package]]
 name = "inquirer"
-version = "2.9.2"
+version = "2.10.0"
 description = "Collection of common interactive command line user interfaces, based on Inquirer.js"
 category = "main"
 optional = false
@@ -1044,7 +1025,7 @@ python-versions = ">=3.7"
 [package.dependencies]
 blessed = ">=1.19.0"
 python-editor = ">=1.0.4"
-readchar = ">=2.0.1"
+readchar = ">=3.0.6"
 
 [[package]]
 name = "ipykernel"
@@ -1313,16 +1294,15 @@ python-versions = ">=3.6"
 
 [[package]]
 name = "magma-suite"
-version = "0.2.8"
-description = "Collection of tools to manage meta-workflows automation"
+version = "1.0.0"
+description = "Collection of tools to manage meta-workflows automation."
 category = "main"
 optional = false
-python-versions = ">=3.6, <3.8"
+python-versions = ">=3.7,<3.9"
 
 [package.dependencies]
-dcicutils = ">=1.19.0"
-mock = "*"
-tibanna-ff = ">=0.20.0"
+dcicutils = ">=3.5.0"
+tibanna-ff = ">=1.0.0"
 
 [[package]]
 name = "markupsafe"
@@ -1358,19 +1338,6 @@ description = "The fastest markdown parser in pure Python"
 category = "dev"
 optional = false
 python-versions = "*"
-
-[[package]]
-name = "mock"
-version = "4.0.3"
-description = "Rolling backport of unittest.mock for all Pythons"
-category = "main"
-optional = false
-python-versions = ">=3.6"
-
-[package.extras]
-build = ["twine", "wheel", "blurb"]
-docs = ["sphinx"]
-test = ["pytest (<5.4)", "pytest-cov"]
 
 [[package]]
 name = "more-itertools"
@@ -1511,37 +1478,9 @@ test = ["pytest", "coverage", "requests", "testpath", "nbval", "selenium", "pyte
 name = "numpy"
 version = "1.21.6"
 description = "NumPy is the fundamental package for array computing with Python."
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.7,<3.11"
-
-[[package]]
-name = "oauth2client"
-version = "4.1.3"
-description = "OAuth 2.0 client library"
-category = "main"
-optional = false
-python-versions = "*"
-
-[package.dependencies]
-httplib2 = ">=0.9.1"
-pyasn1 = ">=0.1.7"
-pyasn1-modules = ">=0.0.5"
-rsa = ">=3.1.4"
-six = ">=1.6.1"
-
-[[package]]
-name = "oauthlib"
-version = "3.2.0"
-description = "A generic, spec-compliant, thorough implementation of the OAuth request-signing logic"
-category = "main"
-optional = false
-python-versions = ">=3.6"
-
-[package.extras]
-rsa = ["cryptography (>=3.0.0)"]
-signals = ["blinker (>=1.4.0)"]
-signedtoken = ["cryptography (>=3.0.0)", "pyjwt (>=2.0.0,<3)"]
 
 [[package]]
 name = "packaging"
@@ -1558,7 +1497,7 @@ pyparsing = ">=2.0.2,<3.0.5 || >3.0.5"
 name = "pandas"
 version = "1.3.5"
 description = "Powerful data structures for data analysis, time series, and statistics"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.7.1"
 
@@ -1674,7 +1613,7 @@ wcwidth = "*"
 
 [[package]]
 name = "protobuf"
-version = "4.21.3"
+version = "4.21.4"
 description = ""
 category = "main"
 optional = false
@@ -1960,21 +1899,6 @@ urllib3 = ">=1.21.1,<1.27"
 [package.extras]
 socks = ["PySocks (>=1.5.6,!=1.5.7)"]
 use_chardet_on_py3 = ["chardet (>=3.0.2,<6)"]
-
-[[package]]
-name = "requests-oauthlib"
-version = "1.3.1"
-description = "OAuthlib authentication support for Requests."
-category = "main"
-optional = false
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
-
-[package.dependencies]
-oauthlib = ">=3.0.0"
-requests = ">=2.0.0"
-
-[package.extras]
-rsa = ["oauthlib[signedtoken] (>=3.0.0)"]
 
 [[package]]
 name = "rfc3986"
@@ -2340,7 +2264,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.1,<3.8"
-content-hash = "b90eab78ab8909cc88dc2402e383836c5265ed627a750fee4925a04be75aeb59"
+content-hash = "accc35c13108633865af4137969bad28c826b895acf6c0cefac302b49da18935"
 
 [metadata.files]
 ansicon = []
@@ -2367,6 +2291,7 @@ certifi = []
 cffi = []
 cfn-flip = []
 cfn-lint = []
+cgap-pipeline-utils = []
 chalice = []
 charset-normalizer = []
 click = []
@@ -2382,7 +2307,7 @@ elasticsearch-dsl = []
 entrypoints = []
 fastjsonschema = []
 flake8 = []
-foursight = []
+foursight-cgap = []
 foursight-core = []
 future = []
 geocoder = []
@@ -2392,9 +2317,7 @@ google-api-core = []
 google-api-python-client = []
 google-auth = []
 google-auth-httplib2 = []
-google-auth-oauthlib = []
 googleapis-common-protos = []
-gspread = []
 httplib2 = []
 idna = []
 importlib-metadata = []
@@ -2422,7 +2345,6 @@ markupsafe = []
 matplotlib-inline = []
 mccabe = []
 mistune = []
-mock = []
 more-itertools = []
 mypy-extensions = []
 nbclient = []
@@ -2432,8 +2354,6 @@ nest-asyncio = []
 networkx = []
 notebook = []
 numpy = []
-oauth2client = []
-oauthlib = []
 packaging = []
 pandas = []
 pandocfilters = []
@@ -2472,7 +2392,6 @@ qtpy = []
 ratelim = []
 readchar = []
 requests = []
-requests-oauthlib = []
 rfc3986 = []
 rsa = []
 s3transfer = []
