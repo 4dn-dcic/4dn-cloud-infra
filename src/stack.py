@@ -167,8 +167,8 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
             trial_creds=self.trial_creds,
             # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
             # On the second attempt to create the stack, the physical resource ID will be used.
-            check_runner=(ConfigManager.find_stack_resource(f'foursight-fourfront-{args.stage}', 'CheckRunner', 'physical_resource_id')
-                          or "c4-foursight-fourfront-production-stac-CheckRunner-MW4VHuCIsDXc")
+            check_runner=(ConfigManager.find_stack_resource('foursight', 'CheckRunner', 'physical_resource_id')
+                          or "CheckRunner-PLACEHOLDER")
         )
 
     class PackageDeploy(PackageDeploy_from_app):

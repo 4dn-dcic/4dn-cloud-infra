@@ -27,7 +27,7 @@ foursight-cgap = "^2.0.0.1b1"
 
 # Foursight-Core
 #foursight-core = { path = "../foursight-core", develop = false }
-foursight-core = "0.7.4.1b2"
+foursight-core = "0.7.4.1b3"
 
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
