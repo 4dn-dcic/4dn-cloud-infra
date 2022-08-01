@@ -6,7 +6,6 @@ from chalice import Chalice, Response, Cron
 from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
 from dcicutils.exceptions import InvalidParameterError
 from dcicutils.misc_utils import environ_bool, remove_suffix, ignored
-from dcicutils.obfuscation_utils import obfuscate_dict
 from foursight_core.deploy import Deploy
 
 
@@ -369,13 +368,6 @@ def get_environment_route(environ):
 #         return app_utils_manager.singleton.run_delete_environment(environ)
 #     else:
 #         return app_utils_manager.singleton.forbidden_response()
-
-
-# dmichaels/2022-07-27:
-# For testing/debugging/troubleshooting, dump the os.environ (with senstive data obfuscated).
-@app.route('/debug/environ', methods=['GET'])
-def get_debug_environ():
-    return obfuscate_dict(dict(os.environ))
 
 
 #######################
