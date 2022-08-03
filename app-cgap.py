@@ -374,7 +374,7 @@ def get_environment_route(environ):
 # For testing/debugging/troubleshooting.
 @app.route('/view/info', methods=['GET'])
 def get_view_info_route():
-    if app_utils_manager.singleton.check_authorization(app.current_request.to_dict(), environ):
+    if app_utils_manager.singleton.check_authorization(app.current_request.to_dict()):
         return app_utils_manager.singleton.view_info(app.current_request)
     else:
         return app_utils_obj.forbidden_response()
