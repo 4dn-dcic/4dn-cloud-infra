@@ -370,6 +370,13 @@ def get_environment_route(environ):
 #         return app_utils_manager.singleton.forbidden_response()
 
 
+# dmichaels/2022-08-01:
+# For testing/debugging/troubleshooting.
+@app.route('/view/info', methods=['GET'])
+def get_view_info_route():
+    return app_utils_manager.singleton.view_info(request=app.current_request)
+
+
 #######################
 # Pure lambda functions
 #######################
