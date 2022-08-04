@@ -20,7 +20,7 @@ dcicutils = "4.0.1.1b1"
 #foursight = "1.10.3.1b4"
 #lock foursight-cgap to deploy foursight-cgap
 foursight-cgap = "1.8.2.1b21"
-foursight-core = "0.7.4.2b23"
+foursight-core = "0.7.4.2b24"
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
 # python-levenshtein = "^0.12.2"
