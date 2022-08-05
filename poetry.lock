@@ -104,14 +104,14 @@ dev = ["coverage (>=5.3,<6.0)", "flake8 (>=3.8.4,<3.9.0)", "tox (>=3.24,<4.0)", 
 
 [[package]]
 name = "awscli"
-version = "1.25.44"
+version = "1.25.45"
 description = "Universal Command Line Environment for AWS."
 category = "main"
 optional = false
 python-versions = ">= 3.7"
 
 [package.dependencies]
-botocore = "1.27.44"
+botocore = "1.27.45"
 colorama = ">=0.2.5,<0.4.5"
 docutils = ">=0.10,<0.17"
 PyYAML = ">=3.10,<5.5"
@@ -180,14 +180,14 @@ wcwidth = ">=0.1.4"
 
 [[package]]
 name = "boto3"
-version = "1.24.44"
+version = "1.24.45"
 description = "The AWS SDK for Python"
 category = "main"
 optional = false
 python-versions = ">= 3.7"
 
 [package.dependencies]
-botocore = ">=1.27.44,<1.28.0"
+botocore = ">=1.27.45,<1.28.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.6.0,<0.7.0"
 
@@ -196,8 +196,8 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "boto3-stubs"
-version = "1.24.44"
-description = "Type annotations for boto3 1.24.44 generated with mypy-boto3-builder 7.11.1"
+version = "1.24.45"
+description = "Type annotations for boto3 1.24.45 generated with mypy-boto3-builder 7.11.2"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
@@ -524,7 +524,7 @@ xray = ["mypy-boto3-xray (>=1.24.0,<1.25.0)"]
 
 [[package]]
 name = "botocore"
-version = "1.27.44"
+version = "1.27.45"
 description = "Low-level, data-driven core of boto 3."
 category = "main"
 optional = false
@@ -540,7 +540,7 @@ crt = ["awscrt (==0.13.8)"]
 
 [[package]]
 name = "botocore-stubs"
-version = "1.27.44"
+version = "1.27.45"
 description = "Type annotations and code completion for botocore"
 category = "dev"
 optional = false
@@ -670,7 +670,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
 name = "dcicutils"
-version = "4.0.1.1b1"
+version = "4.0.2"
 description = "Utility package for interacting with the 4DN Data Portal and other 4DN resources"
 category = "main"
 optional = false
@@ -795,21 +795,21 @@ devel = ["colorama", "jsonschema", "json-spec", "pylint", "pytest", "pytest-benc
 
 [[package]]
 name = "flake8"
-version = "5.0.3"
+version = "5.0.4"
 description = "the modular source code checker: pep8 pyflakes and co"
 category = "dev"
 optional = false
 python-versions = ">=3.6.1"
 
 [package.dependencies]
-importlib-metadata = {version = "<4.3", markers = "python_version < \"3.8\""}
+importlib-metadata = {version = ">=1.1.0,<4.3", markers = "python_version < \"3.8\""}
 mccabe = ">=0.7.0,<0.8.0"
 pycodestyle = ">=2.9.0,<2.10.0"
 pyflakes = ">=2.5.0,<2.6.0"
 
 [[package]]
 name = "foursight-cgap"
-version = "1.8.2.1b21"
+version = "2.0.1.1b2"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -818,10 +818,10 @@ python-versions = ">=3.7,<3.8"
 [package.dependencies]
 cgap-pipeline-utils = "23.0"
 click = ">=7.1.2,<8.0.0"
-dcicutils = ">=4.0.1.1b0,<5.0.0.0"
+dcicutils = ">=4.0.2,<5.0.0"
 elasticsearch = ">=6.8.1,<7.0.0"
 elasticsearch-dsl = ">=6.4.0,<7.0.0"
-foursight-core = ">=0.7.4.2b16,<0.8.0.0"
+foursight-core = ">=1.0.1.1b3,<2.0.0.0"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.12.5,<2.0.0"
@@ -835,7 +835,7 @@ tibanna-ff = ">=1.0.0,<2.0.0"
 
 [[package]]
 name = "foursight-core"
-version = "0.7.4.2b24"
+version = "1.0.1.1b3"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -843,7 +843,7 @@ python-versions = ">=3.7,<3.9"
 
 [package.dependencies]
 click = ">=7.1.2,<8.0.0"
-dcicutils = ">=4.0.1.1b1,<5.0.0.0"
+dcicutils = ">=4.0.2,<5.0.0"
 elasticsearch = ">=6.8.1,<7.0.0"
 elasticsearch-dsl = ">=6.4.0,<7.0.0"
 geocoder = "1.38.1"
@@ -1653,7 +1653,7 @@ pyasn1 = ">=0.4.6,<0.5.0"
 
 [[package]]
 name = "pycodestyle"
-version = "2.9.0"
+version = "2.9.1"
 description = "Python style guide checker"
 category = "dev"
 optional = false
@@ -2246,7 +2246,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7,<3.8"
-content-hash = "e3621e4966f658db8641d07dcd671a064e3cd3bdbb971717940075341d631429"
+content-hash = "cbb3264e3cb3199b2731f1ab62509b2e592804fdb12f99d1af536cd337cec467"
 
 [metadata.files]
 ansicon = [
@@ -2304,8 +2304,8 @@ aws-sam-translator = [
     {file = "aws_sam_translator-1.48.0-py3-none-any.whl", hash = "sha256:ca4f8f9910d7713aeaba59346775bfb3198f6acb47c6704572f9bd3fc0fb5bf0"},
 ]
 awscli = [
-    {file = "awscli-1.25.44-py3-none-any.whl", hash = "sha256:dd03b7dc407f51ff983647c75d4241b1ef58a3889e0f3086768b7f4f51c14c75"},
-    {file = "awscli-1.25.44.tar.gz", hash = "sha256:7fc934957e08aeca473340f32e9fcd8b53d6d6e170628bd1aa40f821994353cb"},
+    {file = "awscli-1.25.45-py3-none-any.whl", hash = "sha256:411a59d8674bb40baf18f04232b5893ed13ae2e2dd9a1f1df9d21a182938c3e0"},
+    {file = "awscli-1.25.45.tar.gz", hash = "sha256:01233f63da2d03ee900db41569dbc1ac1cb775d2593aa3c4886cfc4fb653a3e9"},
 ]
 backcall = [
     {file = "backcall-0.2.0-py2.py3-none-any.whl", hash = "sha256:fbbce6a29f263178a1f7915c1940bde0ec2b2a967566fe1c65c1dfb7422bd255"},
@@ -2329,20 +2329,20 @@ blessed = [
     {file = "blessed-1.19.1.tar.gz", hash = "sha256:9a0d099695bf621d4680dd6c73f6ad547f6a3442fbdbe80c4b1daa1edbc492fc"},
 ]
 boto3 = [
-    {file = "boto3-1.24.44-py3-none-any.whl", hash = "sha256:610a518768bca209da07f61300b9a4d5d0e2c8877de9e569f2d02eaec338413b"},
-    {file = "boto3-1.24.44.tar.gz", hash = "sha256:19d06d2f8271993e583bc13a1e95b3c99f897177dbc7fa4e1ea2afc97982a08e"},
+    {file = "boto3-1.24.45-py3-none-any.whl", hash = "sha256:0f7888eaa493b201821290d4798d1326c7390c89a423369564c1eae68fd96767"},
+    {file = "boto3-1.24.45.tar.gz", hash = "sha256:293c9ce9cea0f4fe6393d8052eecb67868004940e4b1379996196f8bc5f9da2a"},
 ]
 boto3-stubs = [
-    {file = "boto3-stubs-1.24.44.tar.gz", hash = "sha256:2f1c214dbd03acf0c861b9bf52c54fd52dfcc90eb0125810df281bff3ec4b017"},
-    {file = "boto3_stubs-1.24.44-py3-none-any.whl", hash = "sha256:e301904fa0f17dadc9d1ef98cb52ae50cfc61d265d1cd4f7bbe1ffff64e166f1"},
+    {file = "boto3-stubs-1.24.45.tar.gz", hash = "sha256:a33099487ed3783108b82f63a2c899f023def04e2193e7b3f0de6f80c377116d"},
+    {file = "boto3_stubs-1.24.45-py3-none-any.whl", hash = "sha256:430338d75129442372c0631eaee5b8dd7e7360ec23c63d0985e97d452916178d"},
 ]
 botocore = [
-    {file = "botocore-1.27.44-py3-none-any.whl", hash = "sha256:ae4b73b23bbc50ea34c34178c7724e12ee2876daded3baa7a1ddd5637c56d661"},
-    {file = "botocore-1.27.44.tar.gz", hash = "sha256:83639fcbc58853a7c1b2270a0aa87d5fabf866ae6db79e37fc16d3dab3fae17e"},
+    {file = "botocore-1.27.45-py3-none-any.whl", hash = "sha256:75f450d373059b057132d72ffcb6f897aaa1985ea0e6ca9dd03c90119bd0b71b"},
+    {file = "botocore-1.27.45.tar.gz", hash = "sha256:04bc95fd65a6b557b953bba24c9dc1b314f27a588b50437b2a02796a1c683542"},
 ]
 botocore-stubs = [
-    {file = "botocore-stubs-1.27.44.tar.gz", hash = "sha256:2106bb7809d743aeda4bce277d7853ec8b887c2d75cf6de7691d3e8834337869"},
-    {file = "botocore_stubs-1.27.44-py3-none-any.whl", hash = "sha256:2965c0c4b809a6a40eee84e581ba1588043bce5f71b4bbb2e28c813eeca9122f"},
+    {file = "botocore-stubs-1.27.45.tar.gz", hash = "sha256:d59324787c08fe6a33e2a465c8b277ede38ec3ef5c70482595f56968263dfe1a"},
+    {file = "botocore_stubs-1.27.45-py3-none-any.whl", hash = "sha256:05e2052f89596bc5c7a267b3ab76aa07163e0019cb165044ad25b2e47ff2b869"},
 ]
 cachetools = [
     {file = "cachetools-5.2.0-py3-none-any.whl", hash = "sha256:f9f17d2aec496a9aa6b76f53e3b614c965223c061982d434d160f930c698a9db"},
@@ -2448,8 +2448,8 @@ colorama = [
     {file = "colorama-0.4.4.tar.gz", hash = "sha256:5941b2b48a20143d2267e95b1c2a7603ce057ee39fd88e7329b0c292aa16869b"},
 ]
 dcicutils = [
-    {file = "dcicutils-4.0.1.1b1-py3-none-any.whl", hash = "sha256:075bb76d99a650ed0c9d334ef431281f4078b19e42bc3559c774fb627600496b"},
-    {file = "dcicutils-4.0.1.1b1.tar.gz", hash = "sha256:38a79b9b355e82a4724f0ea1c4065051a45b32583d2c27f4411a3a4dc04a8f52"},
+    {file = "dcicutils-4.0.2-py3-none-any.whl", hash = "sha256:0054b2161f131f536a2da68c7f3a08cbafb8feb1a09d88ccd71e03a357095943"},
+    {file = "dcicutils-4.0.2.tar.gz", hash = "sha256:2a115d35651005f2bfb35d0f6599022eedb0647849bc817addf2ffe4b95b3f3f"},
 ]
 debugpy = [
     {file = "debugpy-1.6.2-cp310-cp310-macosx_10_15_universal2.whl", hash = "sha256:77a47d596ce8c69673d5f0c9876a80cb5a6cbc964f3b31b2d44683c7c01b6634"},
@@ -2504,16 +2504,16 @@ fastjsonschema = [
     {file = "fastjsonschema-2.16.1.tar.gz", hash = "sha256:d6fa3ffbe719768d70e298b9fb847484e2bdfdb7241ed052b8d57a9294a8c334"},
 ]
 flake8 = [
-    {file = "flake8-5.0.3-py2.py3-none-any.whl", hash = "sha256:93aa565ae2f0316b95bb57a354f2b2d55ee8508e1fe1cb13b77b9c195b4a2537"},
-    {file = "flake8-5.0.3.tar.gz", hash = "sha256:b27fd7faa8d90aaae763664a489012292990388e5d3604f383b290caefbbc922"},
+    {file = "flake8-5.0.4-py2.py3-none-any.whl", hash = "sha256:7a1cf6b73744f5806ab95e526f6f0d8c01c66d7bbe349562d22dfca20610b248"},
+    {file = "flake8-5.0.4.tar.gz", hash = "sha256:6fbe320aad8d6b95cec8b8e47bc933004678dc63095be98528b7bdd2a9f510db"},
 ]
 foursight-cgap = [
-    {file = "foursight-cgap-1.8.2.1b21.tar.gz", hash = "sha256:e59599578fdd066f1c429deb5d7070e0c52f5af61060f0f1511fbbb9d16e9f15"},
-    {file = "foursight_cgap-1.8.2.1b21-py3-none-any.whl", hash = "sha256:b0a58b6e62a992864df21dc7408e4121875146d82f8ce97c279ba73851c5fd18"},
+    {file = "foursight-cgap-2.0.1.1b2.tar.gz", hash = "sha256:3190ab6cb8cdbd0aaee82a7e94aae009b9b0ad5118956c0874a4a3eccbe06d71"},
+    {file = "foursight_cgap-2.0.1.1b2-py3-none-any.whl", hash = "sha256:4073131a51f4c57059f40fb208e8eac1ad5cbbd0d8af85d66cde8949d09bce6a"},
 ]
 foursight-core = [
-    {file = "foursight_core-0.7.4.2b24-py3-none-any.whl", hash = "sha256:22be346c213ec566ae3eb3f1af51936fb891129f120a746d842a2213dc655f4b"},
-    {file = "foursight_core-0.7.4.2b24.tar.gz", hash = "sha256:f1be89468cedb2b137569dd5555ef4c9bc9acc7066a66c9041e82d155415624c"},
+    {file = "foursight-core-1.0.1.1b3.tar.gz", hash = "sha256:e2922a68a34a28dc0276ff3c2d78b12285077399bee4773c44b507f05bf3e748"},
+    {file = "foursight_core-1.0.1.1b3-py3-none-any.whl", hash = "sha256:c62183e33000c800e9089ad125b932b738ad0c9852d4664ba2e48bdfbc5a3851"},
 ]
 future = [
     {file = "future-0.18.2.tar.gz", hash = "sha256:b1bead90b70cf6ec3f0710ae53a525360fa360d306a86583adc6bf83a4db537d"},
@@ -2872,8 +2872,8 @@ pyasn1-modules = [
     {file = "pyasn1_modules-0.2.8-py3.7.egg", hash = "sha256:c29a5e5cc7a3f05926aff34e097e84f8589cd790ce0ed41b67aed6857b26aafd"},
 ]
 pycodestyle = [
-    {file = "pycodestyle-2.9.0-py2.py3-none-any.whl", hash = "sha256:289cdc0969d589d90752582bef6dff57c5fbc6949ee8b013ad6d6449a8ae9437"},
-    {file = "pycodestyle-2.9.0.tar.gz", hash = "sha256:beaba44501f89d785be791c9462553f06958a221d166c64e1f107320f839acc2"},
+    {file = "pycodestyle-2.9.1-py2.py3-none-any.whl", hash = "sha256:d1735fc58b418fd7c5f658d28d943854f8a849b01a5d0a1e6f3f3fdd0166804b"},
+    {file = "pycodestyle-2.9.1.tar.gz", hash = "sha256:2c9607871d58c76354b697b42f5d57e1ada7d261c261efac224b664affdc5785"},
 ]
 pycparser = [
     {file = "pycparser-2.21-py2.py3-none-any.whl", hash = "sha256:8ee45429555515e1f6b185e78100aea234072576aa43ab53aefcae078162fca9"},
