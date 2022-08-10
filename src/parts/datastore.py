@@ -154,12 +154,6 @@ class C4Datastore(C4DatastoreBase, C4Part):
             for k, v in template.items()
         }
 
-    @classmethod
-    def application_configuration_template(cls):
-        result = cls.add_placeholders(ApplicationConfigurationSecrets.get())
-        # print("application_configuration_template() => %s" % json.dumps(result, indent=2))
-        return result
-
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
         template.add_parameter(Parameter(
@@ -476,7 +470,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
             identity,
             Name=identity,
             Description='This secret defines the application configuration for the orchestrated environment.',
-            SecretString=json.dumps(self.application_configuration_template(), indent=2),
+            SecretString=json.dumps(ApplicationConfigurationSecrets.get(), indent=2),
             Tags=self.tags.cost_tag_array()
         )
 

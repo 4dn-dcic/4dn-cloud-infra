@@ -190,7 +190,7 @@ class ConfigManager:
         """
         with io.open(filename) as fp:
             config = json.load(fp)
-            config = {k: str(v) for k, v in config.items()}
+            config = {k: str(v) if v is not None else None for k, v in config.items()}
             return config
 
     # path to config files, top level by default (previously named CONFIGURATION)
