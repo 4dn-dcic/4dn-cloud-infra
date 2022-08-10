@@ -6,6 +6,7 @@ from chalicelib.package import PackageDeploy as PackageDeploy_from_app
 from dcicutils.misc_utils import PRINT, full_class_name
 from os.path import dirname
 from troposphere import Template
+from .parts.application_configuration_secrets import ApplicationConfigurationSecrets
 from .base import ConfigManager
 from .constants import Secrets, Settings
 from .names import Names
@@ -106,7 +107,7 @@ def get_trial_creds(env_name: str):
         'CLIENT_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET),
         'DEV_SECRET': '',  # Better not to set this. ConfigManager.get_config_secret(Secrets.ENCODED_SECRET),
         'ES_HOST': ConfigManager.get_config_setting(Settings.FOURSIGHT_ES_URL, default=None) or
-                   C4DatastoreExports.get_es_url() + ":443",
+                   ApplicationConfigurationSecrets.get_es_url() + ":443",
         'ENV_NAME': env_name,
         'RDS_NAME': ConfigManager.get_config_setting(Settings.RDS_NAME, default=None) or f"rds-{env_name}",
         'S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
