@@ -14,6 +14,7 @@ except ImportError:
     def DomainEndpointOptions(*args, **kwargs):  # noQA
         raise NotImplementedError('DomainEndpointOptions')
 from troposphere.secretsmanager import Secret
+from .application_configuration_secrets import ApplicationConfigurationSecrets
 from ..base import ConfigManager, APP_DEPLOYMENT
 from ..constants import Settings, Secrets, DeploymentParadigm
 from ..exports import C4Exports
