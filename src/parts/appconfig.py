@@ -78,7 +78,7 @@ class C4AppConfig(C4Part):
     CONFIGURATION_DEFAULT_LC_ALL = 'en_US.UTF-8'
     CONFIGURATION_DEFAULT_RDS_PORT = '5432'
 
-    APPLICATION_CONFIGURATION_TEMPLATE = {
+    OBSOLETE_APPLICATION_CONFIGURATION_TEMPLATE = {
         'deploying_iam_user': CONFIGURATION_PLACEHOLDER,
         'ACCOUNT_NUMBER': AWS_ACCOUNT_ID,
         'S3_AWS_ACCESS_KEY_ID': None,
@@ -109,6 +109,7 @@ class C4AppConfig(C4Part):
         'reCaptchaKey': CONFIGURATION_PLACEHOLDER,
         'reCaptchaSecret': CONFIGURATION_PLACEHOLDER,
     }
+    APPLICATION_CONFIGURATION_TEMPLATE = ApplicationConfigurationSecrets.get()
 
     def build_template(self, template: Template) -> Template:
         """ Builds the appconfig template - builds GACs for blue/green if APP_DEPLOYMENT == blue/green """
@@ -147,6 +148,6 @@ class C4AppConfig(C4Part):
             logical_id,
             Name=logical_id,
             Description='This secret defines the application configuration for the orchestrated environment.',
-            SecretString=json.dumps(self.APPLICATION_CONFIGURATION_TEMPLATE),
+            SecretString=json.dumps(self.APPLICATION_CONFIGURATION_TEMPLATE, indent=2),
             Tags=self.tags.cost_tag_array()
         )
