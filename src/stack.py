@@ -142,7 +142,11 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
         # #       It should instead ask for all the various arguments it plans to look at.
         # with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
         # dmichaels/20220725: Pass in identity to build_config_and_package (C4-826) to identity-ize Foursight.
-        identity = Names.application_configuration_secret(ConfigManager.get_config_setting(Settings.ENV_NAME))
+        if args.foursight_identity:
+            identity = args.foursight_identity
+        else:
+            identity = Names.application_configuration_secret(ConfigManager.get_config_setting(Settings.ENV_NAME))
+        PRINT(f"Using custom IDENTITY (via --foursight-identity) for Foursight deployment: {identity}")
         self.PackageDeploy.build_config_and_package(
             args,  # this should not be needed any more, but we didn't quite write the code that way
             identity=identity,
@@ -167,7 +171,7 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
         CONFIG_BASE['app_name'] = 'foursight-cgap'
 
         config_dir = dirname(dirname(__file__))
-        print(f"Config dir: {config_dir}")
+        PRINT(f"Config dir: {config_dir}")
 
 
 class C4FoursightFourfrontStack(BaseC4FoursightStack):
@@ -219,5 +223,5 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
         CONFIG_BASE['app_name'] = 'foursight-fourfront'
 
         config_dir = dirname(dirname(__file__))
-        print(f"Config dir: {config_dir}")
+        PRINT(f"Config dir: {config_dir}")
 

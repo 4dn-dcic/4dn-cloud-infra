@@ -437,6 +437,8 @@ def cli():
                                   dest="upload_change_set",
                                   action='store_true',
                                   help='Uploads template and provisions change set')
+    parser_provision.add_argument("--foursight-identity", dest="foursight_identity", type=str,
+                                  help='IDENTITY value (i.e. GAC name) for Foursight')
     parser_provision.set_defaults(func=C4Client.provision_stack)
 
     # TODO command for Cloud Formation deploy flow: execute_change_set
