@@ -28,22 +28,18 @@ from ..base import ConfigManager, COMMON_STACK_PREFIX
 from ..constants import C4DatastoreBase, Settings, Secrets
 from ..exports import C4DatastoreExportsMixin, C4Exports
 from ..part import C4Part
+from .application_configuration_secrets import ApplicationConfigurationSecrets
 from .network import C4NetworkExports
 from .iam import C4IAMExports
 from ..names import Names
-
 
 class C4DatastoreExports(C4Exports, C4DatastoreExportsMixin):
     """ Holds datastore export metadata. """
 
     @classmethod
-    def get_es_url(cls):
-        return ConfigManager.find_stack_output(cls._ES_URL_EXPORT_PATTERN.match, value_only=True)
-
-    @classmethod
     def get_es_url_with_port(cls):
         result = None
-        es_url = cls.get_es_url()
+        es_url = ApplicationConfigurationSecrets.get_es_url()
         if es_url:
             result = es_url + ":443"
         return result
@@ -86,16 +82,6 @@ class C4Datastore(C4DatastoreBase, C4Part):
 
     SHARING = 'env'
 
-    DEFAULT_RDS_DB_NAME = 'ebdb'
-    DEFAULT_RDS_DB_PORT = '5432'
-    DEFAULT_RDS_DB_USERNAME = 'postgresql'
-    DEFAULT_RDS_AZ = 'us-east-1a'
-    DEFAULT_RDS_STORAGE_SIZE = 20
-    DEFAULT_RDS_INSTANCE_SIZE = 'db.t3.medium'
-    DEFAULT_RDS_STORAGE_TYPE = 'standard'
-
-    DEFAULT_RDS_POSTGRES_VERSION = '12.9'
-
     @classmethod
     def rds_postgres_version(cls):
         return ConfigManager.get_config_setting(Settings.RDS_POSTGRES_VERSION, default=cls.DEFAULT_RDS_POSTGRES_VERSION)
@@ -134,7 +120,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
     @classmethod
     def application_layer_bucket(cls, export_name):
         bucket_name_template = cls.APPLICATION_LAYER_BUCKETS[export_name]
-        bucket_name = cls.resolve_bucket_name(bucket_name_template)
+        bucket_name = ConfigManager.resolve_bucket_name(bucket_name_template)
         return bucket_name
 
     # Buckets used by the foursight layer
@@ -152,15 +138,8 @@ class C4Datastore(C4DatastoreBase, C4Part):
     @classmethod
     def foursight_layer_bucket(cls, export_name):
         bucket_name_template = cls.FOURSIGHT_LAYER_BUCKETS[export_name]
-        bucket_name = cls.resolve_bucket_name(bucket_name_template)
+        bucket_name = ConfigManager.resolve_bucket_name(bucket_name_template)
         return bucket_name
-
-    @classmethod
-    def resolve_bucket_name(cls, bucket_template):
-        """
-        Resolves a bucket_template into a bucket_name.
-        """
-        return ConfigManager.resolve_bucket_name(bucket_template)
 
     # Contains application configuration template, written to secrets manager
     # NOTE: this configuration is NOT valid by default - it must be manually updated
@@ -174,57 +153,6 @@ class C4Datastore(C4DatastoreBase, C4Part):
             k: cls.CONFIGURATION_PLACEHOLDER if v is None else v
             for k, v in template.items()
         }
-
-    @classmethod
-    def application_configuration_template(cls):
-        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        result = cls.add_placeholders({
-            'deploying_iam_user': ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER),  # required
-            'ACCOUNT_NUMBER': cls.CONFIGURATION_PLACEHOLDER,
-            'S3_AWS_ACCESS_KEY_ID': None,
-            'S3_AWS_SECRET_ACCESS_KEY': None,
-            'ENCODED_AUTH0_CLIENT': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
-            'ENCODED_AUTH0_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET, default=None),
-            'ENV_NAME':  env_name,
-            'ENCODED_APPLICATION_BUCKET_PREFIX': cls.resolve_bucket_name("{application_prefix}"),
-            'ENCODED_BS_ENV':  env_name,
-            'ENCODED_DATA_SET': 'deploy',
-            'ENCODED_ES_SERVER': C4DatastoreExports.get_es_url(),  # None,
-            'ENCODED_FOURSIGHT_BUCKET_PREFIX': cls.resolve_bucket_name("{foursight_prefix}"),
-            'ENCODED_IDENTITY': None,  # This is the name of the Secrets Manager with all our identity's secrets
-            'ENCODED_FILE_UPLOAD_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
-            'ENCODED_FILE_WFOUT_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_WFOUT_BUCKET),
-            'ENCODED_BLOB_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_BLOBS_BUCKET),
-            'ENCODED_SYSTEM_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_SYSTEM_BUCKET),
-            'ENCODED_METADATA_BUNDLES_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET),
-            'ENCODED_S3_BUCKET_ORG': ConfigManager.get_config_setting(Settings.S3_BUCKET_ORG, default=None),
-            'ENCODED_TIBANNA_OUTPUT_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET),
-            'LANG': 'en_US.UTF-8',
-            'LC_ALL': 'en_US.UTF-8',
-            'RDS_HOSTNAME': None,
-            'RDS_DB_NAME': ConfigManager.get_config_setting(Settings.RDS_DB_NAME, default=cls.DEFAULT_RDS_DB_NAME),
-            'RDS_NAME': ConfigManager.get_config_setting(Settings.RDS_NAME, default=None) or f"rds-{env_name}",
-            'RDS_PORT': ConfigManager.get_config_setting(Settings.RDS_DB_PORT, default=cls.DEFAULT_RDS_DB_PORT),
-            'RDS_USERNAME': cls.rds_db_username(),
-            'RDS_PASSWORD': None,
-            'GLOBAL_ENV_BUCKET': cls.resolve_bucket_name(ConfigManager.FSBucketTemplate.ENVS),  # foursight-envs bucket
-            'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY,
-                                                              ConfigManager.get_s3_encrypt_key_from_file()),
-            # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
-            'ENCODED_S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None),
-            'ENCODED_SENTRY_DSN': '',
-            'ENCODED_URL': '',  # set this manually post orchestration
-            'reCaptchaKey': ConfigManager.get_config_secret(Secrets.RECAPTCHA_KEY, default=None),
-            'reCaptchaSecret': ConfigManager.get_config_secret(Secrets.RECAPTCHA_SECRET, default=None),
-        })
-        # print("application_configuration_template() => %s" % json.dumps(result, indent=2))
-        return result
 
     def build_template(self, template: Template) -> Template:
         # Adds Network Stack Parameter
@@ -285,7 +213,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
             use_lifecycle_policy = False
             if export_name in self.LIFECYCLE_BUCKET_EXPORT_NAMES:
                 use_lifecycle_policy = True
-            bucket_name = self.resolve_bucket_name(bucket_template)
+            bucket_name = ConfigManager.resolve_bucket_name(bucket_template)
             # use infra s3_encrypt_key for standard files if specified
             if encryption_enabled and export_name != C4DatastoreExports.APPLICATION_SYSTEM_BUCKET:
                 bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy,
@@ -454,10 +382,6 @@ class C4Datastore(C4DatastoreBase, C4Part):
         # return self.name.logical_id(camelize(env_name) + self.RDS_SECRET_NAME_SUFFIX, context='rds_secret_logical_id')
         return Names.rds_secret_logical_id(env_name, self.name)
 
-    @classmethod
-    def rds_db_username(cls):
-        return ConfigManager.get_config_setting(Settings.RDS_DB_USERNAME, default=cls.DEFAULT_RDS_DB_USERNAME)
-
     def rds_secret(self) -> Secret:
         """ Returns the RDS secret, as generated and stored by AWS Secrets Manager """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
@@ -467,7 +391,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
             Name=logical_id,
             Description=f'The RDS instance master password for {env_name}.',
             GenerateSecretString=GenerateSecretString(
-                SecretStringTemplate='{"username":"%s"}' % self.rds_db_username(),  # TODO: Fix injection risk
+                SecretStringTemplate='{"username":"%s"}' % ApplicationConfigurationSecrets.rds_db_username(),  # TODO: Fix injection risk
                 GenerateStringKey='password',
                 PasswordLength=30,
                 ExcludePunctuation=True,
@@ -546,7 +470,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
             identity,
             Name=identity,
             Description='This secret defines the application configuration for the orchestrated environment.',
-            SecretString=json.dumps(self.application_configuration_template(), indent=2),
+            SecretString=json.dumps(ApplicationConfigurationSecrets.get(), indent=2),
             Tags=self.tags.cost_tag_array()
         )
 

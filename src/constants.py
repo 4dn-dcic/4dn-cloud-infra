@@ -132,6 +132,15 @@ class C4DatastoreBase:
     APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = 'ApplicationConfiguration'
     RDS_SECRET_NAME_SUFFIX = 'RDSSecret'  # Used as logical id suffix in resource names
 
+    DEFAULT_RDS_DB_NAME = 'ebdb'
+    DEFAULT_RDS_DB_PORT = '5432'
+    DEFAULT_RDS_DB_USERNAME = 'postgresql'
+    DEFAULT_RDS_AZ = 'us-east-1a'
+    DEFAULT_RDS_STORAGE_SIZE = 20
+    DEFAULT_RDS_INSTANCE_SIZE = 'db.t3.medium'
+    DEFAULT_RDS_STORAGE_TYPE = 'standard'
+    DEFAULT_RDS_POSTGRES_VERSION = '12.9'
+
 
 # dmichaels/2022-06-22: Factored out from C4IAM in iam.py.
 class C4IAMBase:
