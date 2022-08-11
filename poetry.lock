@@ -104,14 +104,14 @@ dev = ["coverage (>=5.3,<6.0)", "flake8 (>=3.8.4,<3.9.0)", "tox (>=3.24,<4.0)", 
 
 [[package]]
 name = "awscli"
-version = "1.25.48"
+version = "1.25.49"
 description = "Universal Command Line Environment for AWS."
 category = "main"
 optional = false
 python-versions = ">= 3.7"
 
 [package.dependencies]
-botocore = "1.27.48"
+botocore = "1.27.49"
 colorama = ">=0.2.5,<0.4.5"
 docutils = ">=0.10,<0.17"
 PyYAML = ">=3.10,<5.5"
@@ -180,14 +180,14 @@ wcwidth = ">=0.1.4"
 
 [[package]]
 name = "boto3"
-version = "1.24.48"
+version = "1.24.49"
 description = "The AWS SDK for Python"
 category = "main"
 optional = false
 python-versions = ">= 3.7"
 
 [package.dependencies]
-botocore = ">=1.27.48,<1.28.0"
+botocore = ">=1.27.49,<1.28.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.6.0,<0.7.0"
 
@@ -196,8 +196,8 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "boto3-stubs"
-version = "1.24.48"
-description = "Type annotations for boto3 1.24.48 generated with mypy-boto3-builder 7.11.6"
+version = "1.24.49"
+description = "Type annotations for boto3 1.24.49 generated with mypy-boto3-builder 7.11.6"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
@@ -524,7 +524,7 @@ xray = ["mypy-boto3-xray (>=1.24.0,<1.25.0)"]
 
 [[package]]
 name = "botocore"
-version = "1.27.48"
+version = "1.27.49"
 description = "Low-level, data-driven core of boto 3."
 category = "main"
 optional = false
@@ -540,7 +540,7 @@ crt = ["awscrt (==0.13.8)"]
 
 [[package]]
 name = "botocore-stubs"
-version = "1.27.48"
+version = "1.27.49"
 description = "Type annotations and code completion for botocore"
 category = "dev"
 optional = false
@@ -670,7 +670,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
 name = "dcicutils"
-version = "4.0.2"
+version = "4.1.0"
 description = "Utility package for interacting with the 4DN Data Portal and other 4DN resources"
 category = "main"
 optional = false
@@ -1837,7 +1837,7 @@ test = ["flaky", "pytest", "pytest-qt"]
 
 [[package]]
 name = "qtpy"
-version = "2.1.0"
+version = "2.2.0"
 description = "Provides an abstraction layer on top of the various Qt bindings (PyQt5/6 and PySide2/6)."
 category = "dev"
 optional = false
@@ -1862,11 +1862,11 @@ decorator = "*"
 
 [[package]]
 name = "readchar"
-version = "3.1.0"
-description = "Utilities to read single characters and key-strokes"
+version = "4.0.0"
+description = "Library to easily read single chars and key strokes"
 category = "main"
 optional = false
-python-versions = "*"
+python-versions = ">=3.6"
 
 [[package]]
 name = "requests"
@@ -2245,8 +2245,8 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 
 [metadata]
 lock-version = "1.1"
-python-versions = ">=3.7,<3.8"
-content-hash = "4e07cd16269e3fd5e8d0c06c5253c38ccfafd6abdfebaf2aea768b9a13fca3ae"
+python-versions = ">=3.7.1,<3.8"
+content-hash = "84b3a1664cf90fbbe3e6fa323e328ff8c293e9bfce8c092afc5c934918416441"
 
 [metadata.files]
 ansicon = [
@@ -2304,8 +2304,8 @@ aws-sam-translator = [
     {file = "aws_sam_translator-1.49.0-py3-none-any.whl", hash = "sha256:ab7b6ae0ecdf76ef14fb89f9503bc2c7719ed0e1be1dbbf3d3b3dfb0fe8d5c5b"},
 ]
 awscli = [
-    {file = "awscli-1.25.48-py3-none-any.whl", hash = "sha256:9d0b789ee75d2e6d1fecfb7cfd93390d56592a7f8b4ac01d683b21f4f2be6cd7"},
-    {file = "awscli-1.25.48.tar.gz", hash = "sha256:0f6314b42451a1d76ecde74aefe503a257046f0c45b572fb029a0a9cdd809797"},
+    {file = "awscli-1.25.49-py3-none-any.whl", hash = "sha256:0223f8ad26e22121e19cb959f35d300e9777ff207c0633db7cb2dfa578d6fcad"},
+    {file = "awscli-1.25.49.tar.gz", hash = "sha256:66f0a07a341d58a3849effcf258f4f241bcfb962c647e33de66673f2109eb59c"},
 ]
 backcall = [
     {file = "backcall-0.2.0-py2.py3-none-any.whl", hash = "sha256:fbbce6a29f263178a1f7915c1940bde0ec2b2a967566fe1c65c1dfb7422bd255"},
@@ -2329,20 +2329,20 @@ blessed = [
     {file = "blessed-1.19.1.tar.gz", hash = "sha256:9a0d099695bf621d4680dd6c73f6ad547f6a3442fbdbe80c4b1daa1edbc492fc"},
 ]
 boto3 = [
-    {file = "boto3-1.24.48-py3-none-any.whl", hash = "sha256:632676a480854d7c18ae634e2e83a93dc27211b88e19340e047bbd432128819e"},
-    {file = "boto3-1.24.48.tar.gz", hash = "sha256:db27c33a7ccccbf76035ab47e92054ce8ab98b809cf49eb15a2502eedc3ba332"},
+    {file = "boto3-1.24.49-py3-none-any.whl", hash = "sha256:c960712b3a833d321a997a9fb59f3da21b026d5a23727c9cb49866d3794cdb67"},
+    {file = "boto3-1.24.49.tar.gz", hash = "sha256:19ce58ed29d8b9dc892c06978c0097e7149641511c6b41142ecfee0a5ed19b5b"},
 ]
 boto3-stubs = [
-    {file = "boto3-stubs-1.24.48.tar.gz", hash = "sha256:5d31fab93f327c50f415fc90864b0dd134f5f414cba77f8b05789a9576597e88"},
-    {file = "boto3_stubs-1.24.48-py3-none-any.whl", hash = "sha256:2482b5c82e0bc09649aa24ba0f79a242e6e0607f34c8398387a2a38870a7c905"},
+    {file = "boto3-stubs-1.24.49.tar.gz", hash = "sha256:cf424b18eed730db1df85177dc41bc96a7fd70a75389e52cd48af944ffaaf5a6"},
+    {file = "boto3_stubs-1.24.49-py3-none-any.whl", hash = "sha256:4955dfde5b9967296ef7dd75b97e2ffe4b7326ed548694320f241ac10d99cfcf"},
 ]
 botocore = [
-    {file = "botocore-1.27.48-py3-none-any.whl", hash = "sha256:5958ef6dd3b0f84eb1ee0aac75499ac504fcc0787fd6611be727968d51dcbfa7"},
-    {file = "botocore-1.27.48.tar.gz", hash = "sha256:8de2f4285046ed306439723a11706067d6901c3f7be418b7b104ba8e002b5638"},
+    {file = "botocore-1.27.49-py3-none-any.whl", hash = "sha256:8e9556ef9f7f492e0755437a1430e32f63ddaf6df61c105957805067b5e22dbb"},
+    {file = "botocore-1.27.49.tar.gz", hash = "sha256:ac491c54cdf4126c98a999c5d473d734dc91c5b1e003d0fdafd5007d1408d046"},
 ]
 botocore-stubs = [
-    {file = "botocore-stubs-1.27.48.tar.gz", hash = "sha256:8de92d3869ce86461660eae28f4255be84f63efd1b307b5f53f977f96562d589"},
-    {file = "botocore_stubs-1.27.48-py3-none-any.whl", hash = "sha256:1d5b65885d150864a996b0c8d497febc52eddc4c9b6b80b4a0663bc9706c425b"},
+    {file = "botocore-stubs-1.27.49.tar.gz", hash = "sha256:d2f6accb9b3b5851ef18d6d9facb2a08406f73032640171855e938f4ba18fbc3"},
+    {file = "botocore_stubs-1.27.49-py3-none-any.whl", hash = "sha256:c78c1ec7704d3be7c155296080b5c1c3302f9e9758fc703447fac7bc5f393302"},
 ]
 cachetools = [
     {file = "cachetools-5.2.0-py3-none-any.whl", hash = "sha256:f9f17d2aec496a9aa6b76f53e3b614c965223c061982d434d160f930c698a9db"},
@@ -2448,8 +2448,8 @@ colorama = [
     {file = "colorama-0.4.4.tar.gz", hash = "sha256:5941b2b48a20143d2267e95b1c2a7603ce057ee39fd88e7329b0c292aa16869b"},
 ]
 dcicutils = [
-    {file = "dcicutils-4.0.2-py3-none-any.whl", hash = "sha256:0054b2161f131f536a2da68c7f3a08cbafb8feb1a09d88ccd71e03a357095943"},
-    {file = "dcicutils-4.0.2.tar.gz", hash = "sha256:2a115d35651005f2bfb35d0f6599022eedb0647849bc817addf2ffe4b95b3f3f"},
+    {file = "dcicutils-4.1.0-py3-none-any.whl", hash = "sha256:70d5b2e669ac6bee289074da5ec0dc8f3bcfa48f27becad8a33eb420c73cef30"},
+    {file = "dcicutils-4.1.0.tar.gz", hash = "sha256:f55cae4deae692666b8f1b2aaa44e1cd0668f37af0e6d9647dee5481104d793d"},
 ]
 debugpy = [
     {file = "debugpy-1.6.2-cp310-cp310-macosx_10_15_universal2.whl", hash = "sha256:77a47d596ce8c69673d5f0c9876a80cb5a6cbc964f3b31b2d44683c7c01b6634"},
@@ -3058,16 +3058,16 @@ qtconsole = [
     {file = "qtconsole-5.3.1.tar.gz", hash = "sha256:b73723fac43938b684dcb237a88510dc7721c43a726cea8ade179a2927c0a2f3"},
 ]
 qtpy = [
-    {file = "QtPy-2.1.0-py3-none-any.whl", hash = "sha256:aee0586081f943029312becece9f63977b0a9e3788f77a6ac8cc74802bb173d6"},
-    {file = "QtPy-2.1.0.tar.gz", hash = "sha256:ca8cd4217175186344299ee4c0f7e7adcf362c70852ba35b255a534077025c06"},
+    {file = "QtPy-2.2.0-py3-none-any.whl", hash = "sha256:d283cfba378b0dbe36a55b68aea8ee2f86cd6ccf06c023af25bbe705ffbb29e5"},
+    {file = "QtPy-2.2.0.tar.gz", hash = "sha256:d85f1b121f24a41ad26c55c446e66abdb7c528839f8c4f11f156ec4541903914"},
 ]
 ratelim = [
     {file = "ratelim-0.1.6-py2.py3-none-any.whl", hash = "sha256:e1a7dd39e6b552b7cc7f52169cd66cdb826a1a30198e355d7016012987c9ad08"},
     {file = "ratelim-0.1.6.tar.gz", hash = "sha256:826d32177e11f9a12831901c9fda6679fd5bbea3605910820167088f5acbb11d"},
 ]
 readchar = [
-    {file = "readchar-3.1.0-py3-none-any.whl", hash = "sha256:16059b8beb1f525182de193fade8ca314cc4c32f62956a9a50268909103cdaa8"},
-    {file = "readchar-3.1.0.tar.gz", hash = "sha256:9023c957164e9c5a5cf7c39122a013ed78162d9360b4cb9cfdd492a3238f7634"},
+    {file = "readchar-4.0.0-py3-none-any.whl", hash = "sha256:49dfb240662d057c028b1597ee80413262d39f3415fd120b3385319b6e494a72"},
+    {file = "readchar-4.0.0.tar.gz", hash = "sha256:c43c5e3d35891e1a4a1a753c36f90e68efbbf42c5c615033b47e68d3b6295c53"},
 ]
 requests = [
     {file = "requests-2.28.1-py3-none-any.whl", hash = "sha256:8fefa2a1a1365bf5520aac41836fbee479da67864514bdb821f31ce07ce65349"},
