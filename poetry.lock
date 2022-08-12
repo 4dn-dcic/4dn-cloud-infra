@@ -799,7 +799,7 @@ pyflakes = ">=2.5.0,<2.6.0"
 
 [[package]]
 name = "foursight"
-version = "2.0.0.1b3"
+version = "2.0.0.1b4"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -812,7 +812,7 @@ click = ">=7.1.2,<8.0.0"
 dcicutils = ">=4.0.1,<5.0.0"
 elasticsearch = ">=6.8.1,<7.0.0"
 elasticsearch-dsl = ">=6.4.0,<7.0.0"
-foursight-core = ">=0.7.4.1b0,<0.8.0.0"
+foursight-core = "1.0.0.1b0"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.7.4,<2.0.0"
@@ -829,7 +829,7 @@ tibanna_ff = ">=0.22.5"
 
 [[package]]
 name = "foursight-core"
-version = "0.7.4.1b9"
+version = "1.0.0.1b0"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -837,7 +837,7 @@ python-versions = ">=3.7,<3.9"
 
 [package.dependencies]
 click = ">=7.1.2,<8.0.0"
-dcicutils = ">=4.0.0,<5.0.0"
+dcicutils = ">=4.0.2,<5.0.0"
 elasticsearch = ">=6.8.1,<7.0.0"
 elasticsearch-dsl = ">=6.4.0,<7.0.0"
 geocoder = "1.38.1"
@@ -1896,8 +1896,8 @@ qtpy = ">=2.0.1"
 traitlets = "<5.2.1 || >5.2.1,<5.2.2 || >5.2.2"
 
 [package.extras]
+test = ["pytest-qt", "pytest", "flaky"]
 doc = ["Sphinx (>=1.3)"]
-test = ["flaky", "pytest", "pytest-qt"]
 
 [[package]]
 name = "qtpy"
@@ -2337,7 +2337,7 @@ docs = ["jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "jaraco.packaging (>=9)
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.1,<3.8"
-content-hash = "bae448f57bd0bf1ef07af70322d68a71bfa669eaed99df04d7fb9fab137a0c8d"
+content-hash = "eea21cd4d9672d828ba8ba7e3493086f3d91099f99140ef7c322b5c5ed5fd38f"
 
 [metadata.files]
 ansicon = []
