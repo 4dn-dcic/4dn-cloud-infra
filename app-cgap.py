@@ -60,7 +60,7 @@ class SingletonManager():  # TODO: Move to dcicutils
 class AppUtils(AppUtils_from_cgap):
     # overwriting parent class
     prefix = FOURSIGHT_PREFIX
-    FAVICON = 'https://cgap.hms.harvard.edu/static/img/favicon-fs.ico'
+    FAVICON = 'https://cgap-dbmi.hms.harvard.edu/static/img/favicon-fs.ico'
     host = HOST
     package_name = 'chalicelib'
     # check_setup is moved to vendor/ where it will be automatically placed at top level
