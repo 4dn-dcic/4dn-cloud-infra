@@ -75,6 +75,9 @@ scripts/delete_pending_buckets.data.txt
 # KMP's env tools
 .python-cmd
 
+# Kent's environment tools
+.python-cmd
+
 # Jupyter notebooks
 *.ipynb_checkpoints
 foursight_development/*.ipynb

@@ -9,7 +9,7 @@ from .constants import (
     C4NetworkBase,
     C4SentieonSupportBase
 )
-from .exports import C4DatastoreExportsMixin, exportify
+from .exports import C4DatastoreExportsMixin
 from .mixins import StackNameBaseMixin
 
 
@@ -28,8 +28,8 @@ class Names(StackNameBaseMixin):
     # dmichaels/2022-07-14: Created to get datastore stack name.
     @classmethod
     def datastore_stack_name_object(cls, env_name: str) -> C4Name:
-        title_token = C4DatastoreBase.STACK_TITLE_TOKEN  # Datastore (in constants.py, from C4DatastoreBase.STACK_TITLE_TOKEN)
-        name_token = C4DatastoreBase.STACK_NAME_TOKEN    # datastore (in constants.py, from C4DatastoreBase.STACK_NAME_TOKEN)
+        title_token = C4DatastoreBase.STACK_TITLE_TOKEN
+        name_token = C4DatastoreBase.STACK_NAME_TOKEN
         qualifier = env_name
         return cls.suggest_stack_name(title_token, name_token, qualifier)
 
@@ -59,7 +59,8 @@ class Names(StackNameBaseMixin):
     def rds_secret_logical_id(cls, env_name: str, c4name: C4Name = None) -> str:
         if not c4name:
             c4name = cls.datastore_stack_name_object(env_name)
-        return c4name.logical_id(camelize(env_name) + C4DatastoreBase.RDS_SECRET_NAME_SUFFIX, context='rds_secret_logical_id')
+        return c4name.logical_id(camelize(env_name) +
+                                 C4DatastoreBase.RDS_SECRET_NAME_SUFFIX, context='rds_secret_logical_id')
 
     # dmichaels/2022-06-22: Factored out from C4IAM.suggest_sharing_qualifier() in part.py.
     @classmethod
@@ -74,8 +75,8 @@ class Names(StackNameBaseMixin):
     @classmethod
     def ecs_s3_iam_user_logical_id(cls, c4name: C4Name = None, env_name: str = None, ecosystem: str = None) -> str:
         if not c4name:
-            title_token = C4IAMBase.STACK_TITLE_TOKEN  # Datastore (in constants.py, from C4Datastore.STACK_TITLE_TOKEN)
-            name_token = C4IAMBase.STACK_NAME_TOKEN    # datastore (in constants.py, from C4Datastore.STACK_NAME_TOKEN)
+            title_token = C4IAMBase.STACK_TITLE_TOKEN
+            name_token = C4IAMBase.STACK_NAME_TOKEN
             qualifier = cls.suggest_sharing_qualifier(C4IAMBase.SHARING, env_name, ecosystem)
             c4name = cls.suggest_stack_name(title_token, name_token, qualifier)
         return c4name.logical_id('ApplicationS3Federator')
@@ -85,8 +86,8 @@ class Names(StackNameBaseMixin):
     # base.py which is problematic for automation scripts (e.g. update-sentieon-security-groups).
     @classmethod
     def sentieon_stack_name_object(cls, env_name: str) -> C4Name:
-        title_token = C4SentieonSupportBase.STACK_TITLE_TOKEN  # Sentieon (in constants.py, from C4SentieonSupport.STACK_TITLE_TOKEN)
-        name_token = C4SentieonSupportBase.STACK_NAME_TOKEN    # sentieon (in constants.py, from C4SentieonSupport.STACK_NAME_TOKEN)
+        title_token = C4SentieonSupportBase.STACK_TITLE_TOKEN
+        name_token = C4SentieonSupportBase.STACK_NAME_TOKEN
         qualifier = env_name
         return cls.suggest_stack_name(title_token, name_token, qualifier)
 
