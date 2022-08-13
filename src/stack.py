@@ -144,9 +144,10 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
         # dmichaels/20220725: Pass in identity to build_config_and_package (C4-826) to identity-ize Foursight.
         if args.foursight_identity:
             identity = args.foursight_identity
+            PRINT(f"Using custom IDENTITY (via --foursight-identity) for Foursight deployment: {identity}")
         else:
             identity = Names.application_configuration_secret(ConfigManager.get_config_setting(Settings.ENV_NAME))
-        PRINT(f"Using custom IDENTITY (via --foursight-identity) for Foursight deployment: {identity}")
+            PRINT(f"Using IDENTITY for Foursight deployment: {identity}")
         self.PackageDeploy.build_config_and_package(
             args,  # this should not be needed any more, but we didn't quite write the code that way
             identity=identity,
