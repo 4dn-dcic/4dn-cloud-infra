@@ -23,12 +23,12 @@ dcicutils = "^4.0.2"
 
 # foursight-cgap
 #lock foursight-cgap to deploy foursight-cgap
-foursight-cgap = "2.0.1.1b20"
+foursight-cgap = "2.0.1.1b25"
 #foursight-cgap = "^1.0.0"
 
 # Foursight-Core
 #foursight-core = { path = "../foursight-core", develop = false }
-foursight-core = "1.0.1.1b21"
+foursight-core = "1.0.1.1b26"
 #foursight-core = "0.6.0"
 
 # pyrsistent = "^0.17.3"
