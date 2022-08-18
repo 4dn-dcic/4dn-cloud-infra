@@ -210,6 +210,13 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
         super().__init__(description, name, tags, account)
 
     def package_foursight_stack(self, args):
+        # dmichaels/2022-08-15: Added for C4-826.
+        if args.foursight_identity:
+            identity = args.foursight_identity
+            PRINT(f"Using custom IDENTITY (via --foursight-identity) for FoursightFourfront deployment: {identity}")
+        else:
+            identity = Names.application_configuration_secret(ConfigManager.get_config_setting(Settings.ENV_NAME))
+            PRINT(f"Using IDENTITY for FoursightFourfront deployment: {identity}")
         # # TODO (C4-691): foursight-core presently picks up the global bucket env as an environment variable.
         # #       We should fix it to pass the argument lexically instead, as shown below.
         # #       Meanwhile, too, we're transitioning the name of the variable (from GLOBAL_BUCKET_ENV
@@ -220,6 +227,9 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
         # with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
         self.PackageDeploy.build_config_and_package(
             args,  # this should not be needed any more, but we didn't quite write the code that way
+            # dmichaels/2022-08-15: Added next two lines for C4-826.
+            identity=identity,
+            stack_name=self.name.stack_name,
             merge_template=args.merge_template,
             output_file=args.output_file,
             stage=args.stage,

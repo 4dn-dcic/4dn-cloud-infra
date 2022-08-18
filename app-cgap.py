@@ -372,24 +372,29 @@ def get_environment_route(environ):
 
 # dmichaels/2022-08-01:
 # For testing/debugging/troubleshooting.
-@app.route('/info', methods=['GET'])
-def get_view_info_route():
+@app.route('/info/{environ}', methods=['GET'])
+def get_view_info_route(environ):
     req_dict = app.current_request.to_dict()
     domain, context = app_utils_manager.singleton.get_domain_and_context(req_dict)
-    environ = os.environ.get("ENV_NAME")
     is_admin = app_utils_manager.singleton.check_authorization(req_dict, environ)
-    return app_utils_manager.singleton.view_info(request=app.current_request, is_admin=is_admin, domain=domain, context=context)
+    return app_utils_manager.singleton.view_info(request=app.current_request, environ=environ, is_admin=is_admin, domain=domain, context=context)
+
+@app.route('/view/{environ}/user/{email}', methods=['GET'])
+def get_view_user_route(environ, email):
+    req_dict = app.current_request.to_dict()
+    domain, context = app_utils_manager.singleton.get_domain_and_context(req_dict)
+    is_admin = app_utils_manager.singleton.check_authorization(req_dict, environ)
+    return app_utils_manager.singleton.view_user(request=app.current_request, environ=environ, is_admin=is_admin, domain=domain, context=context, email=email)
 
 
 # dmichaels/2022-08-12:
 # For testing/debugging/troubleshooting.
-@app.route('/reload_lambda/{lambda_name}', methods=['GET'])
-def get_view_reload_lambda_route(lambda_name):
+@app.route('/reload_lambda/{environ}/{lambda_name}', methods=['GET'])
+def get_view_reload_lambda_route(environ, lambda_name):
     req_dict = app.current_request.to_dict()
     domain, context = app_utils_manager.singleton.get_domain_and_context(req_dict)
-    environ = os.environ.get("ENV_NAME")
     is_admin = app_utils_manager.singleton.check_authorization(req_dict, environ)
-    return app_utils_manager.singleton.view_reload_lambda(request=app.current_request, is_admin=is_admin, lambda_name=lambda_name, domain=domain, context=context)
+    return app_utils_manager.singleton.view_reload_lambda(request=app.current_request, environ=environ, is_admin=is_admin, domain=domain, context=context, lambda_name=lambda_name)
 
 
 #######################
