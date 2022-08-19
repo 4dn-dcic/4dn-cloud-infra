@@ -3,6 +3,7 @@ from ..constants import Settings, Secrets
 from ..exports import C4DatastoreExportsMixin
 from ..constants import C4DatastoreBase
 
+
 class ApplicationConfigurationSecrets:
 
     CONFIGURATION_PLACEHOLDER = 'XXX: ENTER VALUE'
@@ -17,6 +18,7 @@ class ApplicationConfigurationSecrets:
     def rds_db_username(cls):
         return ConfigManager.get_config_setting(Settings.RDS_DB_USERNAME,
                                                 default=C4DatastoreBase.DEFAULT_RDS_DB_USERNAME)
+
     @classmethod
     def _add_placeholders(cls, template):
         return {
@@ -33,9 +35,9 @@ class ApplicationConfigurationSecrets:
             'S3_AWS_SECRET_ACCESS_KEY': None,
             'ENCODED_AUTH0_CLIENT': ConfigManager.get_config_secret(Secrets.AUTH0_CLIENT, default=None),
             'ENCODED_AUTH0_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET, default=None),
-            'ENV_NAME':  env_name,
+            'ENV_NAME': env_name,
             'ENCODED_APPLICATION_BUCKET_PREFIX': ConfigManager.resolve_bucket_name("{application_prefix}"),
-            'ENCODED_BS_ENV':  env_name,
+            'ENCODED_BS_ENV': env_name,
             'ENCODED_DATA_SET': 'deploy',
             'ENCODED_ES_SERVER': cls.get_es_url(),  # None,
             'ENCODED_FOURSIGHT_BUCKET_PREFIX': ConfigManager.resolve_bucket_name("{foursight_prefix}"),
@@ -63,7 +65,8 @@ class ApplicationConfigurationSecrets:
                                                          default=C4DatastoreBase.DEFAULT_RDS_DB_PORT),
             'RDS_USERNAME': ApplicationConfigurationSecrets.rds_db_username(),
             'RDS_PASSWORD': None,
-            'GLOBAL_ENV_BUCKET': ConfigManager.resolve_bucket_name(ConfigManager.FSBucketTemplate.ENVS),  # foursight-envs bucket
+            # foursight-envs bucket
+            'GLOBAL_ENV_BUCKET': ConfigManager.resolve_bucket_name(ConfigManager.FSBucketTemplate.ENVS),
             'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY,
                                                               ConfigManager.get_s3_encrypt_key_from_file()),
             # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name

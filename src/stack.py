@@ -122,7 +122,7 @@ def get_trial_creds(env_name: str):
         'CLIENT_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET),
         'DEV_SECRET': '',  # Better not to set this. ConfigManager.get_config_secret(Secrets.ENCODED_SECRET),
         'ES_HOST': ConfigManager.get_config_setting(Settings.FOURSIGHT_ES_URL, default=None) or
-                   ApplicationConfigurationSecrets.get_es_url() + ":443",
+        ApplicationConfigurationSecrets.get_es_url() + ":443",
         'ENV_NAME': env_name,
         'RDS_NAME': ConfigManager.get_config_setting(Settings.RDS_NAME, default=None) or f"rds-{env_name}",
         'S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
@@ -177,7 +177,8 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
             trial_creds=self.trial_creds,
             # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
             # On the second attempt to create the stack, the physical resource ID will be used.
-            check_runner=(ConfigManager.find_stack_resource(f'foursight-fourfront-{args.stage}', 'CheckRunner', 'physical_resource_id')
+            check_runner=(ConfigManager.find_stack_resource(f'foursight-fourfront-{args.stage}',
+                                                            'CheckRunner', 'physical_resource_id')
                           or "c4-foursight-fourfront-production-stac-CheckRunner-MW4VHuCIsDXc")
         )
 
@@ -250,4 +251,3 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")
-

@@ -25,13 +25,14 @@ from troposphere.s3 import (
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
 from ..base import ConfigManager, COMMON_STACK_PREFIX
-from ..constants import C4DatastoreBase, Settings, Secrets
+from ..constants import C4DatastoreBase, Settings
 from ..exports import C4DatastoreExportsMixin, C4Exports
 from ..part import C4Part
 from .application_configuration_secrets import ApplicationConfigurationSecrets
 from .network import C4NetworkExports
 from .iam import C4IAMExports
 from ..names import Names
+
 
 class C4DatastoreExports(C4Exports, C4DatastoreExportsMixin):
     """ Holds datastore export metadata. """
@@ -53,7 +54,8 @@ class C4DatastoreExports(C4Exports, C4DatastoreExportsMixin):
     def get_env_bucket(cls):
         return ConfigManager.find_stack_output(cls._ENV_BUCKET_EXPORT_PATTERN.match, value_only=True)
 
-    _TIBANNA_OUTPUT_BUCKET_PATTERN = re.compile(f".*Datastore.*{C4DatastoreExportsMixin.APPLICATION_TIBANNA_OUTPUT_BUCKET}")
+    _TIBANNA_OUTPUT_BUCKET_PATTERN = \
+        re.compile(f".*Datastore.*{C4DatastoreExportsMixin.APPLICATION_TIBANNA_OUTPUT_BUCKET}")
 
     @classmethod
     def get_tibanna_output_bucket(cls):
@@ -313,7 +315,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
             DependsOn=[f'C4Bucket{camelize(bucket_name)}'],
             Bucket=bucket_name,
             PolicyDocument={
-                'Version':'2012-10-17',
+                'Version': '2012-10-17',
                 'Statement': [
                     {
                         'Sid': 'DenyIncorrectEncryptionHeader',
@@ -391,7 +393,8 @@ class C4Datastore(C4DatastoreBase, C4Part):
             Name=logical_id,
             Description=f'The RDS instance master password for {env_name}.',
             GenerateSecretString=GenerateSecretString(
-                SecretStringTemplate='{"username":"%s"}' % ApplicationConfigurationSecrets.rds_db_username(),  # TODO: Fix injection risk
+                # TODO: Fix injection risk
+                SecretStringTemplate='{"username":"%s"}' % ApplicationConfigurationSecrets.rds_db_username(),
                 GenerateStringKey='password',
                 PasswordLength=30,
                 ExcludePunctuation=True,
@@ -408,7 +411,6 @@ class C4Datastore(C4DatastoreBase, C4Part):
             one for the S3IAMUser (and Tibanna) for using the key for normal operation.
             Note that the roles are action restricted but not resource restricted.
         """
-        deploying_iam_user = ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER)  # Required config setting
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         logical_id = self.name.logical_id(camelize(env_name) + 'S3EncryptKey')
         return Key(
@@ -438,7 +440,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
                             # Added to ECS_ASSUMED_IAM_ROLE to allow access to S3 with encrypted account.
                             Join('', ['arn:aws:iam::', AccountId, ':user/',
                                       self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)])
-        ]},
+                        ]},
                         'Action': [
                             'kms:Encrypt',
                             'kms:Decrypt',
@@ -508,7 +510,8 @@ class C4Datastore(C4DatastoreBase, C4Part):
                                                                               default=self.DEFAULT_RDS_INSTANCE_SIZE),
             Engine='postgres',
             EngineVersion=postgres_version or self.DEFAULT_RDS_POSTGRES_VERSION,
-            DBInstanceIdentifier=ConfigManager.get_config_setting(Settings.RDS_NAME, default=None) or f"rds-{env_name}",  # was logical_id,
+            # was logical_id,
+            DBInstanceIdentifier=ConfigManager.get_config_setting(Settings.RDS_NAME, default=None) or f"rds-{env_name}",
             DBName=db_name or ConfigManager.get_config_setting(Settings.RDS_DB_NAME, default=self.DEFAULT_RDS_DB_NAME),
             DBParameterGroupName=Ref(self.rds_parameter_group()),
             DBSubnetGroupName=Ref(self.rds_subnet_group()),
@@ -532,9 +535,9 @@ class C4Datastore(C4DatastoreBase, C4Part):
             Tags=self.tags.cost_tag_array(name=logical_id),
         )
 
-#     def rds_password(self, resource: DBInstance) -> str:
-#         import pdb; pdb.set_trace()
-#         return GetAtt(resource, 'Endpoint.Password')
+    # def rds_password(self, resource: DBInstance) -> str:
+    #     import pdb; pdb.set_trace()
+    #     return GetAtt(resource, 'Endpoint.Password')
 
     def output_rds_url(self, resource: DBInstance) -> Output:
         """ Outputs RDS URL """

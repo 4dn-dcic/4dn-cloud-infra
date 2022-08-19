@@ -177,7 +177,7 @@ class FFIdentitySwap(C4IdentitySwap):
         return swap_plan
 
     @classmethod
-    def _determine_service_mapping(cls, ecs: boto3.client, blue_cluster: str, blue_services : List[str],
+    def _determine_service_mapping(cls, ecs: boto3.client, blue_cluster: str, blue_services: List[str],
                                    green_cluster: str, green_services: List[str]) -> dict:
         """ Resolves the current state of mappings from services to task definitions. """
         service_mapping = {}

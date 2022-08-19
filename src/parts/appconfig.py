@@ -16,7 +16,7 @@ except ImportError:
 from troposphere.secretsmanager import Secret
 from .application_configuration_secrets import ApplicationConfigurationSecrets
 from ..base import ConfigManager, APP_DEPLOYMENT
-from ..constants import Settings, Secrets, DeploymentParadigm
+from ..constants import Secrets, DeploymentParadigm
 from ..exports import C4Exports
 from ..part import C4Part
 from ..parts.network import C4NetworkExports

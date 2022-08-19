@@ -2,7 +2,6 @@ import logging
 import os
 
 from dcicutils.cloudformation_utils import camelize
-from dcicutils.exceptions import InvalidParameterError
 from dcicutils.misc_utils import remove_prefix
 from troposphere import Tag, Tags, Template
 from .base import ENV_NAME, ECOSYSTEM
