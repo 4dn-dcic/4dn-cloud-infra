@@ -235,10 +235,13 @@ def index():
     Redirect with 302 to view page of DEFAULT_ENV
     Non-protected route
     """
+    logger.warning('app-fourfront.py: In root route.')
     domain, context = app_utils_manager.singleton.get_domain_and_context(app.current_request.to_dict())
-    resp_headers = {'Location': context + 'view/' + DEFAULT_ENV}
-    return Response(status_code=302, body=json.dumps(resp_headers),
-                    headers=resp_headers)
+    logger.warning(f'app-fourfront.py: Got domain ({domain}) and context ({context}).')
+    redirect_path = context + 'api/view/' + DEFAULT_ENV
+    logger.warning(f'app-fourfront.py: Redirecting to: {redirect_path}')
+    resp_headers = {'Location': redirect_path}  # special casing 'api' for the chalice app root
+    return Response(status_code=302, body=json.dumps(resp_headers), headers=resp_headers)
 
 
 @app.route('/introspect', methods=['GET'])
