@@ -78,7 +78,7 @@ class C4AppConfig(C4Part):
     CONFIGURATION_DEFAULT_LC_ALL = 'en_US.UTF-8'
     CONFIGURATION_DEFAULT_RDS_PORT = '5432'
 
-    # dmichaels/2022-08-10: Moved into ApplicationConfigurationSecrets.get().
+    # dmichaels/2022-08-10: Moved into ApplicationConfigurationSecrets.build_initial_values().
     OBSOLETE_APPLICATION_CONFIGURATION_TEMPLATE = {
         'deploying_iam_user': CONFIGURATION_PLACEHOLDER,
         'ACCOUNT_NUMBER': AWS_ACCOUNT_ID,
@@ -148,6 +148,6 @@ class C4AppConfig(C4Part):
             logical_id,
             Name=logical_id,
             Description='This secret defines the application configuration for the orchestrated environment.',
-            SecretString=json.dumps(ApplicationConfigurationSecrets.get(), indent=2),
+            SecretString=json.dumps(ApplicationConfigurationSecrets.build_initial_values(), indent=2),
             Tags=self.tags.cost_tag_array()
         )

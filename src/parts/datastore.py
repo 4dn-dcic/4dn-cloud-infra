@@ -472,7 +472,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
             identity,
             Name=identity,
             Description='This secret defines the application configuration for the orchestrated environment.',
-            SecretString=json.dumps(ApplicationConfigurationSecrets.get(), indent=2),
+            SecretString=json.dumps(ApplicationConfigurationSecrets.build_initial_values(), indent=2),
             Tags=self.tags.cost_tag_array()
         )
 

@@ -164,3 +164,6 @@ class C4SentieonSupportBase:
 class C4NetworkBase:
     STACK_NAME_TOKEN = 'network'
     STACK_TITLE_TOKEN = 'Network'
+
+class EC2Constants:
+    DEFAULT_AMI_IMAGE = "ami-087c17d1fe0178315"

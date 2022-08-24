@@ -26,7 +26,7 @@ class ApplicationConfigurationSecrets:
         }
 
     @classmethod
-    def get(cls):
+    def build_initial_values(cls):
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         keys_values = {
             'deploying_iam_user': ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER),  # required

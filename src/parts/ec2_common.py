@@ -9,6 +9,7 @@ from troposphere.ec2 import (
 )
 from ..part import C4Part
 from ..base import ConfigManager, Settings
+from ..constants import EC2Constants
 from .network import C4NetworkExports, C4Network
 
 
@@ -119,7 +120,7 @@ class C4EC2Common(C4Part):
         return Instance(
             logical_id,
             Tags=self.tags.cost_tag_array(name=logical_id),
-            ImageId=ConfigManager.get_config_setting(Settings.HMS_SECURE_AMI, default='ami-087c17d1fe0178315'),
+            ImageId=ConfigManager.get_config_setting(Settings.HMS_SECURE_AMI, default=EC2Constants.DEFAULT_AMI_IMAGE),
             # amzn2-ami-hvm-2.0.20210813.1-x86_64-gp2
             InstanceType=ConfigManager.get_config_setting(instance_size, default=self.DEFAULT_INSTANCE_SIZE),
             NetworkInterfaces=[NetworkInterfaceProperty(
