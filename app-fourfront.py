@@ -5,16 +5,21 @@ import os
 from chalice import Chalice, Response, Cron
 from chalicelib.app_utils import AppUtils as AppUtils_from_fourfront  # naming convention used in foursight
 from dcicutils.exceptions import InvalidParameterError
-from dcicutils.misc_utils import environ_bool, remove_suffix, ignored
+from dcicutils.misc_utils import environ_bool, remove_suffix, ignored, PRINT
 from foursight_core.deploy import Deploy
+
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(levelname)-8s %(message)s')
 logger = logging.getLogger(__name__)
 
 
+def WARNING(message, **kwargs):
+    print(f"{os.path.basename(__file__)}: {message}", **kwargs)
+
+
 DEBUG_CHALICE = environ_bool('DEBUG_CHALICE', default=False)
 if DEBUG_CHALICE:
-    logger.warning('debug mode on...')
+    WARNING('debug mode on...')
 
 
 ##################################
@@ -31,9 +36,9 @@ FOURSIGHT_PREFIX = os.environ.get('FOURSIGHT_PREFIX')
 if not FOURSIGHT_PREFIX:
     _GLOBAL_ENV_BUCKET = os.environ.get('GLOBAL_ENV_BUCKET') or os.environ.get('GLOBAL_BUCKET_ENV')
     if _GLOBAL_ENV_BUCKET is not None:
-        print("_GLOBAL_ENV_BUCKET=", _GLOBAL_ENV_BUCKET)  # TODO: Temporary print statement, for debugging
+        PRINT("_GLOBAL_ENV_BUCKET=", _GLOBAL_ENV_BUCKET)  # TODO: Temporary print statement, for debugging
         FOURSIGHT_PREFIX = remove_suffix("-envs", _GLOBAL_ENV_BUCKET, required=True)
-        print(f"Inferred FOURSIGHT_PREFIX={FOURSIGHT_PREFIX}")
+        PRINT(f"Inferred FOURSIGHT_PREFIX={FOURSIGHT_PREFIX}")
     else:
         raise RuntimeError("The FOURSIGHT_PREFIX environment variable is not set. Heuristics failed.")
 
@@ -68,7 +73,7 @@ class AppUtils(AppUtils_from_fourfront):
 
 
 if DEBUG_CHALICE:
-    logger.warning('creating app utils object')
+    WARNING('creating app utils object')
 
 
 app_utils_manager = SingletonManager(AppUtils)
@@ -235,11 +240,11 @@ def index():
     Redirect with 302 to view page of DEFAULT_ENV
     Non-protected route
     """
-    logger.warning('app-fourfront.py: In root route.')
+    WARNING('In root route.')
     domain, context = app_utils_manager.singleton.get_domain_and_context(app.current_request.to_dict())
-    logger.warning(f'app-fourfront.py: Got domain ({domain}) and context ({context}).')
+    WARNING(f'Got domain ({domain}) and context ({context}).')
     redirect_path = context + 'api/view/' + DEFAULT_ENV
-    logger.warning(f'app-fourfront.py: Redirecting to: {redirect_path}')
+    WARNING(f'Redirecting to: {redirect_path}')
     resp_headers = {'Location': redirect_path}  # special casing 'api' for the chalice app root
     return Response(status_code=302, body=json.dumps(resp_headers), headers=resp_headers)
 

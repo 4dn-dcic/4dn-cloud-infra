@@ -47,16 +47,15 @@ def _basic_setup_for_main():
 
     with temporary_custom_and_aws_credentials_dirs_for_testing(mocked_boto, TestData) as (custom_dir,
                                                                                           aws_credentials_dir), \
-         mock.patch("builtins.input") as mocked_input, \
-         mock.patch("builtins.exit") as mocked_exit:
+        mock.patch("builtins.input") as mocked_input:
         aws = aws_module.Aws(aws_credentials_dir)
         assert aws.find_security_group_id(TestData.security_group_name) == TestData.security_group_id
-        yield custom_dir, aws_credentials_dir, aws, mocked_input, mocked_exit
+        yield custom_dir, aws_credentials_dir, aws, mocked_input
 
 
 def test_update_sentieon_security_yes() -> None:
 
-    with _basic_setup_for_main() as (custom_dir, aws_credentials_dir, aws, mocked_input, mocked_exit):
+    with _basic_setup_for_main() as (custom_dir, aws_credentials_dir, aws, mocked_input):
 
         # Answer yes to confirmation.
         mocked_input.return_value = "yes"
@@ -81,14 +80,13 @@ def test_update_sentieon_security_yes() -> None:
 
 def test_update_sentieon_security_no() -> None:
 
-    with _basic_setup_for_main() as (custom_dir, aws_credentials_dir, aws, mocked_input, mocked_exit):
+    with _basic_setup_for_main() as (custom_dir, aws_credentials_dir, aws, mocked_input):
 
         # Answer no to confirmation.
         mocked_input.return_value = "no"
 
         # Call the main module with confirmation of "no".
-        mocked_exit.side_effect = Exception()
-        with pytest.raises(Exception):
+        with pytest.raises(SystemExit):
             main(["--custom-dir", custom_dir, "--aws-credentials-dir", aws_credentials_dir])
 
         # Make sure nothing got defined.
@@ -96,5 +94,5 @@ def test_update_sentieon_security_no() -> None:
         inbound_rules_defined = aws.get_inbound_security_group_rules(TestData.security_group_id)
         outbound_rules_defined = aws.get_outbound_security_group_rules(TestData.security_group_id)
 
-        assert not inbound_rules_defined or len(inbound_rules_defined) == 0
-        assert not outbound_rules_defined or len(outbound_rules_defined) == 0
+        assert not inbound_rules_defined
+        assert not outbound_rules_defined
