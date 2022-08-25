@@ -122,7 +122,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
     @classmethod
     def application_layer_bucket(cls, export_name):
         bucket_name_template = cls.APPLICATION_LAYER_BUCKETS[export_name]
-        bucket_name = ConfigManager.resolve_bucket_name(bucket_name_template)
+        bucket_name = cls.resolve_bucket_name(bucket_name_template)
         return bucket_name
 
     # Buckets used by the foursight layer
@@ -140,7 +140,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
     @classmethod
     def foursight_layer_bucket(cls, export_name):
         bucket_name_template = cls.FOURSIGHT_LAYER_BUCKETS[export_name]
-        bucket_name = ConfigManager.resolve_bucket_name(bucket_name_template)
+        bucket_name = cls.resolve_bucket_name(bucket_name_template)
         return bucket_name
 
     # Contains application configuration template, written to secrets manager
