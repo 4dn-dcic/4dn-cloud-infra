@@ -3,7 +3,7 @@ import mock
 import os
 import pytest
 from dcicutils.misc_utils import override_environ
-from dcicutils.qa_utils import MockBoto3
+from dcicutils.qa_utils import MockBoto3, MockBoto3SecretsManager
 from dcicutils import cloudformation_utils
 from dcicutils import secrets_utils
 
@@ -13,14 +13,18 @@ from dcicutils import secrets_utils
 
 IDENTITY = "C4DatastoreCgapXyzzyApplicationConfiguration"
 STACK_NAME = "c4-foursight-cgap-xyzzy-stack"
+
 mocked_boto = MockBoto3()
+class MockBoto3SecretsManagerWithMockedSecrets(MockBoto3SecretsManager):
+    def __init__(self, **kwargs):
+        super().__init__(boto3=mocked_boto, **kwargs)
+        super().put_secret_key_value_for_testing(IDENTITY, "ENCODED_AUTH0_CLIENT", "0123456789")
+        super().put_secret_key_value_for_testing(IDENTITY, "ENCODED_AUTH0_SECRET", "1234567890")
+        super().put_secret_key_value_for_testing(IDENTITY, "ENCODED_S3_ENCRYPT_KEY_ID", "2345678901")
+        super().put_secret_key_value_for_testing(IDENTITY, "ENCODED_ES_SERVER", "3456789012")
+        super().put_secret_key_value_for_testing(IDENTITY, "RDS_NAME", "0123456789")
+MockBoto3SecretsManagerWithMockedSecrets()
 mocked_boto_lambda = mocked_boto.client("lambda")
-mocked_boto_secretsmanager = mocked_boto.client("secretsmanager")
-mocked_boto_secretsmanager.put_secret_key_value_for_testing(IDENTITY, "ENCODED_AUTH0_CLIENT", "0123456789")
-mocked_boto_secretsmanager.put_secret_key_value_for_testing(IDENTITY, "ENCODED_AUTH0_SECRET", "1234567890")
-mocked_boto_secretsmanager.put_secret_key_value_for_testing(IDENTITY, "ENCODED_S3_ENCRYPT_KEY_ID", "2345678901")
-mocked_boto_secretsmanager.put_secret_key_value_for_testing(IDENTITY, "ENCODED_ES_SERVER", "3456789012")
-mocked_boto_secretsmanager.put_secret_key_value_for_testing(IDENTITY, "RDS_NAME", "0123456789")
 mocked_lambdas = ["c4-foursight-cgap-xyzzy-stack-CheckRunner-ABC",
                   "c4-foursight-fourfront-production-stac-CheckRunner-DEFGHI"]
 mocked_boto_lambda.register_lambdas_for_testing({name: {} for name in mocked_lambdas})
