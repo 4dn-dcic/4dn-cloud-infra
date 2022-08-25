@@ -143,6 +143,13 @@ class C4Datastore(C4DatastoreBase, C4Part):
         bucket_name = cls.resolve_bucket_name(bucket_name_template)
         return bucket_name
 
+    @classmethod
+    def resolve_bucket_name(cls, bucket_template):
+        """
+        Resolves a bucket_template into a bucket_name.
+        """
+        return ConfigManager.resolve_bucket_name(bucket_template)
+
     # Contains application configuration template, written to secrets manager
     # NOTE: this configuration is NOT valid by default - it must be manually updated
     # with values not available at orchestration time.
@@ -215,7 +222,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
             use_lifecycle_policy = False
             if export_name in self.LIFECYCLE_BUCKET_EXPORT_NAMES:
                 use_lifecycle_policy = True
-            bucket_name = ConfigManager.resolve_bucket_name(bucket_template)
+            bucket_name = self.resolve_bucket_name(bucket_template)
             # use infra s3_encrypt_key for standard files if specified
             if encryption_enabled and export_name != C4DatastoreExports.APPLICATION_SYSTEM_BUCKET:
                 bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy,
