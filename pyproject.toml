@@ -16,20 +16,19 @@ boto3 = "^1.24.34"
 botocore = "^1.27.36"
 chalice = "1.27.1"
 dcicutils = "^4.0.2"
-pyDes = "^2.0.1"
 
 # lock foursight to deploy foursight-ff
 #foursight = { path = "../foursight", develop = false }
-#foursight = "1.11.0.1b14"
+#foursight = "1.11.0.1b16"
 
 # foursight-cgap
 #lock foursight-cgap to deploy foursight-cgap
-foursight-cgap = "2.0.1.1b64"
+foursight-cgap = "2.0.1.1b70"
 #foursight-cgap = "^1.0.0"
 
 # Foursight-Core
 #foursight-core = { path = "../foursight-core", develop = false }
-foursight-core = "1.0.1.1b64"
+foursight-core = "1.0.1.1b70"
 #foursight-core = "0.6.0"
 
 # pyrsistent = "^0.17.3"
