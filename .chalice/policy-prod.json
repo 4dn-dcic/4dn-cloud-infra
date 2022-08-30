@@ -18,7 +18,8 @@
         "elasticloadbalancing:*",
         "states:*",
         "dynamodb:*",
-        "secretsmanager:GetSecretValue"
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:ListSecrets"
       ],
       "Resource": [
         "*"

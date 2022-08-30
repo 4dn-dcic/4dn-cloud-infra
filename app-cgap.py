@@ -488,6 +488,22 @@ def react_get_info_noenv():
     return app_utils_manager.singleton.react_get_info(request=request, environ=DEFAULT_ENV, is_admin=is_admin, domain=domain, context=context)
 
 
+@app.route(ROUTE_PREFIX + 'reactapi/{environ}/header', cors=CORS)
+def react_get_header_info(environ):
+    request = app.current_request
+    request_dict = request.to_dict()
+    domain, context = app_utils_manager.singleton.get_domain_and_context(request_dict)
+    return app_utils_manager.singleton.react_get_header_info(request=request, environ=environ, domain=domain, context=context)
+
+
+@app.route(ROUTE_PREFIX + 'reactapi/header', cors=CORS)
+def react_get_header_info_noenv():
+    request = app.current_request
+    request_dict = request.to_dict()
+    domain, context = app_utils_manager.singleton.get_domain_and_context(request_dict)
+    return app_utils_manager.singleton.react_get_header(request=request, environ=DEFAULT_ENV, domain=domain, context=context)
+
+
 #######################
 # Pure lambda functions
 #######################
