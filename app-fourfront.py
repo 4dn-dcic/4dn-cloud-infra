@@ -65,6 +65,7 @@ class SingletonManager():  # TODO: Move to dcicutils
 class AppUtils(AppUtils_from_fourfront):
     # overwriting parent class
     prefix = FOURSIGHT_PREFIX
+    FAVICON = 'https://data.4dnucleome.org//static/img/favicon-fs.ico'
     host = HOST
     package_name = 'chalicelib'
     # check_setup is moved to vendor/ where it will be automatically placed at top level
