@@ -799,7 +799,7 @@ pyflakes = ">=2.5.0,<2.6.0"
 
 [[package]]
 name = "foursight"
-version = "1.11.0.1b14"
+version = "1.11.0.1b22"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -810,7 +810,7 @@ click = ">=7.1.2,<8.0.0"
 dcicutils = ">=4.0.2,<5.0.0"
 elasticsearch = ">=6.8.1,<7.0.0"
 elasticsearch-dsl = ">=6.4.0,<7.0.0"
-foursight-core = "1.0.1.1b49"
+foursight-core = "1.0.2.1b13"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.7.4,<2.0.0"
@@ -826,7 +826,7 @@ tibanna_ff = ">=0.22.5"
 
 [[package]]
 name = "foursight-core"
-version = "1.0.1.1b49"
+version = "1.0.2.1b13"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -988,7 +988,7 @@ grpc = ["grpcio (>=1.0.0,<2.0.0dev)"]
 
 [[package]]
 name = "gspread"
-version = "5.4.0"
+version = "5.5.0"
 description = "Google Spreadsheets Python API"
 category = "main"
 optional = false
@@ -2346,7 +2346,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.1,<3.8"
-content-hash = "2005d827887ded3b50f7b578e2cbaa342ebc25daf3c0806b4a7e0dc2b15dfe9e"
+content-hash = "3ef540767b729a6d116ff6876a98fc5799be630eafb850f69c42744697cfa4f0"
 
 [metadata.files]
 ansicon = [
@@ -2602,12 +2602,12 @@ flake8 = [
     {file = "flake8-5.0.4.tar.gz", hash = "sha256:6fbe320aad8d6b95cec8b8e47bc933004678dc63095be98528b7bdd2a9f510db"},
 ]
 foursight = [
-    {file = "foursight-1.11.0.1b14-py3-none-any.whl", hash = "sha256:457da3252a364e73ec5ab45c5e73fa7a8d4e38a53701662c9b50d884495eedc0"},
-    {file = "foursight-1.11.0.1b14.tar.gz", hash = "sha256:d53a8594e70b45bd089dbd975e38cac6e6cb2e5fb49688a32b4141ad8921b23e"},
+    {file = "foursight-1.11.0.1b22-py3-none-any.whl", hash = "sha256:8c58e33ea87f89d2f2faf85cd7c229a462df541c7aa89a5f711bd58f19fc112f"},
+    {file = "foursight-1.11.0.1b22.tar.gz", hash = "sha256:bc71bc95a80e975618c1b8cbe656bf0c223a6023138ef3821b280643017cc467"},
 ]
 foursight-core = [
-    {file = "foursight-core-1.0.1.1b49.tar.gz", hash = "sha256:1c1a7496525ee11e89e1bb1c7abbf51e54a945058c2a064a8176977abc37af8f"},
-    {file = "foursight_core-1.0.1.1b49-py3-none-any.whl", hash = "sha256:bc990d7d82e2df04791b9741c34b24efaa2ea7e851fd842acaf04abb5bbb0c12"},
+    {file = "foursight-core-1.0.2.1b13.tar.gz", hash = "sha256:b77dfb82b21f2e3252ccbc64e0e73f39c03442f62661f8fd16f6467f782e577d"},
+    {file = "foursight_core-1.0.2.1b13-py3-none-any.whl", hash = "sha256:a88cd21d2feeea614f51196737a6c3d05695c9274fa74069834f20def44655ad"},
 ]
 future = [
     {file = "future-0.18.2.tar.gz", hash = "sha256:b1bead90b70cf6ec3f0710ae53a525360fa360d306a86583adc6bf83a4db537d"},
@@ -2649,8 +2649,8 @@ googleapis-common-protos = [
     {file = "googleapis_common_protos-1.56.4-py2.py3-none-any.whl", hash = "sha256:8eb2cbc91b69feaf23e32452a7ae60e791e09967d81d4fcc7fc388182d1bd394"},
 ]
 gspread = [
-    {file = "gspread-5.4.0-py3-none-any.whl", hash = "sha256:21704b47d007c3b5fd34eddfa4c4a9dcd1ecc1dc615083b9c636127726e66c18"},
-    {file = "gspread-5.4.0.tar.gz", hash = "sha256:b6172b62fa899e3e4199d2d0ea1008b64305554ba08d3d3a96e9123824fdec48"},
+    {file = "gspread-5.5.0-py3-none-any.whl", hash = "sha256:787b5fab9dd61a7d6d84af73356d7ff905cd3978438e528dc66dc8a9407fb851"},
+    {file = "gspread-5.5.0.tar.gz", hash = "sha256:8620e987e5340315f2b8d8d26cf97e4736a84b3325a17c7d9bcff70525dc3003"},
 ]
 httplib2 = [
     {file = "httplib2-0.20.4-py3-none-any.whl", hash = "sha256:8b6a905cb1c79eefd03f8669fd993c36dc341f7c558f056cb5a33b5c2f458543"},
