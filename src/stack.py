@@ -6,8 +6,10 @@ from chalicelib.package import PackageDeploy as PackageDeploy_from_app
 from dcicutils.misc_utils import PRINT, full_class_name
 from os.path import dirname
 from troposphere import Template
+from .parts.application_configuration_secrets import ApplicationConfigurationSecrets
 from .base import ConfigManager
 from .constants import Secrets, Settings
+from .names import Names
 from .part import C4Name, C4Tags, C4Account, C4Part, StackNameMixin
 from .parts.datastore import C4DatastoreExports
 from .parts.network import C4NetworkExports
@@ -96,6 +98,21 @@ class BaseC4FoursightStack(BaseC4Stack, StackNameMixin):
         class_name = full_class_name(self)
         raise NotImplementedError(f"{class_name} does not implement required method 'package_foursight_stack'.")
 
+    @classmethod
+    def suggest_stack_name(cls, name=None):
+        """ Overriden so you can change the sharing qualifier by passing foursight.app_name in
+            config.json - used to have multiple foursight deployments per account.
+            ie: set "foursight.app_name": "development" --> stack name = 'c4-foursight-development-stack'
+        """
+        title_token = cls.stack_title_token()
+        name_token = cls.STACK_NAME_TOKEN
+        fs_app_name = ConfigManager.get_config_setting(Settings.FOURSIGHT_APP_NAME, default=None)
+        if fs_app_name:
+            qualifier = fs_app_name
+        else:
+            qualifier = cls.suggest_sharing_qualifier()
+        return Names.suggest_stack_name(title_token, name_token, qualifier)
+
 
 def get_trial_creds(env_name: str):
     # dmichaels/2022-06-08: Factored out of C4FoursightCGAPStack.__init__() and C4FoursightFourfrontStack.__init__().
@@ -105,7 +122,7 @@ def get_trial_creds(env_name: str):
         'CLIENT_SECRET': ConfigManager.get_config_secret(Secrets.AUTH0_SECRET),
         'DEV_SECRET': '',  # Better not to set this. ConfigManager.get_config_secret(Secrets.ENCODED_SECRET),
         'ES_HOST': ConfigManager.get_config_setting(Settings.FOURSIGHT_ES_URL, default=None) or
-                   C4DatastoreExports.get_es_url() + ":443",
+        ApplicationConfigurationSecrets.get_es_url() + ":443",
         'ENV_NAME': env_name,
         'RDS_NAME': ConfigManager.get_config_setting(Settings.RDS_NAME, default=None) or f"rds-{env_name}",
         'S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
@@ -139,8 +156,17 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
         # # TODO (C4-692): foursight-core presently wants us to pass an 'args' argument (from 'argparser').
         # #       It should instead ask for all the various arguments it plans to look at.
         # with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
+        # dmichaels/20220725: Pass in identity to build_config_and_package (C4-826) to identity-ize Foursight.
+        if args.foursight_identity:
+            identity = args.foursight_identity
+            PRINT(f"Using custom IDENTITY (via --foursight-identity) for Foursight deployment: {identity}")
+        else:
+            identity = Names.application_configuration_secret(ConfigManager.get_config_setting(Settings.ENV_NAME))
+            PRINT(f"Using IDENTITY for Foursight deployment: {identity}")
         self.PackageDeploy.build_config_and_package(
             args,  # this should not be needed any more, but we didn't quite write the code that way
+            identity=identity,
+            stack_name=self.name.stack_name,
             merge_template=args.merge_template,
             output_file=args.output_file,
             stage=args.stage,
@@ -151,7 +177,8 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
             trial_creds=self.trial_creds,
             # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
             # On the second attempt to create the stack, the physical resource ID will be used.
-            check_runner=(ConfigManager.find_stack_resource(f'foursight-fourfront-{args.stage}', 'CheckRunner', 'physical_resource_id')
+            check_runner=(ConfigManager.find_stack_resource(f'foursight-fourfront-{args.stage}',
+                                                            'CheckRunner', 'physical_resource_id')
                           or "c4-foursight-fourfront-production-stac-CheckRunner-MW4VHuCIsDXc")
         )
 
@@ -161,7 +188,7 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
         CONFIG_BASE['app_name'] = 'foursight-cgap'
 
         config_dir = dirname(dirname(__file__))
-        print(f"Config dir: {config_dir}")
+        PRINT(f"Config dir: {config_dir}")
 
 
 class C4FoursightFourfrontStack(BaseC4FoursightStack):
@@ -184,6 +211,13 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
         super().__init__(description, name, tags, account)
 
     def package_foursight_stack(self, args):
+        # dmichaels/2022-08-15: Added for C4-826.
+        if args.foursight_identity:
+            identity = args.foursight_identity
+            PRINT(f"Using custom IDENTITY (via --foursight-identity) for FoursightFourfront deployment: {identity}")
+        else:
+            identity = Names.application_configuration_secret(ConfigManager.get_config_setting(Settings.ENV_NAME))
+            PRINT(f"Using IDENTITY for FoursightFourfront deployment: {identity}")
         # # TODO (C4-691): foursight-core presently picks up the global bucket env as an environment variable.
         # #       We should fix it to pass the argument lexically instead, as shown below.
         # #       Meanwhile, too, we're transitioning the name of the variable (from GLOBAL_BUCKET_ENV
@@ -194,6 +228,9 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
         # with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
         self.PackageDeploy.build_config_and_package(
             args,  # this should not be needed any more, but we didn't quite write the code that way
+            # dmichaels/2022-08-15: Added next two lines for C4-826.
+            identity=identity,
+            stack_name=self.name.stack_name,
             merge_template=args.merge_template,
             output_file=args.output_file,
             stage=args.stage,
@@ -204,7 +241,7 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
             trial_creds=self.trial_creds,
             # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
             # On the second attempt to create the stack, the physical resource ID will be used.
-            check_runner=("c4-foursight-fourfront-production-stac-CheckRunner-MW4VHuCIsDXc")
+            check_runner=(ConfigManager.get_config_setting(Settings.FOURSIGHT_CHECK_RUNNER))
         )
 
     class PackageDeploy(PackageDeploy_from_app):
@@ -213,5 +250,4 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
         CONFIG_BASE['app_name'] = 'foursight-fourfront'
 
         config_dir = dirname(dirname(__file__))
-        print(f"Config dir: {config_dir}")
-
+        PRINT(f"Config dir: {config_dir}")

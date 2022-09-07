@@ -8,6 +8,7 @@ from ..exports import C4Exports
 from ..names import Names
 from ..part import C4Part
 from ..base import ConfigManager, Settings
+from ..constants import EC2Constants
 from .network import C4NetworkExports, C4Network
 
 
@@ -169,7 +170,8 @@ class C4SentieonSupport(C4SentieonSupportBase, C4Part):
         return Instance(
             logical_id,
             Tags=self.tags.cost_tag_array(name=logical_id),
-            ImageId=ConfigManager.get_config_setting(Settings.HMS_SECURE_AMI, default='ami-087c17d1fe0178315'),  # amzn2-ami-hvm-2.0.20210813.1-x86_64-gp2
+            # amzn2-ami-hvm-2.0.20210813.1-x86_64-gp2
+            ImageId=ConfigManager.get_config_setting(Settings.HMS_SECURE_AMI, default=EC2Constants.DEFAULT_AMI_IMAGE),
             InstanceType='t2.nano',
             NetworkInterfaces=[NetworkInterfaceProperty(
                 network_interface_logical_id,

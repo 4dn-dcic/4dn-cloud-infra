@@ -17,7 +17,8 @@
         "iam:PassRole",
         "elasticloadbalancing:*",
         "states:*",
-        "dynamodb:*"
+        "dynamodb:*",
+        "secretsmanager:GetSecretValue"
       ],
       "Resource": [
         "*"

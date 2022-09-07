@@ -6,6 +6,33 @@
 Change Log
 ----------
 
+3.4.0
+=====
+* Spruced up Foursight UI a bit (virtually all in foursight-core but mentioning here).
+  * New header/footer.
+    * Different looks for Foursight-CGAP (blue header) and Foursight-Fourfront (green header).
+    * More relevant info in header (login email, environment, stage).
+  * New /info and /users page.
+  * New /users and /users/{email} page.
+  * New dropdown to change environments.
+  * New logout link.
+  * New specific error if login fails due to no user record for environment.
+* Changes for C4-826 to IDENTITY-ize Foursight.
+  * Set RDS_NAME in GAC (i.e. same as dbInstanceIdentifier in RDS secret).
+  * For provistion foursight pass IDENTITY and STACK_NAME through to foursight-core/build_config_and_package
+  * For provision foursight-development/production added --foursight-identity option to pass in GAC name
+    thru to C4FoursightFourCGAPStack/C4FoursightFourfrontStack.build_config_and_package.
+  * Added secretsmanager:GetSecretValue to .chalice/policy-{dev,prod}.json.
+  * Some app-{cgap,fourfront}.py change related to Foursight UI changes.
+  * Some refactoring to use same GAC content generation for provision datastore and appconfig;
+    see application_configuration_secrets.py.
+* Bunch of flake8 fixups.
+* Up python version from ">=3.7.1,<3.8" from ">=3.7.1,<3.8".
+* Up foursight-core to version 2.0.0.
+* Up foursight-cgap to version 2.1.0.
+* Up foursight (commentd out but) to version 2.1.0.
+
+
 3.2.4
 =====
 * Added ``update-cors-policy`` poetry script target to S3 bucket CORS permission policy.

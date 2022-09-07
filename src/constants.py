@@ -94,6 +94,8 @@ class Settings:
     # Foursight options
     FOURSIGHT_ES_URL = 'foursight.es_url'
     FOURSIGHT_APP_VERSION_BUCKET = 'foursight.application_version_bucket'
+    FOURSIGHT_CHECK_RUNNER = 'foursight.check_runner'  # for use with FF
+    FOURSIGHT_APP_NAME = 'foursight.app_name'  # so can be different from ENV_NAME
 
     # Sentieon Options
     SENTIEON_SSH_KEY = 'sentieon.ssh_key'
@@ -132,6 +134,15 @@ class C4DatastoreBase:
     APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = 'ApplicationConfiguration'
     RDS_SECRET_NAME_SUFFIX = 'RDSSecret'  # Used as logical id suffix in resource names
 
+    DEFAULT_RDS_DB_NAME = 'ebdb'
+    DEFAULT_RDS_DB_PORT = '5432'
+    DEFAULT_RDS_DB_USERNAME = 'postgresql'
+    DEFAULT_RDS_AZ = 'us-east-1a'
+    DEFAULT_RDS_STORAGE_SIZE = 20
+    DEFAULT_RDS_INSTANCE_SIZE = 'db.t3.medium'
+    DEFAULT_RDS_STORAGE_TYPE = 'standard'
+    DEFAULT_RDS_POSTGRES_VERSION = '12.9'
+
 
 # dmichaels/2022-06-22: Factored out from C4IAM in iam.py.
 class C4IAMBase:
@@ -153,3 +164,6 @@ class C4SentieonSupportBase:
 class C4NetworkBase:
     STACK_NAME_TOKEN = 'network'
     STACK_TITLE_TOKEN = 'Network'
+
+class EC2Constants:
+    DEFAULT_AMI_IMAGE = "ami-087c17d1fe0178315"

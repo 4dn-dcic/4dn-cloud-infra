@@ -7,7 +7,7 @@ from troposphere.ec2 import (
     Subnet, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment, NatGateway, EIP, Instance, NetworkInterfaceProperty,
     VPCEndpoint,
 )
-from ..base import ConfigManager, Settings
+from ..base import ConfigManager
 from typing import List
 from ..constants import C4NetworkBase
 from ..exports import C4Exports, exportify
@@ -533,7 +533,6 @@ class C4Network(C4NetworkBase, C4Part):
         """
         # dmichaels/2022-07-06: Refactored to use Names.application_security_group_name() in names.py.
         # logical_id = self.name.logical_id('ApplicationSecurityGroup', context='application_security_group')
-        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         logical_id = Names.application_security_group_name(self.name)
         return SecurityGroup(
             logical_id,

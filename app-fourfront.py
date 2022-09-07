@@ -5,16 +5,21 @@ import os
 from chalice import Chalice, Response, Cron
 from chalicelib.app_utils import AppUtils as AppUtils_from_fourfront  # naming convention used in foursight
 from dcicutils.exceptions import InvalidParameterError
-from dcicutils.misc_utils import environ_bool, remove_suffix, ignored
+from dcicutils.misc_utils import environ_bool, remove_suffix, ignored, PRINT
 from foursight_core.deploy import Deploy
+
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(levelname)-8s %(message)s')
 logger = logging.getLogger(__name__)
 
 
+def WARNING(message, **kwargs):
+    print(f"{os.path.basename(__file__)}: {message}", **kwargs)
+
+
 DEBUG_CHALICE = environ_bool('DEBUG_CHALICE', default=False)
 if DEBUG_CHALICE:
-    logger.warning('debug mode on...')
+    WARNING('debug mode on...')
 
 
 ##################################
@@ -31,9 +36,9 @@ FOURSIGHT_PREFIX = os.environ.get('FOURSIGHT_PREFIX')
 if not FOURSIGHT_PREFIX:
     _GLOBAL_ENV_BUCKET = os.environ.get('GLOBAL_ENV_BUCKET') or os.environ.get('GLOBAL_BUCKET_ENV')
     if _GLOBAL_ENV_BUCKET is not None:
-        print("_GLOBAL_ENV_BUCKET=", _GLOBAL_ENV_BUCKET)  # TODO: Temporary print statement, for debugging
+        PRINT("_GLOBAL_ENV_BUCKET=", _GLOBAL_ENV_BUCKET)  # TODO: Temporary print statement, for debugging
         FOURSIGHT_PREFIX = remove_suffix("-envs", _GLOBAL_ENV_BUCKET, required=True)
-        print(f"Inferred FOURSIGHT_PREFIX={FOURSIGHT_PREFIX}")
+        PRINT(f"Inferred FOURSIGHT_PREFIX={FOURSIGHT_PREFIX}")
     else:
         raise RuntimeError("The FOURSIGHT_PREFIX environment variable is not set. Heuristics failed.")
 
@@ -60,15 +65,18 @@ class SingletonManager():  # TODO: Move to dcicutils
 class AppUtils(AppUtils_from_fourfront):
     # overwriting parent class
     prefix = FOURSIGHT_PREFIX
+    FAVICON = 'https://data.4dnucleome.org//static/img/favicon-fs.ico'
     host = HOST
     package_name = 'chalicelib'
     # check_setup is moved to vendor/ where it will be automatically placed at top level
     check_setup_dir = os.path.dirname(__file__)
-    html_main_title = f'Foursight-{DEFAULT_ENV}-{STAGE}'.title()
+    # html_main_title = f'Foursight-{DEFAULT_ENV}-{STAGE}'.title()
+    # html_main_title = 'Foursight-Fourfront';
+    html_main_title = "Foursight" # Foursight CGAP vs Fourfront difference now conveyed in the upper left icon.
 
 
 if DEBUG_CHALICE:
-    logger.warning('creating app utils object')
+    WARNING('creating app utils object')
 
 
 app_utils_manager = SingletonManager(AppUtils)
@@ -235,10 +243,13 @@ def index():
     Redirect with 302 to view page of DEFAULT_ENV
     Non-protected route
     """
+    WARNING('In root route.')
     domain, context = app_utils_manager.singleton.get_domain_and_context(app.current_request.to_dict())
-    resp_headers = {'Location': context + 'view/' + DEFAULT_ENV}
-    return Response(status_code=302, body=json.dumps(resp_headers),
-                    headers=resp_headers)
+    WARNING(f'Got domain ({domain}) and context ({context}).')
+    redirect_path = context + 'api/view/' + DEFAULT_ENV
+    WARNING(f'Redirecting to: {redirect_path}')
+    resp_headers = {'Location': redirect_path}  # special casing 'api' for the chalice app root
+    return Response(status_code=302, body=json.dumps(resp_headers), headers=resp_headers)
 
 
 @app.route('/introspect', methods=['GET'])
@@ -277,7 +288,7 @@ def view_route(environ):
     """
     req_dict = app.current_request.to_dict()
     domain, context = app_utils_manager.singleton.get_domain_and_context(req_dict)
-    return app_utils_manager.singleton.view_foursight(environ, app_utils_manager.singleton.check_authorization(req_dict, environ), domain, context)
+    return app_utils_manager.singleton.view_foursight(app.current_request, environ, app_utils_manager.singleton.check_authorization(req_dict, environ), domain, context)
 
 
 @app.route('/view/{environ}/{check}/{uuid}', methods=['GET'])
@@ -288,7 +299,7 @@ def view_check_route(environ, check, uuid):
     req_dict = app.current_request.to_dict()
     domain, context = app_utils_manager.singleton.get_domain_and_context(req_dict)
     if app_utils_manager.singleton.check_authorization(req_dict, environ):
-        return app_utils_manager.singleton.view_foursight_check(environ, check, uuid, True, domain, context)
+        return app_utils_manager.singleton.view_foursight_check(app.current_request, environ, check, uuid, True, domain, context)
     else:
         return app_utils_manager.singleton.forbidden_response()
 
@@ -304,7 +315,7 @@ def history_route(environ, check):
     start = int(query_params.get('start', '0')) if query_params else 0
     limit = int(query_params.get('limit', '25')) if query_params else 25
     domain, context = app_utils_manager.singleton.get_domain_and_context(req_dict)
-    return app_utils_manager.singleton.view_foursight_history(environ, check, start, limit,
+    return app_utils_manager.singleton.view_foursight_history(app.current_request, environ, check, start, limit,
                                   app_utils_manager.singleton.check_authorization(req_dict, environ), domain, context)
 
 
@@ -388,6 +399,42 @@ def delete_environment(environ):
         return app_utils_manager.singleton.run_delete_environment(environ)
     else:
         return app_utils_manager.singleton.forbidden_response()
+
+
+# dmichaels/2022-08-09:
+# For testing/debugging/troubleshooting.
+@app.route('/info/{environ}', methods=['GET'])
+def get_view_info_route(environ):
+    req_dict = app.current_request.to_dict()
+    domain, context = app_utils_manager.singleton.get_domain_and_context(req_dict)
+    is_admin = app_utils_manager.singleton.check_authorization(req_dict, environ)
+    return app_utils_manager.singleton.view_info(request=app.current_request, environ=environ, is_admin=is_admin, domain=domain, context=context)
+
+
+@app.route('/users/{environ}/{email}', methods=['GET'])
+def get_view_user_route(environ, email):
+    req_dict = app.current_request.to_dict()
+    domain, context = app_utils_manager.singleton.get_domain_and_context(req_dict)
+    is_admin = app_utils_manager.singleton.check_authorization(req_dict, environ)
+    return app_utils_manager.singleton.view_user(request=app.current_request, environ=environ, is_admin=is_admin, domain=domain, context=context, email=email)
+
+
+@app.route('/users/{environ}', methods=['GET'])
+def get_view_users_route(environ):
+    req_dict = app.current_request.to_dict()
+    domain, context = app_utils_manager.singleton.get_domain_and_context(req_dict)
+    is_admin = app_utils_manager.singleton.check_authorization(req_dict, environ)
+    return app_utils_manager.singleton.view_users(request=app.current_request, environ=environ, is_admin=is_admin, domain=domain, context=context)
+
+
+# dmichaels/2022-08-12:
+# For testing/debugging/troubleshooting.
+@app.route('/reload_lambda/{environ}/{lambda_name}', methods=['GET'])
+def get_view_reload_lambda_route(environ, lambda_name):
+    req_dict = app.current_request.to_dict()
+    domain, context = app_utils_manager.singleton.get_domain_and_context(req_dict)
+    is_admin = app_utils_manager.singleton.check_authorization(req_dict, environ)
+    return app_utils_manager.singleton.view_reload_lambda(request=app.current_request, environ=environ, is_admin=is_admin, domain=domain, context=context, lambda_name=lambda_name)
 
 
 ######### PURE LAMBDA FUNCTIONS #########

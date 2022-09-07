@@ -1,4 +1,4 @@
-from dcicutils.cloudformation_utils import make_required_key_for_ecs_application_url, camelize, dehyphenate
+from dcicutils.cloudformation_utils import make_required_key_for_ecs_application_url, camelize
 from troposphere import (
     Parameter,
     Join,
@@ -537,7 +537,7 @@ class C4ECSApplication(C4Part):
                 MetricDimension(
                     Name='QueueName',
                     Value=ConfigManager.get_config_setting(Settings.ENV_NAME) +
-                          f'-{deployment_type}-secondary-indexer-queue'),
+                    f'-{deployment_type}-secondary-indexer-queue'),
             ],
             Statistic='Maximum',
             Period='300',
@@ -562,7 +562,7 @@ class C4ECSApplication(C4Part):
                 MetricDimension(
                     Name='QueueName',
                     Value=ConfigManager.get_config_setting(Settings.ENV_NAME) +
-                          f'-{deployment_type}-secondary-indexer-queue'),
+                    f'-{deployment_type}-secondary-indexer-queue'),
             ],
             Statistic='Maximum',
             Period='300',

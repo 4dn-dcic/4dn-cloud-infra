@@ -11,7 +11,8 @@
         "ec2:*",
         "ecs:*",
         "cloudformation:*",
-        "states:*"
+        "states:*",
+        "secretsmanager:GetSecretValue"
       ],
       "Resource": [
         "*"

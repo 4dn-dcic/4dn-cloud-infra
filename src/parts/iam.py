@@ -6,8 +6,8 @@ from awacs.ecr import (
     BatchCheckLayerAvailability,
 )
 from troposphere import Region, AccountId, Template, Ref, Output, Join
-from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey, ManagedPolicy
-from ..base import ConfigManager, Settings
+from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey
+from ..base import ConfigManager
 from ..constants import C4IAMBase
 from ..part import C4Part
 from ..exports import C4Exports, exportify

@@ -14,8 +14,9 @@ except ImportError:
     def DomainEndpointOptions(*args, **kwargs):  # noQA
         raise NotImplementedError('DomainEndpointOptions')
 from troposphere.secretsmanager import Secret
+from .application_configuration_secrets import ApplicationConfigurationSecrets
 from ..base import ConfigManager, APP_DEPLOYMENT
-from ..constants import Settings, Secrets, DeploymentParadigm
+from ..constants import Secrets, DeploymentParadigm
 from ..exports import C4Exports
 from ..part import C4Part
 from ..parts.network import C4NetworkExports
@@ -77,7 +78,8 @@ class C4AppConfig(C4Part):
     CONFIGURATION_DEFAULT_LC_ALL = 'en_US.UTF-8'
     CONFIGURATION_DEFAULT_RDS_PORT = '5432'
 
-    APPLICATION_CONFIGURATION_TEMPLATE = {
+    # dmichaels/2022-08-10: Moved into ApplicationConfigurationSecrets.build_initial_values().
+    OBSOLETE_APPLICATION_CONFIGURATION_TEMPLATE = {
         'deploying_iam_user': CONFIGURATION_PLACEHOLDER,
         'ACCOUNT_NUMBER': AWS_ACCOUNT_ID,
         'S3_AWS_ACCESS_KEY_ID': None,
@@ -146,6 +148,6 @@ class C4AppConfig(C4Part):
             logical_id,
             Name=logical_id,
             Description='This secret defines the application configuration for the orchestrated environment.',
-            SecretString=json.dumps(self.APPLICATION_CONFIGURATION_TEMPLATE),
+            SecretString=json.dumps(ApplicationConfigurationSecrets.build_initial_values(), indent=2),
             Tags=self.tags.cost_tag_array()
         )
