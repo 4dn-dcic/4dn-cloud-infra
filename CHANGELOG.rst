@@ -8,6 +8,15 @@ Change Log
 
 3.4.0
 =====
+* Spruced up Foursight UI a bit (virtually all in foursight-core but mentioning here).
+  * New header/footer.
+    * Different looks for Foursight-CGAP (blue header) and Foursight-Fourfront (green header).
+    * More relevant info in header (login email, environment, stage).
+  * New /info and /users page.
+  * New /users and /users/{email} page.
+  * New dropdown to change environments.
+  * New logout link.
+  * New specific error if login fails due to no user record for environment.
 * Changes for C4-826 to IDENTITY-ize Foursight.
   * Set RDS_NAME in GAC (i.e. same as dbInstanceIdentifier in RDS secret).
   * For provistion foursight pass IDENTITY and STACK_NAME through to foursight-core/build_config_and_package
@@ -19,9 +28,9 @@ Change Log
     see application_configuration_secrets.py.
 * Bunch of flake8 fixups.
 * Up python version from ">=3.7.1,<3.8" from ">=3.7.1,<3.8".
-* Up foursight-core to version 1.0.1.1b32.
-* Up foursight-cgap to version 2.0.1.1b32.
-* Up foursight (commentd out but) to version 1.11.0.1b6.
+* Up foursight-core to version 2.0.0.
+* Up foursight-cgap to version 2.1.0.
+* Up foursight (commentd out but) to version 2.1.0.
 
 
 3.2.4
