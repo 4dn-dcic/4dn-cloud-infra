@@ -37,8 +37,9 @@ class AppUtils(AppUtils_from_fourfront):
     package_name = 'chalicelib'
     # check_setup is moved to vendor/ where it will be automatically placed at top level
     check_setup_dir = os.path.dirname(__file__)
-
-    html_main_title = f'Foursight-{DEFAULT_ENV}-{STAGE}'.title()
+    # html_main_title = f'Foursight-{DEFAULT_ENV}-{STAGE}'.title()
+    # html_main_title = 'Foursight-Fourfront';
+    html_main_title = "Foursight" # Foursight CGAP vs Fourfront difference now conveyed in the upper left icon.
 
 
 app_utils_obj = AppUtils.singleton(AppUtils)
