@@ -5,7 +5,7 @@ default: info
 configure:
 	pip install --upgrade wheel
 	pip install --upgrade pip
-	pip install setuptools==58  # later versions break install
+	pip install setuptools==57.5.0  # later versions break install
 	POETRY_VERSION=1.1.15 eval 'curl -sSL https://install.python-poetry.org | python -'
 
 build:
