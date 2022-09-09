@@ -5,7 +5,7 @@ default: info
 configure:
 	pip install --upgrade wheel
 	pip install --upgrade pip
-	POETRY_VERSION=1.1.15 curl -sSL https://install.python-poetry.org | python -
+	POETRY_VERSION=1.1.15 eval 'curl -sSL https://install.python-poetry.org | python -'
 
 build:
 	make configure
