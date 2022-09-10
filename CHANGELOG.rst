@@ -6,6 +6,12 @@
 Change Log
 ----------
 
+3.4.1
+=====
+
+* Pin ``poetry==1.1.15``
+
+
 3.4.0
 =====
 * Spruced up Foursight UI a bit (virtually all in foursight-core but mentioning here).
