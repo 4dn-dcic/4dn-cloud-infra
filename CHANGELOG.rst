@@ -6,6 +6,19 @@
 Change Log
 ----------
 
+3.4.2
+=====
+
+* In ``Makefile``, changes to simplify ``make build`` and only do the ``brew``
+  parts if ``make build-full`` is done.
+
+  * Split out ``brew`` installation parts to ``make configure-full``,
+    eaving a simpler ``make configure`` that doesn't do that part.
+
+  * Create ``make build-full`` to use ``make configure-full``,
+    so that ``make build`` can just use ``make configure``.
+
+
 3.4.1
 =====
 

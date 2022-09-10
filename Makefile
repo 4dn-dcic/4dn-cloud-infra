@@ -6,12 +6,18 @@ configure:
 	pip install --upgrade wheel
 	pip install --upgrade pip
 	@#curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
-	pip install poetry=1.1.15
+	pip install poetry==1.1.15
+
+configure-full:
 	brew install libevent libmagic libxml2 libxslt openssl graphviz
 	brew install freetype libjpeg libtiff littlecms webp
 
 build:
 	make configure
+	poetry install
+
+build-full:
+	make configure-full
 	poetry install
 
 clean:
@@ -106,6 +112,7 @@ info:
 	@: $(info Here are some 'make' options:)
 	   $(info - Use 'make alpha' to trigger validation of the alpha stack.)
 	   $(info - Use 'make build' to populate the current virtualenv with necessary libraries and commands.)
+	   $(info - Use 'make build-full' on first build, to assure brew has installed important system compontents.)
 	   $(info - Use 'make clear-poetry-cache' to clear the poetry pypi cache if in a bad state. (Safe, but later recaching can be slow.))
 	   $(info - Use 'make deploy-alpha-p1' to trigger phase 1 of the alpha deployment: change set upload of the IAM, Logging, Network, ECR and Datastore.)
 	   $(info - Use 'make deploy-alpha-p2' to trigger phase 2 of the alpha deployment: application version upload to ECR, ECS provisioning.)
