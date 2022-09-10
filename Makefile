@@ -8,9 +8,13 @@ configure:
 	@#curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
 	pip install poetry==1.1.15
 
-configure-full:
+configure-brew:
 	brew install libevent libmagic libxml2 libxslt openssl graphviz
 	brew install freetype libjpeg libtiff littlecms webp
+
+configure-full:
+	make configure
+	make configure-brew
 
 build:
 	make configure
