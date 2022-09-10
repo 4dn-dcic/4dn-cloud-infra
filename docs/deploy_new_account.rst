@@ -10,7 +10,7 @@ cloud infra setup, and created an account with a basic IAM user provisioning, sk
 Step Zero: Setup: Installation, and fill in config
 --------------------------------------------------
 
-First, see `doc/setup.rst` for detailed setup instructions.
+First, see `<docs/setup.rst>`_ for detailed setup instructions.
 
 Step One: Create New Account
 ----------------------------
@@ -30,7 +30,7 @@ Note that the HMS email you use to create this account is treated as the 'root a
 
 * Create one new IAM user separate from the root account login, to be used to provision the rest of the account's
   resources. More information on this bootstrap step to be documented. As a result of this step, you should have this
-  account's credentials in a configurable `.aws` directory, by default, `.aws_test/credentials`.
+  account's credentials in a configurable ``.aws``` directory, by default, ``.aws_test/credentials``.
 
   In these instructions, we assume you'll be using test credentials in ``custom/aws_creds`` (which can be a link to
   ``~/.aws_test`` if you're using our old paradigm). Using an in-repository directory will allow you to have different
@@ -95,7 +95,7 @@ More info: https://docs.aws.amazon.com/elasticsearch-service/latest/developergui
 
 These will take about fifteen minutes or so to finish provisioning, and should be run in order.
 While they are instantiating, write the global application configuration in secrets manager.
-There is more documentation on this is in ``docs/setup.rst``.
+There is more documentation on this is in `<docs/setup.rst>`_.
 
 
 Step Three (Intermission): Push a cgap-portal Image
@@ -183,7 +183,7 @@ Step Five: More CGAP Orchestration with Cloud Formation
 
 * Ensure that you have set the ``identity`` and ``s3.encrypt_key_id`` (if applicable) variables in ``config.json``.
 
-* Once all base stacks have finishing instantiating -- all stacks should be in state `UPDATE_COMPLETE` -- you can
+* Once all base stacks have finishing instantiating -- all stacks should be in state ``UPDATE_COMPLETE`` -- you can
   provision the application stack by doing::
 
      poetry run cli provision ecs --validate --upload-change-set
@@ -349,7 +349,7 @@ To open the URL instead, use::
 
     open-foursight-url
 
-Note that if you have orchestrated with S3 + KMS encryption enabled see ``encryption.rst``
+Note that if you have orchestrated with S3 + KMS encryption enabled see `<docs/encryption.rst>`_
 for additional needed setup.
 
 Step Seven: Deploying Tibanna Zebra
@@ -377,7 +377,7 @@ If you have ENV_NAME set correctly as an environment variable, you can accomplis
 While the tibanna deploy is happening, you may want to do this next step in another shell window.
 
 **IMPORTANT NOTE:**  If you use a different shell, **it is critical** that you re-select the same directory
-as you were in ``(your 4dn-cloud-infra`` repository) **and also** re-run the ``source`` command
+as you were in (your ``4dn-cloud-infra`` repository) **and also** re-run the ``source`` command
 to get new credentials in that window. Even if you think it's redundant, it's advisable to do it anyway to
 avoid error. It's very low-cost and avoids a lot of headache.
 
