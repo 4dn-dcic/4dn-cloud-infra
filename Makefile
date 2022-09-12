@@ -5,7 +5,8 @@ default: info
 configure:
 	pip install --upgrade wheel
 	pip install --upgrade pip
-	curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+	@#curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+	pip install poetry==1.1.15
 	brew install libevent libmagic libxml2 libxslt openssl graphviz
 	brew install freetype libjpeg libtiff littlecms webp
 
@@ -28,8 +29,8 @@ alpha:
 	poetry run cli provision ecr --validate --alpha
 	poetry run cli provision logging --validate --alpha
 	poetry run cli provision ecs --validate --alpha
-	# TODO validate foursight
-	# TODO provision Tibanna
+	@# TODO validate foursight
+	@# TODO provision Tibanna
 	@echo 'Validation Succeeded! Note that this does NOT mean the stacks will build - consider a "light check".'
 
 assure-s3-encrypt-key:
@@ -56,7 +57,7 @@ deploy-alpha-p1:
 	@echo '       To upload application versions to ECR, see cgap-portal: src/deploy/docker/production/Makefile'
 	@echo '       Required Image Tags: "latest", "latest-indexer", "latest-ingester", "latest-deployment"'
 	@echo '    2. Writing your environment configuration in secretsmanager.'
-	# TODO deploy foursight ? might belong in next step
+	@# TODO deploy foursight ? might belong in next step
 
 deploy-alpha-p2:
 	@echo -n "Confirm you have done the 2 required steps after deploy-alpha-p1 with 'y' [y/N] " && read ans && [ $${ans:-N} = y ]
