@@ -8,8 +8,16 @@ configure:
 	pip install setuptools==57.5.0  # later versions break install
 	POETRY_VERSION=1.1.15 eval 'curl -sSL https://install.python-poetry.org | python -'
 
+configure-full:
+	make configure
+	make configure-brew
+
 build:
 	make configure
+	poetry install
+
+build-full:
+	make configure-full
 	poetry install
 
 clean:
@@ -27,8 +35,8 @@ alpha:
 	poetry run cli provision ecr --validate --alpha
 	poetry run cli provision logging --validate --alpha
 	poetry run cli provision ecs --validate --alpha
-	# TODO validate foursight
-	# TODO provision Tibanna
+	@# TODO validate foursight
+	@# TODO provision Tibanna
 	@echo 'Validation Succeeded! Note that this does NOT mean the stacks will build - consider a "light check".'
 
 assure-s3-encrypt-key:
@@ -55,7 +63,7 @@ deploy-alpha-p1:
 	@echo '       To upload application versions to ECR, see cgap-portal: src/deploy/docker/production/Makefile'
 	@echo '       Required Image Tags: "latest", "latest-indexer", "latest-ingester", "latest-deployment"'
 	@echo '    2. Writing your environment configuration in secretsmanager.'
-	# TODO deploy foursight ? might belong in next step
+	@# TODO deploy foursight ? might belong in next step
 
 deploy-alpha-p2:
 	@echo -n "Confirm you have done the 2 required steps after deploy-alpha-p1 with 'y' [y/N] " && read ans && [ $${ans:-N} = y ]
@@ -104,6 +112,7 @@ info:
 	@: $(info Here are some 'make' options:)
 	   $(info - Use 'make alpha' to trigger validation of the alpha stack.)
 	   $(info - Use 'make build' to populate the current virtualenv with necessary libraries and commands.)
+	   $(info - Use 'make build-full' on first build, to assure brew has installed important system compontents.)
 	   $(info - Use 'make clear-poetry-cache' to clear the poetry pypi cache if in a bad state. (Safe, but later recaching can be slow.))
 	   $(info - Use 'make deploy-alpha-p1' to trigger phase 1 of the alpha deployment: change set upload of the IAM, Logging, Network, ECR and Datastore.)
 	   $(info - Use 'make deploy-alpha-p2' to trigger phase 2 of the alpha deployment: application version upload to ECR, ECS provisioning.)

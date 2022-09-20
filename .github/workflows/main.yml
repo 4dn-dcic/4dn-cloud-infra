@@ -24,7 +24,8 @@ jobs:
 
       - name: Install
         run: |
-          make build
+          pip install poetry==1.1.15
+          poetry install
 
       - name: Mock
         run: |

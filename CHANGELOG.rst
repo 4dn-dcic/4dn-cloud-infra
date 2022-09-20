@@ -6,6 +6,28 @@
 Change Log
 ----------
 
+3.4.2
+=====
+
+* In ``Makefile``, changes to simplify ``make build`` and only do the ``brew``
+  parts if ``make build-full`` is done.
+
+  * Split out ``brew`` parts of ``make configure``, creating a new
+    ``make configure-brew`` target.
+
+  * Only call ``make configure-brew`` in ``make configure-full``,
+    not in ``make configure``.
+
+  * Create ``make build-full`` to use ``make configure-full``,
+    so that ``make build`` can just use newly simplified ``make configure``.
+
+
+3.4.1
+=====
+
+* Pin ``poetry==1.1.15``
+
+
 3.4.0
 =====
 * Spruced up Foursight UI a bit (virtually all in foursight-core but mentioning here).

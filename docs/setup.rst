@@ -18,7 +18,11 @@ For example::
 
     pyenv install 3.7.12
     pyenv virtualenv 3.7.12 4dn-cloud-infra37
-    make build
+    make build-full
+
+You only need to use ``make build-full`` on the first install. It will use ``brew`` to assure that some important
+system components are already in place. On subsequent builds, or if you're confident those components are already
+in place, you can use ``make build`` instead.
 
 For more details on the build commands, see the ``Makefile``.
 
