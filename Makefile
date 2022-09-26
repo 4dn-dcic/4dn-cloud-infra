@@ -5,12 +5,8 @@ default: info
 configure:
 	pip install --upgrade wheel
 	pip install --upgrade pip
-	@#curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
-	pip install poetry==1.1.15
-
-configure-brew:
-	brew install libevent libmagic libxml2 libxslt openssl graphviz
-	brew install freetype libjpeg libtiff littlecms webp
+	pip install setuptools==57.5.0  # later versions break install
+	POETRY_VERSION=1.1.15 eval 'curl -sSL https://install.python-poetry.org | python -'
 
 configure-full:
 	make configure

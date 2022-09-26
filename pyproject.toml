@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "4dn-cloud-infra"
-version = "3.4.1"
+version = "3.5.0"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
 authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
@@ -10,20 +10,20 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.7.1,<3.8"
-awacs = "1.0.4"
+awacs = "^2.0.0"
 awscli = "^1.25.34"
 boto3 = "^1.24.34"
 botocore = "^1.27.36"
 chalice = "1.27.1"
-dcicutils = "^4.0.2"
+dcicutils = "^4.4.0"
 
 # lock foursight to deploy foursight-ff
 #foursight = { path = "../foursight", develop = false }
-#foursight = "^2.1.0"
+foursight = "2.1.0"
 
 # foursight-cgap
 #lock foursight-cgap to deploy foursight-cgap
-foursight-cgap = "^2.1.0"
+#foursight-cgap = "^2.1.0"
 
 # Foursight-Core
 #foursight-core = { path = "../foursight-core", develop = false }

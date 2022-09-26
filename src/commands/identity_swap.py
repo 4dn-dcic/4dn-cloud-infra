@@ -1,13 +1,61 @@
 import argparse
 import boto3
-from typing import List
-
+import io
+import json
+import sys
+from typing import List, Union
 from ..base import ConfigManager
 from ..base import Settings
 from ..exceptions import IdentitySwapSetupError
 from dcicutils.lang_utils import conjoined_list
-from dcicutils.misc_utils import PRINT
 from dcicutils.ecs_utils import ECSUtils
+from dcicutils.command_utils import yes_or_no
+from dcicutils.misc_utils import PRINT, find_association, remove_prefix
+from dcicutils.env_base import EnvBase
+from dcicutils.s3_utils import s3Utils
+
+
+def print_json(data, file=None, indent=2, default=str):
+    file = file or sys.stdout
+    PRINT(json.dumps(data, indent=indent, default=default), file=file)
+
+
+def download_config(*, bucket, key):
+    """ Downloads a config file from s3 """
+    stream = io.BytesIO()
+    s3 = boto3.client('s3')
+    s3.download_fileobj(Fileobj=stream, Bucket=bucket, Key=key)
+    return json.loads(stream.getvalue())
+
+
+def upload_config(*, bucket, key, data: Union[str, dict], query=True):
+    """ Uploads config intended for GLOBAL_ENV_BUCKET
+        Note that this does not support S3_ENCRYPT_KEY_ID at the moment
+    """
+    heading(f"{key} in bucket {bucket} (OLD - ALREADY INSTALLED - REFORMATTED FOR DISPLAY)")
+    print_json(download_config(bucket=bucket, key=key))
+    heading(f"{key} in bucket {bucket} (NEW - TO BE UPLOADED)")
+    print_json(data)
+    if not query or yes_or_no(f"OK to upload?"):
+        if isinstance(data, dict):
+            data = json.dumps(data, indent=2, default=str) + "\n"
+        stream = io.BytesIO(data.encode('utf-8'))
+        s3 = boto3.client('s3')
+        s3.upload_fileobj(Fileobj=stream, Bucket=bucket, Key=key)
+        PRINT("Uploaded.")
+    else:
+        PRINT("NOT uploaded.")
+
+
+def heading(text=None, wid=120):
+    if text:
+        PRINT("=" * wid)
+        PRINT(" " * ((wid - len(text)) // 2) + text)
+    PRINT("=" * wid)
+
+
+DATA_URL = 'https://data.4dnucleome.org'
+STAGING_URL = 'https://staging.4dnucleome.org'
 
 
 class C4IdentitySwap:
@@ -228,9 +276,105 @@ class FFIdentitySwap(C4IdentitySwap):
             cls.update_service(ecs, cluster, service, new_task_definition)
 
     @classmethod
-    def _update_foursight(cls):
-        """ Triggers foursight update by building data/staging env entries in GLOBAL_ENV_BUCKET. """
-        pass
+    def _update_foursight(cls, assure_prod_color=None):
+        """ Triggers foursight update by updating data/staging env entries in GLOBAL_ENV_BUCKET. """
+        with EnvBase.global_env_bucket_named('foursight-prod-envs'):
+
+            heading("WARNING")
+            PRINT("     This script will make changes to important files critical to")
+            PRINT("     the correct operation of Fourfront. You should not do this casually.")
+            heading()
+            if yes_or_no("Are you sure you want to proceed?"):
+                PRINT("OK, continuing.")
+            else:
+                PRINT("Aborting.")
+                return
+
+            if assure_prod_color is None:  # i.e., if we're just flipping and not trying to force a specific color
+                main_ecosystem = "main.ecosystem"
+                old_main = download_config(bucket='foursight-prod-envs', key=main_ecosystem)
+                old_prd_env_name = old_main['prd_env_name']
+                old_color = {'fourfront-production-blue': 'blue', 'fourfront-production-green': 'green'}[
+                    old_prd_env_name]
+                swapped_color = {'blue': 'green', 'green': 'blue'}[old_color]
+                swapped_ecosystem_file = f"{swapped_color}.ecosystem"
+                swapped_data = download_config(bucket='foursight-prod-envs', key=swapped_ecosystem_file)
+                upload_config(bucket='foursight-prod-envs', key=main_ecosystem, data=swapped_data)
+            else:
+                raise NotImplementedError("need to add support for forcing a specific color")
+
+            data = s3Utils.get_synthetic_env_config('data')  # Compute the real value from the real bucket
+            data_env = data['ff_env']
+            data['fourfront'] = DATA_URL
+            data['ff_env'] = 'data'  # Synthetic value would say the full env name here, but we used to not do that.
+            data[
+                'ecosystem'] = 'main.ecosystem'  # THe synthetic values don't have an ecosystem, so add it in old style.
+            # It's not supposed to matter which format, but since the old tools were using this without http://
+            # let's be maximally compatible. -kmp 23-Aug-2022
+            data['es'] = remove_prefix('https://', data['es'])
+
+            staging = s3Utils.get_synthetic_env_config('staging')  # Compute the real value from the real bucket
+            staging_env = staging['ff_env']
+            staging['fourfront'] = STAGING_URL
+            staging[
+                'ff_env'] = 'staging'  # Synthetic value would say the full env name here, but we used to not do that.
+            staging[
+                'ecosystem'] = 'main.ecosystem'  # THe synthetic values don't have an ecosystem, so add it in old style.
+            # It's not supposed to matter which format, but since the old tools were using this without http://
+            # let's be maximally compatible. -kmp 23-Aug-2022
+            staging['es'] = remove_prefix('https://', staging['es'])
+
+            main = download_config(bucket='foursight-envs', key='main.ecosystem')
+
+            # There's an element that was 'stg_env' in foursight-envs main.ecosystem that I THINK should be stg_env_name,
+            # but since it's harmless to keep both, and this is an interim tool intended to be maximally compatible,
+            # let's add the one I think is right rather than replace it.
+            # -kmp 23-Aug-2022
+            new_main = {}
+            for k, v in main.items():
+                if k == 'stg_env':  # This seems like a typo, but just in case it's old compatibility, leave it.
+                    new_main[k] = v
+                    new_main['stg_env_name'] = v
+                else:
+                    new_main[k] = v
+            main = new_main
+
+            # Now finally do surgery to make sure we really know what env (green or blue) is dominant.
+            # Must update both the top-level declaration and the environment mapping.
+            # For now we are assuming that the declarations files for fourfront-production-blue
+            # and fourfront-production-green need no adjustment. -kmp 23-Aug-2022
+
+            main['prd_env_name'] = data_env
+            main['stg_env'] = staging_env
+            main['stg_env_name'] = staging_env
+
+            public_url_table = main['public_url_table']
+
+            data_entry = find_association(public_url_table, name='data')
+            # data_entry['name'] is unchanged ('data')
+            data_entry['url'] = DATA_URL
+            data_entry['host'] = 'data.4dnucleome.org'
+            data_entry['environment'] = data_env
+
+            staging_entry = find_association(public_url_table, name='staging')
+            # staging_entry['name'] is unchanged ('staging')
+            staging_entry['url'] = STAGING_URL  # note https:// is recently preferred
+            staging_entry['host'] = 'staging.4dnucleome.org'
+            staging_entry['environment'] = staging_env
+
+            green_env = 'fourfront-production-green'
+            green = download_config(bucket='foursight-envs', key=green_env)
+            green['fourfront'] = find_association(public_url_table, environment=green_env)['url']
+
+            blue_env = 'fourfront-production-blue'
+            blue = download_config(bucket='foursight-envs', key='fourfront-production-blue')
+            blue['fourfront'] = find_association(public_url_table, environment=blue_env)['url']
+
+            upload_config(bucket='foursight-envs', key='data', data=data)
+            upload_config(bucket='foursight-envs', key='staging', data=staging)
+            upload_config(bucket='foursight-envs', key=green_env, data=green)
+            upload_config(bucket='foursight-envs', key=blue_env, data=blue)
+            upload_config(bucket='foursight-envs', key='main.ecosystem', data=main)
 
     @classmethod
     def identity_swap(cls, *, blue: str, green: str, mirror: bool) -> None:
@@ -256,8 +400,7 @@ class FFIdentitySwap(C4IdentitySwap):
             cls._execute_swap_plan(ecs, blue_cluster_arn, green_cluster_arn, swap_plan)
             PRINT(f'Swap plan executed - new tasks should reflect within 5 minutes')
 
-        # swap the foursight environments (ES URL)
-        # TODO: discuss how to do this with Kent after verifying env setup is correct
+        # update GLOBAL_ENV_BUCKET
         cls._update_foursight()
 
 
