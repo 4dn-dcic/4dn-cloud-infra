@@ -15,7 +15,6 @@ from foursight_core.deploy import Deploy
 
 STAGE = os.environ.get('chalice_stage', 'dev')
 HOST = os.environ.get('ES_HOST', None)
-DEFAULT_ENV = os.environ.get('ENV_NAME', 'fourfront-uninitialized')
 
 FOURSIGHT_PREFIX = os.environ.get('FOURSIGHT_PREFIX')
 if not FOURSIGHT_PREFIX:
@@ -40,6 +39,7 @@ class AppUtils(AppUtils_from_fourfront):
     # html_main_title = f'Foursight-{DEFAULT_ENV}-{STAGE}'.title()
     # html_main_title = 'Foursight-Fourfront';
     html_main_title = "Foursight" # Foursight CGAP vs Fourfront difference now conveyed in the upper left icon.
+    DEFAULT_ENV = os.environ.get('ENV_NAME', 'foursight-fourfront-env-uninitialized')
 
 
 app_utils_obj = AppUtils.singleton(AppUtils)

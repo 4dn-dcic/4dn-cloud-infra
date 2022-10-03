@@ -136,6 +136,8 @@ class C4Client:
         # execute package cmd
         logger.info('Uploading foursight package...')
         logger.info(cmd_package)
+        print("XYZZY:PRUNING CHALICE DEPLOY ZIP FILE")
+        os.system("/tmp/prune_chalice_package.sh /Users/dmichaels/repos/cgap/react/4dn-cloud-infra/out/foursight-dev-tmp/deployment.zip")  # results in sam-packaged.yaml being added to output_file
         os.system(cmd_package)  # results in sam-packaged.yaml being added to output_file
 
         # flags for cloudformation deploy command (change set upload only, no template execution)

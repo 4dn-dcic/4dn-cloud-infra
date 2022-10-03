@@ -15,7 +15,6 @@ from foursight_core.deploy import Deploy
 
 STAGE = os.environ.get('chalice_stage', 'dev')
 HOST = os.environ.get('ES_HOST', None)
-DEFAULT_ENV = os.environ.get('ENV_NAME', 'cgap-uninitialized')
 # previously FOURSIGHT_PREFIX = 'foursight-cgap-mastertest'  # TODO: This should probably just be 'foursight-cgap'
 FOURSIGHT_PREFIX = os.environ.get('FOURSIGHT_PREFIX')
 if not FOURSIGHT_PREFIX:
@@ -40,6 +39,7 @@ class AppUtils(AppUtils_from_cgap):
     # This will heuristically mostly title-case te DEFAULT_ENV but will put CGAP in all-caps.
     # html_main_title = f'Foursight-{DEFAULT_ENV}'.title().replace("Cgap", "CGAP")  # was 'Foursight-CGAP-Mastertest'
     html_main_title = "Foursight" # Foursight CGAP vs Fourfront difference now conveyed in the upper left icon.
+    DEFAULT_ENV = os.environ.get('ENV_NAME', 'foursight-cgap-env-uninitialized')
 
 
 app_utils_obj = AppUtils.singleton(AppUtils)
