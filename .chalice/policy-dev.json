@@ -13,7 +13,8 @@
         "cloudformation:*",
         "states:*",
         "secretsmanager:GetSecretValue",
-        "secretsmanager:ListSecrets"
+        "secretsmanager:ListSecrets",
+        "iam:ListAccountAliases"
       ],
       "Resource": [
         "*"
