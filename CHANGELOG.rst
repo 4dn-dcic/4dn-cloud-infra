@@ -6,6 +6,19 @@
 Change Log
 ----------
 
+3.5.1
+=====
+
+* Up foursight-core to version 2.0.2.
+* Up foursight to version 2.1.1.
+
+
+3.5.0
+=====
+
+`PR #63: Add Kent's Bucket Swap Code <https://github.com/4dn-dcic/4dn-cloud-infra/pull/63>`_
+
+
 3.4.2
 =====
 
@@ -208,4 +221,3 @@ the ``poetry.app`` section of ``pyproject.toml``, as in::
    name = "4dn-cloud-infra"
    version = "0.1.2"
    ...etc.
-
