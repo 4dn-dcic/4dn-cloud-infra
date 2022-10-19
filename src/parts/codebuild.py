@@ -30,6 +30,7 @@ class C4CodeBuild(C4Part):
     DEFAULT_COMPUTE_TYPE = 'BUILD_GENERAL1_SMALL'
     BUILD_TYPE = 'LINUX_CONTAINER'
     BUILD_IMAGE = 'aws/codebuild/standard:6.0'
+    DEFAULT_GITHUB_REPOSITORY = 'https://github.com/dbmi-bgm/cgap-portal'
     STACK_NAME_TOKEN = 'codebuild'
     STACK_TITLE_TOKEN = 'CodeBuild'
     DEFAULT_DEPLOY_BRANCH = 'master'
@@ -57,7 +58,8 @@ class C4CodeBuild(C4Part):
         # Build project
         build_project = self.cb_project(
             project_name=project_name,
-            github_repo_url=ConfigManager.get_config_setting(Settings.CODEBUILD_GITHUB_REPOSITORY_URL),
+            github_repo_url=ConfigManager.get_config_setting(Settings.CODEBUILD_GITHUB_REPOSITORY_URL,
+                                                             default=self.DEFAULT_GITHUB_REPOSITORY),
             branch=ConfigManager.get_config_setting(Settings.CODEBUILD_DEPLOY_BRANCH,
                                                     default=self.DEFAULT_DEPLOY_BRANCH)
         )
