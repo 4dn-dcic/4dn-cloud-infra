@@ -105,8 +105,29 @@ Step Three (Intermission): Push a cgap-portal Image
 create a CodeBuild project to expedite the build process, but you can build/push
 an image manually from your local machine.
 
-* Once your new ECR comes online, upload an application image to it.
-  See the cgap-portal Makefile. Push the image tag specified in ``config.json`` prior to deploying ECS.
+Once your new ECR comes online, upload an application image to it.
+See the cgap-portal Makefile. Push the image tag specified in ``config.json`` prior to deploying ECS.
+
+Although you can build images locally, we recommend using CodeBuild since it is much faster than
+building on the local machine.
+
+To use CodeBuild, create a Github Personal Access Token and add it to your
+``secrets.json`` file ie::
+
+    {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "github_pat_abcd1234"
+    }
+
+Once this is set you can trigger the stack build for CodeBuild::
+
+    poetry run cli provision codebuild --validate --upload-change-set
+
+This will create a new CodeBuild job that will use your personal access token to clone
+the default repository. You change the repository to build by setting ``codebuild.repo_url`` in your
+``config.json`` file.
+
+Execute this change set, after which a CodeBuild job for building the portal will be available. Trigger
+the job and the master branch will be built and pushed to your ECR.
 
 
 Step Four: Fill out any remaining application secrets

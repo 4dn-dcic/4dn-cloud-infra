@@ -341,6 +341,50 @@ def validate_and_get_recaptcha(recaptcha_key: str, recaptcha_secret: str) -> (st
     return recaptcha_key, recaptcha_secret
 
 
+def validate_and_get_github_pat(personal_access_token: str) -> str:
+    """
+    Validates the given personal access token, MUST be set in order to use CodeBuild
+
+    :param personal_access_token: value of token from Github
+    :return: Personal access token value
+    """
+    if personal_access_token:
+        PRINT(f'Using GITHUB_PERSONAL_ACCESS_TOKEN: {obfuscate(personal_access_token)}')
+    else:
+        PRINT(f'No GITHUB_PERSONAL_ACCESS_TOKEN set. Note that you will NOT be able to'
+              f' build the CodeBuild Stack!')
+    return personal_access_token
+
+
+def validate_and_get_github_url(github_url: str) -> str:
+    """
+    Validates the Github Repo URL passed to build
+
+    :param github_url: value of URL
+    :return: the url
+    """
+    if github_url:
+        PRINT(f'Using Github URL for CodeBuild {github_url}')
+    else:
+        PRINT(f'No Github URL specified! Note you will NOT be able to build the'
+              f' CodeBuild Stack!')
+    return github_url
+
+
+def validate_and_get_ecr_repo_name(ecr_repo_name: str) -> str:
+    """
+    Validates the ECR Repo Name passed to build (this is where the build pushed to)
+
+    :param ecr_repo_name: value of repo on ECR
+    :return: the name
+    """
+    if ecr_repo_name:
+        PRINT(f'Using ECR Repo for CodeBuild {ecr_repo_name}')
+    else:
+        PRINT(f'No ECR Repo specified - defaulting to main')
+    return ecr_repo_name
+
+
 def write_json_file_from_template(
         output_file: str, template_file: str, substitutions: dict, debug: bool = False) -> None:
     """
@@ -419,6 +463,8 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
                     s3_bucket_org: str, s3_bucket_encryption: bool,
                     auth0_client: str, auth0_secret: str,
                     recaptcha_key: str, recaptcha_secret: str,
+                    ecr_repo_name: str,
+                    github_url: str, github_pat: str,
                     confirm: bool, debug: bool) -> None:
 
     with setup_and_action() as setup_and_action_state:
@@ -438,6 +484,9 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
         s3_bucket_org = validate_and_get_s3_bucket_org(s3_bucket_org)
         auth0_client, auth0_secret = validate_and_get_auth0(auth0_client, auth0_secret)
         recaptcha_key, recaptcha_secret = validate_and_get_recaptcha(recaptcha_key, recaptcha_secret)
+        ecr_repo_name = validate_and_get_ecr_repo_name(ecr_repo_name)
+        github_repo_url = validate_and_get_github_url(github_url)
+        github_personal_access_token = validate_and_get_github_pat(github_pat)
 
         PRINT(f"Using S3 bucket encryption: {'Yes' if s3_bucket_encryption else 'No'}")
 
@@ -464,7 +513,9 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
             ConfigTemplateVars.IDENTITY: identity,
             ConfigTemplateVars.S3_BUCKET_ORG: s3_bucket_org,
             ConfigTemplateVars.S3_BUCKET_ENCRYPTION: True if s3_bucket_encryption else False,
-            ConfigTemplateVars.ENCODED_ENV_NAME: aws_credentials_name
+            ConfigTemplateVars.ENCODED_ENV_NAME: aws_credentials_name,
+            ConfigTemplateVars.GITHUB_REPO_URL: github_repo_url,
+            ConfigTemplateVars.ECR_REPO_NAME: ecr_repo_name
         })
 
         # Create the secrets.json file from the template and the inputs.
@@ -472,7 +523,8 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
             SecretsTemplateVars.AUTH0_CLIENT: auth0_client,
             SecretsTemplateVars.AUTH0_SECRET: auth0_secret,
             SecretsTemplateVars.RECAPTCHA_KEY: recaptcha_key,
-            SecretsTemplateVars.RECAPTCHA_SECRET: recaptcha_secret
+            SecretsTemplateVars.RECAPTCHA_SECRET: recaptcha_secret,
+            SecretsTemplateVars.GITHUB_PERSONAL_ACCESS_TOKEN: github_personal_access_token
         })
 
         # Create the symlink from custom/aws_creds to ~/.aws_test.<aws-credentials-name>
@@ -518,6 +570,12 @@ def main(override_argv: Optional[list] = None) -> None:
                       help="Your reCAPTCHA key")
     argp.add_argument("--recaptchasecret", "-rs", dest="recaptcha_secret", type=str, required=False,
                       help="Your reCAPTCHA secret")
+    argp.add_argument("--ecr-repo-name", '-ecr', dest='ecr_repo_name', type=str, required=False,
+                      default='main', help='Repository name to push to on ECR - default is main')
+    argp.add_argument("--github-url", "-gu", dest="github_url", type=str, required=False,
+                      help="Github URL for use with CodeBuild (portal application)")
+    argp.add_argument("--github-personal-access-token", "-gpat", dest="github_pat", type=str, required=False,
+                      help="Github Personal Access Token for use with CodeBuild (portal application)")
     argp.add_argument("--s3org", "-n", dest="s3_bucket_org", type=str, required=False,
                       help="Your S3 bucket organization name")
     argp.add_argument("--s3encrypt", "-e", dest="s3_bucket_encryption",
@@ -534,6 +592,8 @@ def main(override_argv: Optional[list] = None) -> None:
                     args.s3_bucket_org, args.s3_bucket_encryption,
                     args.auth0_client, args.auth0_secret,
                     args.recaptcha_key, args.recaptcha_secret,
+                    args.ecr_repo_name,
+                    args.github_url, args.github_pat,
                     args.confirm, args.debug)
 
 
