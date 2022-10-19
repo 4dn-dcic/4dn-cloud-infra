@@ -30,5 +30,8 @@
     "rds.storage_size": "50",
 
     "s3.bucket.encryption": "<s3-bucket-encryption>",
-    "s3.bucket.org": "<s3-bucket-org>"
+    "s3.bucket.org": "<s3-bucket-org>",
+
+    "codebuild.repo_url": "<github-repo-url>",
+    "codebuild.repo_name": "<ecr-repo-name>"
 }

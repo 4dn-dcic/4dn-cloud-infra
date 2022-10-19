@@ -17,6 +17,8 @@ class ConfigTemplateVars:
     ENCODED_ENV_NAME = "<encoded-env-name>"
     S3_BUCKET_ORG = "<s3-bucket-org>"
     S3_BUCKET_ENCRYPTION = "<s3-bucket-encryption>"
+    GITHUB_REPO_URL = "<github-repo-url>"
+    ECR_REPO_NAME = "<ecr-repo-name>"
 
 
 class SecretsTemplateVars:
@@ -24,6 +26,7 @@ class SecretsTemplateVars:
     AUTH0_SECRET = "<auth0-secret>"
     RECAPTCHA_KEY = "<recaptcha-key>"
     RECAPTCHA_SECRET = "<recaptcha-secret>"
+    GITHUB_PERSONAL_ACCESS_TOKEN = "<github-pat>"
 
 
 class EnvVars:

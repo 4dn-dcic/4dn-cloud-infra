@@ -7,12 +7,13 @@
 class Secrets:
     """ Secret values pulled from custom/secrets.json follow these identifiers """
     # Secrets (customarily held in environment variables by these names)
-    AUTH0_CLIENT = "Auth0Client"
-    AUTH0_SECRET = "Auth0Secret"
-    ENCODED_SECRET = "ENCODED_SECRET"
+    AUTH0_CLIENT = 'Auth0Client'
+    AUTH0_SECRET = 'Auth0Secret'
+    ENCODED_SECRET = 'ENCODED_SECRET'
     RECAPTCHA_KEY = 'reCaptchaKey'
     RECAPTCHA_SECRET = 'reCaptchaSecret'
-    S3_ENCRYPT_KEY = "S3_ENCRYPT_KEY"
+    S3_ENCRYPT_KEY = 'S3_ENCRYPT_KEY'
+    GITHUB_PERSONAL_ACCESS_TOKEN = 'GITHUB_PERSONAL_ACCESS_TOKEN'
 
 
 class DeploymentParadigm:
@@ -115,8 +116,9 @@ class Settings:
     S3_ENCRYPT_KEY_ID = 's3.encrypt_key_id'
 
     # CodeBuild options
-    CODEBUILD_REPOSITORY_URL = 'codebuild.repo_url'
+    CODEBUILD_GITHUB_REPOSITORY_URL = 'codebuild.repo_url'  # url to github source repository
     CODEBUILD_DEPLOY_BRANCH = 'codebuild.build_branch'
+    CODEBUILD_REPO_NAME = 'codebuild.repo_name'  # name of ECR repo
 
 
 # dmichaels/2022-06-06: Factored out from base.py.

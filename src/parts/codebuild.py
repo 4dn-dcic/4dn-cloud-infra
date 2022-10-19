@@ -1,10 +1,11 @@
-from troposphere import Template, Parameter, AccountId, Ref, Output
-from troposphere.codebuild import Artifacts, Environment, Project, Source, SourceAuth, VpcConfig
+from troposphere import Template, Parameter, AccountId, Join, Region, Ref, Output
+from troposphere.codebuild import Artifacts, Environment, Project, Source, SourceAuth, VpcConfig, SourceCredential
 from troposphere.iam import Role, Policy
+from dcicutils.cloudformation_utils import camelize
 from .network import C4NetworkExports
 from ..part import C4Part
 from ..exports import C4Exports
-from ..base import ConfigManager, Settings
+from ..base import ConfigManager, Settings, Secrets
 
 
 class C4CodeBuildExports(C4Exports):
@@ -28,6 +29,7 @@ class C4CodeBuildExports(C4Exports):
 class C4CodeBuild(C4Part):
     DEFAULT_COMPUTE_TYPE = 'BUILD_GENERAL1_SMALL'
     BUILD_TYPE = 'LINUX_CONTAINER'
+    BUILD_IMAGE = 'aws/codebuild/standard:6.0'
     STACK_NAME_TOKEN = 'codebuild'
     STACK_TITLE_TOKEN = 'CodeBuild'
     DEFAULT_DEPLOY_BRANCH = 'master'
@@ -48,10 +50,14 @@ class C4CodeBuild(C4Part):
         iam_role = self.cb_iam_role(project_name=project_name)
         template.add_resource(iam_role)
 
+        # credentials for cb
+        creds = self.cb_source_credential()
+        template.add_resource(creds)
+
         # Build project
         build_project = self.cb_project(
             project_name=project_name,
-            github_repo_url=ConfigManager.get_config_setting(Settings.CODEBUILD_REPOSITORY_URL),
+            github_repo_url=ConfigManager.get_config_setting(Settings.CODEBUILD_GITHUB_REPOSITORY_URL),
             branch=ConfigManager.get_config_setting(Settings.CODEBUILD_DEPLOY_BRANCH,
                                                     default=self.DEFAULT_DEPLOY_BRANCH)
         )
@@ -70,23 +76,57 @@ class C4CodeBuild(C4Part):
         return template
 
     @staticmethod
-    def cb_iam_role(*, project_name) -> Role:
-        return Role(
-            f'CodeBuildRoleFor{project_name}',
-            AssumeRolePolicyDocument=Policy(
-                Statement=[
-                    dict(
-                        Effect='Allow',
-                        Action=['AssumeRole'],
-                        Principal=dict(Service=['codebuild.amazonaws.com'])
-                    )
+    def cb_vpc_policy() -> Policy:
+        return Policy(  # give CB access to network so can run in private VPC subnets
+            PolicyName='CBNetworkPolicy',
+            PolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "ec2:CreateNetworkInterface",
+                            "ec2:DescribeDhcpOptions",
+                            "ec2:DescribeNetworkInterfaces",
+                            "ec2:DeleteNetworkInterface",
+                            "ec2:DescribeSubnets",
+                            "ec2:DescribeSecurityGroups",
+                            "ec2:DescribeVpcs"
+                        ],
+                        "Resource": "*"
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "ec2:CreateNetworkInterfacePermission"
+                        ],
+                        "Resource": [Join(':', ["arn:aws:ec2", Region, AccountId, "network-interface/*"])],
+                    }
                 ]
+            }
+        )
+
+    def cb_iam_role(self, *, project_name) -> Role:
+        return Role(
+            f'CodeBuildRoleFor{camelize(project_name)}',
+            AssumeRolePolicyDocument=dict(
+                Version='2012-10-17',
+                Statement=[dict(
+                    Effect='Allow',
+                    Action=[
+                        'sts:AssumeRole',
+                    ],
+                    Principal=dict(Service=['codebuild.amazonaws.com']),
+                )],
             ),
+            Policies=[
+                self.cb_vpc_policy()
+            ],
             ManagedPolicyArns=[
                 'arn:aws:iam::aws:policy/AmazonS3FullAccess',
                 'arn:aws:iam::aws:policy/CloudWatchFullAccess',
                 'arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess',
-                'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser'
+                'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser',
             ],
         )
 
@@ -102,7 +142,7 @@ class C4CodeBuild(C4Part):
         return [
             {'Name': 'AWS_DEFAULT_REGION', 'Value': 'us-east-1'},
             {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
-            {'Name': 'IMAGE_REPO_NAME', 'Value': ConfigManager.get_config_setting(Settings.ENV_NAME)},
+            {'Name': 'IMAGE_REPO_NAME', 'Value': ConfigManager.get_config_setting(Settings.CODEBUILD_REPO_NAME)},
             {'Name': 'IMAGE_TAG', 'Value': ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, default='latest')}
         ]
 
@@ -110,15 +150,29 @@ class C4CodeBuild(C4Part):
         """ Environment configuration for the codebuild job """
         return Environment(
             ComputeType=self.DEFAULT_COMPUTE_TYPE,
+            Image=self.BUILD_IMAGE,
             EnvironmentVariables=self._cb_base_environment_vars(),
-            Type=self.BUILD_TYPE
+            Type=self.BUILD_TYPE,
+            PrivilegedMode=True
         )
 
     @staticmethod
-    def cb_source(*, github_repo_url) -> Source:
+    def cb_source_credential() -> SourceCredential:
+        """ Grabs a Github Personal Access Token for use with CodeBuild """
+        return SourceCredential(
+            'GithubSourceCredential',
+            AuthType='PERSONAL_ACCESS_TOKEN',
+            ServerType='GITHUB',
+            Token=ConfigManager.get_config_secret(Secrets.GITHUB_PERSONAL_ACCESS_TOKEN)
+        )
+
+    def cb_source(self, *, github_repo_url) -> Source:
         """ Defines the source for the code build job, typically Github """
         return Source(
-            Auth=SourceAuth(Type='OAUTH'),
+            Auth=SourceAuth(
+                Resource=Ref(self.cb_source_credential()),
+                Type='OAUTH'
+            ),
             Location=github_repo_url,
             Type='GITHUB'
         )
@@ -126,15 +180,15 @@ class C4CodeBuild(C4Part):
     def cb_vpc_config(self) -> VpcConfig:
         """ Configures CB jobs to run in the VPC """
         return VpcConfig(
-            SecurityGgroupIds=self.NETWORK_EXPORTS.import_value(C4NetworkExports.APPLICATION_SECURITY_GROUP),
-            Subnets=self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNETS[0]),
+            SecurityGroupIds=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.APPLICATION_SECURITY_GROUP)],
+            Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNETS[0])],
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC)
         )
 
     def cb_project(self, *, project_name, github_repo_url, branch) -> Project:
         """ Builds a CodeBuild project for project_name """
         return Project(
-            project_name,
+            camelize(project_name),
             Artifacts=self.cb_artifacts(),
             Description=f'Build project for {project_name}',
             Environment=self.cb_environment(),
@@ -143,7 +197,7 @@ class C4CodeBuild(C4Part):
             Source=self.cb_source(github_repo_url=github_repo_url),
             SourceVersion=branch,
             VpcConfig=self.cb_vpc_config(),
-            Tags=self.tags.cost_tag_array()
+            Tags=self.tags.cost_tag_obj()
         )
 
     def output_value(self, resource, export_name) -> Output:
@@ -151,7 +205,7 @@ class C4CodeBuild(C4Part):
         # TODO: refactor this method for general use
         logical_id = self.name.logical_id(export_name)
         return Output(
-            logical_id,
+            camelize(logical_id),
             Value=Ref(resource),
             Export=self.EXPORTS.export(export_name)
         )
