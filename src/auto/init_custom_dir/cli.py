@@ -51,6 +51,7 @@ import stat
 from typing import Optional
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
+from dcicutils.lang_utils import conjoined_list
 from ...names import Names
 from ..utils.aws import Aws
 from ..utils.misc_utils import (exit_with_no_action,
@@ -385,6 +386,24 @@ def validate_and_get_ecr_repo_name(ecr_repo_name: str) -> str:
     return ecr_repo_name
 
 
+def validate_and_get_data_set(data_set: str) -> str:
+    """
+    Validates that the data_set we are going to load from is either 'deploy' or 'custom'
+
+    :param data_set: data set name
+    :return: the name
+    """
+    valid_data_sets = ['deploy', 'custom']
+    if data_set not in valid_data_sets:
+        exit_with_no_action(f"Your specified value for data_set: {data_set} is not valid - valid data sets are"
+                            f" {conjoined_list(valid_data_sets)}.")
+    PRINT(f'Loading encoded data set from function loadxl.load_{data_set}_data')
+    if data_set == 'custom':
+        PRINT(f'You have selected custom deploy inserts - for this to work correctly you must set ENCODED_ADMIN_USERS'
+              f' in the format specified in the generated config.json!')
+    return data_set
+
+
 def write_json_file_from_template(
         output_file: str, template_file: str, substitutions: dict, debug: bool = False) -> None:
     """
@@ -457,7 +476,7 @@ def write_s3_encrypt_key_file(custom_dir: str, s3_encrypt_key: str) -> None:
 
 def init_custom_dir(aws_dir: str, aws_credentials_name: str,
                     custom_dir: str,
-                    account_number: str,
+                    account_number: str, data_set: str,
                     deploying_iam_user: str,
                     identity: str,
                     s3_bucket_org: str, s3_bucket_encryption: bool,
@@ -479,6 +498,7 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
                                                                                           confirm, debug)
         custom_dir = validate_and_get_custom_dir(custom_dir)
         account_number = validate_and_get_account_number(account_number, aws_credentials_dir, debug)
+        data_set = validate_and_get_data_set(data_set)
         deploying_iam_user = validate_and_get_deploying_iam_user(deploying_iam_user, aws_credentials_dir)
         identity = validate_and_get_identity(identity, aws_credentials_name)
         s3_bucket_org = validate_and_get_s3_bucket_org(s3_bucket_org)
@@ -509,6 +529,7 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
         # Create the config.json file from the template and the inputs.
         write_config_json_file(custom_dir, {
             ConfigTemplateVars.ACCOUNT_NUMBER: account_number,
+            ConfigTemplateVars.DATA_SET: data_set,
             ConfigTemplateVars.DEPLOYING_IAM_USER: deploying_iam_user,
             ConfigTemplateVars.IDENTITY: identity,
             ConfigTemplateVars.S3_BUCKET_ORG: s3_bucket_org,
@@ -583,10 +604,14 @@ def main(override_argv: Optional[list] = None) -> None:
                       help="To encrypt S3 buckets")
     argp.add_argument("--username", "-u", dest="deploying_iam_user", type=str, required=False,
                       help="Your deploying IAM username")
+    argp.add_argument("--data-set", "-ds", dest="data_set", type=str, required=False, default='deploy',
+                      help="Data set to load into the system - deploy by default for DBMI internal users, others"
+                           " should redefine to 'custom' and set 'ENCODED_ADMIN_USERS' in config.json once it has"
+                           " been generated.")
     args = argp.parse_args(override_argv)
 
     init_custom_dir(args.aws_dir, args.aws_credentials_name, args.custom_dir,
-                    args.account_number,
+                    args.account_number, args.data_set,
                     args.deploying_iam_user,
                     args.identity,
                     args.s3_bucket_org, args.s3_bucket_encryption,

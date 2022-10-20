@@ -38,7 +38,7 @@ class ApplicationConfigurationSecrets:
             'ENV_NAME': env_name,
             'ENCODED_APPLICATION_BUCKET_PREFIX': ConfigManager.resolve_bucket_name("{application_prefix}"),
             'ENCODED_BS_ENV': env_name,
-            'ENCODED_DATA_SET': 'deploy',
+            'ENCODED_DATA_SET': ConfigManager.get_config_setting(Settings.DATA_SET, default='deploy'),
             'ENCODED_ES_SERVER': cls.get_es_url(),  # None,
             'ENCODED_FOURSIGHT_BUCKET_PREFIX': ConfigManager.resolve_bucket_name("{foursight_prefix}"),
             'ENCODED_IDENTITY': None,  # This is the name of the Secrets Manager with all our identity's secrets
@@ -73,6 +73,7 @@ class ApplicationConfigurationSecrets:
             'ENCODED_S3_ENCRYPT_KEY_ID': ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None),
             'ENCODED_SENTRY_DSN': '',
             'ENCODED_URL': '',  # set this manually post orchestration
+            'ENCODED_ADMIN_USERS': ConfigManager.get_config_setting(Settings.ADMIN_USERS, default=''),
             'reCaptchaKey': ConfigManager.get_config_secret(Secrets.RECAPTCHA_KEY, default=None),
             'reCaptchaSecret': ConfigManager.get_config_secret(Secrets.RECAPTCHA_SECRET, default=None),
         }
