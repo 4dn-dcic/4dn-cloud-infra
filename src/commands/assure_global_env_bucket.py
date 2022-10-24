@@ -5,6 +5,7 @@ import re
 
 from dcicutils.command_utils import yes_or_no
 from dcicutils.misc_utils import PRINT
+from dcicutils.ecs_utils import COMMON_REGION
 from ..base import ConfigManager
 from ..constants import Settings
 from ..parts.datastore import C4DatastoreExports
@@ -27,7 +28,7 @@ def configure_env_utils_ecosystem(env=None, url_override=None):
         "dev_data_set_table": {
             env: "deploy"  # is this used?
         },
-        "dev_env_domain_suffix": ".us-east-1.elb.amazonaws.com",
+        "dev_env_domain_suffix": f".{COMMON_REGION}.elb.amazonaws.com",
         "foursight_bucket_table": {
             env: {
                 "dev": C4DatastoreExports.get_foursight_result_bucket(),
