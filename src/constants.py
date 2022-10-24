@@ -34,6 +34,8 @@ class Settings:
     ACCOUNT_NUMBER = 'account_number'
     DEPLOYING_IAM_USER = 'deploying_iam_user'
     ENV_NAME = 'ENCODED_ENV_NAME'  # probably should just be 'env.name'
+    ADMIN_USERS = 'ENCODED_ADMIN_USERS'  # for customizing the user inserts
+    DATA_SET = 'ENCODED_DATA_SET'  # to trigger custom insert load
 
     # We no longer use this setting. Now we do C4DatastoreExports.get_env_bucket()
     # GLOBAL_ENV_BUCKET = 'GLOBAL_ENV_BUCKET'
