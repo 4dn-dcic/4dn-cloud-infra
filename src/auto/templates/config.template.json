@@ -3,6 +3,14 @@
     "deploying_iam_user": "<deploying-iam-user>",
     "identity": "<identity>",
     "ENCODED_ENV_NAME": "<encoded-env-name>",
+    "ENCODED_DATA_SET": "<encoded-data-set>",
+    "ENCODED_ADMIN_USERS": [
+        {
+            "first_name": "John",
+            "last_name": "Smith",
+            "email": "john_smith@example.com"
+        }
+    ],
 
     "app.kind": "cgap",
     "app.deploy": "standalone",

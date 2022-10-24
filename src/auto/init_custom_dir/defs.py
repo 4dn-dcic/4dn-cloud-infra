@@ -12,6 +12,7 @@ from ..utils.paths import (InfraDirectories, InfraFiles)  # noqa
 
 class ConfigTemplateVars:
     ACCOUNT_NUMBER = "<account-number>"
+    DATA_SET = "<encoded-data-set>"
     DEPLOYING_IAM_USER = "<deploying-iam-user>"
     IDENTITY = "<identity>"
     ENCODED_ENV_NAME = "<encoded-env-name>"
