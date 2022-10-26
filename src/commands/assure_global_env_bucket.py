@@ -13,7 +13,7 @@ from .find_resources import get_foursight_url
 from ..parts.ecs import C4ECSApplicationExports
 
 
-def strip_scheme(url: str):  # move to utils?
+def strip_scheme(url: str):  # TODO move to utils? or use urlparse?
     return re.sub(r'^https?:\/\/', '', url)
 
 
@@ -28,7 +28,7 @@ def configure_env_utils_ecosystem(env=None, url_override=None):
         "dev_data_set_table": {
             env: "deploy"  # is this used?
         },
-        "dev_env_domain_suffix": f".{COMMON_REGION}.elb.amazonaws.com",
+        "dev_env_domain_suffix": f".{COMMON_REGION}.elb.amazonaws.com",  # TODO: region should maybe be configurable
         "foursight_bucket_table": {
             env: {
                 "dev": C4DatastoreExports.get_foursight_result_bucket(),
