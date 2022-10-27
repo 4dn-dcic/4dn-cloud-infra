@@ -6,6 +6,13 @@
 Change Log
 ----------
 
+3.8.0
+=====
+
+* Changes related to Foursight React.
+  * Moved Chalice routes from app-cgap.py and app-fourfront.py to foursight-core.
+
+
 3.5.1
 =====
 

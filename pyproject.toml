@@ -19,15 +19,15 @@ dcicutils = "^4.4.0"
 
 # lock foursight to deploy foursight-ff
 # foursight = { path = "../foursight", develop = false }
-foursight = "2.1.1"
+foursight = "2.2.0.1b58"
 
 # foursight-cgap
 #lock foursight-cgap to deploy foursight-cgap
-#foursight-cgap = "^2.1.0"
+#foursight-cgap = "2.2.0.1b58"
 
 # Foursight-Core
 #foursight-core = { path = "../foursight-core", develop = false }
-foursight-core = "^2.0.0"
+foursight-core = "2.1.0.1b58"
 
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
