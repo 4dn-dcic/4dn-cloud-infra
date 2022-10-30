@@ -4,7 +4,7 @@ import sys
 
 # TODO: How to really do this *right* at startup?
 def IS_FOURSIGHT_FOURFRONT():
-    if os.environ.get("FOURSIGHT_FOURFRONT", False):
+    if os.environ.get("FOURSIGHT_FOURFRONT", None) == "1":
         return True
     identity = os.environ.get("IDENTITY");
     if identity:
