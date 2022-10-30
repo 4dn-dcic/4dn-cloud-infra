@@ -2,7 +2,24 @@ import logging
 import os
 import sys
 
-from chalicelib.package import PackageDeploy as PackageDeploy_from_app
+# TODO: How to really do this *right* at startup?
+def IS_FOURSIGHT_FOURFRONT():
+    if os.environ.get("FOURSIGHT_FOURFRONT", False):
+        return True
+    identity = os.environ.get("IDENTITY");
+    if identity:
+        identity = identity.lower()
+        if "fourfront" in identity:
+            print("xyzzy;IS-FOURFRONT")
+            return True
+    print("xyzzy;IS-NOT-FOURFRONT")
+    return False
+
+if IS_FOURSIGHT_FOURFRONT():
+    from chalicelib_fourfront.package import PackageDeploy as PackageDeploy_from_app
+else:
+    from chalicelib_cgap.package import PackageDeploy as PackageDeploy_from_app
+#from .chalicelib.package import PackageDeploy as PackageDeploy_from_app
 from dcicutils.misc_utils import PRINT, full_class_name
 from os.path import dirname
 from troposphere import Template

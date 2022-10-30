@@ -1,7 +1,7 @@
 import os
 
 from chalice import Chalice, Response, Cron
-from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
+from chalicelib_cgap.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
 from foursight_core.app_utils import app
 from dcicutils.exceptions import InvalidParameterError
 from dcicutils.misc_utils import environ_bool, remove_suffix, ignored
@@ -27,13 +27,13 @@ if not FOURSIGHT_PREFIX:
         raise RuntimeError('The FOURSIGHT_PREFIX environment variable is not set. Heuristics failed.')
 
 
-# This object usually in chalicelib/app_utils.py
+# This object usually in chalicelib_cgap/app_utils.py
 class AppUtils(AppUtils_from_cgap):
     # overwriting parent class
     prefix = FOURSIGHT_PREFIX
     FAVICON = 'https://cgap-dbmi.hms.harvard.edu/static/img/favicon-fs.ico'
     host = HOST
-    package_name = 'chalicelib'
+    package_name = 'chalicelib_cgap'
     # check_setup is moved to vendor/ where it will be automatically placed at top level
     check_setup_dir = os.path.dirname(__file__)
     # This will heuristically mostly title-case te DEFAULT_ENV but will put CGAP in all-caps.

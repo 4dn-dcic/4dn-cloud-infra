@@ -3,7 +3,11 @@ import io
 import json
 import os
 
-from chalicelib.vars import CHECK_SETUP_FILE as FOURSIGHT_CHECK_TEMPLATE
+FOURSIGHT_FOURFRONT = os.environ.get("FOURSIGHT_FOURFRONT", False);
+if FOURSIGHT_FOURFRONT:
+    from chalicelib_fourfront.vars import CHECK_SETUP_FILE as FOURSIGHT_CHECK_TEMPLATE
+else:
+    from chalicelib_cgap.vars import CHECK_SETUP_FILE as FOURSIGHT_CHECK_TEMPLATE
 from dcicutils.misc_utils import full_class_name, json_leaf_subst
 
 from src.constants import Settings

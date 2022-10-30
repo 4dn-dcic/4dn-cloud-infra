@@ -1,7 +1,7 @@
 import os
 
 from chalice import Chalice, Response, Cron
-from chalicelib.app_utils import AppUtils as AppUtils_from_fourfront  # naming convention used in foursight
+from chalicelib_fourfront.app_utils import AppUtils as AppUtils_from_fourfront  # naming convention used in foursight
 from foursight_core.app_utils import app
 from dcicutils.exceptions import InvalidParameterError
 from dcicutils.misc_utils import environ_bool, remove_suffix, ignored
@@ -27,13 +27,13 @@ if not FOURSIGHT_PREFIX:
         raise RuntimeError('The FOURSIGHT_PREFIX environment variable is not set. Heuristics failed.')
 
 
-# This object usually in chalicelib/app_utils.py
+# This object usually in chalicelib_fourfront/app_utils.py
 class AppUtils(AppUtils_from_fourfront):
     # overwriting parent class
     prefix = FOURSIGHT_PREFIX
     FAVICON = 'https://cgap-dbmi.hms.harvard.edu/static/img/favicon-fs.ico'
     host = HOST
-    package_name = 'chalicelib'
+    package_name = 'chalicelib_fourfront'
     # check_setup is moved to vendor/ where it will be automatically placed at top level
     check_setup_dir = os.path.dirname(__file__)
     # html_main_title = f'Foursight-{DEFAULT_ENV}-{STAGE}'.title()
@@ -96,13 +96,8 @@ def check_runner(event, context):
     the checks. Self propogates. event is a dict of information passed into
     the lambda at invocation time.
     """
-    print("XYZZY: checker_runner lambda called.")
     if not event:
-        print("XYZZY: checker_runner lambda no event.")
         return
-    print("XYZZY: checker_runner lambda no event.")
-    print(event)
-    print(context)
     app_utils_obj.run_check_runner(event)
 
 
