@@ -103,7 +103,7 @@ boto3 = ">=1.19.5,<2.0.0"
 jsonschema = ">=3.2,<4.0"
 
 [package.extras]
-dev = ["coverage (>=5.3,<6.0)", "flake8 (>=3.8.4,<3.9.0)", "tox (>=3.24,<4.0)", "pytest-cov (>=2.10.1,<2.11.0)", "pytest-xdist (>=2.5,<3.0)", "pytest-env (>=0.6.2,<0.7.0)", "pylint (>=2.9.0,<2.10.0)", "pyyaml (>=5.4,<6.0)", "pytest (>=6.2.5,<6.3.0)", "parameterized (>=0.7.4,<0.8.0)", "click (>=7.1,<8.0)", "dateparser (>=0.7,<1.0)", "boto3 (>=1.23,<2)", "tenacity (>=7.0.0,<7.1.0)", "requests (>=2.24.0,<2.25.0)", "docopt (>=0.6.2,<0.7.0)", "black (==20.8b1)", "mypy (==0.971)", "boto3-stubs[appconfig,serverlessrepo] (>=1.19.5,<2.0.0)", "types-PyYAML (>=5.4,<6.0)", "types-jsonschema (>=3.2,<4.0)"]
+dev = ["coverage (>=5.3,<6.0)", "flake8 (>=3.8.4,<3.9.0)", "tox (>=3.24,<4.0)", "pytest-cov (>=2.10.1,<2.11.0)", "pytest-xdist (>=2.5,<3.0)", "pytest-env (>=0.6.2,<0.7.0)", "pylint (>=2.9.0,<2.10.0)", "pyyaml (>=5.4,<6.0)", "pytest (>=6.2.5,<6.3.0)", "parameterized (>=0.7.4,<0.8.0)", "click (>=7.1,<8.0)", "dateparser (>=0.7,<1.0)", "boto3 (>=1.23,<2)", "tenacity (>=7.0.0,<7.1.0)", "requests (>=2.24.0,<2.25.0)", "docopt (>=0.6.2,<0.7.0)", "black (==20.8b1)", "mypy (==0.971)", "boto3-stubs[serverlessrepo,appconfig] (>=1.19.5,<2.0.0)", "types-PyYAML (>=5.4,<6.0)", "types-jsonschema (>=3.2,<4.0)"]
 
 [[package]]
 name = "awscli"
@@ -827,7 +827,7 @@ pyflakes = ">=2.5.0,<2.6.0"
 
 [[package]]
 name = "foursight"
-version = "2.2.0.1b71"
+version = "2.2.0.1b74"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -854,7 +854,7 @@ tibanna_ff = ">=0.22.5"
 
 [[package]]
 name = "foursight-cgap"
-version = "2.2.0.1b71"
+version = "2.2.0.1b73"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -2405,7 +2405,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.1,<3.8"
-content-hash = "df8e051cb1930495e12bfa3b6b7ecc2269b6d93f017dec35feadb934d5b107de"
+content-hash = "088248a64383d900b9a9950483d8f616e623415a5ad10342b348ce9693667309"
 
 [metadata.files]
 ansicon = [
@@ -2670,12 +2670,12 @@ flake8 = [
     {file = "flake8-5.0.4.tar.gz", hash = "sha256:6fbe320aad8d6b95cec8b8e47bc933004678dc63095be98528b7bdd2a9f510db"},
 ]
 foursight = [
-    {file = "foursight-2.2.0.1b71-py3-none-any.whl", hash = "sha256:db4a844a39d8f467229773fd58bc63638e72df44a50f24a5aa9eee9f899e0d8a"},
-    {file = "foursight-2.2.0.1b71.tar.gz", hash = "sha256:e8b7f690ed857125d1fb6eacb1023d41de5512f715e38678af184ec18231920a"},
+    {file = "foursight-2.2.0.1b74-py3-none-any.whl", hash = "sha256:1393d6145b229528e8cdf75486874d0f199cac52cfe25d970f7f969527c1dd73"},
+    {file = "foursight-2.2.0.1b74.tar.gz", hash = "sha256:100eb41d47abc4559470ed7244f6a76d45d7d23bcb5a1ffd7dd34d53b7a3f020"},
 ]
 foursight-cgap = [
-    {file = "foursight-cgap-2.2.0.1b71.tar.gz", hash = "sha256:f53d7fc2431d711513093c6bce0999bef8ac77aec9f81fa9202b68e6fe480832"},
-    {file = "foursight_cgap-2.2.0.1b71-py3-none-any.whl", hash = "sha256:89c355b1f82866b4ba2d2b2bf803909a73cd3574b2221919187c3a9a26b00118"},
+    {file = "foursight-cgap-2.2.0.1b73.tar.gz", hash = "sha256:1c5fb8093a58f1910b5b15d216db64af263cce89de5589ea38fa90db80441434"},
+    {file = "foursight_cgap-2.2.0.1b73-py3-none-any.whl", hash = "sha256:6951e935e83c67a469666dd19d10a40f6011eee8a4c38c1c58a3d1d24f1ae579"},
 ]
 foursight-core = [
     {file = "foursight-core-2.1.0.1b63.tar.gz", hash = "sha256:8c12e35c06847727c02f4e8c4fda17f044e847c66f402b168c52240003bc407a"},

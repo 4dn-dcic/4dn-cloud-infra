@@ -19,11 +19,11 @@ dcicutils = "^4.4.0"
 
 # lock foursight to deploy foursight-ff
 # foursight = { path = "../foursight", develop = false }
-foursight = "2.2.0.1b71"
+foursight = "2.2.0.1b74"
 
 # foursight-cgap
 #lock foursight-cgap to deploy foursight-cgap
-foursight-cgap = "2.2.0.1b71"
+foursight-cgap = "2.2.0.1b73"
 
 # Foursight-Core
 #foursight-core = { path = "../foursight-core", develop = false }

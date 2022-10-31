@@ -1,21 +1,28 @@
 import logging
 import os
 import sys
+from dcicutils.env_utils import EnvUtils
+from dcicutils.secrets_utils import assumed_identity
 
-# TODO: How to really do this *right* at startup?
-def IS_FOURSIGHT_FOURFRONT():
-    if os.environ.get("FOURSIGHT_FOURFRONT", None) == "1":
-        return True
-    identity = os.environ.get("IDENTITY");
-    if identity:
-        identity = identity.lower()
-        if "fourfront" in identity:
-            print("xyzzy;IS-FOURFRONT")
-            return True
-    print("xyzzy;IS-NOT-FOURFRONT")
-    return False
+def is_foursight_fourfront():
+    def get_identity_from_command_line():
+        for i in range(len(sys.argv)):
+            if sys.argv[i] == "--foursight-identity":
+                if i + 1 < len(sys.argv):
+                    return sys.argv[i + 1]
+        return None
+    identity = os.environ.get("IDENTITY", None)
+    if not identity:
+        # This seem 100% lame. But need to be able to determine if this is foursight-cgap or foursight-fourfronnt
+        # right at startup even before command-line args are parsed (in cli.py) e.g. to do conditional import of
+        # chalicelib_cgap.PackageDeploy or chalicelib_fourfront.PackageDeploy in stack.py.
+        identity = get_identity_from_command_line()
+    with assumed_identity(identity_name=identity):
+        EnvUtils.init()
+        is_foursight_fourfront = EnvUtils.app_case(if_cgap=False, if_fourfront=True)
+        return is_foursight_fourfront
 
-if IS_FOURSIGHT_FOURFRONT():
+if is_foursight_fourfront():
     from chalicelib_fourfront.package import PackageDeploy as PackageDeploy_from_app
 else:
     from chalicelib_cgap.package import PackageDeploy as PackageDeploy_from_app
