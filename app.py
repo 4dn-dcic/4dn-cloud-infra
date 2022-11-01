@@ -1,25 +1,32 @@
-import io
-import json
+# This is the main Chalice entry point Foursight;
+# either Foursight-CGAP or Foursight-Fourfront.
+#
 import os
-import sys
 from dcicutils.env_utils import EnvUtils
 from dcicutils.misc_utils import PRINT
 from dcicutils.secrets_utils import assumed_identity
 
 
-def is_foursight_fourfront():
-    # Similar to src/is_foursight_fourfront but needs to be
-    # here directly as this is a standalone-like Chalice file.
-    # And it doesn't look at command-line args (for --foursight-identity) because this
-    # is invoked either from chalice package in 4dn-cloud-infra or from deployed code in AWS,
-    # and those are not relevant; and doesn't look at custom/config.json for similar reasons.
+def _is_foursight_fourfront():
+    """
+    Returns True iff this is Foursight-Fourfront, on contrast to Foursight-CGAP.
+
+    This is similar (but different) from the similarly named function in src.is_foursight_fourfront.
+    This one here is called at RUNTIME at Chalice app startup in the deployed (in AWS) environment.
+    The one in in src.is_foursight_fourfront is called at (4dn-cloud-infra) PROVISION time.
+    Even if these functions were the same they couldn't really use a same/shared module;
+    if it was in the 4dn-cloud-infra/src directory this is not deployed in AWS for use here;
+    and if it was here in this top-level directory, the (4dn-cloud-infra) src modules cannot
+    import outside of (above) that src directory.
+    """
     with assumed_identity():
         EnvUtils.init()
-        is_foursight_fourfront = EnvUtils.app_case(if_cgap=False, if_fourfront=True)
-        return is_foursight_fourfront
+        return EnvUtils.app_case(if_cgap=False, if_fourfront=True)
 
 
-# TODO: Better way to communicate this to foursight-cgap (chalicelib_cgap) or foursight (chalicelib_fourfront)?
+# TODO: Better way to communicate this to foursight-cgap (chalicelib_cgap) or
+# foursight (chalicelib_fourfront)? If this is set there then use it as the check_setup.json
+# directory, otherwise use the local (chalicelib_cgap or chalicelib_fourfront) directory.
 os.environ["FOURSIGHT_CHECK_SETUP_DIR"] = os.path.dirname(__file__)
 
 # Note that foursight-cgap (chalicelib_cgap) and foursight (chalicelib_fourfrount) now
@@ -27,7 +34,7 @@ os.environ["FOURSIGHT_CHECK_SETUP_DIR"] = os.path.dirname(__file__)
 # substantively magic about that name afterall. But this app.py file name IS magic (for
 # Chalice) which is why it is here in 4dn-cloud-infra and pulls in either foursight-cgap
 # or foursight (fourfront) depending on the is_foursight_fourfront function
-if is_foursight_fourfront():
+if _is_foursight_fourfront():
     PRINT("Foursight-Fourfront: Including app_utils and check_schedules from chalicelib_fourfront.")
     from chalicelib_fourfront.app_utils import AppUtils
     from chalicelib_fourfront.check_schedules import *

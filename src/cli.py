@@ -474,8 +474,6 @@ def cli():
     parser_info.set_defaults(func=C4Client.info)
 
     args = parser.parse_args()
-    print('xyzzy/args')
-    print(args)
 
     if not args.alpha:
         raise NotImplementedError("We don't implement the --no-alpha (or --legacy) case any more.")

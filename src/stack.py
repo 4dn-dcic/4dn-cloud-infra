@@ -6,13 +6,10 @@ from dcicutils.misc_utils import PRINT
 from dcicutils.secrets_utils import assumed_identity
 from .is_foursight_fourfront import is_foursight_fourfront 
 
-if is_foursight_fourfront():
-    PRINT("Foursight-Fourfront: Including PackageDeploy from chalicelib_fourfront.")
-    from chalicelib_fourfront.package import PackageDeploy as PackageDeploy_from_app
-else:
-    PRINT("Foursight-CGAP: Including PackageDeploy from chalicelib_cgap.")
-    from chalicelib_cgap.package import PackageDeploy as PackageDeploy_from_app
-#from .chalicelib.package import PackageDeploy as PackageDeploy_from_app
+# Do not need this PackageDeploy import from (now) chalicelib_cgap or chalicelib_fourfront
+# as the only thing it's doing is what's being done here anyways. dmichaels/2022-10-31.
+# from .chalicelib.package import PackageDeploy as PackageDeploy_from_app
+from foursight_core.package import PackageDeploy as PackageDeploy_from_core
 from dcicutils.misc_utils import PRINT, full_class_name
 from os.path import dirname
 from troposphere import Template
@@ -192,9 +189,11 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
                           or "c4-foursight-fourfront-production-stac-CheckRunner-MW4VHuCIsDXc")
         )
 
-    class PackageDeploy(PackageDeploy_from_app):
+#   class PackageDeploy(PackageDeploy_from_app):
+    class PackageDeploy(PackageDeploy_from_core):
 
-        CONFIG_BASE = PackageDeploy_from_app.CONFIG_BASE
+#       CONFIG_BASE = PackageDeploy_from_app.CONFIG_BASE
+        CONFIG_BASE = PackageDeploy_from_core.CONFIG_BASE
         CONFIG_BASE['app_name'] = 'foursight-cgap'
 
         config_dir = dirname(dirname(__file__))
@@ -254,9 +253,11 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
             check_runner=(ConfigManager.get_config_setting(Settings.FOURSIGHT_CHECK_RUNNER))
         )
 
-    class PackageDeploy(PackageDeploy_from_app):
+#   class PackageDeploy(PackageDeploy_from_app):
+    class PackageDeploy(PackageDeploy_from_core):
 
-        CONFIG_BASE = PackageDeploy_from_app.CONFIG_BASE
+#       CONFIG_BASE = PackageDeploy_from_app.CONFIG_BASE
+        CONFIG_BASE = PackageDeploy_from_core.CONFIG_BASE
         CONFIG_BASE['app_name'] = 'foursight-fourfront'
 
         config_dir = dirname(dirname(__file__))
