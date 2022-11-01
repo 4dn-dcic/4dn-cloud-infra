@@ -5,7 +5,7 @@ import os
 import sys
 from dcicutils.env_utils import EnvUtils
 from dcicutils.secrets_utils import assumed_identity
-from ..is_foursight_fourfront import is_foursight_fourfront
+from foursight_core import CheckHandler
 
 
 # Importing both chalicelib_cgap and chalicelib_fourfront from (now) separate packages;
@@ -13,7 +13,7 @@ from ..is_foursight_fourfront import is_foursight_fourfront
 # from .chalicelib.package import PackageDeploy as PackageDeploy_from_app
 from chalicelib_fourfront.vars import CHECK_SETUP_FILE as FOURSIGHT_FOURFRONT_CHECK_TEMPLATE
 from chalicelib_cgap.vars import CHECK_SETUP_FILE as FOURSIGHT_CGAP_CHECK_TEMPLATE
-from dcicutils.misc_utils import full_class_name, json_leaf_subst
+from dcicutils.misc_utils import full_class_name
 
 from src.constants import Settings
 from src.exceptions import CLIException
@@ -32,7 +32,7 @@ if DEFAULT_ENVIRONMENT is None:
             " 'ENV_NAME' or configure the custom directory."
         )
 DEFAULT_TARGET_FILE = "vendor/check_setup.json"
-ENV_NAME_MARKER = "<env-name>"
+#ENV_NAME_MARKER = "<env-name>"
 
 
 def resolve_foursight_checks(env_name=None, template_file=None, target_file=None, app_name=None):
@@ -53,7 +53,12 @@ def resolve_foursight_checks(env_name=None, template_file=None, target_file=None
     print(f"Target file: {template_file}")
     with io.open(template_file, 'r') as input_fp:
         template_value = json.load(input_fp)
-    checks = json_leaf_subst(template_value, {ENV_NAME_MARKER: env_name})
+    # This expansion of the <env-name> placeholders within the check_seutp.json may
+    # now be done here, but it is also done dynamically at runtime in foursight_core.
+    # dmichaels/2022-11-01.
+    # checks = json_leaf_subst(template_value, {ENV_NAME_MARKER: env_name})
+    checks = CheckHandler.expand_check_setup(template_value, env_name)
+    checks = (template_value, {ENV_NAME_MARKER: env_name})
     with io.open(target_file, 'w') as output_fp:
         json.dump(checks, output_fp, indent=2)
         output_fp.write('\n')  # Write a trailing newline

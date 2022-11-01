@@ -9,15 +9,8 @@ from dcicutils.secrets_utils import assumed_identity
 
 def _is_foursight_fourfront():
     """
-    Returns True iff this is Foursight-Fourfront, on contrast to Foursight-CGAP.
-
-    This is similar (but different) from the similarly named function in src.is_foursight_fourfront.
-    This one here is called at RUNTIME at Chalice app startup in the deployed (in AWS) environment.
-    The one in in src.is_foursight_fourfront is called at (4dn-cloud-infra) PROVISION time.
-    Even if these functions were the same they couldn't really use a same/shared module;
-    if it was in the 4dn-cloud-infra/src directory this is not deployed in AWS for use here;
-    and if it was here in this top-level directory, the (4dn-cloud-infra) src modules cannot
-    import outside of (above) that src directory.
+    Returns True iff this is Foursight-Fourfront, in contrast to Foursight-CGAP.
+    This will be called at RUNTIME at Chalice app startup in the deployed (in AWS) environment.
     """
     with assumed_identity():
         EnvUtils.init()
