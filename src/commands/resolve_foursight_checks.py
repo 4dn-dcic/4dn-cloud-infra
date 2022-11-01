@@ -5,7 +5,7 @@ import os
 import sys
 from dcicutils.env_utils import EnvUtils
 from dcicutils.secrets_utils import assumed_identity
-from foursight_core import CheckHandler
+from foursight_core.check_utils import CheckHandler
 
 
 # Importing both chalicelib_cgap and chalicelib_fourfront from (now) separate packages;
@@ -40,7 +40,7 @@ def resolve_foursight_checks(env_name=None, template_file=None, target_file=None
     Substitutes the given env_name for the JSON string token "<env-name>" in the content of the template file,
     writing the result as the target file.
     """
-    if app_name == "fourfront":
+    if app_name in ["foursight-fourfront", "fourfront"]:
         foursight_check_template = FOURSIGHT_FOURFRONT_CHECK_TEMPLATE
     else:
         foursight_check_template = FOURSIGHT_CGAP_CHECK_TEMPLATE
@@ -58,7 +58,6 @@ def resolve_foursight_checks(env_name=None, template_file=None, target_file=None
     # dmichaels/2022-11-01.
     # checks = json_leaf_subst(template_value, {ENV_NAME_MARKER: env_name})
     checks = CheckHandler.expand_check_setup(template_value, env_name)
-    checks = (template_value, {ENV_NAME_MARKER: env_name})
     with io.open(target_file, 'w') as output_fp:
         json.dump(checks, output_fp, indent=2)
         output_fp.write('\n')  # Write a trailing newline
@@ -96,7 +95,7 @@ def main(simulated_args=None):
                         help=f"Choose Foursight-CGAP or Foursight-Fourfront")
     args = parser.parse_args(args=simulated_args)
 
-    if args.app not in ["cgap", "fourfront"]:
+    if args.app not in ["foursight-cgap", "cgap", "foursight-fourfront", "fourfront"]:
         print("The --app argument must specify one of: cgap, fourfront")
         exit(1)
 
