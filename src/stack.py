@@ -4,7 +4,6 @@ import sys
 from dcicutils.env_utils import EnvUtils
 from dcicutils.misc_utils import PRINT
 from dcicutils.secrets_utils import assumed_identity
-from .is_foursight_fourfront import is_foursight_fourfront 
 
 # Do not need this PackageDeploy import from (now) chalicelib_cgap or chalicelib_fourfront
 # as the only thing it's doing is what's being done here anyways. dmichaels/2022-10-31.
