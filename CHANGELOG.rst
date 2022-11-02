@@ -11,6 +11,15 @@ Change Log
 
 * Changes related to Foursight React.
   * Moved Chalice routes from app-cgap.py and app-fourfront.py to foursight-core.
+  * Unified app-cgap.py and app-fourfront.py into single app.py. This is done by changing
+    foursight-cgap and foursight to package to chalicelib_cgap and chalicelib_fourfront,
+    respectively; symlinking app.py to one or the other no longer required. And no
+    longer need to muck with pyproject.tom to include one or the other; i.e these
+    two libraries live side-by-side.
+  * Changes to pyproject.toml associated with above, to pull in both foursight-cgap
+    and foursight at once (no need to edit this depending on which is being provisioned).
+    Also placed these in poetry dependency "groups" so only one or the other needs to actually
+    be packaged (via chalice package); this is done in foursight_core.deploy.Deploy.build_config.
 
 
 3.5.1
