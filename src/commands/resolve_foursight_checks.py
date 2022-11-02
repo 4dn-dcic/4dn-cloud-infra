@@ -40,6 +40,8 @@ def resolve_foursight_checks(env_name=None, template_file=None, target_file=None
     Substitutes the given env_name for the JSON string token "<env-name>" in the content of the template file,
     writing the result as the target file.
     """
+    # This app_name is a new (November 2022) --app command-line argument
+    # to help distinguish between foursight-cgap and foursight-fourfront.
     if app_name in ["foursight-fourfront", "fourfront"]:
         foursight_check_template = FOURSIGHT_FOURFRONT_CHECK_TEMPLATE
     else:
@@ -95,6 +97,8 @@ def main(simulated_args=None):
                         help=f"Choose Foursight-CGAP or Foursight-Fourfront")
     args = parser.parse_args(args=simulated_args)
 
+    # New (November 2022) --app command-line argument to help
+    # distinguish between foursight-cgap and foursight-fourfront.
     if args.app not in ["foursight-cgap", "cgap", "foursight-fourfront", "fourfront"]:
         print("The --app argument must specify one of: cgap, fourfront")
         exit(1)

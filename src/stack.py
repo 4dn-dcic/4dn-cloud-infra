@@ -189,10 +189,8 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
             #             or "c4-foursight-fourfront-production-stac-CheckRunner-MW4VHuCIsDXc")
         )
 
-#   class PackageDeploy(PackageDeploy_from_app):
     class PackageDeploy(PackageDeploy_from_core):
 
-#       CONFIG_BASE = PackageDeploy_from_app.CONFIG_BASE
         CONFIG_BASE = PackageDeploy_from_core.CONFIG_BASE
         CONFIG_BASE['app_name'] = 'foursight-cgap'
 
@@ -254,10 +252,8 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
             # check_runner=(ConfigManager.get_config_setting(Settings.FOURSIGHT_CHECK_RUNNER))
         )
 
-#   class PackageDeploy(PackageDeploy_from_app):
     class PackageDeploy(PackageDeploy_from_core):
 
-#       CONFIG_BASE = PackageDeploy_from_app.CONFIG_BASE
         CONFIG_BASE = PackageDeploy_from_core.CONFIG_BASE
         CONFIG_BASE['app_name'] = 'foursight-fourfront'
 
