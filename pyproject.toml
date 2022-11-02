@@ -37,7 +37,7 @@ troposphere = "3.2.2"
 # not both in the Chalice package (via foursight_core/deploy.py). dmichaels/2022-11-01.
 
 [tool.poetry.group.foursight_cgap.dependencies]
-foursight-cgap = "2.1.4.1b82"
+foursight-cgap = "2.1.4.1b83"
 
 [tool.poetry.group.foursight_fourfront.dependencies]
 foursight = "2.1.1.1b82"

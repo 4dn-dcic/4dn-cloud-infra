@@ -875,7 +875,7 @@ tibanna_ff = ">=0.22.5"
 
 [[package]]
 name = "foursight-cgap"
-version = "2.1.4.1b82"
+version = "2.1.4.1b83"
 description = "Serverless Chalice Application for Monitoring"
 category = "dev"
 optional = false
@@ -2563,7 +2563,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.1,<3.8"
-content-hash = "6c93b79361a3cd5fc59ff6abf32eadba9de9538fe58414e913e69bf00d71b99f"
+content-hash = "02d837813599f1009288ee0cf80070cd513f81aa483d3be1e7e7dd0485f36a45"
 
 [metadata.files]
 ansicon = [
@@ -2833,8 +2833,8 @@ foursight = [
     {file = "foursight-2.1.1.1b82.tar.gz", hash = "sha256:2b95441ec4143c77b2aefeb9deb1a0d054d12859a346ab3d7619317e24fb9cb4"},
 ]
 foursight-cgap = [
-    {file = "foursight_cgap-2.1.4.1b82-py3-none-any.whl", hash = "sha256:b0f0b46af3a27dbfdec52bbc15ec84340b23ee4ec6c2daec1845a0f0d21a2d28"},
-    {file = "foursight_cgap-2.1.4.1b82.tar.gz", hash = "sha256:9b681c98f37d0a606afa3cd6a89f4fbdb60b1be4dbda2044e9b6ae4791bc29b7"},
+    {file = "foursight_cgap-2.1.4.1b83-py3-none-any.whl", hash = "sha256:d7c22b61b32c86b80657f39b5b0b163cfdeb663d9010f0ffe9dc7af0a4b8058e"},
+    {file = "foursight_cgap-2.1.4.1b83.tar.gz", hash = "sha256:9fe6885891b68e38db9da594bbaf8f3c3c492ca395cdebf68b596c48bb6738bf"},
 ]
 foursight-core = [
     {file = "foursight_core-2.1.0.1b72-py3-none-any.whl", hash = "sha256:6a12a629f043be313b522c7e0bc5afa44ff3a485e0b265e9806f1d7f8d68b239"},
