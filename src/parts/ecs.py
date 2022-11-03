@@ -707,11 +707,11 @@ class C4ECSApplication(C4Part):
             ComparisonOperator='LessThanOrEqualToThreshold',
         )
 
-    DEFAULT_INITIAL_DEPLOYMENT_CPU = '512'
-    DEFAULT_INITIAL_DEPLOYMENT_MEMORY = '1024'
+    DEFAULT_INITIAL_DEPLOYMENT_CPU = '1024'
+    DEFAULT_INITIAL_DEPLOYMENT_MEMORY = '2048'
 
-    DEFAULT_DEPLOYMENT_CPU = '256'
-    DEFAULT_DEPLOYMENT_MEMORY = '512'
+    DEFAULT_DEPLOYMENT_CPU = '1024'
+    DEFAULT_DEPLOYMENT_MEMORY = '2048'
 
     def ecs_deployment_task(self, cpu=None, memory=None, identity=None, initial=False) -> TaskDefinition:
         """ Defines the Deployment task (run deployment action).
