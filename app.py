@@ -42,10 +42,10 @@ if not os.environ.get("FOURSIGHT_CHECK_SETUP_DIR", None):
 # Chalice) which is why it is here in 4dn-cloud-infra and pulls in either foursight-cgap
 # or foursight (fourfront) depending on the _is_foursight_fourfront function above.
 if _is_foursight_fourfront():
-    PRINT("Foursight-Fourfront: Including app_utils and check_schedules from chalicelib_fourfront.")
+    PRINT("Foursight-Fourfront: Importing app_utils and check_schedules from chalicelib_fourfront.")
     from chalicelib_fourfront.app_utils import AppUtils
     from chalicelib_fourfront.check_schedules import *
 else:
-    PRINT("Foursight-CGAP: Including app_utils and check_schedules from chalicelib_cgap.")
+    PRINT("Foursight-CGAP: Importing app_utils and check_schedules from chalicelib_cgap.")
     from chalicelib_cgap.app_utils import AppUtils
     from chalicelib_cgap.check_schedules import *
