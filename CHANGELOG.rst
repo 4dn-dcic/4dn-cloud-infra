@@ -20,6 +20,7 @@ Change Log
     and foursight at once (no need to edit this depending on which is being provisioned).
     Also placed these in poetry dependency "groups" so only one or the other needs to actually
     be packaged (via chalice package); this is done in foursight_core.deploy.Deploy.build_config.
+  * Fixed up show-foursight-url for new Foursight.
 
 
 3.5.1
