@@ -17,17 +17,8 @@ botocore = "^1.27.36"
 chalice = "1.27.1"
 dcicutils = "^4.4.0"
 
-# lock foursight to deploy foursight-ff
-# foursight = { path = "../foursight", develop = false }
-foursight = "2.1.1"
-
-# foursight-cgap
-#lock foursight-cgap to deploy foursight-cgap
-#foursight-cgap = "^2.1.0"
-
 # Foursight-Core
-#foursight-core = { path = "../foursight-core", develop = false }
-foursight-core = "^2.0.0"
+foursight-core = "2.1.0"
 
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
@@ -40,6 +31,16 @@ tibanna = "2.0.0"
 tibanna-ff = "1.1.0.1b2"
 tqdm = "4.62.3"
 troposphere = "3.2.2"
+
+# Define poetry "groups" for foursight-cgap and foursight, named foursight_cgap and
+# foursight_fourfront, respectively. This is so we can conditionally include either but
+# not both in the Chalice package (via foursight_core/deploy.py). dmichaels/2022-11-01.
+
+[tool.poetry.group.foursight_cgap.dependencies]
+foursight-cgap = "2.2.0"
+
+[tool.poetry.group.foursight_fourfront.dependencies]
+foursight = "2.2.0"
 
 [tool.poetry.dev-dependencies]
 jupyter = "1.0.0"
@@ -96,7 +97,6 @@ queue-ingestion = "src.commands.queue_ingestion:main"
 resolve-foursight-checks = "src.commands.resolve_foursight_checks:main"
 upload-application-version = "src.commands.upload_application_version:main"
 upload-file-processed = "src.commands.upload_file_processed:main"
-
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

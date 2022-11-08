@@ -33,11 +33,12 @@ def get_foursight_url(*, env_name=ENV_NAME, region=REGION):
     if env_name is None:
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
     rest_apis = api_gateway.get_rest_apis()['items']
-    foursight_api = find_association(rest_apis, name=lambda x: x.startswith("foursight_"))
+    foursight_api = find_association(rest_apis, name=lambda x: x.startswith("foursight_") or x.startswith("foursight-"))
     if not foursight_api:
         raise RuntimeError("There is no foursight api at this time.")
     foursight_api_id = foursight_api['id']
-    foursight_url = f"https://{foursight_api_id}.execute-api.{region}.amazonaws.com/api/view/{env_name}"
+    # foursight_url = f"https://{foursight_api_id}.execute-api.{region}.amazonaws.com/api/view/{env_name}"
+    foursight_url = f"https://{foursight_api_id}.execute-api.{region}.amazonaws.com/api"
     return foursight_url
 
 

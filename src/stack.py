@@ -1,8 +1,14 @@
 import logging
 import os
 import sys
+from dcicutils.env_utils import EnvUtils
+from dcicutils.misc_utils import PRINT
+from dcicutils.secrets_utils import assumed_identity
 
-from chalicelib.package import PackageDeploy as PackageDeploy_from_app
+# Do not need this PackageDeploy import from (now) chalicelib_cgap or chalicelib_fourfront
+# as the only thing it's doing is what's being done here anyways. dmichaels/2022-10-31.
+# from .chalicelib.package import PackageDeploy as PackageDeploy_from_app
+from foursight_core.package import PackageDeploy as PackageDeploy_from_core
 from dcicutils.misc_utils import PRINT, full_class_name
 from os.path import dirname
 from troposphere import Template
@@ -174,17 +180,18 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
             global_env_bucket=self.global_env_bucket,
             security_ids=self.security_ids,
             subnet_ids=self.subnet_ids,
-            trial_creds=self.trial_creds,
+            trial_creds=self.trial_creds
+            # No longer need to set check_runner as it is determined dynamically at runtime in Foursight. dmichaels/2022-11-01.
             # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
             # On the second attempt to create the stack, the physical resource ID will be used.
-            check_runner=(ConfigManager.find_stack_resource(f'foursight-fourfront-{args.stage}',
-                                                            'CheckRunner', 'physical_resource_id')
-                          or "c4-foursight-fourfront-production-stac-CheckRunner-MW4VHuCIsDXc")
+            #check_runner=(ConfigManager.find_stack_resource(f'foursight-fourfront-{args.stage}',
+            #                                                'CheckRunner', 'physical_resource_id')
+            #             or "c4-foursight-fourfront-production-stac-CheckRunner-MW4VHuCIsDXc")
         )
 
-    class PackageDeploy(PackageDeploy_from_app):
+    class PackageDeploy(PackageDeploy_from_core):
 
-        CONFIG_BASE = PackageDeploy_from_app.CONFIG_BASE
+        CONFIG_BASE = PackageDeploy_from_core.CONFIG_BASE
         CONFIG_BASE['app_name'] = 'foursight-cgap'
 
         config_dir = dirname(dirname(__file__))
@@ -238,15 +245,16 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
             global_env_bucket=self.global_env_bucket,
             security_ids=self.security_ids,
             subnet_ids=self.subnet_ids,
-            trial_creds=self.trial_creds,
+            trial_creds=self.trial_creds
+            # No longer need to set check_runner as it is determined dynamically at runtime in Foursight. dmichaels/2022-11-01.
             # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
             # On the second attempt to create the stack, the physical resource ID will be used.
-            check_runner=(ConfigManager.get_config_setting(Settings.FOURSIGHT_CHECK_RUNNER))
+            # check_runner=(ConfigManager.get_config_setting(Settings.FOURSIGHT_CHECK_RUNNER))
         )
 
-    class PackageDeploy(PackageDeploy_from_app):
+    class PackageDeploy(PackageDeploy_from_core):
 
-        CONFIG_BASE = PackageDeploy_from_app.CONFIG_BASE
+        CONFIG_BASE = PackageDeploy_from_core.CONFIG_BASE
         CONFIG_BASE['app_name'] = 'foursight-fourfront'
 
         config_dir = dirname(dirname(__file__))
