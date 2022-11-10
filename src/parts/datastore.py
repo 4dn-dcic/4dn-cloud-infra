@@ -20,7 +20,8 @@ from troposphere.kms import Key
 from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.s3 import (
     Bucket, BucketEncryption, BucketPolicy, ServerSideEncryptionRule, ServerSideEncryptionByDefault,
-    Private, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, TagFilter, VersioningConfiguration
+    Private, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, TagFilter, VersioningConfiguration,
+    NoncurrentVersionExpiration, NoncurrentVersionTransition
 )
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
@@ -272,6 +273,10 @@ class C4Datastore(C4DatastoreBase, C4Part):
                     Transition=LifecycleRuleTransition(
                         StorageClass='STANDARD_IA',
                         TransitionInDays=30
+                    ),
+                    NoncurrentVersionTransition=NoncurrentVersionTransition(
+                        StorageClass='STANDARD_IA',
+                        TransitionInDays=30
                     )
                 ),
                 LifecycleRule(
@@ -279,6 +284,10 @@ class C4Datastore(C4DatastoreBase, C4Part):
                     Status='Enabled',
                     TagFilters=[TagFilter(Key='Lifecycle', Value='Glacier')],
                     Transition=LifecycleRuleTransition(
+                        StorageClass='GLACIER',
+                        TransitionInDays=1
+                    ),
+                    NoncurrentVersionTransition=NoncurrentVersionTransition(
                         StorageClass='GLACIER',
                         TransitionInDays=1
                     )
@@ -290,13 +299,20 @@ class C4Datastore(C4DatastoreBase, C4Part):
                     Transition=LifecycleRuleTransition(
                         StorageClass='DEEP_ARCHIVE',
                         TransitionInDays=1
+                    ),
+                    NoncurrentVersionTransition=NoncurrentVersionTransition(
+                        StorageClass='DEEP_ARCHIVE',
+                        TransitionInDays=1
                     )
                 ),
                 LifecycleRule(
                     'expire',
                     Status='Enabled',
                     TagFilters=[TagFilter(Key='Lifecycle', Value='expire')],
-                    ExpirationInDays=1
+                    ExpirationInDays=1,
+                    NoncurrentVersionExpiration=NoncurrentVersionExpiration(
+                        NoncurrentDays=1
+                    )
                 )
             ]
         )

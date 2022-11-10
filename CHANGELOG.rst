@@ -6,6 +6,12 @@
 Change Log
 ----------
 
+3.8.1
+=====
+
+* Include rules for noncurrent objects in the S3 bucket lifecycle rules.
+
+
 3.8.0
 =====
 
