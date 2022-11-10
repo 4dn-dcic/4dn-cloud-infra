@@ -21,7 +21,7 @@ from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.s3 import (
     Bucket, BucketEncryption, BucketPolicy, ServerSideEncryptionRule, ServerSideEncryptionByDefault,
     Private, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, TagFilter, VersioningConfiguration,
-    NoncurrentVersionExpiration
+    NoncurrentVersionExpiration, NoncurrentVersionTransition
 )
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
@@ -274,8 +274,9 @@ class C4Datastore(C4DatastoreBase, C4Part):
                         StorageClass='STANDARD_IA',
                         TransitionInDays=30
                     ),
-                    NoncurrentVersionExpiration=NoncurrentVersionExpiration(
-                        NoncurrentDays=1
+                    NoncurrentVersionTransition=LifecycleRuleTransition(
+                        StorageClass='STANDARD_IA',
+                        TransitionInDays=30
                     )
                 ),
                 LifecycleRule(
@@ -286,8 +287,9 @@ class C4Datastore(C4DatastoreBase, C4Part):
                         StorageClass='GLACIER',
                         TransitionInDays=1
                     ),
-                    NoncurrentVersionExpiration=NoncurrentVersionExpiration(
-                        NoncurrentDays=1
+                    NoncurrentVersionTransition=LifecycleRuleTransition(
+                        StorageClass='GLACIER',
+                        TransitionInDays=1
                     )
                 ),
                 LifecycleRule(
@@ -298,8 +300,9 @@ class C4Datastore(C4DatastoreBase, C4Part):
                         StorageClass='DEEP_ARCHIVE',
                         TransitionInDays=1
                     ),
-                    NoncurrentVersionExpiration=NoncurrentVersionExpiration(
-                        NoncurrentDays=1
+                    NoncurrentVersionTransition=LifecycleRuleTransition(
+                        StorageClass='DEEP_ARCHIVE',
+                        TransitionInDays=1
                     )
                 ),
                 LifecycleRule(
