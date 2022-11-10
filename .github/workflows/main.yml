@@ -34,7 +34,6 @@ jobs:
           mkdir custom/aws_creds
           echo {\"deploying_iam_user\": \"test\", \"ENCODED_ENV_NAME\": \"cgap-build\", \"account_number\": 123, \"app.kind\": \"cgap\"} > custom/config.json
           echo {\"Auth0Client\": \"test\", \"Auth0Secret\": \"test\", \"ENCODED_SECRET\": \"test\", \"S3_ENCRYPT_KEY\": \"test\"} > custom/secrets.json
-          ln -s app-cgap.py app.py
       - name: Unit
         run: |
           make test
