@@ -274,7 +274,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
                         StorageClass='STANDARD_IA',
                         TransitionInDays=30
                     ),
-                    NoncurrentVersionTransition=LifecycleRuleTransition(
+                    NoncurrentVersionTransition=NoncurrentVersionTransition(
                         StorageClass='STANDARD_IA',
                         TransitionInDays=30
                     )
@@ -287,7 +287,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
                         StorageClass='GLACIER',
                         TransitionInDays=1
                     ),
-                    NoncurrentVersionTransition=LifecycleRuleTransition(
+                    NoncurrentVersionTransition=NoncurrentVersionTransition(
                         StorageClass='GLACIER',
                         TransitionInDays=1
                     )
@@ -300,7 +300,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
                         StorageClass='DEEP_ARCHIVE',
                         TransitionInDays=1
                     ),
-                    NoncurrentVersionTransition=LifecycleRuleTransition(
+                    NoncurrentVersionTransition=NoncurrentVersionTransition(
                         StorageClass='DEEP_ARCHIVE',
                         TransitionInDays=1
                     )
