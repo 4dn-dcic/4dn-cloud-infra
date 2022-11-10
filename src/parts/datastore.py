@@ -593,13 +593,13 @@ class C4Datastore(C4DatastoreBase, C4Part):
         )
 
     def elasticsearch_instance(self, data_node_count=None, data_node_type=None):
-        """ Returns an Elasticsearch domain with 1 data node, configurable via data_node_instance_type. Ref:
+        """ Returns an Opensearch domain with 1 data node, configurable via data_node_instance_type. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
-            TODO allow master node configuration
+            TODO allow master node configuration, update to opensearch
         """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         logical_id = self.name.logical_id(f"{camelize(env_name)}ElasticSearch")  # was env_name
-        domain_name = self.name.domain_name(f"es-{env_name}")
+        domain_name = self.name.domain_name(f"os-{env_name}")
         options = {}
         try:  # feature not yet supported by troposphere
             options['DomainEndpointOptions'] = DomainEndpointOptions(EnforceHTTPS=True)
