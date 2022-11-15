@@ -879,7 +879,7 @@ tibanna_ff = ">=0.22.5"
 
 [[package]]
 name = "foursight-cgap"
-version = "2.9.9.0b1"
+version = "2.9.9.0b5"
 description = "Serverless Chalice Application for Monitoring"
 category = "dev"
 optional = false
@@ -905,7 +905,7 @@ tibanna-ff = ">=1.0.0,<2.0.0"
 
 [[package]]
 name = "foursight-core"
-version = "2.9.9.0b2"
+version = "2.9.9.0b7"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -2567,7 +2567,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.1,<3.8"
-content-hash = "52eb8ff91bd1015bce5b5489f548b9b696a4c382bf088a1c82b7b83cc473f2eb"
+content-hash = "6c4ed1635a40618320553f087b0fd2abd8956e68db6ece057566ca279f8573c9"
 
 [metadata.files]
 ansicon = [
@@ -2837,12 +2837,12 @@ foursight = [
     {file = "foursight-2.9.9.0b1.tar.gz", hash = "sha256:67559abd76483f13b58bcec5323239d23f252ed04f05a0e6de461a1df8e38371"},
 ]
 foursight-cgap = [
-    {file = "foursight-cgap-2.9.9.0b1.tar.gz", hash = "sha256:bebaa61aab300001ca0a8bfb687ebed25b68bdeb31bff26bd041523777d6de47"},
-    {file = "foursight_cgap-2.9.9.0b1-py3-none-any.whl", hash = "sha256:37ac78f9ee51cc74742eb22bc2d503bcedb51a9c1efac3ba6447594e837f6eb5"},
+    {file = "foursight_cgap-2.9.9.0b5-py3-none-any.whl", hash = "sha256:2af4f2e7ddb2f52e2a652461008a2837272e8259c8ac81cef38e9c3af4ce00ea"},
+    {file = "foursight_cgap-2.9.9.0b5.tar.gz", hash = "sha256:4e17d4de29227bfd66b0206734ebe038cc7823c7bc7dbabfd2d0fa7c696bb575"},
 ]
 foursight-core = [
-    {file = "foursight-core-2.9.9.0b2.tar.gz", hash = "sha256:9791e7f76d575b4b11008ddf49b55624010079d3949c2726e857987990a56753"},
-    {file = "foursight_core-2.9.9.0b2-py3-none-any.whl", hash = "sha256:7c3ea695187e4651bd799811c53c80dd3fba1515413ed72d7bcf84fe46ee6c69"},
+    {file = "foursight-core-2.9.9.0b7.tar.gz", hash = "sha256:b6eef87f2ae2062fc939659b499fbb4c2a8a6455392f2418093ff7da49d27e61"},
+    {file = "foursight_core-2.9.9.0b7-py3-none-any.whl", hash = "sha256:e1e4f598ac463c674878e02103ab8a9054eb78fb7323242be2ef1a4a8d85a999"},
 ]
 future = [
     {file = "future-0.18.2.tar.gz", hash = "sha256:b1bead90b70cf6ec3f0710ae53a525360fa360d306a86583adc6bf83a4db537d"},
