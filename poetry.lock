@@ -848,7 +848,7 @@ pyflakes = ">=2.5.0,<2.6.0"
 
 [[package]]
 name = "foursight"
-version = "2.2.0"
+version = "2.2.0.2b16"
 description = "Serverless Chalice Application for Monitoring"
 category = "dev"
 optional = false
@@ -859,7 +859,7 @@ click = ">=7.1.2,<8.0.0"
 dcicutils = ">=4.0.2,<5.0.0"
 elasticsearch = ">=6.8.1,<7.0.0"
 elasticsearch-dsl = ">=6.4.0,<7.0.0"
-foursight-core = "2.1.0"
+foursight-core = "2.1.0.2b16"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.7.4,<2.0.0"
@@ -875,7 +875,7 @@ tibanna_ff = ">=0.22.5"
 
 [[package]]
 name = "foursight-cgap"
-version = "2.2.0"
+version = "2.2.0.2b16"
 description = "Serverless Chalice Application for Monitoring"
 category = "dev"
 optional = false
@@ -887,7 +887,7 @@ click = ">=7.1.2,<8.0.0"
 dcicutils = ">=4.0.2,<5.0.0"
 elasticsearch = ">=6.8.1,<7.0.0"
 elasticsearch-dsl = ">=6.4.0,<7.0.0"
-foursight-core = "2.1.0"
+foursight-core = "2.1.0.2b16"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.12.5,<2.0.0"
@@ -901,7 +901,7 @@ tibanna-ff = ">=1.0.0,<2.0.0"
 
 [[package]]
 name = "foursight-core"
-version = "2.1.0"
+version = "2.1.0.2b16"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -920,6 +920,7 @@ google-api-python-client = ">=1.12.5,<2.0.0"
 google-auth-oauthlib = ">=0.7.0,<0.8.0"
 Jinja2 = "2.10.1"
 MarkupSafe = "1.1.1"
+pyDes = ">=2.0.1,<3.0.0"
 PyJWT = "2.5.0"
 pytz = ">=2020.1,<2021.0"
 
@@ -1920,6 +1921,14 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 
 [[package]]
+name = "pydes"
+version = "2.0.1"
+description = "Pure python implementation of DES and TRIPLE DES encryption algorithm"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "pyflakes"
 version = "2.5.0"
 description = "passive checker of Python programs"
@@ -2563,7 +2572,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.1,<3.8"
-content-hash = "53a9cf02ce4b8a25d0e9d2bf6b7a797c6d4d20d557bb008df54cb8645a46010f"
+content-hash = "7702390b422cf12d05442cd443eec05f35678a236243385b1bdfe6dbd561ee07"
 
 [metadata.files]
 ansicon = [
@@ -2829,16 +2838,16 @@ flake8 = [
     {file = "flake8-5.0.4.tar.gz", hash = "sha256:6fbe320aad8d6b95cec8b8e47bc933004678dc63095be98528b7bdd2a9f510db"},
 ]
 foursight = [
-    {file = "foursight-2.2.0-py3-none-any.whl", hash = "sha256:88e7295a20be22ef0ea9c81475ac7c5cf9835e2d2993974256e9c3236eecd94e"},
-    {file = "foursight-2.2.0.tar.gz", hash = "sha256:31288d1c653278b9c5e7408cc478e6a77b54d1e459ed2face6f90b86a9e3acc6"},
+    {file = "foursight-2.2.0.2b16-py3-none-any.whl", hash = "sha256:23088bbab928c05b55562da63998ab3f07dc475d14ff472dec0c841593f2c7db"},
+    {file = "foursight-2.2.0.2b16.tar.gz", hash = "sha256:1b28047080d0eadd9195765f7dce49daed545ad237753f445ae9a6bf8a52a8ea"},
 ]
 foursight-cgap = [
-    {file = "foursight_cgap-2.2.0-py3-none-any.whl", hash = "sha256:71a502ede644489632555a115f81fa2d52422a3a7ebbd080000ab061c6b5f0b0"},
-    {file = "foursight_cgap-2.2.0.tar.gz", hash = "sha256:445c0c74b7486589b48c4ae2b91330c07b34ad1808c10f038c6bdabe821da706"},
+    {file = "foursight_cgap-2.2.0.2b16-py3-none-any.whl", hash = "sha256:0c4ea49ba2182ddf2706401b83259a7dbefe258b844ccc74ccdb88853871acc1"},
+    {file = "foursight_cgap-2.2.0.2b16.tar.gz", hash = "sha256:2fb86a20136f1b4c58d022a51d7feff2f3b1ba186cc8f4c043c2fbe158e89f21"},
 ]
 foursight-core = [
-    {file = "foursight_core-2.1.0-py3-none-any.whl", hash = "sha256:6777a4b6d6af5e990d9f30ea88d81c0fd531a7a4a4e38d928bd1abe56cbeafa7"},
-    {file = "foursight_core-2.1.0.tar.gz", hash = "sha256:872d62eb4763124bf8b33cd86056cac761ab39ddb00cdd12db6f241813015fc1"},
+    {file = "foursight_core-2.1.0.2b16-py3-none-any.whl", hash = "sha256:b3d04274b4a3cc8c697a81c6d8258131e30ffdca460818d0ce07f12d9e025780"},
+    {file = "foursight_core-2.1.0.2b16.tar.gz", hash = "sha256:32165c6b5cc5a34255f55346e3a8605062a2a23a629a4c992f4973d3bdf73fc1"},
 ]
 future = [
     {file = "future-0.18.2.tar.gz", hash = "sha256:b1bead90b70cf6ec3f0710ae53a525360fa360d306a86583adc6bf83a4db537d"},
@@ -3281,6 +3290,9 @@ pycodestyle = [
 pycparser = [
     {file = "pycparser-2.21-py2.py3-none-any.whl", hash = "sha256:8ee45429555515e1f6b185e78100aea234072576aa43ab53aefcae078162fca9"},
     {file = "pycparser-2.21.tar.gz", hash = "sha256:e644fdec12f7872f86c58ff790da456218b10f863970249516d60a5eaca77206"},
+]
+pydes = [
+    {file = "pyDes-2.0.1.tar.gz", hash = "sha256:e2ab8e21d2b83e90d90dbfdcb6fb8ac0000b813238b7ecaede04f8435c389012"},
 ]
 pyflakes = [
     {file = "pyflakes-2.5.0-py2.py3-none-any.whl", hash = "sha256:4579f67d887f804e67edb544428f264b7b24f435b263c4614f384135cea553d2"},
