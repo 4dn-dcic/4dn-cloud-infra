@@ -6,8 +6,14 @@
 Change Log
 ----------
 
-3.8.0
+3.8.2
 =====
+* Removed symlink of app.py to app-cgap.py or app-fourfront.py
+  from .github/workflows/main.yml; no longer needed.
+* Changed poetry version from 1.1.15 to 1.2.0 in .github/workflows/main.yml;
+  need for new "groups" feature in pyproject.toml which we use to import
+  either but not both of foursight-cgap (chalicelib_cgap) or foursight (chalicelib_fourfront).
+
 
 3.8.1
 =====
