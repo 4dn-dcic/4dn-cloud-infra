@@ -13,6 +13,7 @@ Change Log
 * Changed poetry version from 1.1.15 to 1.2.0 in .github/workflows/main.yml;
   need for new "groups" feature in pyproject.toml which we use to import
   either but not both of foursight-cgap (chalicelib_cgap) or foursight (chalicelib_fourfront).
+* Changes from branch fix-for-bool-in-config-json (PR-71); fix for bool types in custom/config.json.
 
 
 3.8.1
