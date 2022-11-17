@@ -7,8 +7,12 @@ from troposphere import (
     Join, Ref, Template, Tags, Parameter, Output, GetAtt,
     AccountId
 )
-from troposphere.elasticsearch import (
-    Domain, ElasticsearchClusterConfig,
+# from troposphere.elasticsearch import (  No longer used post ES7 update
+#     Domain, ElasticsearchClusterConfig,
+#     EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions
+# )
+from troposphere.opensearchservice import (
+    Domain as OSDomain, ClusterConfig,
     EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions
 )
 try:
@@ -592,8 +596,56 @@ class C4Datastore(C4DatastoreBase, C4Part):
             TargetId=Ref(self.rds_instance()),
         )
 
-    def elasticsearch_instance(self, data_node_count=None, data_node_type=None):
-        """ Returns an Opensearch domain with 1 data node, configurable via data_node_instance_type. Ref:
+    # def elasticsearch_instance(self, data_node_count=None, data_node_type=None) -> Domain:
+    #     """ Returns an ElasticSearch domain with 1 data node, configurable via data_node_instance_type. Ref:
+    #         https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
+    #         TODO allow master node configuration, update to opensearch
+    #     """
+    #     env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+    #     logical_id = self.name.logical_id(f"{camelize(env_name)}ElasticSearch")  # was env_name
+    #     domain_name = self.name.domain_name(f"os-{env_name}")
+    #     options = {}
+    #     try:  # feature not yet supported by troposphere
+    #         options['DomainEndpointOptions'] = DomainEndpointOptions(EnforceHTTPS=True)
+    #     except NotImplementedError:
+    #         pass
+    #     # account_num = ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER)
+    #     domain = Domain(
+    #         logical_id,
+    #         DomainName=domain_name,
+    #         NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
+    #         EncryptionAtRestOptions=EncryptionAtRestOptions(Enabled=True),  # TODO specify KMS key
+    #         ElasticsearchClusterConfig=ElasticsearchClusterConfig(
+    #             InstanceCount=(data_node_count
+    #                            or ConfigManager.get_config_setting(Settings.ES_DATA_COUNT,
+    #                                                                default=self.DEFAULT_ES_DATA_NODE_COUNT)),
+    #             InstanceType=(data_node_type
+    #                           or ConfigManager.get_config_setting(Settings.ES_DATA_TYPE,
+    #                                                               default=self.DEFAULT_ES_DATA_NODE_TYPE)),
+    #         ),
+    #         ElasticsearchVersion='6.8',
+    #         EBSOptions=EBSOptions(
+    #             EBSEnabled=True,
+    #             VolumeSize=ConfigManager.get_config_setting(Settings.ES_VOLUME_SIZE, 10),
+    #             VolumeType='gp2',  # gp3?
+    #         ),
+    #         VPCOptions=VPCOptions(
+    #             SecurityGroupIds=[
+    #                 self.NETWORK_EXPORTS.import_value(C4NetworkExports.HTTPS_SECURITY_GROUP),
+    #             ],
+    #             SubnetIds=[
+    #                 # TODO: Is this right? Just one subnet? -kmp 14-Aug-2021
+    #                 # self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+    #                 self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNETS[0]),
+    #             ],
+    #         ),
+    #         Tags=self.tags.cost_tag_array(name=domain_name),
+    #         **options,
+    #     )
+    #     return domain
+
+    def opensearch_instance(self, data_node_count=None, data_node_type=None) -> OSDomain:
+        """ Returns an OpenSearch domain with 1 data node, configurable via data_node_instance_type. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
             TODO allow master node configuration, update to opensearch
         """
@@ -606,12 +658,12 @@ class C4Datastore(C4DatastoreBase, C4Part):
         except NotImplementedError:
             pass
         # account_num = ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER)
-        domain = Domain(
+        domain = OSDomain(
             logical_id,
             DomainName=domain_name,
             NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
             EncryptionAtRestOptions=EncryptionAtRestOptions(Enabled=True),  # TODO specify KMS key
-            ElasticsearchClusterConfig=ElasticsearchClusterConfig(
+            ClusterConfig=ClusterConfig(
                 InstanceCount=(data_node_count
                                or ConfigManager.get_config_setting(Settings.ES_DATA_COUNT,
                                                                    default=self.DEFAULT_ES_DATA_NODE_COUNT)),
@@ -640,12 +692,12 @@ class C4Datastore(C4DatastoreBase, C4Part):
         )
         return domain
 
-    def output_es_url(self, resource: Domain, export_name=C4DatastoreExports.ES_URL) -> Output:
+    def output_es_url(self, resource: OSDomain, export_name=C4DatastoreExports.ES_URL) -> Output:
         """ Outputs ES URL """
         logical_id = self.name.logical_id(export_name)
         return Output(
             logical_id,
-            Description='ES URL for this environment',
+            Description='OS URL for this environment',
             Value=GetAtt(resource, 'DomainEndpoint'),
             Export=self.EXPORTS.export(export_name)
         )
