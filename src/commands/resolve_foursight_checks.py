@@ -12,7 +12,8 @@ from foursight_core.check_utils import CheckHandler
 # choose which one is the source via the (new) --app argument. dmichaels/2022-10-31.
 # from .chalicelib.package import PackageDeploy as PackageDeploy_from_app
 from chalicelib_fourfront.vars import CHECK_SETUP_FILE as FOURSIGHT_FOURFRONT_CHECK_TEMPLATE
-from chalicelib_cgap.vars import CHECK_SETUP_FILE as FOURSIGHT_CGAP_CHECK_TEMPLATE
+#from chalicelib_cgap.vars import CHECK_SETUP_FILE as FOURSIGHT_CGAP_CHECK_TEMPLATE
+FOURSIGHT_CGAP_CHECK_TEMPLATE = ''
 from dcicutils.misc_utils import full_class_name
 
 from src.constants import Settings

@@ -635,18 +635,6 @@ pyyaml = {version = "*", markers = "python_version != \"3.4\""}
 six = ">=1.11"
 
 [[package]]
-name = "cgap-pipeline-utils"
-version = "23.0"
-description = "Collection of utilities for cgap-pipeline"
-category = "dev"
-optional = false
-python-versions = ">=3.6, <3.8"
-
-[package.dependencies]
-dcicutils = ">=1.19.0"
-magma-suite = ">=0.2.1"
-
-[[package]]
 name = "chalice"
 version = "1.27.1"
 description = "Microframework"
@@ -709,11 +697,11 @@ python-versions = "*"
 
 [[package]]
 name = "dcicutils"
-version = "4.8.0"
+version = "5.3.0"
 description = "Utility package for interacting with the 4DN Data Portal and other 4DN resources"
 category = "main"
 optional = false
-python-versions = ">=3.6.1,<3.10"
+python-versions = ">=3.7,<3.10"
 
 [package.dependencies]
 aws-requests-auth = ">=0.4.2,<1"
@@ -848,7 +836,7 @@ pyflakes = ">=2.5.0,<2.6.0"
 
 [[package]]
 name = "foursight"
-version = "2.2.0"
+version = "2.3.1.0b0"
 description = "Serverless Chalice Application for Monitoring"
 category = "dev"
 optional = false
@@ -856,10 +844,10 @@ python-versions = ">=3.7.1,<3.9"
 
 [package.dependencies]
 click = ">=7.1.2,<8.0.0"
-dcicutils = ">=4.0.2,<5.0.0"
+dcicutils = ">=5.0.0,<6.0.0"
 elasticsearch = ">=6.8.1,<7.0.0"
 elasticsearch-dsl = ">=6.4.0,<7.0.0"
-foursight-core = "2.1.0"
+foursight-core = "2.1.0.2b0"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.7.4,<2.0.0"
@@ -871,37 +859,11 @@ pandas = ">=1.1.4"
 PyJWT = "2.5.0"
 pytest = "5.1.2"
 pytz = ">=2020.1,<2021.0"
-tibanna_ff = ">=0.22.5"
-
-[[package]]
-name = "foursight-cgap"
-version = "2.2.0"
-description = "Serverless Chalice Application for Monitoring"
-category = "dev"
-optional = false
-python-versions = ">=3.7,<3.8"
-
-[package.dependencies]
-cgap-pipeline-utils = "23.0"
-click = ">=7.1.2,<8.0.0"
-dcicutils = ">=4.0.2,<5.0.0"
-elasticsearch = ">=6.8.1,<7.0.0"
-elasticsearch-dsl = ">=6.4.0,<7.0.0"
-foursight-core = "2.1.0"
-geocoder = "1.38.1"
-gitpython = ">=3.1.2,<4.0.0"
-google-api-python-client = ">=1.12.5,<2.0.0"
-Jinja2 = "2.10.1"
-magma-suite = "1.1.0"
-MarkupSafe = "1.1.1"
-PyJWT = "2.5.0"
-pytest = "5.1.2"
-pytz = ">=2020.1,<2021.0"
-tibanna-ff = ">=1.0.0,<2.0.0"
+tibanna_ff = "1.2.3b0"
 
 [[package]]
 name = "foursight-core"
-version = "2.1.0"
+version = "2.1.0.2b0"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -910,7 +872,7 @@ python-versions = ">=3.7,<3.9"
 [package.dependencies]
 click = ">=7.1.2,<8.0.0"
 cron-descriptor = ">=1.2.31,<2.0.0"
-dcicutils = ">=4.0.2,<5.0.0"
+dcicutils = ">=5.0.0,<6.0.0"
 elasticsearch = ">=6.8.1,<7.0.0"
 elasticsearch-dsl = ">=6.4.0,<7.0.0"
 geocoder = "1.38.1"
@@ -1435,15 +1397,15 @@ python-versions = ">=3.7"
 
 [[package]]
 name = "magma-suite"
-version = "1.1.0"
+version = "1.0.0"
 description = "Collection of tools to manage meta-workflows automation."
 category = "main"
 optional = false
 python-versions = ">=3.7,<3.9"
 
 [package.dependencies]
-dcicutils = ">=4.0.0,<5.0.0"
-tibanna-ff = ">=1.0.0,<2.0.0"
+dcicutils = ">=3.5.0"
+tibanna-ff = ">=1.0.0"
 
 [[package]]
 name = "markupsafe"
@@ -2315,7 +2277,7 @@ test = ["pytest"]
 
 [[package]]
 name = "tibanna"
-version = "2.0.0"
+version = "2.2.4"
 description = "Tibanna runs portable pipelines (in CWL/WDL) on the AWS Cloud."
 category = "main"
 optional = false
@@ -2332,7 +2294,7 @@ urllib3 = ">=1.24,<2.0"
 
 [[package]]
 name = "tibanna-ff"
-version = "1.1.0.1b2"
+version = "1.2.3b0"
 description = "Tibanna runs portable pipelines (in CWL/WDL) on the AWS Cloud."
 category = "main"
 optional = false
@@ -2341,9 +2303,9 @@ python-versions = ">=3.7,<3.9"
 [package.dependencies]
 boto3 = ">=1.9.0,<2.0.0"
 botocore = ">=1.12.1,<2.0.0"
-dcicutils = ">=4.0.0,<5.0.0"
+dcicutils = ">=5.0.0,<6.0.0"
 requests = ">=2.22.0,<3.0.0"
-tibanna = ">=2.0.0"
+tibanna = ">=2.2.1,<3.0.0"
 tomlkit = ">=0.10.0,<0.11.0"
 
 [[package]]
@@ -2563,7 +2525,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.1,<3.8"
-content-hash = "53a9cf02ce4b8a25d0e9d2bf6b7a797c6d4d20d557bb008df54cb8645a46010f"
+content-hash = "96a5ed305989ae31252817634b2841310c1dfd2b2257adaa0671757beb5b9d3c"
 
 [metadata.files]
 ansicon = [
@@ -2745,10 +2707,6 @@ cfn-lint = [
     {file = "cfn-lint-0.48.3.tar.gz", hash = "sha256:f9d07ec844fa3892399af9aef3cf6de22f725c004dd24ac54bae41659fddc874"},
     {file = "cfn_lint-0.48.3-py3-none-any.whl", hash = "sha256:8ccfa5b2d6b688854653015d0c7ecfa1572801c14f8600c9cdba09c215db8c9a"},
 ]
-cgap-pipeline-utils = [
-    {file = "cgap-pipeline-utils-23.0.tar.gz", hash = "sha256:a92918b3ef46803ce8cbfa1f7fe07e5bf4221d26618e7b80eeb9d9bff2963d18"},
-    {file = "cgap_pipeline_utils-23.0-py3-none-any.whl", hash = "sha256:fe5bb6b18f081a616b9491cc023b837d1026570b8df948285661521c760ed6d4"},
-]
 chalice = [
     {file = "chalice-1.27.1-py3-none-any.whl", hash = "sha256:dd59c40711adfbdce0b61ce067d66111874246cc41b18c0cc6c5076432d60800"},
     {file = "chalice-1.27.1.tar.gz", hash = "sha256:ca9dde3d5ac74ff153d5355ff0ea617e021dffe82461a4904c79747fdb84fa98"},
@@ -2769,8 +2727,8 @@ cron-descriptor = [
     {file = "cron_descriptor-1.2.31.tar.gz", hash = "sha256:8e83f08dbd76657a0b6ce1168b293bc27fa68be573ef8cb086ef0d9896340876"},
 ]
 dcicutils = [
-    {file = "dcicutils-4.8.0-py3-none-any.whl", hash = "sha256:06707fde9077085abbdfe0577d61be4dd64106906d011b532f90f4379cfb4805"},
-    {file = "dcicutils-4.8.0.tar.gz", hash = "sha256:7095b4109df42bcd45c76e8f4dc96777116e2c8d944b6b3fb4a2ede75f18a737"},
+    {file = "dcicutils-5.3.0-py3-none-any.whl", hash = "sha256:87a6394417f314998a41f935e742b6ce43a6971ef3bde79ac4dad1612e746060"},
+    {file = "dcicutils-5.3.0.tar.gz", hash = "sha256:c11444e06831bce7022b71123edef0d8ea0068eb18475366a12936c17308d0fa"},
 ]
 debugpy = [
     {file = "debugpy-1.6.3-cp310-cp310-macosx_10_15_x86_64.whl", hash = "sha256:c4b2bd5c245eeb49824bf7e539f95fb17f9a756186e51c3e513e32999d8846f3"},
@@ -2829,16 +2787,12 @@ flake8 = [
     {file = "flake8-5.0.4.tar.gz", hash = "sha256:6fbe320aad8d6b95cec8b8e47bc933004678dc63095be98528b7bdd2a9f510db"},
 ]
 foursight = [
-    {file = "foursight-2.2.0-py3-none-any.whl", hash = "sha256:88e7295a20be22ef0ea9c81475ac7c5cf9835e2d2993974256e9c3236eecd94e"},
-    {file = "foursight-2.2.0.tar.gz", hash = "sha256:31288d1c653278b9c5e7408cc478e6a77b54d1e459ed2face6f90b86a9e3acc6"},
-]
-foursight-cgap = [
-    {file = "foursight_cgap-2.2.0-py3-none-any.whl", hash = "sha256:71a502ede644489632555a115f81fa2d52422a3a7ebbd080000ab061c6b5f0b0"},
-    {file = "foursight_cgap-2.2.0.tar.gz", hash = "sha256:445c0c74b7486589b48c4ae2b91330c07b34ad1808c10f038c6bdabe821da706"},
+    {file = "foursight-2.3.1.0b0-py3-none-any.whl", hash = "sha256:5f7858d6c45369bb3f88d383bef574c82791533be290f71a814b189f193d4065"},
+    {file = "foursight-2.3.1.0b0.tar.gz", hash = "sha256:fc295d8e9b5dd8cc028cbb34f387932bdf12ed958b07ce9e3cf20a010548e146"},
 ]
 foursight-core = [
-    {file = "foursight_core-2.1.0-py3-none-any.whl", hash = "sha256:6777a4b6d6af5e990d9f30ea88d81c0fd531a7a4a4e38d928bd1abe56cbeafa7"},
-    {file = "foursight_core-2.1.0.tar.gz", hash = "sha256:872d62eb4763124bf8b33cd86056cac761ab39ddb00cdd12db6f241813015fc1"},
+    {file = "foursight-core-2.1.0.2b0.tar.gz", hash = "sha256:9375ca7be1f03caaa627bf3482a47675c884b803e0139ce549564ac16e4e85ce"},
+    {file = "foursight_core-2.1.0.2b0-py3-none-any.whl", hash = "sha256:79ad89126361d3e70a0a36192ae42d0cf3e4d7bccd624ae6a64b8b7db640efdc"},
 ]
 future = [
     {file = "future-0.18.2.tar.gz", hash = "sha256:b1bead90b70cf6ec3f0710ae53a525360fa360d306a86583adc6bf83a4db537d"},
@@ -2980,8 +2934,8 @@ jupyterlab-widgets = [
     {file = "jupyterlab_widgets-3.0.3.tar.gz", hash = "sha256:c767181399b4ca8b647befe2d913b1260f51bf9d8ef9b7a14632d4c1a7b536bd"},
 ]
 magma-suite = [
-    {file = "magma-suite-1.1.0.tar.gz", hash = "sha256:1f70cf0f88fd9b184eb7da2ee96066ff8d44a84fba27a5d4cb39db414330cae2"},
-    {file = "magma_suite-1.1.0-py3-none-any.whl", hash = "sha256:56e3b95e496c4e70257d051af2a3c0f0e38ad0e43225b3b3feea0b447d3ee781"},
+    {file = "magma-suite-1.0.0.tar.gz", hash = "sha256:7c38574366b3119dce36998b0d3c6a7209ef0bad45417dc06a48d23b3cff5fac"},
+    {file = "magma_suite-1.0.0-py3-none-any.whl", hash = "sha256:3890b9e2d98591baa1d95e45a61592974a2843f3236ecfe743852419526feded"},
 ]
 markupsafe = [
     {file = "MarkupSafe-1.1.1-cp27-cp27m-macosx_10_6_intel.whl", hash = "sha256:09027a7803a62ca78792ad89403b1b7a73a01c8cb65909cd876f7fcebd79b161"},
@@ -3549,12 +3503,12 @@ testpath = [
     {file = "testpath-0.6.0.tar.gz", hash = "sha256:2f1b97e6442c02681ebe01bd84f531028a7caea1af3825000f52345c30285e0f"},
 ]
 tibanna = [
-    {file = "tibanna-2.0.0-py3-none-any.whl", hash = "sha256:1069cb3725fee386f2f271404dafd868d40da5e302276b51c316ad36999668a3"},
-    {file = "tibanna-2.0.0.tar.gz", hash = "sha256:c1a477d4fb7e6287d64a193b3f1fe31a4bb42a496c51fba75160582e0bf3bbe9"},
+    {file = "tibanna-2.2.4-py3-none-any.whl", hash = "sha256:4acb3e46c14da0f09c203ef94e0bae8d1557e06e6c81339cf5e4818b501abb90"},
+    {file = "tibanna-2.2.4.tar.gz", hash = "sha256:d7cd4a205397875c3774b1f819880ecd3b6dc108f720e0f28d5da7fd2fc8315b"},
 ]
 tibanna-ff = [
-    {file = "tibanna_ff-1.1.0.1b2-py3-none-any.whl", hash = "sha256:52c43fe6bc68fa861520503edfd363c130a0ea7deea0d239ef677c81673fcf7c"},
-    {file = "tibanna_ff-1.1.0.1b2.tar.gz", hash = "sha256:11f4188a1f8345869160e4ae4fcc42cc2fc50ce06562ccb50262e1e4d8804969"},
+    {file = "tibanna_ff-1.2.3b0-py3-none-any.whl", hash = "sha256:49962b2be6b4310992c80e2e7fad684b3cf06db6a1f941f733cbae8fe788f4fb"},
+    {file = "tibanna_ff-1.2.3b0.tar.gz", hash = "sha256:55eddb23b29a8ec5f38149d73bdbbc7be2854571d97bd924df0158935739bbfe"},
 ]
 toml = [
     {file = "toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"},
