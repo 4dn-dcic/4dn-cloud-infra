@@ -12,6 +12,8 @@
         "ecs:*",
         "cloudformation:*",
         "states:*",
+        "dynamodb:*",
+        "codebuild:*",
         "secretsmanager:GetSecretValue",
         "secretsmanager:ListSecrets",
         "iam:ListAccountAliases"
