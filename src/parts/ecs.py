@@ -540,6 +540,7 @@ class C4ECSApplication(C4Part):
                 MetricDimension(
                     Name='QueueName',
                     Value=queue_name,
+                )
             ],
             Statistic='Maximum',
             Period='300',
