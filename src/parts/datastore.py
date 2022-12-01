@@ -87,6 +87,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
     # APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = "ApplicationConfiguration"
 
     SHARING = 'env'
+    OPENSEARCH_LATEST = 'OpenSearch_2.3'
 
     @classmethod
     def rds_postgres_version(cls):
@@ -671,7 +672,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
                               or ConfigManager.get_config_setting(Settings.ES_DATA_TYPE,
                                                                   default=self.DEFAULT_ES_DATA_NODE_TYPE)),
             ),
-            ElasticsearchVersion='6.8',
+            EngineVersion=self.OPENSEARCH_LATEST,
             EBSOptions=EBSOptions(
                 EBSEnabled=True,
                 VolumeSize=ConfigManager.get_config_setting(Settings.ES_VOLUME_SIZE, 10),
