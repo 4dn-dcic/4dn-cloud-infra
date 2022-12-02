@@ -142,10 +142,10 @@ class C4DatastoreBase:
     DEFAULT_RDS_DB_PORT = '5432'
     DEFAULT_RDS_DB_USERNAME = 'postgresql'
     DEFAULT_RDS_AZ = 'us-east-1a'
-    DEFAULT_RDS_STORAGE_SIZE = 20
-    DEFAULT_RDS_INSTANCE_SIZE = 'db.t3.medium'
-    DEFAULT_RDS_STORAGE_TYPE = 'standard'
-    DEFAULT_RDS_POSTGRES_VERSION = '12.9'
+    DEFAULT_RDS_STORAGE_SIZE = 30
+    DEFAULT_RDS_INSTANCE_SIZE = 'db.t4g.medium'
+    DEFAULT_RDS_STORAGE_TYPE = 'gp3'
+    DEFAULT_RDS_POSTGRES_VERSION = '14.4'
 
 
 # dmichaels/2022-06-22: Factored out from C4IAM in iam.py.

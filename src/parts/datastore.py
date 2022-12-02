@@ -104,7 +104,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
     IAM_EXPORTS = C4IAMExports()
 
     DEFAULT_ES_DATA_NODE_COUNT = '1'
-    DEFAULT_ES_DATA_NODE_TYPE = 'c5.large.elasticsearch'
+    DEFAULT_ES_DATA_NODE_TYPE = 'c6g.large.elasticsearch'
 
     # Buckets used by the Application layer we need to initialize as part of the datastore
     # Intended to be .formatted with the deploying env_name
@@ -691,8 +691,8 @@ class C4Datastore(C4DatastoreBase, C4Part):
             EngineVersion=self.OPENSEARCH_LATEST,
             EBSOptions=EBSOptions(
                 EBSEnabled=True,
-                VolumeSize=ConfigManager.get_config_setting(Settings.ES_VOLUME_SIZE, 10),
-                VolumeType='gp2',  # gp3?
+                VolumeSize=ConfigManager.get_config_setting(Settings.ES_VOLUME_SIZE, 30),
+                VolumeType='gp3',
             ),
             VPCOptions=VPCOptions(
                 SecurityGroupIds=[
