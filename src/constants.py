@@ -131,7 +131,7 @@ COMMON_STACK_PREFIX_CAMEL_CASE = "C4"
 # dmichaels/2022-06-06: Factored out from datastore.py.
 class C4DatastoreBase:
     """
-    Factored out of C4Datastore to to generate names before orchestration (e.g. init-custom-dir).
+    Factored out of C4Datastore to generate names before orchestration (e.g. init-custom-dir).
     """
     STACK_NAME_TOKEN = "datastore"
     STACK_TITLE_TOKEN = "Datastore"
@@ -151,7 +151,7 @@ class C4DatastoreBase:
 # dmichaels/2022-06-22: Factored out from C4IAM in iam.py.
 class C4IAMBase:
     """
-    Factored out of C4IAM to to generate names before orchestration (e.g. the setup-remaining-secrets command).
+    Factored out of C4IAM to generate names before orchestration (e.g. the setup-remaining-secrets command).
     """
     STACK_NAME_TOKEN = "iam"
     STACK_TITLE_TOKEN = "IAM"
