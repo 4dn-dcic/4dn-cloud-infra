@@ -5,6 +5,7 @@ import io
 import json
 import os
 import re
+from typing import Optional
 
 from contextlib import contextmanager
 from dcicutils.cloudformation_utils import DEFAULT_ECOSYSTEM
@@ -190,8 +191,8 @@ class ConfigManager:
         """
         with io.open(filename) as fp:
             config = json.load(fp)
-            # config = {k: str(v) if v is not None else None for k, v in config.items()}
-            config = {k: v and str(v) for k, v in config.items()}
+            #config = {k: v and str(v) for k, v in config.items()}
+            config = {k: str(v) if v is not None else None for k, v in config.items()}
             return config
 
     # path to config files, top level by default (previously named CONFIGURATION)
@@ -231,6 +232,24 @@ class ConfigManager:
     def get_config_secret(cls, var, default=_MISSING, use_default_if_empty=True):
         return cls.get_config_setting(var, default=default, use_default_if_empty=use_default_if_empty)
 
+    @staticmethod
+    def str_to_bool(value: str) -> Optional[bool]:
+        """
+        Converts the given string to a boolean if it looks like one, i.e. if its
+        value is either "true" or "false", ignoring case (and trimming spaces),
+        and returns its boolean value (i.e. True or False) if so.
+        If it does not look like a boolean then return None.
+        """
+        if not value:
+            return None
+        value = value.strip().lower()
+        if value == "false":
+            return False
+        elif value == "true":
+            return True
+        else:
+            return None
+
     @classmethod
     def get_config_setting(cls, var, default=_MISSING, use_default_if_empty=True):
         with cls.validate_and_source_configuration():
@@ -244,7 +263,11 @@ class ConfigManager:
                 # Use has_config_setting in the rare case of it being necessary to distinguish empty from missing.
                 found = os.environ.get(var)
                 if found:
-                    return found
+                    found_bool = ConfigManager.str_to_bool(found)
+                    if found_bool is not None:
+                        return found_bool
+                    else:
+                        return found
                 elif found is None or (use_default_if_empty and found == ""):
                     return default
                 else:  # some other false value than None or "", for example zero (0).
