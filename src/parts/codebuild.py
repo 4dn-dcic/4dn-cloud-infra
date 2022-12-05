@@ -31,9 +31,11 @@ class C4CodeBuild(C4Part):
     BUILD_TYPE = 'LINUX_CONTAINER'
     BUILD_IMAGE = 'aws/codebuild/standard:6.0'
     DEFAULT_GITHUB_REPOSITORY = 'https://github.com/dbmi-bgm/cgap-portal'
+    DEFAULT_GITHUB_PIPELINE_REPOSITORY = 'https://github.com/dbmi-bgm/cgap-pipeline-main'
     STACK_NAME_TOKEN = 'codebuild'
     STACK_TITLE_TOKEN = 'CodeBuild'
     DEFAULT_DEPLOY_BRANCH = 'master'
+    DEFAULT_PIPELINE_DEPLOY_BRANCH = 'v1.0.0'  # version release tag for cgap-pipeline-main
     NETWORK_EXPORTS = C4NetworkExports()
     EXPORTS = C4CodeBuildExports()
 
@@ -45,19 +47,20 @@ class C4CodeBuild(C4Part):
             Type='String',
         ))
 
-        project_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        portal_project_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        pipeline_project_name = portal_project_name + '-pipeline-builder'
 
-        # IAM role for cb
-        iam_role = self.cb_iam_role(project_name=project_name)
+        # IAM role for cb (not specific to any build project)
+        iam_role = self.cb_iam_role(project_name=portal_project_name)
         template.add_resource(iam_role)
 
         # credentials for cb
         creds = self.cb_source_credential()
         template.add_resource(creds)
 
-        # Build project
+        # Build project for portal image
         build_project = self.cb_project(
-            project_name=project_name,
+            project_name=portal_project_name,
             github_repo_url=ConfigManager.get_config_setting(Settings.CODEBUILD_GITHUB_REPOSITORY_URL,
                                                              default=self.DEFAULT_GITHUB_REPOSITORY),
             branch=ConfigManager.get_config_setting(Settings.CODEBUILD_DEPLOY_BRANCH,
@@ -65,14 +68,26 @@ class C4CodeBuild(C4Part):
         )
         template.add_resource(build_project)
 
-        # output build project name, iam role
+        # Build project for pipeline images
+        pipeline_build_project = self.cb_project(
+            project_name=pipeline_project_name,
+            github_repo_url=self.DEFAULT_GITHUB_PIPELINE_REPOSITORY,
+            branch=self.DEFAULT_PIPELINE_DEPLOY_BRANCH
+        )
+        template.add_resource(pipeline_build_project)
+
+        # output build project names, iam role
         template.add_output(self.output_value(resource=build_project,
                                               export_name=C4CodeBuildExports.output_project_key(
-                                                  project_name=project_name
+                                                  project_name=portal_project_name
+                                              )))
+        template.add_output(self.output_value(resource=pipeline_build_project,
+                                              export_name=C4CodeBuildExports.output_project_key(
+                                                  project_name=pipeline_project_name
                                               )))
         template.add_output(self.output_value(resource=iam_role,
                                               export_name=C4CodeBuildExports.output_project_iam_role(
-                                                  project_name=project_name
+                                                  project_name=portal_project_name
                                               )))
 
         return template
@@ -145,7 +160,8 @@ class C4CodeBuild(C4Part):
             {'Name': 'AWS_DEFAULT_REGION', 'Value': 'us-east-1'},
             {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
             {'Name': 'IMAGE_REPO_NAME', 'Value': ConfigManager.get_config_setting(Settings.CODEBUILD_REPO_NAME)},
-            {'Name': 'IMAGE_TAG', 'Value': ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, default='latest')}
+            {'Name': 'IMAGE_TAG', 'Value': ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, default='latest')},
+            {'Name': 'BUILD_PATH', 'Value': 'cgap-pipeline-base/dockerfiles/base'}  # unused by portal
         ]
 
     def cb_environment(self) -> Environment:
