@@ -674,7 +674,6 @@ class C4Datastore(C4DatastoreBase, C4Part):
             options['DomainEndpointOptions'] = DomainEndpointOptions(EnforceHTTPS=True)
         except NotImplementedError:
             pass
-        # account_num = ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER)
         domain = OSDomain(
             logical_id,
             DomainName=domain_name,

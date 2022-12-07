@@ -15,7 +15,7 @@ awscli = "^1.25.34"
 boto3 = "^1.24.34"
 botocore = "^1.27.36"
 chalice = "1.27.1"
-dcicutils = "^6.0.0"
+dcicutils = "^6.3.0"
 
 # Foursight-Core
 foursight-core = "^3.0.0"
@@ -30,7 +30,7 @@ prettytable = "3.3.0"
 tibanna = "^2.2.0"
 tibanna-ff = "^1.2.3"
 tqdm = "4.62.3"
-troposphere = "3.2.2"
+troposphere = "^3.2.2"
 
 # Define poetry "groups" for foursight-cgap and foursight, named foursight_cgap and
 # foursight_fourfront, respectively. This is so we can conditionally include either but
