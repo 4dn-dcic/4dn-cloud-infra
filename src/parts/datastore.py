@@ -16,7 +16,7 @@ from troposphere.opensearchservice import (
     EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions
 )
 try:
-    from troposphere.elasticsearch import DomainEndpointOptions  # noQA
+    from troposphere.opensearchservice import DomainEndpointOptions  # noQA
 except ImportError:
     def DomainEndpointOptions(*args, **kwargs):  # noQA
         raise NotImplementedError('DomainEndpointOptions')
@@ -104,7 +104,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
     IAM_EXPORTS = C4IAMExports()
 
     DEFAULT_ES_DATA_NODE_COUNT = '1'
-    DEFAULT_ES_DATA_NODE_TYPE = 'c6g.large.elasticsearch'
+    DEFAULT_ES_DATA_NODE_TYPE = 'c6g.large.search'
 
     # Buckets used by the Application layer we need to initialize as part of the datastore
     # Intended to be .formatted with the deploying env_name
@@ -195,7 +195,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
         template.add_output(self.output_rds_port(rds))
 
         # Adds Elasticsearch + Outputs
-        es = self.elasticsearch_instance()
+        es = self.opensearch_instance()
         template.add_resource(es)
         template.add_output(self.output_es_url(es))
 
@@ -466,7 +466,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
                                       self.IAM_EXPORTS.import_value(C4IAMExports.S3_IAM_USER)]),
                             # dmichaels/2022-06-17:
                             # Added to ECS_ASSUMED_IAM_ROLE to allow access to S3 with encrypted account.
-                            Join('', ['arn:aws:iam::', AccountId, ':user/',
+                            Join('', ['arn:aws:iam::', AccountId, ':role/',
                                       self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)])
                         ]},
                         'Action': [
@@ -703,7 +703,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
                     self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNETS[0]),
                 ],
             ),
-            Tags=self.tags.cost_tag_array(name=domain_name),
+            Tags=self.tags.cost_tag_obj(name=domain_name),
             **options,
         )
         return domain

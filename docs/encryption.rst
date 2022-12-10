@@ -15,6 +15,11 @@ this policy contains entries for the ApplicationS3Federator (and deploying IAM u
 or SSO role). You must add all other executor roles to the KMS policy, namely the
 Foursight check runner and API handlers along with the executor role for Tibanna.
 
+Run the following command to automatically give KMS permissions to the needed roles:
+
+``update-kms-policy``
+
+Note that if you have multiple keys you will need to specify the key.
 
 S3
 --

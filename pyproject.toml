@@ -65,7 +65,7 @@ show-image-manifest = "dcicutils.ecr_scripts:show_image_manifest_main"
 show-image-catalog = "dcicutils.ecr_scripts:show_image_catalog_main"
 unrelease-most-recent-image = "dcicutils.ecr_scripts:unrelease_most_recent_image_main"
 # 4dn-cloud-infra commands
-assure-global-bucket-env = "src.commands.assure_global_env_bucket:main"
+assure-global-env-bucket = "src.commands.assure_global_env_bucket:main"
 cli = "src.cli:cli"
 create-demo-metawfr = "src.commands.create_demo_metawfr:main"
 init-custom-dir = "src.auto.init_custom_dir.cli:main"

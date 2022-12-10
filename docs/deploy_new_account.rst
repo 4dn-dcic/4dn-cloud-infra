@@ -118,7 +118,9 @@ To use CodeBuild, create a Github Personal Access Token and add it to your
         "GITHUB_PERSONAL_ACCESS_TOKEN": "github_pat_abcd1234"
     }
 
-Once this is set you can trigger the stack build for CodeBuild::
+Note that you CANNOT use fine-grained access tokens at this time. They do not work with CodeBuild.
+Use a legacy token and give it "repo" permissions. Once this is set you can trigger the stack build
+for CodeBuild::
 
     poetry run cli provision codebuild --validate --upload-change-set
 
@@ -133,7 +135,9 @@ the job and the master branch will be built and pushed to your ECR.
 Step Four: Fill out any remaining application secrets
 -----------------------------------------------------
 
-* Many secrets are pre-filled, but some will need to be set.
+* Many secrets are pre-filled, but some will need to be set. Running the command ``setup-remaining-secrets``
+will guide you through the process. More information on the secrets themselves and how to manually set
+this up follows. if the prior command works without issue, you can move on to the next section.
 
   * Go to the Secrets Manager
 
@@ -209,8 +213,14 @@ Step Five: More CGAP Orchestration with Cloud Formation
 
      poetry run cli provision ecs --validate --upload-change-set
 
+* Before executing the stack, you need to provision a basic environment configuration. Do
+  so by running the ``assure-global-env-bucket`` script. It will confirm some structure for you
+  that you can approve before uploading. Once this is done you can execute change set on the
+  ECS stack in the CloudFormation console.
 
-* Once the application has finishing instantiating, you can deploy the portal.
+* Once the application has finishing instantiating, you can deploy the portal. To check that the portal
+  is up and running, navigate to the ECS stack outputs, find the load balancer URL and go to ``/health?format=json``.
+  If the health page comes up you are in good shape.
 
 Deploying CGAP (Initial)
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -281,41 +291,10 @@ but should in the meantime just be put on an automated schedule like our legacy 
 Step Six: Finalizing CGAP Configuration
 ----------------------------------------
 
-At this point, the application and its required resources have come online. Here, we upload env configuration to enable
-foursight checks on the application.
-
-As part of the datastore provisioning, your new S3 buckets are online. There's a global application S3 bucket, as
-referenced in C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET. The name of your C4 deployment's global
-application bucket can be found on the 'Outputs' tab of your datastore CloudFormation stack.
-
-In this bucket, you will need to create a file corresponding to each environment you plan to use (probably just one).
-So if your global application S3 bucket is ``myorg-foursight-cgap-myenv-envs`` then you will want to visit
-that bucket in the AWS Console for S3 and upload a file that contains::
-
-    {
-        "fourfront": "<your-http-cgap-domain-here-with-no-trailing-slash>",
-        "es": "<your-https-elasticsearch-url-here-with-:443-and-no-trailing-slash>",
-        "ff_env": "<env-name>"
-    }
-
-The file ``.chalice/cgap-mastertest`` contains an example of what is loaded into our initial test account at
-``s3://foursight-cgap-mastertest-envs/cgap-mastertest``, but the specific name of the bucket to load into is
-different in each account because s3 namespacing requires that. Rather than manage this manually there
-is an automatic tool to help. Note that if you are uploading to an encrypted environment, set the
-``"s3.encrypt_key_id"`` option in ``config.json`` and pass the ``--encrypted`` argument.
-
-To provision this bucket do::
-
-    assure-global-bucket-env --env_name <env-name>
-
-It should interactively confirm the environment that it will upload, and what account it will upload into.
-If the global env bucket has not been created yet for that account, it will complain, but that should have
-happened in the datastore stack.
-
 You'll also need to initialize the foursight checks for your environment. This will create the file
 ``vendor/check_setup.py`` that you need for use with Foursight. To do this, do::
 
-    resolve-foursight-checks
+    resolve-foursight-checks --app cgap
 
 By default, the ``resolve-foursight-checks`` command copies foursight-cgap's ``check_setup.json`` into ``vendor/check_setup.json``,
 replacing ``"<env-name>"`` with your chosen environment name, which is taken from the setting of ``ENCODED_BS_ENV``
@@ -382,7 +361,7 @@ take some significant time so should be run in parallel if possible. Note additi
 credentials for the account you're deploying into must be active for all subsequent steps::
 
     source custom/aws_creds/test_creds.sh
-    tibanna_cgap deploy_zebra --subnets <private_subnet> -r <application_security_group> -e <env_name>
+    tibanna_cgap deploy_zebra --subnets <private_subnets> -r <application_security_group> -e <env_name>
 
 In the following steps, you don't have to re-run the ``source`` command to get new of your credentials,
 *but* it's very critical
@@ -465,12 +444,18 @@ the restart.
 Once the output VCF has been ingested, the pipeline is considered complete and variants can be
 interpreted through the portal.
 
-Step Nine: Enable Higlass
--------------------------
+Step Nine: Deploy/Enable Higlass
+--------------------------------
 
-In order for Higlass views to work, some CORS configuration is required. In the current main (4dn-dcic) account,
-add the new portal URL to the ``AllowedOrigins`` block in the existing CORS policy. In the orchestrated account,
-add the following CORS policy to the ``wfoutput`` bucket (for bam visualization), replacing the sample
+If running an external orchestration, you will need to deploy a Higlass server to an EC2 instance.
+You can do this automatically by running the provision command::
+
+    poetry run cli provision higlass --upload-change-set
+
+Execute the change set and give some time for it to spin up.
+
+In order for Higlass views to work, some CORS configuration is required. Add the following CORS policy
+to the ``wfoutput`` bucket (for bam visualization), replacing the sample
 MSA URL with the new URL.::
 
     [

@@ -50,9 +50,11 @@ class C4CodeBuild(C4Part):
         portal_project_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         pipeline_project_name = portal_project_name + '-pipeline-builder'
 
-        # IAM role for cb (not specific to any build project)
+        # IAM role for cb builds
         iam_role = self.cb_iam_role(project_name=portal_project_name)
         template.add_resource(iam_role)
+        pipeline_iam_role = self.cb_iam_role(project_name=pipeline_project_name)
+        template.add_resource(pipeline_iam_role)
 
         # credentials for cb
         creds = self.cb_source_credential()
@@ -159,7 +161,8 @@ class C4CodeBuild(C4Part):
         return [
             {'Name': 'AWS_DEFAULT_REGION', 'Value': 'us-east-1'},
             {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
-            {'Name': 'IMAGE_REPO_NAME', 'Value': ConfigManager.get_config_setting(Settings.CODEBUILD_REPO_NAME)},
+            {'Name': 'IMAGE_REPO_NAME', 'Value': ConfigManager.get_config_setting(Settings.CODEBUILD_REPO_NAME,
+                                                                                  default='main')},
             {'Name': 'IMAGE_TAG', 'Value': ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, default='latest')},
             {'Name': 'BUILD_PATH', 'Value': 'cgap-pipeline-base/dockerfiles/base'}  # unused by portal
         ]
