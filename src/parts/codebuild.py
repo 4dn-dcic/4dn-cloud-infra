@@ -1,6 +1,7 @@
 from troposphere import Template, Parameter, AccountId, Join, Region, Ref, Output
 from troposphere.codebuild import Artifacts, Environment, Project, Source, SourceAuth, VpcConfig, SourceCredential
 from troposphere.iam import Role, Policy
+from tibanna._version import __version__ as tibanna_version
 from dcicutils.cloudformation_utils import camelize
 from .network import C4NetworkExports
 from ..part import C4Part
@@ -70,7 +71,8 @@ class C4CodeBuild(C4Part):
             github_repo_url=ConfigManager.get_config_setting(Settings.CODEBUILD_GITHUB_REPOSITORY_URL,
                                                              default=self.DEFAULT_GITHUB_REPOSITORY),
             branch=ConfigManager.get_config_setting(Settings.CODEBUILD_DEPLOY_BRANCH,
-                                                    default=self.DEFAULT_DEPLOY_BRANCH)
+                                                    default=self.DEFAULT_DEPLOY_BRANCH),
+            environment=self.cb_portal_environment_vars()
         )
         template.add_resource(build_project)
 
@@ -78,7 +80,8 @@ class C4CodeBuild(C4Part):
         pipeline_build_project = self.cb_project(
             project_name=pipeline_project_name,
             github_repo_url=self.DEFAULT_GITHUB_PIPELINE_REPOSITORY,
-            branch=self.DEFAULT_PIPELINE_DEPLOY_BRANCH
+            branch=self.DEFAULT_PIPELINE_DEPLOY_BRANCH,
+            environment=self.cb_pipeline_environment_vars()
         )
         template.add_resource(pipeline_build_project)
 
@@ -86,7 +89,8 @@ class C4CodeBuild(C4Part):
         tibanna_build_project = self.cb_project(
             project_name=tibanna_project_name,
             github_repo_url=self.DEFAULT_TIBANNA_REPOSITORY,
-            branch='master'
+            branch=tibanna_version,  # default branch to version
+            environment=self.cb_tibanna_environment_vars()
         )
         template.add_resource(tibanna_build_project)
 
@@ -180,23 +184,49 @@ class C4CodeBuild(C4Part):
         """
         return Artifacts(Type='NO_ARTIFACTS')
 
-    @staticmethod
-    def _cb_base_environment_vars() -> list:
-        return [
-            {'Name': 'AWS_DEFAULT_REGION', 'Value': 'us-east-1'},
-            {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
-            {'Name': 'IMAGE_REPO_NAME', 'Value': ConfigManager.get_config_setting(Settings.CODEBUILD_REPO_NAME,
-                                                                                  default='main')},
-            {'Name': 'IMAGE_TAG', 'Value': ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, default='latest')},
-            {'Name': 'BUILD_PATH', 'Value': 'cgap-pipeline-base/dockerfiles/base'}  # unused by portal
-        ]
-
-    def cb_environment(self) -> Environment:
-        """ Environment configuration for the codebuild job """
+    def cb_portal_environment_vars(self) -> Environment:
+        """ Environment configuration for the portal build """
         return Environment(
             ComputeType=self.DEFAULT_COMPUTE_TYPE,
             Image=self.BUILD_IMAGE,
-            EnvironmentVariables=self._cb_base_environment_vars(),
+            EnvironmentVariables=[
+                {'Name': 'AWS_DEFAULT_REGION', 'Value': 'us-east-1'},
+                {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
+                {'Name': 'IMAGE_REPO_NAME', 'Value': ConfigManager.get_config_setting(Settings.ENV_NAME)},
+                {'Name': 'IMAGE_TAG',
+                 'Value': ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, default='latest')},
+            ],
+            Type=self.BUILD_TYPE,
+            PrivilegedMode=True
+        )
+
+    def cb_pipeline_environment_vars(self) -> Environment:
+        """ Environment configuration for the pipeline builds """
+        return Environment(
+            ComputeType=self.DEFAULT_COMPUTE_TYPE,
+            Image=self.BUILD_IMAGE,
+            EnvironmentVariables=[
+                {'Name': 'AWS_DEFAULT_REGION', 'Value': 'us-east-1'},
+                {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
+                {'Name': 'IMAGE_REPO_NAME', 'Value': 'base'},  # default to base, override by caller
+                {'Name': 'IMAGE_TAG',  # Use standard default version as of now, no locked version to resolve
+                 'Value': self.DEFAULT_PIPELINE_DEPLOY_BRANCH},
+                {'Name': 'BUILD_PATH', 'Value': 'cgap-pipeline-base/dockerfiles/base'}  # default to base, override by caller
+            ],
+            Type=self.BUILD_TYPE,
+            PrivilegedMode=True
+        )
+
+    def cb_tibanna_environment_vars(self) -> Environment:
+        """ Environment configuration for tibanna """
+        return Environment(
+            ComputeType=self.DEFAULT_COMPUTE_TYPE,
+            Image=self.BUILD_IMAGE,
+            EnvironmentVariables=[
+                {'Name': 'AWS_DEFAULT_REGION', 'Value': 'us-east-1'},
+                {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
+                {'Name': 'IMAGE_TAG', 'Value': tibanna_version}  # default to locked version
+            ],
             Type=self.BUILD_TYPE,
             PrivilegedMode=True
         )
@@ -230,13 +260,13 @@ class C4CodeBuild(C4Part):
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC)
         )
 
-    def cb_project(self, *, project_name, github_repo_url, branch) -> Project:
+    def cb_project(self, *, project_name, github_repo_url, branch, environment) -> Project:
         """ Builds a CodeBuild project for project_name """
         return Project(
             camelize(project_name),
             Artifacts=self.cb_artifacts(),
             Description=f'Build project for {project_name}',
-            Environment=self.cb_environment(),
+            Environment=environment,
             Name=project_name,
             ServiceRole=Ref(self.cb_iam_role(project_name=project_name)),
             Source=self.cb_source(github_repo_url=github_repo_url),
