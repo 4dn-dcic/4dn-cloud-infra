@@ -74,7 +74,6 @@ def test_setup_remaining_secrets() -> None:
     do_test_setup_remaining_secrets(overwrite_secrets=True, create_access_key_pair=True, encryption_enabled=False)
     do_test_setup_remaining_secrets(overwrite_secrets=True, create_access_key_pair=False, encryption_enabled=True)
     do_test_setup_remaining_secrets(overwrite_secrets=True, create_access_key_pair=False, encryption_enabled=False)
-    pass
 
 
 def test_setup_remaining_secrets_without_overwriting_existing_secrets() -> None:
@@ -82,7 +81,6 @@ def test_setup_remaining_secrets_without_overwriting_existing_secrets() -> None:
     do_test_setup_remaining_secrets(overwrite_secrets=False, create_access_key_pair=True, encryption_enabled=False)
     do_test_setup_remaining_secrets(overwrite_secrets=False, create_access_key_pair=False, encryption_enabled=True)
     do_test_setup_remaining_secrets(overwrite_secrets=False, create_access_key_pair=False, encryption_enabled=False)
-    pass
 
 
 def test_get_federated_user_name_pattern() -> None:
