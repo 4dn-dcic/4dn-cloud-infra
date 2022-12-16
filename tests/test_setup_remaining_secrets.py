@@ -74,6 +74,7 @@ def test_setup_remaining_secrets() -> None:
     do_test_setup_remaining_secrets(overwrite_secrets=True, create_access_key_pair=True, encryption_enabled=False)
     do_test_setup_remaining_secrets(overwrite_secrets=True, create_access_key_pair=False, encryption_enabled=True)
     do_test_setup_remaining_secrets(overwrite_secrets=True, create_access_key_pair=False, encryption_enabled=False)
+    pass
 
 
 def test_setup_remaining_secrets_without_overwriting_existing_secrets() -> None:
@@ -81,6 +82,7 @@ def test_setup_remaining_secrets_without_overwriting_existing_secrets() -> None:
     do_test_setup_remaining_secrets(overwrite_secrets=False, create_access_key_pair=True, encryption_enabled=False)
     do_test_setup_remaining_secrets(overwrite_secrets=False, create_access_key_pair=False, encryption_enabled=True)
     do_test_setup_remaining_secrets(overwrite_secrets=False, create_access_key_pair=False, encryption_enabled=False)
+    pass
 
 
 def test_get_federated_user_name_pattern() -> None:
@@ -171,20 +173,35 @@ def do_test_setup_remaining_secrets(overwrite_secrets: bool = True,
             current_value_of_secret_from_output = find_current_value_of_secret_from_output(secret_key_name)
             assert current_value_of_secret_from_output == secret_key_value
 
-        def mocked_input(arg: str):
+        def mocked_yes_or_no(arg: str):
             if is_confirmation_for_secret_update(arg) and not overwrite_secrets:
                 # If this is input for a confirmation to actually update an AWS secret,
                 # and this test is for the case where we should  not overwrite any
                 # existing secrets then return "no" meaning "do not update secrets".
-                return "no"
+                return False
             if is_confirmation_for_access_key_pair_create(arg) and not create_access_key_pair:
                 # If this is input for a confirmation to actually create an AWS security
                 # access key pair (for the federated user) and this test is for the case where
                 # we should not do this then return "no" meaning "do not create an access key pair".
-                return "no"
-            return "yes"
+                return False
+            return True
 
-        with mock.patch("builtins.input", mocked_input):
+        # def mocked_input(arg: str):
+        #     if is_confirmation_for_secret_update(arg) and not overwrite_secrets:
+        #         # If this is input for a confirmation to actually update an AWS secret,
+        #         # and this test is for the case where we should  not overwrite any
+        #         # existing secrets then return "no" meaning "do not update secrets".
+        #         return "no"
+        #     if is_confirmation_for_access_key_pair_create(arg) and not create_access_key_pair:
+        #         # If this is input for a confirmation to actually create an AWS security
+        #         # access key pair (for the federated user) and this test is for the case where
+        #         # we should not do this then return "no" meaning "do not create an access key pair".
+        #         return "no"
+        #     return "yes"
+
+        # Mocking input makes import pdb ; pdb.set_trace wig out. Mock yes_or_no instead (2022-12-16/dmichaels).
+        # with mock.patch("builtins.input", mocked_input):
+        with mock.patch("src.auto.utils.aws.yes_or_no", mocked_yes_or_no), mock.patch("src.auto.setup_remaining_secrets.cli.yes_or_no", mocked_yes_or_no):
 
             main(["--aws-credentials-dir", aws_credentials_dir, "--custom-dir", custom_dir, "--show"])
 
