@@ -1,5 +1,7 @@
 from troposphere import Template, Parameter, AccountId, Join, Region, Ref, Output
-from troposphere.codebuild import Artifacts, Environment, Project, Source, SourceAuth, VpcConfig, SourceCredential
+from troposphere.codebuild import (
+    Artifacts, Environment, Project, Source, SourceAuth, VpcConfig, SourceCredential, GitSubmodulesConfig
+)
 from troposphere.iam import Role, Policy
 from tibanna._version import __version__ as tibanna_version
 from dcicutils.cloudformation_utils import camelize
@@ -28,7 +30,7 @@ class C4CodeBuildExports(C4Exports):
 
 
 class C4CodeBuild(C4Part):
-    DEFAULT_COMPUTE_TYPE = 'BUILD_GENERAL1_SMALL'
+    DEFAULT_COMPUTE_TYPE = 'BUILD_GENERAL1_MEDIUM'  # will go slightly faster and needed for tibanna-awsf
     BUILD_TYPE = 'LINUX_CONTAINER'
     BUILD_IMAGE = 'aws/codebuild/standard:6.0'
     DEFAULT_GITHUB_REPOSITORY = 'https://github.com/dbmi-bgm/cgap-portal'
@@ -249,7 +251,10 @@ class C4CodeBuild(C4Part):
                 Type='OAUTH'
             ),
             Location=github_repo_url,
-            Type='GITHUB'
+            Type='GITHUB',
+            GitSubmodulesConfig=GitSubmodulesConfig(
+                FetchSubmodules=True
+            )
         )
 
     def cb_vpc_config(self) -> VpcConfig:

@@ -31,11 +31,11 @@ class TestData:
     ]
     aws_kms_key = "AWS-KMS-KEY-FOR-TESTING"
 
-    elasticsearch_name = f"es-{aws_credentials_name}"
-    elasticsearch_host = "elasticsearch.server.for.testing"
-    elasticsearch_port = 443
-    elasticsearch_https = elasticsearch_port == 443
-    elasticsearch_server = f"{elasticsearch_host}:{elasticsearch_port}"
+    opensearch_name = f"es-{aws_credentials_name}"
+    opensearch_host = "opensearch.server.for.testing"
+    opensearch_port = 443
+    opensearch_https = opensearch_port == 443
+    opensearch_server = f"{opensearch_host}:{opensearch_port}"
     rds_host = "rds.host.for.testing"
     rds_password = "rds-password-for-testing"
 
@@ -46,7 +46,7 @@ class TestData:
 class NewSecret:
     ACCOUNT_NUMBER = TestData.aws_account_number
     ENCODED_IDENTITY = TestData.gac_secret_name
-    ENCODED_ES_SERVER = TestData.elasticsearch_server
+    ENCODED_ES_SERVER = TestData.opensearch_server
     RDS_HOSTNAME = TestData.rds_host
     RDS_PASSWORD = TestData.rds_password
     S3_AWS_ACCESS_KEY_ID = None  # dynamically set: see find_created_aws_access_key_id_from_output() below
@@ -57,7 +57,7 @@ class NewSecret:
 class OldSecret:
     ACCOUNT_NUMBER = "some-existing-account-number"
     ENCODED_IDENTITY = "some-existing-encoded-identity"
-    ENCODED_ES_SERVER = "some-existing-elasticsearch-server"
+    ENCODED_ES_SERVER = "some-existing-opensearch-server"
     RDS_HOSTNAME = "some-existing-rds-host"
     RDS_PASSWORD = "some-existing-rds-password"
     S3_AWS_ACCESS_KEY_ID = "some-existing-s3-aws-access-key-id"
@@ -97,9 +97,9 @@ def do_test_setup_remaining_secrets(overwrite_secrets: bool = True,
     mocked_boto.client("iam").put_users_for_testing(TestData.aws_iam_users)
     mocked_boto.client("iam").put_roles_for_testing(TestData.aws_iam_roles)
     mocked_boto.client("sts").put_caller_identity_for_testing(TestData.aws_account_number, TestData.aws_user_arn)
-    mocked_boto.client("opensearch").put_domain_for_testing(TestData.elasticsearch_name,
-                                                            TestData.elasticsearch_host,
-                                                            TestData.elasticsearch_https)
+    mocked_boto.client("opensearch").put_domain_for_testing(TestData.opensearch_name,
+                                                            TestData.opensearch_host,
+                                                            TestData.opensearch_https)
     mocked_boto.client("kms").put_key_for_testing(TestData.aws_kms_key)
 
     mocked_secretsmanager = mocked_boto.client("secretsmanager")
