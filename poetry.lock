@@ -870,7 +870,7 @@ pyflakes = ">=2.5.0,<2.6.0"
 
 [[package]]
 name = "foursight"
-version = "3.2.0.2b2"
+version = "3.2.0.2b5"
 description = "Serverless Chalice Application for Monitoring"
 category = "dev"
 optional = false
@@ -881,7 +881,7 @@ click = ">=7.1.2,<8.0.0"
 dcicutils = ">=6.1.0,<7.0.0"
 elasticsearch = ">=7.13.4,<8.0.0"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
-foursight-core = "3.1.4.1b2"
+foursight-core = "3.1.4.1b3"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.7.4,<2.0.0"
@@ -897,7 +897,7 @@ tibanna_ff = ">=0.22.5"
 
 [[package]]
 name = "foursight-cgap"
-version = "3.2.0.2b4"
+version = "3.2.0.2b5"
 description = "Serverless Chalice Application for Monitoring"
 category = "dev"
 optional = false
@@ -909,7 +909,7 @@ click = ">=7.1.2,<8.0.0"
 dcicutils = ">=6.1.0,<7.0.0"
 elasticsearch = ">=7.13.4,<8.0.0"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
-foursight-core = "3.1.4.1b2"
+foursight-core = "3.1.4.1b3"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.12.5,<2.0.0"
@@ -923,7 +923,7 @@ tibanna-ff = ">=1.0.0,<2.0.0"
 
 [[package]]
 name = "foursight-core"
-version = "3.1.4.1b2"
+version = "3.1.4.1b3"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
@@ -2615,7 +2615,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.1,<3.8"
-content-hash = "a79da313c943bac1c57d2fb0ed20a3c92157e39887168b228c5e45327f35bf5e"
+content-hash = "0add16b35602a915877610a5b88d074c0b661a307d6505b5491b10679797a48a"
 
 [metadata.files]
 ansicon = [
@@ -2881,16 +2881,16 @@ flake8 = [
     {file = "flake8-5.0.4.tar.gz", hash = "sha256:6fbe320aad8d6b95cec8b8e47bc933004678dc63095be98528b7bdd2a9f510db"},
 ]
 foursight = [
-    {file = "foursight-3.2.0.2b2-py3-none-any.whl", hash = "sha256:781d606d45d7f7e2c157ed3708b3d84cb564c26f59ded2e24bb585f402c97927"},
-    {file = "foursight-3.2.0.2b2.tar.gz", hash = "sha256:82364e651666a9b5c74b6a5f00ca53d5c8d7ea21881acb63ac4acb63a7d87f4d"},
+    {file = "foursight-3.2.0.2b5-py3-none-any.whl", hash = "sha256:ebeb9021cae4592fd8dfb7ac3c85eb0429cd817889ffd64d908d6270347e4be5"},
+    {file = "foursight-3.2.0.2b5.tar.gz", hash = "sha256:8ab160afa74aad70812b2341bae1d486f64da880740bc0c27b602b11825fccf1"},
 ]
 foursight-cgap = [
-    {file = "foursight_cgap-3.2.0.2b4-py3-none-any.whl", hash = "sha256:65e5685158792762b1b4ee92d7def282dc185c72ce969bf21b453d28851d1a1d"},
-    {file = "foursight_cgap-3.2.0.2b4.tar.gz", hash = "sha256:1a493c5c46b0c7152c601b0d7c5c1ec8a9a6edeb17098c655c93f88089cb1cfb"},
+    {file = "foursight_cgap-3.2.0.2b5-py3-none-any.whl", hash = "sha256:26b1c35accd41da6ac4d8ffe5f5fc3cbb6dd60042b56af186e4f176e05ba8c6d"},
+    {file = "foursight_cgap-3.2.0.2b5.tar.gz", hash = "sha256:de697315d23700dc7faf5cf7dfc0e9972f6bb77b8ba882fe1f929072bfdba11f"},
 ]
 foursight-core = [
-    {file = "foursight_core-3.1.4.1b2-py3-none-any.whl", hash = "sha256:a8a8a5d3c18779a925ccd18a1c3629cd1eaaf53695c2f07d5c503bddbe2e1e96"},
-    {file = "foursight_core-3.1.4.1b2.tar.gz", hash = "sha256:e1a55b85e4acf0df7215a430baa912301e6ff4135cb2d0ab7469d7289d3db4cc"},
+    {file = "foursight_core-3.1.4.1b3-py3-none-any.whl", hash = "sha256:a3412c617c13109208eca92bce367188c975dd64d9d4b7171ca9ec2891fe5a42"},
+    {file = "foursight_core-3.1.4.1b3.tar.gz", hash = "sha256:d5d491b50e235d1903ff7ea945beda2d9aa0bc50c04f358cbdce99e59b1cca98"},
 ]
 future = [
     {file = "future-0.18.2.tar.gz", hash = "sha256:b1bead90b70cf6ec3f0710ae53a525360fa360d306a86583adc6bf83a4db537d"},

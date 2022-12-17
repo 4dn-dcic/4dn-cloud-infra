@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "4dn-cloud-infra"
-version = "3.8.2"
+version = "3.8.3"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
 authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
@@ -18,7 +18,7 @@ chalice = "1.27.1"
 dcicutils = "^6.1.0"
 
 # Foursight-Core
-foursight-core = "3.1.4.1b2"
+foursight-core = "3.1.4.1b3"
 
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
@@ -37,10 +37,10 @@ troposphere = "3.2.2"
 # not both in the Chalice package (via foursight_core/deploy.py). dmichaels/2022-11-01.
 
 [tool.poetry.group.foursight_cgap.dependencies]
-foursight-cgap = "3.2.0.2b4"
+foursight-cgap = "3.2.0.2b5"
 
 [tool.poetry.group.foursight_fourfront.dependencies]
-foursight = "3.2.0.2b2"
+foursight = "3.2.0.2b5"
 
 [tool.poetry.dev-dependencies]
 jupyter = "1.0.0"
