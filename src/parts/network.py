@@ -7,7 +7,7 @@ from troposphere.ec2 import (
     Subnet, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment, NatGateway, EIP, Instance, NetworkInterfaceProperty,
     VPCEndpoint,
 )
-from ..base import ConfigManager
+from ..base import ConfigManager, Settings
 from typing import List
 from ..constants import C4NetworkBase
 from ..exports import C4Exports, exportify
@@ -383,7 +383,10 @@ class C4Network(C4NetworkBase, C4Part):
         subnets = getattr(self, subnets_key)
         if not subnets:
             subnets = {}
-            for name, entry in C4NetworkExports.SUBNET_CONFIG_INFO.items():
+            subnet_count = int(ConfigManager.get_config_setting(Settings.SUBNET_PAIR_COUNT, default=2))
+            for idx, name, entry in enumerate(C4NetworkExports.SUBNET_CONFIG_INFO.items()):
+                if idx == subnet_count:  # only build subnet_count subnets
+                    break
                 if entry['kind'] == kind:
                     cidr_block = entry['cidr_block']
                     az = entry['az']
@@ -657,10 +660,9 @@ class C4Network(C4NetworkBase, C4Part):
                 AssociatePublicIpAddress=True,
                 DeviceIndex=0,
                 GroupSet=[Ref(self.application_security_group())],
-                # SubnetId=Ref(self.public_subnet_a()),
                 SubnetId=Ref(self.public_subnets()[0]),
             )],
-            KeyName='trial-ssh-key-01',  # TODO parameterize
+            KeyName=ConfigManager.get_config_setting(Settings.SENTIEON_SSH_KEY),  # use sentieon key for now
         )
 
     def create_vpc_interface_endpoint(self, identifier, service_name, dns=True) -> VPCEndpoint:
@@ -680,8 +682,8 @@ class C4Network(C4NetworkBase, C4Part):
             VpcEndpointType='Interface',
             PrivateDnsEnabled=dns,
             ServiceName=service_name,
-            # SubnetIds=[Ref(self.private_subnet_a()), Ref(self.private_subnet_b())],
-            SubnetIds=[Ref(subnet) for subnet in self.private_subnets()],
+            # only needed in a single private subnet since traffic flows between them
+            SubnetIds=[Ref(self.private_subnets()[0])],
             SecurityGroupIds=[Ref(self.application_security_group())]
         )
 

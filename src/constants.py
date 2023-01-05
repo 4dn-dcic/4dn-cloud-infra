@@ -39,7 +39,6 @@ class Settings:
 
     # We no longer use this setting. Now we do C4DatastoreExports.get_env_bucket()
     # GLOBAL_ENV_BUCKET = 'GLOBAL_ENV_BUCKET'
-
     IDENTITY = 'identity'  # XXX: import from dcicutils  -- change in progress to put it on health page
     BLUE_IDENTITY = 'blue.identity'
     GREEN_IDENTITY = 'green.identity'
@@ -50,8 +49,10 @@ class Settings:
     APP_KIND = 'app.kind'
     APP_DEPLOYMENT = 'app.deploy'
 
-    # RDS Configuration Options
+    # Network options
+    SUBNET_PAIR_COUNT = 'subnet.pair_count'
 
+    # RDS Configuration Options
     RDS_INSTANCE_SIZE = 'rds.instance_size'
     RDS_STORAGE_SIZE = 'rds.storage_size'
     RDS_STORAGE_TYPE = 'rds.storage_type'
@@ -63,7 +64,6 @@ class Settings:
     RDS_NAME = 'rds.name'  # can be used to configure name of RDS instance, foursight must know it - Will Nov 2 2021
 
     # ES Configuration Options
-
     ES_MASTER_COUNT = 'elasticsearch.master_node_count'
     ES_MASTER_TYPE = 'elasticsearch.master_node_type'
     ES_DATA_COUNT = 'elasticsearch.data_node_count'
