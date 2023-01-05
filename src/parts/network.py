@@ -132,24 +132,14 @@ class C4Network(C4NetworkBase, C4Part):
         for i in self.subnet_outputs():
             template.add_output(i)
 
-        first_time = True
-
-        for public_subnet in self.public_subnets():
-            public_nat_eip = self.nat_eip(public_subnet)
-            public_nat_gateway = self.nat_gateway(public_nat_eip, public_subnet)
-            template.add_resource(public_nat_eip)
-            template.add_resource(public_nat_gateway)
-            if first_time:
-                template.add_resource(self.route_nat_gateway(public_nat_gateway))  # Why only the Public A gateway??
-                first_time = False
-
+        # create NAT gateway in subnet A, route to internet
+        public_subnet_a = self.public_subnets()[0]
+        public_nat_eip = self.nat_eip(public_subnet_a)
+        public_nat_gateway = self.nat_gateway(public_nat_eip, public_subnet_a)
+        template.add_resource(public_nat_eip)
+        template.add_resource(public_nat_gateway)
+        template.add_resource(self.route_nat_gateway(public_nat_gateway))
         template.add_resource(self.route_internet_gateway())
-
-        # # Add Internet Gateway to public route table, NAT Gateway to private route table
-        # # XXX: why is this only possible with public_a_nat_gateway?
-        # for i in [self.route_internet_gateway(),
-        #           self.route_nat_gateway(public_a_nat_gateway)]:
-        #     template.add_resource(i)
 
         # Add subnet-to-route-table associations
         for i in self.subnet_associations():
@@ -321,7 +311,6 @@ class C4Network(C4NetworkBase, C4Part):
             RouteTableId=Ref(self.public_route_table()),
             GatewayId=Ref(self.internet_gateway()),
             DestinationCidrBlock='0.0.0.0/0',
-            # DependsOn -- TODO needed? see example in src/beanstalk.py
         )
 
     def route_nat_gateway(self, public_subnet_nat_gateway: NatGateway):
@@ -334,7 +323,6 @@ class C4Network(C4NetworkBase, C4Part):
             RouteTableId=Ref(self.private_route_table()),
             DestinationCidrBlock='0.0.0.0/0',
             NatGatewayId=Ref(public_subnet_nat_gateway)
-            # DependsOn -- TODO needed? see example in src/beanstalk.py
         )
 
     def build_subnet(self, subnet_name, cidr_block, vpc, az) -> Subnet:
@@ -382,12 +370,13 @@ class C4Network(C4NetworkBase, C4Part):
         subnets_key = self.SUBNETS_KEY_MAP[kind]
         subnets = getattr(self, subnets_key)
         if not subnets:
-            subnets = {}
+            subnets, kind_seen = {}, 0
             subnet_count = int(ConfigManager.get_config_setting(Settings.SUBNET_PAIR_COUNT, default=2))
-            for idx, name, entry in enumerate(C4NetworkExports.SUBNET_CONFIG_INFO.items()):
-                if idx == subnet_count:  # only build subnet_count subnets
-                    break
+            for name, entry in C4NetworkExports.SUBNET_CONFIG_INFO.items():
                 if entry['kind'] == kind:
+                    kind_seen += 1
+                    if kind_seen > subnet_count:
+                        break
                     cidr_block = entry['cidr_block']
                     az = entry['az']
                     subnet = self.build_subnet(name, cidr_block, self.virtual_private_cloud(), az)

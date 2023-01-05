@@ -279,10 +279,10 @@ class C4Datastore(C4DatastoreBase, C4Part):
                         StorageClass='STANDARD_IA',
                         TransitionInDays=30
                     ),
-                    NoncurrentVersionTransition=NoncurrentVersionTransition(
+                    NoncurrentVersionTransitions=[NoncurrentVersionTransition(
                         StorageClass='STANDARD_IA',
                         TransitionInDays=30
-                    )
+                    )]
                 ),
                 LifecycleRule(
                     'glacier',
@@ -292,10 +292,10 @@ class C4Datastore(C4DatastoreBase, C4Part):
                         StorageClass='GLACIER',
                         TransitionInDays=1
                     ),
-                    NoncurrentVersionTransition=NoncurrentVersionTransition(
+                    NoncurrentVersionTransitions=[NoncurrentVersionTransition(
                         StorageClass='GLACIER',
                         TransitionInDays=1
-                    )
+                    )]
                 ),
                 LifecycleRule(
                     'glacierda',
@@ -305,10 +305,10 @@ class C4Datastore(C4DatastoreBase, C4Part):
                         StorageClass='DEEP_ARCHIVE',
                         TransitionInDays=1
                     ),
-                    NoncurrentVersionTransition=NoncurrentVersionTransition(
+                    NoncurrentVersionTransitions=[NoncurrentVersionTransition(
                         StorageClass='DEEP_ARCHIVE',
                         TransitionInDays=1
-                    )
+                    )]
                 ),
                 LifecycleRule(
                     'expire',
@@ -513,7 +513,8 @@ class C4Datastore(C4DatastoreBase, C4Part):
             DBSubnetGroupDescription=f'RDS subnet group for {env_name}.',
             SubnetIds=[
                 self.NETWORK_EXPORTS.import_value(subnet_key)
-                for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                for subnet_key in C4NetworkExports.PRIVATE_SUBNETS[:int(ConfigManager.get_config_setting(
+                    Settings.SUBNET_PAIR_COUNT, default=2))]
             ],
             Tags=self.tags.cost_tag_array(),
         )

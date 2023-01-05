@@ -51,12 +51,12 @@ class C4CodeBuild(C4Part):
             Type='String',
         ))
 
-        portal_project_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        pipeline_project_name = portal_project_name + '-pipeline-builder'
-        tibanna_project_name = portal_project_name + '-tibanna-awsf-builder'
+        portal_env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        pipeline_project_name = portal_env_name + '-pipeline-builder'
+        tibanna_project_name = portal_env_name + '-tibanna-awsf-builder'
 
         # IAM role for cb builds
-        iam_role = self.cb_iam_role(project_name=portal_project_name)
+        iam_role = self.cb_iam_role(project_name=portal_env_name)
         template.add_resource(iam_role)
         pipeline_iam_role = self.cb_iam_role(project_name=pipeline_project_name)
         template.add_resource(pipeline_iam_role)
@@ -69,7 +69,7 @@ class C4CodeBuild(C4Part):
 
         # Build project for portal image
         build_project = self.cb_project(
-            project_name=portal_project_name,
+            project_name=portal_env_name,
             github_repo_url=ConfigManager.get_config_setting(Settings.CODEBUILD_GITHUB_REPOSITORY_URL,
                                                              default=self.DEFAULT_GITHUB_REPOSITORY),
             branch=ConfigManager.get_config_setting(Settings.CODEBUILD_DEPLOY_BRANCH,
@@ -99,7 +99,7 @@ class C4CodeBuild(C4Part):
         # output build project names, iam roles
         template.add_output(self.output_value(resource=build_project,
                                               export_name=C4CodeBuildExports.output_project_key(
-                                                  project_name=portal_project_name
+                                                  project_name=portal_env_name
                                               )))
         template.add_output(self.output_value(resource=pipeline_build_project,
                                               export_name=C4CodeBuildExports.output_project_key(
@@ -111,7 +111,7 @@ class C4CodeBuild(C4Part):
                                               )))
         template.add_output(self.output_value(resource=iam_role,
                                               export_name=C4CodeBuildExports.output_project_iam_role(
-                                                  project_name=portal_project_name
+                                                  project_name=portal_env_name
                                               )))
         template.add_output(self.output_value(resource=pipeline_iam_role,
                                               export_name=C4CodeBuildExports.output_project_iam_role(
@@ -194,7 +194,7 @@ class C4CodeBuild(C4Part):
             EnvironmentVariables=[
                 {'Name': 'AWS_DEFAULT_REGION', 'Value': 'us-east-1'},
                 {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
-                {'Name': 'IMAGE_REPO_NAME', 'Value': ConfigManager.get_config_setting(Settings.ENV_NAME)},
+                {'Name': 'IMAGE_REPO_NAME', 'Value': 'main'},  # main is the default repo name
                 {'Name': 'IMAGE_TAG',
                  'Value': ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, default='latest')},
             ],

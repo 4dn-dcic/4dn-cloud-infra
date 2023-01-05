@@ -40,7 +40,12 @@ Note that the HMS email you use to create this account is treated as the 'root a
 
 * Decide whether or not you would like this version of the system to be deployed with S3 encryption or not.
 cgap-portal in its current form does not take PHI, and thus in theory does not need to encrypt any raw files
-stored in S3. We have still implemented the ability to do so by setting the
+stored in S3. We have still implemented the ability to do so by setting an option in the ``config.json``
+file, which you will setup in the next step.
+
+* Note that an existing Auth0 account is assumed to be configured when deploying a new account. You will
+  need to give the deployment configuration the client ID and secret of the application you will use.
+  For assistance with Auth0 configuration please contact the CGAP team directly.
 
 
 Step Two: CGAP Orchestration with Cloud Formation
@@ -53,7 +58,23 @@ as described
 You can request this from the `Service Quotas console
 <https://console.aws.amazon.com/servicequotas/home/services/ec2/quotas>`_.
 
-* Upload base templates required for starting the application::
+* You will first need to use the initialization scripts to provision a ``custom`` directory containing
+  configuration options for the CGAP environment you are deploying::
+
+    init-custom-dir -h
+
+The help command will give info on all the arguments you can pass to it - many will be prompted
+for direct input upon running the command. Once you have completed this step you can begin building
+the account.
+
+* One note on network setup - the below commands will build a network for you with a default size of
+  2 public and 2 private subnets, but you can configure this to be as big as you need within us-east-1.
+  As of writing the largest network would have 6 subnets (us-east-1a, b, c, d, e, f). We recommend using
+  only 2 when starting off and increasing the size later on by adding the ``subnet.pair_count`` value
+  to ``config.json``.
+
+* Upload base templates required for starting the application - note that you must manually execute
+  change set from the Cloudformation console for each successive stack before moving onto the next::
 
     poetry run cli provision iam --validate --upload-change-set
     poetry run cli provision logging --validate --upload-change-set
@@ -142,7 +163,7 @@ this up follows. if the prior command works without issue, you can move on to th
   * Go to the Secrets Manager
 
   * There are two secrets. Information from the RDS secret will be needed in this action, but we'll start in the
-    one with a longer name, like ``C4DatastoreCgapSupertestApplicationConfiguration``, where ``CgapSupertest``
+    one with a longer name, like ``C4AppConfigCgapSupertest``, where ``CgapSupertest``
     is what in this example corresponded to a ``cgap-supertest`` environment. You may have named your environment
     differently, so the name you see will vary.  Click into the environment-related resource.
 

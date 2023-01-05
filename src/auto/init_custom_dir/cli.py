@@ -404,6 +404,21 @@ def validate_and_get_data_set(data_set: str) -> str:
     return data_set
 
 
+def validate_and_get_subnet_count(subnet_count: int) -> int:
+    """
+    Validates that the subnet_count we are going to load from is from 1-6
+
+    :param subnet_count: data set name
+    :return: the count
+    """
+    valid_subnet_counts = list(range(1, 7))
+    if subnet_count not in valid_subnet_counts:
+        exit_with_no_action(f"Your specified value for subnet_count: {subnet_count} is not valid - valid counts are"
+                            f" {conjoined_list(valid_subnet_counts)}.")
+    PRINT(f'Building network with {subnet_count} subnet pairs ({2 * subnet_count} total).')
+    return subnet_count
+
+
 def write_json_file_from_template(
         output_file: str, template_file: str, substitutions: dict, debug: bool = False) -> None:
     """
@@ -484,7 +499,7 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
                     recaptcha_key: str, recaptcha_secret: str,
                     ecr_repo_name: str,
                     github_url: str, github_pat: str,
-                    confirm: bool, debug: bool) -> None:
+                    confirm: bool, debug: bool, subnet_count: int) -> None:
 
     with setup_and_action() as setup_and_action_state:
 
@@ -507,6 +522,7 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
         ecr_repo_name = validate_and_get_ecr_repo_name(ecr_repo_name)
         github_repo_url = validate_and_get_github_url(github_url)
         github_personal_access_token = validate_and_get_github_pat(github_pat)
+        network_subnet_count = validate_and_get_subnet_count(subnet_count)
 
         PRINT(f"Using S3 bucket encryption: {'Yes' if s3_bucket_encryption else 'No'}")
 
@@ -536,7 +552,8 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
             ConfigTemplateVars.S3_BUCKET_ENCRYPTION: True if s3_bucket_encryption else False,
             ConfigTemplateVars.ENCODED_ENV_NAME: aws_credentials_name,
             ConfigTemplateVars.GITHUB_REPO_URL: github_repo_url,
-            ConfigTemplateVars.ECR_REPO_NAME: ecr_repo_name
+            ConfigTemplateVars.ECR_REPO_NAME: ecr_repo_name,
+            ConfigTemplateVars.NETWORK_SUBNET_COUNT: network_subnet_count
         })
 
         # Create the secrets.json file from the template and the inputs.
@@ -608,6 +625,11 @@ def main(override_argv: Optional[list] = None) -> None:
                       help="Data set to load into the system - deploy by default for DBMI internal users, others"
                            " should redefine to 'custom' and set 'ENCODED_ADMIN_USERS' in config.json once it has"
                            " been generated.")
+    argp.add_argument("--subnet-count", "-sc", dest="subnet_count", type=int, required=False, default=2,
+                      help="Pass this value to change the default number of subnet pairs. 2 is the default and is"
+                           " recommended for initial provisioning. Increase this value manually in config.json later on"
+                           " when you wish to operate a higher scale. You can also start with a higher number by"
+                           " passing a bigger value here on initial provisioning.")
     args = argp.parse_args(override_argv)
 
     init_custom_dir(args.aws_dir, args.aws_credentials_name, args.custom_dir,
@@ -619,7 +641,7 @@ def main(override_argv: Optional[list] = None) -> None:
                     args.recaptcha_key, args.recaptcha_secret,
                     args.ecr_repo_name,
                     args.github_url, args.github_pat,
-                    args.confirm, args.debug)
+                    args.confirm, args.debug, args.subnet_count)
 
 
 if __name__ == "__main__":
