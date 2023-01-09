@@ -31,7 +31,7 @@ class TestData:
     ]
     aws_kms_key = "AWS-KMS-KEY-FOR-TESTING"
 
-    opensearch_name = f"es-{aws_credentials_name}"
+    opensearch_name = f"os-{aws_credentials_name}"
     opensearch_host = "opensearch.server.for.testing"
     opensearch_port = 443
     opensearch_https = opensearch_port == 443
