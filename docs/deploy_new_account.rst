@@ -67,13 +67,13 @@ The help command will give info on all the arguments you can pass to it - many w
 for direct input upon running the command. Once you have completed this step you can begin building
 the account.
 
-* One note on network setup - the below commands will build a network for you with a default size of
+* One note on network setup: the below commands will build a network for you with a default size of
   2 public and 2 private subnets, but you can configure this to be as big as you need within us-east-1.
   As of writing the largest network would have 6 subnets (us-east-1a, b, c, d, e, f). We recommend using
   only 2 when starting off and increasing the size later on by adding the ``subnet.pair_count`` value
   to ``config.json``.
 
-* Upload base templates required for starting the application - note that you must manually execute
+* Upload base templates required for starting the application: note that you must manually execute
   change set from the Cloudformation console for each successive stack before moving onto the next::
 
     poetry run cli provision iam --validate --upload-change-set

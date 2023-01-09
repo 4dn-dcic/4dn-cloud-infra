@@ -5,6 +5,7 @@ from troposphere.codebuild import (
 from troposphere.iam import Role, Policy
 from tibanna._version import __version__ as tibanna_version
 from dcicutils.cloudformation_utils import camelize
+from dcicutils.common import REGION  # note to deploy outside us-east-1 you will need to change this
 from .network import C4NetworkExports
 from ..part import C4Part
 from ..exports import C4Exports
@@ -33,6 +34,8 @@ class C4CodeBuild(C4Part):
     DEFAULT_COMPUTE_TYPE = 'BUILD_GENERAL1_MEDIUM'  # will go slightly faster and needed for tibanna-awsf
     BUILD_TYPE = 'LINUX_CONTAINER'
     BUILD_IMAGE = 'aws/codebuild/standard:6.0'
+    DEFAULT_ECOSYSTEM_NAME = 'main'
+    DEFAULT_ECR_REPO_NAME = DEFAULT_ECOSYSTEM_NAME
     DEFAULT_GITHUB_REPOSITORY = 'https://github.com/dbmi-bgm/cgap-portal'
     DEFAULT_GITHUB_PIPELINE_REPOSITORY = 'https://github.com/dbmi-bgm/cgap-pipeline-main'
     DEFAULT_TIBANNA_REPOSITORY = 'https://github.com/4dn-dcic/tibanna'
@@ -192,9 +195,9 @@ class C4CodeBuild(C4Part):
             ComputeType=self.DEFAULT_COMPUTE_TYPE,
             Image=self.BUILD_IMAGE,
             EnvironmentVariables=[
-                {'Name': 'AWS_DEFAULT_REGION', 'Value': 'us-east-1'},
+                {'Name': 'AWS_DEFAULT_REGION', 'Value': REGION},
                 {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
-                {'Name': 'IMAGE_REPO_NAME', 'Value': 'main'},  # main is the default repo name
+                {'Name': 'IMAGE_REPO_NAME', 'Value': self.DEFAULT_ECR_REPO_NAME},  # main is the default repo name
                 {'Name': 'IMAGE_TAG',
                  'Value': ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, default='latest')},
             ],
@@ -208,7 +211,7 @@ class C4CodeBuild(C4Part):
             ComputeType=self.DEFAULT_COMPUTE_TYPE,
             Image=self.BUILD_IMAGE,
             EnvironmentVariables=[
-                {'Name': 'AWS_DEFAULT_REGION', 'Value': 'us-east-1'},
+                {'Name': 'AWS_DEFAULT_REGION', 'Value': REGION},
                 {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
                 {'Name': 'IMAGE_REPO_NAME', 'Value': 'base'},  # default to base, override by caller
                 {'Name': 'IMAGE_TAG',  # Use standard default version as of now, no locked version to resolve
@@ -225,7 +228,7 @@ class C4CodeBuild(C4Part):
             ComputeType=self.DEFAULT_COMPUTE_TYPE,
             Image=self.BUILD_IMAGE,
             EnvironmentVariables=[
-                {'Name': 'AWS_DEFAULT_REGION', 'Value': 'us-east-1'},
+                {'Name': 'AWS_DEFAULT_REGION', 'Value': REGION},
                 {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
                 {'Name': 'IMAGE_TAG', 'Value': tibanna_version}  # default to locked version
             ],

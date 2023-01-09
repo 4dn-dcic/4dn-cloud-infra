@@ -528,9 +528,10 @@ class C4ECSApplication(C4Part):
             Allows passing a deployment_type (for use with blue/green).
             In this case deployment_type == '', 'blue' or 'green'
         """
-        queue_name = (ConfigManager.get_config_setting(Settings.ENV_NAME) +
-                      f'-{deployment_type}-secondary-indexer-queue' if deployment_type else
-                      ConfigManager.get_config_setting(Settings.ENV_NAME) + f'-secondary-indexer-queue')
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        queue_name = (f'{env_name}-{deployment_type}-secondary-indexer-queue'
+                      if deployment_type else
+                      f'{env_name}-secondary-indexer-queue')
         return Alarm(
             f'IndexingQueueDepthAlarm{deployment_type}',
             AlarmDescription='Alarm if total queue depth exceeds %s' % depth,

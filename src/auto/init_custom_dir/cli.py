@@ -413,7 +413,7 @@ def validate_and_get_subnet_count(subnet_count: int) -> int:
     """
     valid_subnet_counts = list(range(1, 7))
     if subnet_count not in valid_subnet_counts:
-        exit_with_no_action(f"Your specified value for subnet_count: {subnet_count} is not valid - valid counts are"
+        exit_with_no_action(f"Your specified value for subnet_count, {subnet_count} is not valid. Valid counts are"
                             f" {conjoined_list(valid_subnet_counts)}.")
     PRINT(f'Building network with {subnet_count} subnet pairs ({2 * subnet_count} total).')
     return subnet_count

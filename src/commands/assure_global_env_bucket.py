@@ -79,7 +79,8 @@ def configure_env_utils(env=None, url_override=None):
 
 
 def _upload_to_s3(*, s3, bucket, key, env, body):
-    PRINT(f"To be uploaded: {body.decode('utf-8')} into s3://{bucket}/{key}")
+    data = body.decode('utf-8')
+    PRINT(f"To be uploaded: {data} into s3://{bucket}/{key}")
     s3_encrypt_key_id = ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
     if yes_or_no(f"Upload this into {env} in account {ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER)}?"
                  f" with s3_encrypt_key_id={s3_encrypt_key_id}"):
