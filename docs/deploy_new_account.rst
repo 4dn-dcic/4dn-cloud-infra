@@ -414,20 +414,21 @@ all of the indicated files::
     source custom/aws_creds/test_creds.sh
     aws s3 sync s3://cgap-reference-file-registry s3://<new_application_files_bucket>
 
-Then, clone the cgap-pipeline repo, checkout the version you want to deploy (v24 as of writing) and upload
+Then, clone the `cgap-pipeline-main` repo, checkout the version you want to deploy (v1.0.0 as of writing) and upload
 the bioinformatics metadata to the portal. (This example again assumes the environment variable ENV_NAME
 is set correctly. If you have already sourced your credentials, that part doesn't have to be repeated, but
 it's critical to have done it, so we include that here redundantly to avoid problems.) ECR images will also
 be posted, so ensure ``$AWS_REGION`` is set.::
 
     source custom/aws_creds/test_creds.sh
-    python post_patch_to_portal.py --ff-env=$ENV_NAME --del-prev-version --ugrp-unrelated
-
-Note that the above post/patch process must be repeated from the cgap-sv-pipeline repo as well.
+    make deploy-all
 
 Finally, push the tibanna-awsf image to the newly created ECR Repository in the new account::
 
     ./scripts/upload_tibanna_awsf
+
+Note that you can trigger the awsf image build through CodeBuild (or foursight) as well if using the
+CodeBuild stack.
 
 Once the above steps have completed after 20 mins or so, it is time to test it out. Navigate to
 Foursight and trigger the md5 check - this will run the md5 step on the reference files. You should be able
@@ -435,13 +436,14 @@ to track the progress from the Step Function console or CloudWatch. It should no
 for the small files. Once this is done, the portal is ready to analyze cases. One should consider requesting an
 increase in the spot instance allocation limits as well if the account is intended to run at scale.
 
-You might need to make the  ``Settings.HMS_SECURE_AMI`` available or specify a new AMI for use. Add the new
+For HMS internal use, You might need to make the  ``Settings.HMS_SECURE_AMI`` available or
+specify a new AMI for use. Add the new
 account number you are deploying in to the set of account IDs that the secure AMI is shared with (6433).
 
 Step Eight: NA12879 Demo Analysis
 ---------------------------------
 
-NOTE: this step requires access keys to current CGAP production (cgap.hms.harvard.edu).
+NOTE: this step relied on a now defunct CGAP environment. Proceed to step nine.
 
 With Tibanna deployed we are now able to run the demo analysis using NA12879. The raw files for this case are
 transferred as part of the reference file registry, so we just need to provision the metadata.::
@@ -501,16 +503,8 @@ the new environment CNAME to the allowed origins.
 Step Ten: Open Support Tickets
 ------------------------------
 
-Some support tickets must be opened at orchestration time in order for CGAP to run properly.
-Namely, two cases should be open:
-
-* Spot instance limit increase to a significantly higher value (such as 9000)
-* Disable ES hourly snapshots
-
-The first will enable CGAP to run pipeline at a higher degree of parallelization using
-more spot instances. The second will make it so that internal AWS snapshots of the ES
-cluster are only done daily, not hourly. Hourly snapshots are known to impede performance
-and cause APIs to fail.
+Open a support ticket to request an increase in the spot instance capacity. Namely, ask for
+a spot instance limit increase to a significantly higher vCPU value (such as 9000)
 
 Step Eleven: Configure HTTPS
 ----------------------------
@@ -524,7 +518,9 @@ end-to-end encryption on that path is not supported at this time, but is a
 high priority feature.
 
 First, note the DNS A Record of the Load Balancer created. This record will
-be needed for registering a CNAME. DBMI IT has a small form you can fill out
+be needed for registering a CNAME.
+
+If you're an internal user, DBMI IT has a small form you can fill out
 to request a CNAME record for the desired domain. You want this new
 domain to point to the A record of the load balancer. Once acquired, you
 should then be able to send HTTP traffic to the new CNAME. At this point,
