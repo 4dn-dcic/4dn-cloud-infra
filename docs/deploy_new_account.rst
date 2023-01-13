@@ -66,7 +66,7 @@ You can request this from the `Service Quotas console
 The help command will give info on all the arguments you can pass to it - many will be prompted
 for direct input upon running the command. Once you have completed this step you can begin building
 the account.
-
+The minimum arguments needed for `init-custom-dir` is `--credentials` which should be followed by the name of your defined local credentials; this is the `xxx` referred to above in the `~/.aws_test.xxx` directory name; for example: `init-custom-dir --credentials cgap-supertest` assuming you have an appropriate `~/.aws_test.cgap-supertest` directory.  
 * One note on network setup: the below commands will build a network for you with a default size of
   2 public and 2 private subnets, but you can configure this to be as big as you need within us-east-1.
   As of writing the largest network would have 6 subnets (us-east-1a, b, c, d, e, f). We recommend using
