@@ -142,10 +142,16 @@ class Aws(AwsContext):
             kms = boto3.client("kms")
             for key in kms.list_keys()["Keys"]:
                 key_id = key["KeyId"]
-                key_description = kms.describe_key(KeyId=key_id)
+                try:
+                    key_description = kms.describe_key(KeyId=key_id)
+                except Exception as e:
+                    PRINT(f"ERROR: Cannot get description of KMS Key ID (skipping): {key_id}")
+                    PRINT(f"       {str(e)}")
+                    continue
                 key_metadata = key_description["KeyMetadata"]
+                key_enabled = key_metadata.get("Enabled")
                 key_manager = key_metadata["KeyManager"]
-                if key_manager == "CUSTOMER":
+                if key_manager == "CUSTOMER" and key_enabled:
                     # TODO: If multiple keys (for some reason) silently pick the most recently created one (?)
                     # key_creation_date = key_metadata["CreationDate"]
                     kms_keys.append(key_id)
