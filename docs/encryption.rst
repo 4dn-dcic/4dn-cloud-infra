@@ -19,7 +19,7 @@ Run the following command to automatically give KMS permissions to the needed ro
 
 ``update-kms-policy``
 
-Note that if you have multiple keys you will need to specify the key.
+Note that if you have multiple keys you will need to specify the key to the command.
 
 S3
 --
