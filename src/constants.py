@@ -7,8 +7,10 @@
 class Secrets:
     """ Secret values pulled from custom/secrets.json follow these identifiers """
     # Secrets (customarily held in environment variables by these names)
+    AUTH0_DOMAIN = 'Auth0Domain'
     AUTH0_CLIENT = 'Auth0Client'
     AUTH0_SECRET = 'Auth0Secret'
+    AUTH0_ALLOWED_CONNECTIONS = 'Auth0AllowedConnections'
     ENCODED_SECRET = 'ENCODED_SECRET'
     RECAPTCHA_KEY = 'reCaptchaKey'
     RECAPTCHA_SECRET = 'reCaptchaSecret'

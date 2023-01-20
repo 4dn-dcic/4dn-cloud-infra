@@ -297,15 +297,23 @@ def validate_and_get_s3_bucket_org(s3_bucket_org: str) -> str:
     return s3_bucket_org
 
 
-def validate_and_get_auth0(auth0_client: str, auth0_secret: str) -> (str, str):
+def validate_and_get_auth0(auth0_domain: str, auth0_client: str, auth0_secret: str,
+                           auth0_allowed_connections: str) -> (str, str, str, str):
     """
     Validates the given Auth0 client/secret and returns them if/when set.
     Prompts for this value if not set; exit on error (if not set).
 
+    :param auth0_domain: Auth0 domain value.
     :param auth0_client: Auth0 client value.
     :param auth0_secret: Auth0 secret value.
-    :return: Tuple with Auth0 client and secret values.
+    :param auth0_allowed_connections: Auth0 allowed connections.
+    :return: 4-Tuple with Auth0 domain, client, secret and allowed connection values.
     """
+    if auth0_domain == "hms-dbmi.auth0.com":
+        PRINT(f"Auth0 Domain unset - using default {auth0_domain}")
+    else:
+        if not auth0_domain.endswith(".auth0.com"):
+            exit_with_no_action(f"Malformed Auth0 domain: {auth0_domain}")
     if not auth0_client:
         PRINT("You must specify an Auth0 client ID using the --auth0client option.")
         auth0_client = input("Or enter your Auth0 client ID: ").strip()
@@ -322,7 +330,11 @@ def validate_and_get_auth0(auth0_client: str, auth0_secret: str) -> (str, str):
     else:
         PRINT(f"Using Auth0 secret: {obfuscate(auth0_secret)}")
 
-    return auth0_client, auth0_secret
+    if not auth0_allowed_connections:
+        PRINT(f"Using default allowed connections")
+    else:
+        PRINT(f'Using allowed connections {auth0_allowed_connections}')
+    return auth0_domain, auth0_client, auth0_secret, auth0_allowed_connections
 
 
 def validate_and_get_recaptcha(recaptcha_key: str, recaptcha_secret: str) -> (str, str):
@@ -495,7 +507,7 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
                     deploying_iam_user: str,
                     identity: str,
                     s3_bucket_org: str, s3_bucket_encryption: bool,
-                    auth0_client: str, auth0_secret: str,
+                    auth0_domain: str, auth0_client: str, auth0_secret: str, auth0_allowed_connections: str,
                     recaptcha_key: str, recaptcha_secret: str,
                     ecr_repo_name: str,
                     github_url: str, github_pat: str,
@@ -517,7 +529,8 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
         deploying_iam_user = validate_and_get_deploying_iam_user(deploying_iam_user, aws_credentials_dir)
         identity = validate_and_get_identity(identity, aws_credentials_name)
         s3_bucket_org = validate_and_get_s3_bucket_org(s3_bucket_org)
-        auth0_client, auth0_secret = validate_and_get_auth0(auth0_client, auth0_secret)
+        auth0_domain, auth0_client, auth0_secret, auth0_connections = validate_and_get_auth0(
+            auth0_domain, auth0_client, auth0_secret, auth0_allowed_connections)
         recaptcha_key, recaptcha_secret = validate_and_get_recaptcha(recaptcha_key, recaptcha_secret)
         ecr_repo_name = validate_and_get_ecr_repo_name(ecr_repo_name)
         github_repo_url = validate_and_get_github_url(github_url)
@@ -558,8 +571,10 @@ def init_custom_dir(aws_dir: str, aws_credentials_name: str,
 
         # Create the secrets.json file from the template and the inputs.
         write_secrets_json_file(custom_dir, {
+            SecretsTemplateVars.AUTH0_DOMAIN: auth0_domain,
             SecretsTemplateVars.AUTH0_CLIENT: auth0_client,
             SecretsTemplateVars.AUTH0_SECRET: auth0_secret,
+            SecretsTemplateVars.AUTH0_ALLOWED_CONNECTIONS: auth0_allowed_connections,
             SecretsTemplateVars.RECAPTCHA_KEY: recaptcha_key,
             SecretsTemplateVars.RECAPTCHA_SECRET: recaptcha_secret,
             SecretsTemplateVars.GITHUB_PERSONAL_ACCESS_TOKEN: github_personal_access_token
@@ -587,10 +602,14 @@ def main(override_argv: Optional[list] = None) -> None:
     argp = argparse.ArgumentParser()
     argp.add_argument("--account", "-a", dest="account_number", type=str, required=False,
                       help="Your AWS account number")
+    argp.add_argument("--auth0domain", "-ad", dest="auth0_domain", type=str, required=False,
+                      help="Your Auth0 domain identifier (required if customizing)", default="hms-dbmi.auth0.com")
     argp.add_argument("--auth0client", "-ac", dest="auth0_client", type=str, required=False,
                       help="Your Auth0 client identifier (required)")
     argp.add_argument("--auth0secret", "-as", dest="auth0_secret", type=str, required=False,
                       help="Your Auth0 secret (required)")
+    argp.add_argument("--auth0allowedconnections", "-aac", dest="auth0_allowed_connections", type=str, required=False,
+                      help="Your Auth0 allowed connections (required if customizing) as a comma separated list.",)
     argp.add_argument("--awsdir", "-d", dest="aws_dir", type=str, required=False, default=InfraDirectories.AWS_DIR,
                       help=f"Alternate directory to default: {InfraDirectories.AWS_DIR}")
     argp.add_argument("--credentials", "-c", dest="aws_credentials_name", type=str, required=True,
@@ -637,7 +656,7 @@ def main(override_argv: Optional[list] = None) -> None:
                     args.deploying_iam_user,
                     args.identity,
                     args.s3_bucket_org, args.s3_bucket_encryption,
-                    args.auth0_client, args.auth0_secret,
+                    args.auth0_domain, args.auth0_client, args.auth0_secret, args.auth0_allowed_connections,
                     args.recaptcha_key, args.recaptcha_secret,
                     args.ecr_repo_name,
                     args.github_url, args.github_pat,
