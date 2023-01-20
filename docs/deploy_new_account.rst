@@ -44,7 +44,13 @@ stored in S3. We have still implemented the ability to do so by setting an optio
 file, which you will setup in the next step.
 
 * Note that an existing Auth0 account is assumed to be configured when deploying a new account. You will
-  need to give the deployment configuration the client ID and secret of the application you will use.
+  need to give the deployment configuration the following values::
+
+    Auth0Domain
+    Auth0ClientID
+    Auth0Secret
+    Auth0AllowedConnections
+
   For assistance with Auth0 configuration please contact the CGAP team directly.
 
 
