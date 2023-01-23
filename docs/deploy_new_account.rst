@@ -587,8 +587,10 @@ This will allow you to run Sentieon algorithms for alignment and somatic variant
 
 For more information on Sentieon, contact their group directly.
 
+
+===========
 Final Notes
------------
+===========
 
 At this point, the orchestration of CGAP is complete. To run through important things you should have
 built briefly:
@@ -615,8 +617,13 @@ single t4g.xlarge instance for the database and 3 c6g.xlarge.elasticsearch nodes
 cluster (no master nodes). If you're going to scale beyond this, it's probably a good idea to talk with
 the CGAP team first.
 
+If you decide you want to discontinue use of CGAP, most stacks can be torn down directly in the opposite
+order in which they were built. See ``destroying_an_account.rst`` for more information on tearing down
+CGAP.
+
+=============
 Common Issues
--------------
+=============
 
 Higlass tracks do not load.
 
