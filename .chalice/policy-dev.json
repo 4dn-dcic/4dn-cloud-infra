@@ -12,6 +12,7 @@
         "ecs:*",
         "cloudformation:*",
         "states:*",
+        "codebuild:*",
         "secretsmanager:GetSecretValue",
         "secretsmanager:ListSecrets",
         "iam:ListAccountAliases"

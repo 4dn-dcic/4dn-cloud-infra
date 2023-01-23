@@ -1,7 +1,11 @@
 from troposphere import Template, Parameter, AccountId, Join, Region, Ref, Output
-from troposphere.codebuild import Artifacts, Environment, Project, Source, SourceAuth, VpcConfig, SourceCredential
+from troposphere.codebuild import (
+    Artifacts, Environment, Project, Source, SourceAuth, VpcConfig, SourceCredential, GitSubmodulesConfig
+)
 from troposphere.iam import Role, Policy
+from tibanna._version import __version__ as tibanna_version
 from dcicutils.cloudformation_utils import camelize
+from dcicutils.common import REGION  # note to deploy outside us-east-1 you will need to change this
 from .network import C4NetworkExports
 from ..part import C4Part
 from ..exports import C4Exports
@@ -27,13 +31,18 @@ class C4CodeBuildExports(C4Exports):
 
 
 class C4CodeBuild(C4Part):
-    DEFAULT_COMPUTE_TYPE = 'BUILD_GENERAL1_SMALL'
+    DEFAULT_COMPUTE_TYPE = 'BUILD_GENERAL1_MEDIUM'  # will go slightly faster and needed for tibanna-awsf
     BUILD_TYPE = 'LINUX_CONTAINER'
     BUILD_IMAGE = 'aws/codebuild/standard:6.0'
+    DEFAULT_ECOSYSTEM_NAME = 'main'
+    DEFAULT_ECR_REPO_NAME = DEFAULT_ECOSYSTEM_NAME
     DEFAULT_GITHUB_REPOSITORY = 'https://github.com/dbmi-bgm/cgap-portal'
+    DEFAULT_GITHUB_PIPELINE_REPOSITORY = 'https://github.com/dbmi-bgm/cgap-pipeline-main'
+    DEFAULT_TIBANNA_REPOSITORY = 'https://github.com/4dn-dcic/tibanna'
     STACK_NAME_TOKEN = 'codebuild'
     STACK_TITLE_TOKEN = 'CodeBuild'
     DEFAULT_DEPLOY_BRANCH = 'master'
+    DEFAULT_PIPELINE_DEPLOY_BRANCH = 'v1.0.0'  # version release tag for cgap-pipeline-main
     NETWORK_EXPORTS = C4NetworkExports()
     EXPORTS = C4CodeBuildExports()
 
@@ -45,34 +54,75 @@ class C4CodeBuild(C4Part):
             Type='String',
         ))
 
-        project_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        portal_env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        pipeline_project_name = portal_env_name + '-pipeline-builder'
+        tibanna_project_name = portal_env_name + '-tibanna-awsf-builder'
 
-        # IAM role for cb
-        iam_role = self.cb_iam_role(project_name=project_name)
+        # IAM role for cb builds
+        iam_role = self.cb_iam_role(project_name=portal_env_name)
         template.add_resource(iam_role)
+        pipeline_iam_role = self.cb_iam_role(project_name=pipeline_project_name)
+        template.add_resource(pipeline_iam_role)
+        tibanna_iam_role = self.cb_iam_role(project_name=tibanna_project_name)
+        template.add_resource(tibanna_iam_role)
 
         # credentials for cb
         creds = self.cb_source_credential()
         template.add_resource(creds)
 
-        # Build project
+        # Build project for portal image
         build_project = self.cb_project(
-            project_name=project_name,
+            project_name=portal_env_name,
             github_repo_url=ConfigManager.get_config_setting(Settings.CODEBUILD_GITHUB_REPOSITORY_URL,
                                                              default=self.DEFAULT_GITHUB_REPOSITORY),
             branch=ConfigManager.get_config_setting(Settings.CODEBUILD_DEPLOY_BRANCH,
-                                                    default=self.DEFAULT_DEPLOY_BRANCH)
+                                                    default=self.DEFAULT_DEPLOY_BRANCH),
+            environment=self.cb_portal_environment_vars()
         )
         template.add_resource(build_project)
 
-        # output build project name, iam role
+        # Build project for pipeline images
+        pipeline_build_project = self.cb_project(
+            project_name=pipeline_project_name,
+            github_repo_url=self.DEFAULT_GITHUB_PIPELINE_REPOSITORY,
+            branch=self.DEFAULT_PIPELINE_DEPLOY_BRANCH,
+            environment=self.cb_pipeline_environment_vars()
+        )
+        template.add_resource(pipeline_build_project)
+
+        # Build project for Tibanna AWSF
+        tibanna_build_project = self.cb_project(
+            project_name=tibanna_project_name,
+            github_repo_url=self.DEFAULT_TIBANNA_REPOSITORY,
+            branch=tibanna_version,  # default branch to version
+            environment=self.cb_tibanna_environment_vars()
+        )
+        template.add_resource(tibanna_build_project)
+
+        # output build project names, iam roles
         template.add_output(self.output_value(resource=build_project,
                                               export_name=C4CodeBuildExports.output_project_key(
-                                                  project_name=project_name
+                                                  project_name=portal_env_name
+                                              )))
+        template.add_output(self.output_value(resource=pipeline_build_project,
+                                              export_name=C4CodeBuildExports.output_project_key(
+                                                  project_name=pipeline_project_name
+                                              )))
+        template.add_output(self.output_value(resource=tibanna_build_project,
+                                              export_name=C4CodeBuildExports.output_project_key(
+                                                  project_name=tibanna_project_name
                                               )))
         template.add_output(self.output_value(resource=iam_role,
                                               export_name=C4CodeBuildExports.output_project_iam_role(
-                                                  project_name=project_name
+                                                  project_name=portal_env_name
+                                              )))
+        template.add_output(self.output_value(resource=pipeline_iam_role,
+                                              export_name=C4CodeBuildExports.output_project_iam_role(
+                                                  project_name=pipeline_project_name
+                                              )))
+        template.add_output(self.output_value(resource=tibanna_iam_role,
+                                              export_name=C4CodeBuildExports.output_project_iam_role(
+                                                  project_name=tibanna_project_name
                                               )))
 
         return template
@@ -139,21 +189,49 @@ class C4CodeBuild(C4Part):
         """
         return Artifacts(Type='NO_ARTIFACTS')
 
-    @staticmethod
-    def _cb_base_environment_vars() -> list:
-        return [
-            {'Name': 'AWS_DEFAULT_REGION', 'Value': 'us-east-1'},
-            {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
-            {'Name': 'IMAGE_REPO_NAME', 'Value': ConfigManager.get_config_setting(Settings.CODEBUILD_REPO_NAME)},
-            {'Name': 'IMAGE_TAG', 'Value': ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, default='latest')}
-        ]
-
-    def cb_environment(self) -> Environment:
-        """ Environment configuration for the codebuild job """
+    def cb_portal_environment_vars(self) -> Environment:
+        """ Environment configuration for the portal build """
         return Environment(
             ComputeType=self.DEFAULT_COMPUTE_TYPE,
             Image=self.BUILD_IMAGE,
-            EnvironmentVariables=self._cb_base_environment_vars(),
+            EnvironmentVariables=[
+                {'Name': 'AWS_DEFAULT_REGION', 'Value': REGION},
+                {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
+                {'Name': 'IMAGE_REPO_NAME', 'Value': self.DEFAULT_ECR_REPO_NAME},  # main is the default repo name
+                {'Name': 'IMAGE_TAG',
+                 'Value': ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, default='latest')},
+            ],
+            Type=self.BUILD_TYPE,
+            PrivilegedMode=True
+        )
+
+    def cb_pipeline_environment_vars(self) -> Environment:
+        """ Environment configuration for the pipeline builds """
+        return Environment(
+            ComputeType=self.DEFAULT_COMPUTE_TYPE,
+            Image=self.BUILD_IMAGE,
+            EnvironmentVariables=[
+                {'Name': 'AWS_DEFAULT_REGION', 'Value': REGION},
+                {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
+                {'Name': 'IMAGE_REPO_NAME', 'Value': 'base'},  # default to base, override by caller
+                {'Name': 'IMAGE_TAG',  # Use standard default version as of now, no locked version to resolve
+                 'Value': self.DEFAULT_PIPELINE_DEPLOY_BRANCH},
+                {'Name': 'BUILD_PATH', 'Value': 'cgap-pipeline-base/dockerfiles/base'}  # default to base, override by caller
+            ],
+            Type=self.BUILD_TYPE,
+            PrivilegedMode=True
+        )
+
+    def cb_tibanna_environment_vars(self) -> Environment:
+        """ Environment configuration for tibanna """
+        return Environment(
+            ComputeType=self.DEFAULT_COMPUTE_TYPE,
+            Image=self.BUILD_IMAGE,
+            EnvironmentVariables=[
+                {'Name': 'AWS_DEFAULT_REGION', 'Value': REGION},
+                {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
+                {'Name': 'IMAGE_TAG', 'Value': tibanna_version}  # default to locked version
+            ],
             Type=self.BUILD_TYPE,
             PrivilegedMode=True
         )
@@ -176,7 +254,10 @@ class C4CodeBuild(C4Part):
                 Type='OAUTH'
             ),
             Location=github_repo_url,
-            Type='GITHUB'
+            Type='GITHUB',
+            GitSubmodulesConfig=GitSubmodulesConfig(
+                FetchSubmodules=True
+            )
         )
 
     def cb_vpc_config(self) -> VpcConfig:
@@ -187,13 +268,13 @@ class C4CodeBuild(C4Part):
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC)
         )
 
-    def cb_project(self, *, project_name, github_repo_url, branch) -> Project:
+    def cb_project(self, *, project_name, github_repo_url, branch, environment) -> Project:
         """ Builds a CodeBuild project for project_name """
         return Project(
             camelize(project_name),
             Artifacts=self.cb_artifacts(),
             Description=f'Build project for {project_name}',
-            Environment=self.cb_environment(),
+            Environment=environment,
             Name=project_name,
             ServiceRole=Ref(self.cb_iam_role(project_name=project_name)),
             Source=self.cb_source(github_repo_url=github_repo_url),
