@@ -157,7 +157,7 @@ one for the portal (the name of the environment you specified) and one for pipel
 From the CodeBuild console, trigger the job named by your environment and the master branch
 will be built and pushed to your ECR.
 
-Note that once Foursight is online you can trigger new builds of al CodeBuild jobs from the ``Trigger
+Note that once Foursight is online you can trigger new builds of all CodeBuild jobs from the ``Trigger
 CodeBuild Run`` check.
 
 
@@ -237,15 +237,15 @@ Step Five: CGAP Portal Orchestration
 
 * Ensure that you have set the ``identity`` and ``s3.encrypt_key_id`` (if applicable) variables in ``config.json``.
 
-* Before executing the next stack, you need to provision a basic environment configuration. Do
-  so by running the ``assure-global-env-bucket`` script. It will confirm some structure for you
-  that you can approve before uploading. Once this is done you can execute change set on the
-  ECS stack in the CloudFormation console.
-
 * Once all base stacks have finishing instantiating -- all stacks should be in state ``UPDATE_COMPLETE`` -- you can
   provision the application stack by doing::
 
      poetry run cli provision ecs --validate --upload-change-set
+
+* Before executing the ECS stack, you need to provision a basic environment configuration. Do
+  so by running the ``assure-global-env-bucket`` script. It will confirm some structure for you
+  that you can approve before uploading. Once this is done you can execute change set on the
+  ECS stack in the CloudFormation console.
 
 * Once the application has finishing instantiating, you can deploy the portal. To check that the portal
   is up and running, navigate to the ECS stack outputs, find the load balancer URL and go to ``/health?format=json``.
@@ -433,7 +433,9 @@ all of the indicated files::
     source custom/aws_creds/test_creds.sh
     aws s3 sync s3://cgap-reference-file-registry s3://<new_application_files_bucket>
 
-Then, clone the `cgap-pipeline-main` repo, checkout the version you want to deploy (v1.0.0 as of writing) and upload
+Note that you can locate the "files" bucket by examining the application configuration or the portal health page.
+
+Then, clone the `cgap-pipeline-main` repo, checkout the version you want to deploy (v1.1.0 as of writing) and upload
 the bioinformatics metadata to the portal. (This example again assumes the environment variable ENV_NAME
 is set correctly. If you have already sourced your credentials, that part doesn't have to be repeated, but
 it's critical to have done it, so we include that here redundantly to avoid problems.) ECR images will also
@@ -586,6 +588,14 @@ All components work together to accomplish tasks. Most issues occur because a se
 incomplete or did not go through correctly. Please feel free to report issues to us directly as they
 come up as it is probable we will be able to guide you to a fix quickly.
 
+Note that the cost of running a barebones system should be on the order of $500 a month or so. As
+you scale up and analyze more files the storage cost will go up while compute costs will remain the same.
+Once you reach a large enough size (millions of variants) you may need to scale up the database or
+the ElasticSearch to performance remains stable. We've run CGAP with millions of variants and use a
+single t4g.xlarge instance for the database and 3 c6g.xlarge.elasticsearch nodes for the ElasticSearch
+cluster (no master nodes). If you're going to scale beyond this, it's probably a good idea to talk with
+the CGAP team first.
+
 Common Issues
 -------------
 
@@ -593,6 +603,7 @@ Higlass tracks do not load.
 
     * Check CORS configuration on the ``wfoutput`` bucket in S3
     * Check that your higlass server is responding to API requests
+    * If not using our server, double check your certificate is working correctly
     * Check the higlass_view_config items have the correct server URLs (if not using ours)
     * Check with us that we have properly configured our internal higlass server so you can use it
       (if using ours in a trial)
@@ -607,11 +618,13 @@ Internal Server Error/502 Error loading CGAP Portal
       has items in it and UI still will not load please screenshot the JS console and send us a bug
       report. Also check that the CodeBuild job for the portal completed successfully, particularly
       the NPM build. See the cgap-portal repositories top-level
-      ``Dockerfile`` 
+      ``Dockerfile``
     * Check that ``GLOBAL_ENV_BUCKET`` is set correctly in the application configuration, and that
-      appropriate entries exist in S3.
+      appropriate entries exist in S3. You should have environment information in ``main.ecosystem``
+      and another file named your environment that directs its configuration to ``main.ecosystem``.
     * If using encryption, check that the KMS key permissions are correct. Note that there is a command
-      ``update-kms-policy`` that will handle this for you.
+      ``update-kms-policy`` that will handle this for you. See the ``encryption.rst`` document for more
+      detailed information.
 
 Internal Server Error loading Foursight
 
@@ -637,3 +650,4 @@ Tibanna jobs fail
       free to send us a bug report.
     * Check Lambda logs for the various lambdas in the step function to ensure no crashes/errors are
       occurring there. Those can also be reported to us in a bug report.
+    * Check that all references files were successfully sync'd to your files bucket.
