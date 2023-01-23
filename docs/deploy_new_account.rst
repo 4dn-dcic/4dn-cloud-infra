@@ -568,6 +568,25 @@ listener to redirect HTTP traffic to HTTPS. Note that this will effectively
 disable the load balancer URL - update the foursight environment file to use
 the HTTPS URL to account for this (the files created in S3 by ``assure-global-env-bucket``).
 
+Step Twelve: Sentieon Configuration (optional)
+----------------------------------------------
+
+CGAP comes with pipelines for GATK best practices that do not rely on a Sentieon integration. This step
+is totally optional - there are no hard dependencies on use of Sentieon.
+
+If you do wish to use your Sentieon license, you may do so by building the Sentieon stack
+and manually installing the tool and your license on the server::
+
+    poetry run cli provision sentieon --validate --upload-change-set
+
+Note that you must set the ``"sentieon.ssh_key"`` value in ``config.json`` to a keypair you have
+created for SSH access to the server. You will may also need to update security group configuration to
+allow ICMP and TCP traffic on the associated license server ports. You can then repeat the pipeline
+deploy step setting the ``$SENTION_LICENSE`` variable so it will be encoded into your CWL files.
+This will allow you to run Sentieon algorithms for alignment and somatic variant calling.
+
+For more information on Sentieon, contact their group directly.
+
 Final Notes
 -----------
 
