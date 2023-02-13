@@ -6,6 +6,21 @@
 Change Log
 ----------
 
+3.9.1
+=====
+
+* Updates IAM policy for CloudFormation to include ``ListStacks`` permission as required by AWS
+
+
+3.9.0
+=====
+
+* Upgrades ElasticSearch to use Opensearch
+* Reduce redundant VPC components
+* Add subnet expansion/configuration capability
+* Expand CodeBuild stack to include more jobs
+
+
 3.8.2
 =====
 * Removed symlink of app.py to app-cgap.py or app-fourfront.py
