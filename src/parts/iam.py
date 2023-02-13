@@ -255,10 +255,10 @@ class C4IAM(C4IAMBase, C4Part):
 
     @staticmethod
     def ecs_cfn_policy() -> Policy:
-        """ Gives access to the DescribeStacks API of cloudformation so that Application services can
-            read outputs from stacks.
+        """ Gives access to the DescribeStacks and list stacks API of cloudformation so that Application
+            services can read outputs from stacks.
 
-            Associated API: get_ecs_real_url
+            Associated API: get_ecs_real_url, others within foursight
         """
         return Policy(
             PolicyName='ECSCfnPolicy',
@@ -268,6 +268,7 @@ class C4IAM(C4IAMBase, C4Part):
                     Effect='Allow',
                     Action=[
                         'cloudformation:DescribeStacks',
+                        'cloudformation:ListStacks'
                     ],
                     Resource=['*'],  # XXX: constrain further?
                 )],
