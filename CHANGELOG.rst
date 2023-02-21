@@ -6,6 +6,12 @@
 Change Log
 ----------
 
+3.9.2
+=====
+
+* Add ReadTheDocs support with landing page
+
+
 3.9.1
 =====
 
