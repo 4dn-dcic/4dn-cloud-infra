@@ -43,6 +43,7 @@ class ApplicationConfigurationSecrets:
             'ENCODED_BS_ENV': env_name,
             'ENCODED_DATA_SET': ConfigManager.get_config_setting(Settings.DATA_SET, default='deploy'),
             'ENCODED_ES_SERVER': cls.get_es_url(),  # None,
+            'ENCODED_REDIS_SERVER': None,  # populate later if in use
             'ENCODED_FOURSIGHT_BUCKET_PREFIX': ConfigManager.resolve_bucket_name("{foursight_prefix}"),
             'ENCODED_IDENTITY': None,  # This is the name of the Secrets Manager with all our identity's secrets
             'ENCODED_FILE_UPLOAD_BUCKET':

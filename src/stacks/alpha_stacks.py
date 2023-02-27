@@ -2,7 +2,7 @@ from ..base import register_stack_creator, registered_stack_class
 from ..parts import (
     network, datastore, ecr, iam, logging, ecs, fourfront_ecs,
     appconfig, datastore_slim, sentieon, jupyterhub, higlass, fourfront_ecs_blue_green,
-    codebuild
+    codebuild, redis
 )
 from ..stack import (
     C4Stack, C4Tags, C4Account, C4Part, BaseC4FoursightStack,
@@ -217,3 +217,9 @@ def c4_alpha_stack_foursight_fourfront(account: C4Account):
 def c4_alpha_stack_foursight_fourfront(account: C4Account):
     """ Foursight (dev) stack for fourfront """
     return create_c4_4dn_foursight_stack(name='foursight-development', account=account)
+
+
+@register_stack_creator(name='redis', kind='alpha', implementation_class=redis.C4Redis)
+def c4_alpha_stack_redis(account: C4Account):
+    """ Builds the Redis stack """
+    return create_c4_alpha_stack(name='redis', account=account)

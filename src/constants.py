@@ -72,6 +72,12 @@ class Settings:
     ES_DATA_TYPE = 'elasticsearch.data_node_type'
     ES_VOLUME_SIZE = 'elasticsearch.volume_size'
 
+    # Redis Configuration Options
+    REDIS_ENABLED = 'redis.enabled'
+    REDIS_ENGINE_VERSION = 'redis.version'
+    REDIS_NODE_COUNT = 'redis.node_count'
+    REDIS_NODE_TYPE = 'redis.node_type'
+
     # ECS Configuration Options
     ECS_IMAGE_TAG = 'ecs.image_tag'
     ECS_WSGI_COUNT = 'ecs.wsgi.count'
