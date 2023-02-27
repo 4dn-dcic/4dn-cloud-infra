@@ -41,7 +41,7 @@ unzip ${CHALICE_PACKAGE_ZIP_FILE} 2>&1 > $TMP_LOG_FILE
 #
 echo "Preparing to prune/delete cruft from chalice package."
 if [[ `pwd` != "/tmp/"* ]]; then
-    echo "ERROR: prune script has an error! In unxpected directory: `pwd`"
+    echo "ERROR: prune script has an error! In unexpected directory: `pwd`"
     exit 1
 fi
 echo "Deleting cruft from chalice package."
