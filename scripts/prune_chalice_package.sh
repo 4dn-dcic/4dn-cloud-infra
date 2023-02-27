@@ -33,7 +33,7 @@ cd ${TMP_CHALICE_PACKAGE_DIR}
 unzip ${CHALICE_PACKAGE_ZIP_FILE} 2>&1 > $TMP_LOG_FILE
 
 # PLEASE BE CAREFUL HERE:
-# THIS below  ... the rm -rf ... looks understandably looks SCARY.
+# THIS below  ... the rm -rf ... looks understandably SCARY.
 # We ASSUME we are in (i.e. our current directory is) the TEMPORARY
 # directory (TMP_CHALICE_PACKAGE_DIR), which contains the contents
 # of our unzipped Chalice deployement package, via the cd above.
