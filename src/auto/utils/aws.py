@@ -5,7 +5,7 @@ import re
 from typing import Optional
 from dcicutils.cloudformation_utils import C4OrchestrationManager
 from dcicutils.command_utils import yes_or_no
-from dcicutils.misc_utils import ignored, PRINT
+from dcicutils.misc_utils import get_error_message, ignored, PRINT
 from .aws_context import AwsContext
 from .misc_utils import (obfuscate, print_exception, should_obfuscate)
 
@@ -142,12 +142,16 @@ class Aws(AwsContext):
             kms = boto3.client("kms")
             for key in kms.list_keys()["Keys"]:
                 key_id = key["KeyId"]
-                key_description = kms.describe_key(KeyId=key_id)
+                try:
+                    key_description = kms.describe_key(KeyId=key_id)
+                except Exception as e:
+                    PRINT(f"ERROR: Cannot get description of KMS Key ID (skipping): {key_id}")
+                    PRINT(f"       {get_error_message(e)}")
+                    continue
                 key_metadata = key_description["KeyMetadata"]
                 key_manager = key_metadata["KeyManager"]
-                if key_manager == "CUSTOMER":
-                    # TODO: If multiple keys (for some reason) silently pick the most recently created one (?)
-                    # key_creation_date = key_metadata["CreationDate"]
+                key_enabled = key_metadata.get("Enabled")
+                if key_manager == "CUSTOMER" and (key_enabled is None or key_enabled):
                     kms_keys.append(key_id)
         return kms_keys
 
