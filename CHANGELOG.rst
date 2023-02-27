@@ -6,14 +6,34 @@
 Change Log
 ----------
 
-
-3.8.3
+3.9.3
 =====
 * Added scripts/prune_chalice_package.sh to prunne the Foursight Chalice package of
   modules which are useless in produciton and which take up space; we are butting
   up against the 50MB max for packages; called from the build_config_and_package
   function in the foursight-core module foursight_core/deploy.py.
 * Minor fix to the update-kms-policy script (in case multiple keys defined).
+
+
+3.9.2
+=====
+
+* Add ReadTheDocs support with landing page
+
+
+3.9.1
+=====
+
+* Updates IAM policy for CloudFormation to include ``ListStacks`` permission as required by AWS
+
+
+3.9.0
+=====
+
+* Upgrades ElasticSearch to use Opensearch
+* Reduce redundant VPC components
+* Add subnet expansion/configuration capability
+* Expand CodeBuild stack to include more jobs
 
 
 3.8.2

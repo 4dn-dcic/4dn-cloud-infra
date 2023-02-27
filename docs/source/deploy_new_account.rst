@@ -40,7 +40,18 @@ Note that the HMS email you use to create this account is treated as the 'root a
 
 * Decide whether or not you would like this version of the system to be deployed with S3 encryption or not.
 cgap-portal in its current form does not take PHI, and thus in theory does not need to encrypt any raw files
-stored in S3. We have still implemented the ability to do so by setting the
+stored in S3. We have still implemented the ability to do so by setting an option in the ``config.json``
+file, which you will setup in the next step.
+
+* Note that an existing Auth0 account is assumed to be configured when deploying a new account. You will
+  need to give the deployment configuration the following values::
+
+    Auth0Domain
+    Auth0ClientID
+    Auth0Secret
+    Auth0AllowedConnections
+
+  For assistance with Auth0 configuration please contact the CGAP team directly.
 
 
 Step Two: CGAP Orchestration with Cloud Formation
@@ -53,7 +64,23 @@ as described
 You can request this from the `Service Quotas console
 <https://console.aws.amazon.com/servicequotas/home/services/ec2/quotas>`_.
 
-* Upload base templates required for starting the application::
+* You will first need to use the initialization scripts to provision a ``custom`` directory containing configuration options for the CGAP environment you are deploying::
+
+    init-custom-dir -h
+
+The help command will give info on all the arguments you can pass to it - many will be prompted
+for direct input upon running the command. Once you have completed this step you can begin building
+the account.
+The minimum arguments needed for `init-custom-dir` is `--credentials` which should be followed by the name of your defined local credentials; this is the `xxx` referred to above in the `~/.aws_test.xxx` directory name; for example: `init-custom-dir --credentials cgap-supertest` assuming you have an appropriate `~/.aws_test.cgap-supertest` directory.
+
+* One note on network setup: the below commands will build a network for you with a default size of
+  2 public and 2 private subnets, but you can configure this to be as big as you need within us-east-1.
+  As of writing the largest network would have 6 subnets (us-east-1a, b, c, d, e, f). We recommend using
+  only 2 when starting off and increasing the size later on by adding the ``subnet.pair_count`` value
+  to ``config.json``.
+
+* Upload base templates required for starting the application: note that you must manually execute
+  change set from the Cloudformation console for each successive stack before moving onto the next::
 
     poetry run cli provision iam --validate --upload-change-set
     poetry run cli provision logging --validate --upload-change-set
@@ -94,8 +121,6 @@ More info: https://docs.aws.amazon.com/elasticsearch-service/latest/developergui
 
 
 These will take about fifteen minutes or so to finish provisioning, and should be run in order.
-While they are instantiating, write the global application configuration in secrets manager.
-There is more documentation on this is in `<docs/setup.rst>`_.
 
 
 Step Three (Intermission): Push a cgap-portal Image
@@ -103,13 +128,11 @@ Step Three (Intermission): Push a cgap-portal Image
 
 **NOTE:** This step is done from the ``cgap-portal`` repo. You probably want to
 create a CodeBuild project to expedite the build process, but you can build/push
-an image manually from your local machine.
+an image manually from your local machine. We strongly recommend use of CodeBuild. Note
+that you cannot build using CodeBuild until the network has come online.
 
 Once your new ECR comes online, upload an application image to it.
 See the cgap-portal Makefile. Push the image tag specified in ``config.json`` prior to deploying ECS.
-
-Although you can build images locally, we recommend using CodeBuild since it is much faster than
-building on the local machine.
 
 To use CodeBuild, create a Github Personal Access Token and add it to your
 ``secrets.json`` file ie::
@@ -118,7 +141,9 @@ To use CodeBuild, create a Github Personal Access Token and add it to your
         "GITHUB_PERSONAL_ACCESS_TOKEN": "github_pat_abcd1234"
     }
 
-Once this is set you can trigger the stack build for CodeBuild::
+Note that you CANNOT use fine-grained access tokens at this time. They do not work with CodeBuild.
+Use a legacy token and give it "repo" permissions. Once this is set you can trigger the stack build
+for CodeBuild::
 
     poetry run cli provision codebuild --validate --upload-change-set
 
@@ -126,19 +151,27 @@ This will create a new CodeBuild job that will use your personal access token to
 the default repository. You change the repository to build by setting ``codebuild.repo_url`` in your
 ``config.json`` file.
 
-Execute this change set, after which a CodeBuild job for building the portal will be available. Trigger
-the job and the master branch will be built and pushed to your ECR.
+Execute this change set, after which a CodeBuild job for building the portal will be
+available. There will be 3 build jobs generated by the CodeBuild stack - one for Tibanna,
+one for the portal (the name of the environment you specified) and one for pipelines.
+From the CodeBuild console, trigger the job named by your environment and the master branch
+will be built and pushed to your ECR.
+
+Note that once Foursight is online you can trigger new builds of all CodeBuild jobs from the ``Trigger
+CodeBuild Run`` check.
 
 
 Step Four: Fill out any remaining application secrets
 -----------------------------------------------------
 
-* Many secrets are pre-filled, but some will need to be set.
+* Many secrets are pre-filled, but some will need to be set. Running the command ``setup-remaining-secrets``
+will guide you through the process. More information on the secrets themselves and how to manually set
+this up follows. if the prior command works without issue, you can move on to the next section.
 
   * Go to the Secrets Manager
 
   * There are two secrets. Information from the RDS secret will be needed in this action, but we'll start in the
-    one with a longer name, like ``C4DatastoreCgapSupertestApplicationConfiguration``, where ``CgapSupertest``
+    one with a longer name, like ``C4AppConfigCgapSupertest``, where ``CgapSupertest``
     is what in this example corresponded to a ``cgap-supertest`` environment. You may have named your environment
     differently, so the name you see will vary.  Click into the environment-related resource.
 
@@ -148,17 +181,17 @@ Step Four: Fill out any remaining application secrets
 
   * You'll now have to do a scavenger hunt to obtain values for anything marked ``XXX: ENTER VALUE``.
 
-    * The ``AWS_ACCESS_KEY_ID`` is obtained from your system administrator.
+    * The ``S3_AWS_ACCESS_KEY_ID`` is generated by you from the S3 IAM user page.
       This is not your AWS access key ID, but the ID of the daemon user that will run the CGAP application.
 
-    * The ``AWS_SECRET_ACCESS_KEY`` is obtained from your system administrator.
+    * The ``S3_AWS_SECRET_ACCESS_KEY`` is generated by you from the S3 IAM user page.
       This is not your AWS secret access key, but the key of the daemon user that will run the CGAP application.
 
       **Please observe proper security protocols while holding this secret on your local machine.**
 
     * The ``ENCODED_ES_SERVER`` will look like::
 
-         vpc-es-cgap-supertest-a1b2c3d4e5f6etc.us-east-1.es.amazonaws.com:443
+         vpc-os-cgap-supertest-a1b2c3d4e5f6etc.us-east-1.es.amazonaws.com:443
 
       You can obtain it by this procedure:
 
@@ -199,8 +232,8 @@ Step Four: Fill out any remaining application secrets
       using what it calls a Domain Source Identifier (DSN). Such setup is beyond the scope of this document.
 
 
-Step Five: More CGAP Orchestration with Cloud Formation
--------------------------------------------------------
+Step Five: CGAP Portal Orchestration
+------------------------------------
 
 * Ensure that you have set the ``identity`` and ``s3.encrypt_key_id`` (if applicable) variables in ``config.json``.
 
@@ -209,8 +242,14 @@ Step Five: More CGAP Orchestration with Cloud Formation
 
      poetry run cli provision ecs --validate --upload-change-set
 
+* Before executing the ECS stack, you need to provision a basic environment configuration. Do
+  so by running the ``assure-global-env-bucket`` script. It will confirm some structure for you
+  that you can approve before uploading. Once this is done you can execute change set on the
+  ECS stack in the CloudFormation console.
 
-* Once the application has finishing instantiating, you can deploy the portal.
+* Once the application has finishing instantiating, you can deploy the portal. To check that the portal
+  is up and running, navigate to the ECS stack outputs, find the load balancer URL and go to ``/health?format=json``.
+  If the health page comes up you are in good shape.
 
 Deploying CGAP (Initial)
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -220,7 +259,24 @@ To deploy the CGAP portal you have uploaded:
 * Ensure that it is the end of the day, if possible, as the initial provisioning takes a few hours to complete and
   other core application services (Foursight, Tibanna) will not be available until access keys are loaded (at the
   end of the deployment action). This is important to note if you are re-issuing the initial deployment, as core
-  services will go down until the deployment finishes.
+  services will not work entirely until the deployment finishes.
+
+* If doing a custom deploy, ensure that you have filled out ``ENCODED_DATA_SET`` and ``ENCODED_ADMIN_USERS`` correctly. Without this set, users from DBMI will be loaded into your
+environment instead of your users and you will not be able to access the portal. To do this, use
+``ENCODED_DATA_SET="custom"``. Example structure for ``ENCODED_ADMIN_USERS`` is automatically generated
+by the new config setup command ie::
+
+    "ENCODED_ADMIN_USERS": [
+        {
+            "first_name": "John",
+            "last_name": "Smith",
+            "email": "john_smith@example.com"
+        }
+    ]
+
+* Note that once Foursight has been built, you can run future deployments from the ``Invoke an ECS Task`` check.
+Use information from the ``ECS Status`` and ``ECS Task Listing`` checks and the Networking tab to pass
+appropriate arguments.
 
 * Navigate to `the ECS console in AWS <https://console.aws.amazon.com/ecs/home?region=us-east-1#/taskDefinitions>`_.
 
@@ -233,7 +289,7 @@ To deploy the CGAP portal you have uploaded:
   NOTE WELL: This is _not_ the task just named ``Deployment``. Make sure it says ``InitialDeployment``.
   Ensure you run this initial task at the end of the day, as it takes a long time to run and other application
   services such as Foursight and Tibanna will be unavailable until it finishes. You can use this
-  ``InitialDeployment`` task to clear the database and start from base deploy inserts (on cgap-devtest only).
+  ``InitialDeployment`` task to clear the database and start from base deploy inserts.
 
 * With the radio button for the ``InitialDeployment`` item checked, an ``Actions`` pull-down menu should appear
   at the top. Pull that down to find a Run Task Action and select that to invoke the task. (It will still need to
@@ -278,47 +334,22 @@ Use the ``DeploymentTask`` to run "standard" CGAP deployment actions, including 
 re-mapping and access key rotation. Routine deployment should be run every time a change to the data model is made,
 but should in the meantime just be put on an automated schedule like our legacy deployments.
 
-Step Six: Finalizing CGAP Configuration
-----------------------------------------
+Note that a routine deployment must run every 90 days to cycle admin access keys. All access keys expire
+after 90 days. Foursight has a check that will alert you of this as admin keys approach expiration.
 
-At this point, the application and its required resources have come online. Here, we upload env configuration to enable
-foursight checks on the application.
+Step Six: Deploying Foursight
+-----------------------------
 
-As part of the datastore provisioning, your new S3 buckets are online. There's a global application S3 bucket, as
-referenced in C4DatastoreExports.FOURSIGHT_APPLICATION_VERSION_BUCKET. The name of your C4 deployment's global
-application bucket can be found on the 'Outputs' tab of your datastore CloudFormation stack.
+Foursight is a serverless application we use to outsource many infrastructure management tasks out
+of AWS to simplify the maintenance of the application.
 
-In this bucket, you will need to create a file corresponding to each environment you plan to use (probably just one).
-So if your global application S3 bucket is ``myorg-foursight-cgap-myenv-envs`` then you will want to visit
-that bucket in the AWS Console for S3 and upload a file that contains::
-
-    {
-        "fourfront": "<your-http-cgap-domain-here-with-no-trailing-slash>",
-        "es": "<your-https-elasticsearch-url-here-with-:443-and-no-trailing-slash>",
-        "ff_env": "<env-name>"
-    }
-
-The file ``.chalice/cgap-mastertest`` contains an example of what is loaded into our initial test account at
-``s3://foursight-cgap-mastertest-envs/cgap-mastertest``, but the specific name of the bucket to load into is
-different in each account because s3 namespacing requires that. Rather than manage this manually there
-is an automatic tool to help. Note that if you are uploading to an encrypted environment, set the
-``"s3.encrypt_key_id"`` option in ``config.json`` and pass the ``--encrypted`` argument.
-
-To provision this bucket do::
-
-    assure-global-bucket-env --env_name <env-name>
-
-It should interactively confirm the environment that it will upload, and what account it will upload into.
-If the global env bucket has not been created yet for that account, it will complain, but that should have
-happened in the datastore stack.
-
-You'll also need to initialize the foursight checks for your environment. This will create the file
+You'll need to initialize the foursight checks for your environment. This will create the file
 ``vendor/check_setup.py`` that you need for use with Foursight. To do this, do::
 
     resolve-foursight-checks
 
 By default, the ``resolve-foursight-checks`` command copies foursight-cgap's ``check_setup.json`` into ``vendor/check_setup.json``,
-replacing ``"<env-name>"`` with your chosen environment name, which is taken from the setting of ``ENCODED_BS_ENV``
+replacing ``"<env-name>"`` with your chosen environment name, which is taken from the setting of ``ENCODED_ENV_NAME``
 in your ``config.json``. If a different check configuration is desired, run the command
 with the ``--template_file`` argument set accordingly, e.g.::
 
@@ -328,43 +359,25 @@ with the ``--template_file`` argument set accordingly, e.g.::
 At this point, you should be ready to deploy foursight. To do so, use this command::
 
     source custom/aws_creds/test_creds.sh
+    ln -s app-cgap.py app.py
     poetry run cli provision foursight --upload-change-set --stage prod
-    #############################################################################################################
-    # NOTE: It should no longer be necessary to add an environment variable here, such as:                      #
-    #       GLOBAL_BUCKET_ENV=foursight-cgap-mastertest-envs                                                    #
-    #       Instead you should add entries for "GLOBAL_BUCKET_ENV" and "GLOBAL_ENV_BUCKET" to your config.json  #
-    #       (The name is in transition, so for now please set both names. Eventually ony GLOBAL_ENV_BUCKET      #
-    #       will be needed.)                                                                                    #
-    #       It should also no longer be necessary to provide --output-file out/foursight-dev-tmp/ --stage dev   #
-    #       on the command line because these are now the default for this provision operation.                 #
-    # NOTE: We are specifying the prod stage explicitly here. Do not pass --stage if you do not want actions to #
-    #       run automatically.                                                                                  #
-    #############################################################################################################
+
 
 * Go to the console and execute the change set.
 
-**NOTE WELL:** This will ALWAYS not entirely succeed on the first attempt.
-Some information is only available after completely executing the first change set.
-We'll change that in the future.
-For now, you'll need to run this a second time once various values have been created.
-
-* Provision the changeset (and thus triggering a redeployment) a second time, same as the first::
-
-   poetry run cli provision foursight --upload-change-set --stage prod
-
-* Of course you'll have to go to the console and execute the change set.
-
-At this point, Foursight should be working.
+* Once the changeset has finished executing, check the stack outputs to see the URL and attempt to
+  login with your admin user to ensure all is working. Running the ``ECS Status`` and ``ECS Task Listing``
+  checks will give some info as well to test that all is well.
 
 **NOTE:**
-You may not be able to login without registering the generated domain with auth0.
+You may not be able to login without registering the generated domain with auth0 as a callback URL.
 To see the URL use::
 
     show-foursight-url
 
 The output should look like::
 
-    https://pme0nsfegf.execute-api.us-east-1.amazonaws.com/api/view/cgap-mastertest-kmp
+    https://pme0nsfegf.execute-api.us-east-1.amazonaws.com/api/view/cgap-supertest
 
 To open the URL instead, use::
 
@@ -376,17 +389,23 @@ for additional needed setup.
 Step Seven: Deploying Tibanna Zebra
 -----------------------------------
 
-Now it is time to provision Tibanna in this account for CGAP. Ensure test creds are active, in particular the
-correct ``GLOBAL_BUCKET_ENV`` and ``S3_ENCRYPT_KEY``, then deploy Tibanna. Note that all of the following steps
+Now it is time to provision Tibanna in this account for CGAP. Ensure test creds are active, in particular::
+
+    GLOBAL_ENV_BUCKET
+    S3_ENCRYPT_KEY
+    S3_ENCRYPT_KEY_ID (if using)
+    ACCOUNT_NUMBER
+
+then deploy Tibanna. Note that all of the following steps
 take some significant time so should be run in parallel if possible. Note additionally that the
 credentials for the account you're deploying into must be active for all subsequent steps::
 
     source custom/aws_creds/test_creds.sh
-    tibanna_cgap deploy_zebra --subnets <private_subnet> -r <application_security_group> -e <env_name>
+    tibanna_cgap deploy_zebra --subnets <private_subnets> -r <application_security_group> -e <env_name>
 
 In the following steps, you don't have to re-run the ``source`` command to get new of your credentials,
 *but* it's very critical
-that this be done so  you're not posting to the wrong account. As such, we show that step redundantly at
+that this be done so you're not posting to the wrong account. As such, we show that step redundantly at
 each point.
 
 If you have ENV_NAME set correctly as an environment variable, you can accomplish this by doing::
@@ -414,20 +433,26 @@ all of the indicated files::
     source custom/aws_creds/test_creds.sh
     aws s3 sync s3://cgap-reference-file-registry s3://<new_application_files_bucket>
 
-Then, clone the cgap-pipeline repo, checkout the version you want to deploy (v24 as of writing) and upload
+Note that you can locate the "files" bucket by examining the application configuration or the portal health page.
+
+Then, clone the `cgap-pipeline-main` repo, checkout the version you want to deploy (v1.1.0 as of writing) and upload
 the bioinformatics metadata to the portal. (This example again assumes the environment variable ENV_NAME
 is set correctly. If you have already sourced your credentials, that part doesn't have to be repeated, but
 it's critical to have done it, so we include that here redundantly to avoid problems.) ECR images will also
 be posted, so ensure ``$AWS_REGION`` is set.::
 
     source custom/aws_creds/test_creds.sh
-    python post_patch_to_portal.py --ff-env=$ENV_NAME --del-prev-version --ugrp-unrelated
+    make deploy-all
 
-Note that the above post/patch process must be repeated from the cgap-sv-pipeline repo as well.
+If you built the CodeBuild stack, this deploy should go fairly quickly as it will trigger many
+simultaneous builds on CodeBuild for all the various repositories.
 
 Finally, push the tibanna-awsf image to the newly created ECR Repository in the new account::
 
     ./scripts/upload_tibanna_awsf
+
+Note that you can trigger the awsf image build through CodeBuild (or foursight) as well if using the
+CodeBuild stack.
 
 Once the above steps have completed after 20 mins or so, it is time to test it out. Navigate to
 Foursight and trigger the md5 check - this will run the md5 step on the reference files. You should be able
@@ -435,13 +460,14 @@ to track the progress from the Step Function console or CloudWatch. It should no
 for the small files. Once this is done, the portal is ready to analyze cases. One should consider requesting an
 increase in the spot instance allocation limits as well if the account is intended to run at scale.
 
-You might need to make the  ``Settings.HMS_SECURE_AMI`` available or specify a new AMI for use. Add the new
+For HMS internal use, You might need to make the  ``Settings.HMS_SECURE_AMI`` available or
+specify a new AMI for use. Add the new
 account number you are deploying in to the set of account IDs that the secure AMI is shared with (6433).
 
 Step Eight: NA12879 Demo Analysis
 ---------------------------------
 
-NOTE: this step requires access keys to current CGAP production (cgap.hms.harvard.edu).
+NOTE: this step relied on a now defunct CGAP environment. Proceed to step nine.
 
 With Tibanna deployed we are now able to run the demo analysis using NA12879. The raw files for this case are
 transferred as part of the reference file registry, so we just need to provision the metadata.::
@@ -465,12 +491,22 @@ the restart.
 Once the output VCF has been ingested, the pipeline is considered complete and variants can be
 interpreted through the portal.
 
-Step Nine: Enable Higlass
--------------------------
+Step Nine: Deploy/Enable Higlass
+--------------------------------
 
-In order for Higlass views to work, some CORS configuration is required. In the current main (4dn-dcic) account,
-add the new portal URL to the ``AllowedOrigins`` block in the existing CORS policy. In the orchestrated account,
-add the following CORS policy to the ``wfoutput`` bucket (for bam visualization), replacing the sample
+NOTE: using a custom Higlass server requires a valid HTTPS certificate on the load balancer. If you
+do not want to configure this right away, let us know and we can let you use ours while you try out
+CGAP. If you're prepared with a certificate, feel free to proceed with the Higlass setup.
+
+If running an external orchestration, you will need to deploy a Higlass server to an EC2 instance.
+You can do this automatically by running the provision command::
+
+    poetry run cli provision higlass --upload-change-set
+
+Execute the change set and give some time for it to spin up.
+
+In order for Higlass views to work, some CORS configuration is required. Add the following CORS policy
+to the ``wfoutput`` bucket (for bam visualization), replacing the sample
 MSA URL with the new URL.::
 
     [
@@ -482,7 +518,7 @@ MSA URL with the new URL.::
                 "GET"
             ],
             "AllowedOrigins": [
-                "https://cgap-msa.hms.harvard.edu"
+                "https://cgap-supertest.hms.harvard.edu"
             ],
             "ExposeHeaders": []
         }
@@ -495,16 +531,8 @@ the new environment CNAME to the allowed origins.
 Step Ten: Open Support Tickets
 ------------------------------
 
-Some support tickets must be opened at orchestration time in order for CGAP to run properly.
-Namely, two cases should be open:
-
-* Spot instance limit increase to a significantly higher value (such as 9000)
-* Disable ES hourly snapshots
-
-The first will enable CGAP to run pipeline at a higher degree of parallelization using
-more spot instances. The second will make it so that internal AWS snapshots of the ES
-cluster are only done daily, not hourly. Hourly snapshots are known to impede performance
-and cause APIs to fail.
+Open a support ticket to request an increase in the spot instance capacity. Namely, ask for
+a spot instance limit increase to a significantly higher vCPU value (such as 9000).
 
 Step Eleven: Configure HTTPS
 ----------------------------
@@ -518,7 +546,9 @@ end-to-end encryption on that path is not supported at this time, but is a
 high priority feature.
 
 First, note the DNS A Record of the Load Balancer created. This record will
-be needed for registering a CNAME. DBMI IT has a small form you can fill out
+be needed for registering a CNAME.
+
+If you're an internal user, DBMI IT has a small form you can fill out
 to request a CNAME record for the desired domain. You want this new
 domain to point to the A record of the load balancer. Once acquired, you
 should then be able to send HTTP traffic to the new CNAME. At this point,
@@ -536,4 +566,114 @@ especially if using non-standard domains (see cgap-portal nginx.conf).
 Once the certificate has been enabled, modify the port 80 load balancer
 listener to redirect HTTP traffic to HTTPS. Note that this will effectively
 disable the load balancer URL - update the foursight environment file to use
-the HTTPS URL to account for this.
+the HTTPS URL to account for this (the files created in S3 by ``assure-global-env-bucket``).
+
+Step Twelve: Sentieon Configuration (optional)
+----------------------------------------------
+
+CGAP comes with pipelines for GATK best practices that do not rely on a Sentieon integration. This step
+is totally optional - there are no hard dependencies on use of Sentieon.
+
+If you do wish to use your Sentieon license, you may do so by building the Sentieon stack
+and manually installing the tool and your license on the server::
+
+    poetry run cli provision sentieon --validate --upload-change-set
+
+Note that you must set the ``"sentieon.ssh_key"`` value in ``config.json`` to a keypair you have
+created for SSH access to the server. You will may also need to update security group configuration to
+allow ICMP and TCP traffic on the associated license server ports. You can then repeat the pipeline
+deploy step setting the ``$SENTION_LICENSE`` variable so it will be encoded into your CWL files.
+This will allow you to run Sentieon algorithms for alignment and somatic variant calling.
+
+For more information on Sentieon, contact their group directly.
+
+
+===========
+Final Notes
+===========
+
+At this point, the orchestration of CGAP is complete. To run through important things you should have
+built briefly:
+
+* An isolated network for CGAP to use
+* S3 buckets that CGAP will put data into
+* Some Secrets in SecretsManager that CGAP will use to gather configuration
+* Some compute resources (OpenSearch, RDS) that CGAP uses to store metadata
+* An ECS Cluster for running the CGAP application/API, with necessary starter data loaded in
+* A Lambda application (Foursight) for admins to use to help maintain CGAP
+* A Step Function (Tibanna) made up of Lambda functions for managing workflows
+* Several ECR repositories for the CGAP application, tibanna and various pipelines
+* Several log groups in CloudWatch for debugging issues with CGAP
+
+All components work together to accomplish tasks. Most issues occur because a setup instruction is
+incomplete or did not go through correctly. Please feel free to report issues to us directly as they
+come up as it is probable we will be able to guide you to a fix quickly.
+
+Note that the cost of running a barebones system should be on the order of $500 a month or so. As
+you scale up and analyze more files the storage cost will go up while compute costs will remain the same.
+Once you reach a large enough size (millions of variants) you may need to scale up the database or
+the ElasticSearch to performance remains stable. We've run CGAP with millions of variants and use a
+single t4g.xlarge instance for the database and 3 c6g.xlarge.elasticsearch nodes for the ElasticSearch
+cluster (no master nodes). If you're going to scale beyond this, it's probably a good idea to talk with
+the CGAP team first.
+
+If you decide you want to discontinue use of CGAP, most stacks can be torn down directly in the opposite
+order in which they were built. See ``destroying_an_account.rst`` for more information on tearing down
+CGAP.
+
+=============
+Common Issues
+=============
+
+Higlass tracks do not load.
+
+    * Check CORS configuration on the ``wfoutput`` bucket in S3
+    * Check that your higlass server is responding to API requests
+    * If not using our server, double check your certificate is working correctly
+    * Check the higlass_view_config items have the correct server URLs (if not using ours)
+    * Check with us that we have properly configured our internal higlass server so you can use it
+      (if using ours in a trial)
+
+Internal Server Error/502 Error loading CGAP Portal
+
+    * Check CGAPDocker log group in CloudWatch to ensure the application can start up. Usually failures
+      at startup are because the application configuration has not been filled out correctly.
+    * Check that you have run the initial deployment - the UI will not load until ES mappings have
+      been generated as part of the deployment task
+    * Check ``/health?format=json`` and ``/counts?format=json``. Using ``?format=json`` will disable loading of the UI. If ES
+      has items in it and UI still will not load please screenshot the JS console and send us a bug
+      report. Also check that the CodeBuild job for the portal completed successfully, particularly
+      the NPM build. See the cgap-portal repositories top-level
+      ``Dockerfile``
+    * Check that ``GLOBAL_ENV_BUCKET`` is set correctly in the application configuration, and that
+      appropriate entries exist in S3. You should have environment information in ``main.ecosystem``
+      and another file named your environment that directs its configuration to ``main.ecosystem``.
+    * If using encryption, check that the KMS key permissions are correct. Note that there is a command
+      ``update-kms-policy`` that will handle this for you. See the ``encryption.rst`` document for more
+      detailed information.
+
+Internal Server Error loading Foursight
+
+    * Check FoursightAPIHandler logs to see what the error is.
+    * Check that ``GLOBAL_ENV_BUCKET`` is set correctly in the application configuration, and that
+      appropriate entries exist in S3.
+    * Check that the Foursight build was successful (look at output of ``provision`` command)
+
+Cannot login to CGAP/Foursight
+
+    * Check that appropriate callback URLs have been added to your Auth0 Configuration
+    * Ensure that you have run the Initial Deployment using ``custom`` deployment inserts and that
+      you have set the ``ENCODED_ADMIN_USERS`` value in the application configuration. Further users
+      can be added from the Foursight users page.
+
+Tibanna jobs fail
+
+    * In the step function console, the failed job should have a job ID and a traceback. Examine the
+      traceback to see if it is AWS related or otherwise. If not due to AWS, feel free to send a bug
+      report.
+    * If the failure occurred during job execution, in your 4dn-cloud-infra venv run ``tibanna log --job-id <jid>``
+      to get detailed information from the failed job. If the error is not related to job inputs, feel
+      free to send us a bug report.
+    * Check Lambda logs for the various lambdas in the step function to ensure no crashes/errors are
+      occurring there. Those can also be reported to us in a bug report.
+    * Check that all references files were successfully sync'd to your files bucket.

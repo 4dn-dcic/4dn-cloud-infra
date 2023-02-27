@@ -167,7 +167,7 @@ class Aws(AwsContext):
         """
         with super().establish_credentials():
             # TODO: Get this name from somewhere in 4dn-cloud-infra.
-            elasticsearch_instance_name = f"es-{aws_credentials_name}"
+            elasticsearch_instance_name = f"os-{aws_credentials_name}"
             elasticsearch = boto3.client("opensearch")
             domain_names = elasticsearch.list_domain_names()["DomainNames"]
             domain_name = [domain_name for domain_name in domain_names

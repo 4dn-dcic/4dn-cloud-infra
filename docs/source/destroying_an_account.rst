@@ -6,7 +6,7 @@ This document walks through the teardown of an isolated CGAP deploy, roughly con
 following steps.
 
 * Uninstalling Tibanna
-* Deleting the Foursight and ECS stacks
+* Deleting the Foursight, ECS, Sentieon and Higlass stacks
 * Clearing out S3 buckets
 * Deleting the datastore stack
 * Deleting the remaining stacks
@@ -38,6 +38,8 @@ down both Foursight and the portal, and has the practical effect of "turning off
 without destroying the system. Sometimes an error is reported associated with the roles - you might need
 to manually delete the roles from the IAM console before proceeding, or you can attempt the delete
 again and persist the resources that failed to delete.
+
+You can also tear down the Sentieon license server and the Higlass server as well if you brought those up.
 
 Note well: Stop at this step if you are looking to put an environment into hibernation mode.
 Size down the RDS and ES resources sizes to minimize server cost when hibernating.

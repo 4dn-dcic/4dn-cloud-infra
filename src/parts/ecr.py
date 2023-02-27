@@ -16,7 +16,6 @@ from troposphere import (
     Parameter
 )
 from dcicutils.cloudformation_utils import dehyphenate
-from dcicutils.env_utils import is_fourfront_env
 from dcicutils.misc_utils import snake_case_to_camel_case
 from troposphere.ecr import Repository, ImageScanningConfiguration
 from ..base import ECOSYSTEM, ConfigManager, Settings
@@ -119,7 +118,7 @@ class C4ContainerRegistry(C4Part):
 
         ]
         for rname, export in repo_export_pairs:
-            if is_fourfront_env(env_name) and rname != ECOSYSTEM:
+            if ConfigManager.get_config_setting(Settings.APP_KIND) == 'ff' and rname != ECOSYSTEM:
                 break  # do not add tibanna repos if building a fourfront env
             repo = self.repository(repo_name=rname)
             template.add_resource(repo)

@@ -7,8 +7,10 @@
 class Secrets:
     """ Secret values pulled from custom/secrets.json follow these identifiers """
     # Secrets (customarily held in environment variables by these names)
+    AUTH0_DOMAIN = 'Auth0Domain'
     AUTH0_CLIENT = 'Auth0Client'
     AUTH0_SECRET = 'Auth0Secret'
+    AUTH0_ALLOWED_CONNECTIONS = 'Auth0AllowedConnections'
     ENCODED_SECRET = 'ENCODED_SECRET'
     RECAPTCHA_KEY = 'reCaptchaKey'
     RECAPTCHA_SECRET = 'reCaptchaSecret'
@@ -39,7 +41,6 @@ class Settings:
 
     # We no longer use this setting. Now we do C4DatastoreExports.get_env_bucket()
     # GLOBAL_ENV_BUCKET = 'GLOBAL_ENV_BUCKET'
-
     IDENTITY = 'identity'  # XXX: import from dcicutils  -- change in progress to put it on health page
     BLUE_IDENTITY = 'blue.identity'
     GREEN_IDENTITY = 'green.identity'
@@ -50,8 +51,10 @@ class Settings:
     APP_KIND = 'app.kind'
     APP_DEPLOYMENT = 'app.deploy'
 
-    # RDS Configuration Options
+    # Network options
+    SUBNET_PAIR_COUNT = 'subnet.pair_count'
 
+    # RDS Configuration Options
     RDS_INSTANCE_SIZE = 'rds.instance_size'
     RDS_STORAGE_SIZE = 'rds.storage_size'
     RDS_STORAGE_TYPE = 'rds.storage_type'
@@ -63,7 +66,6 @@ class Settings:
     RDS_NAME = 'rds.name'  # can be used to configure name of RDS instance, foursight must know it - Will Nov 2 2021
 
     # ES Configuration Options
-
     ES_MASTER_COUNT = 'elasticsearch.master_node_count'
     ES_MASTER_TYPE = 'elasticsearch.master_node_type'
     ES_DATA_COUNT = 'elasticsearch.data_node_count'
@@ -131,7 +133,7 @@ COMMON_STACK_PREFIX_CAMEL_CASE = "C4"
 # dmichaels/2022-06-06: Factored out from datastore.py.
 class C4DatastoreBase:
     """
-    Factored out of C4Datastore to to generate names before orchestration (e.g. init-custom-dir).
+    Factored out of C4Datastore to generate names before orchestration (e.g. init-custom-dir).
     """
     STACK_NAME_TOKEN = "datastore"
     STACK_TITLE_TOKEN = "Datastore"
@@ -142,16 +144,16 @@ class C4DatastoreBase:
     DEFAULT_RDS_DB_PORT = '5432'
     DEFAULT_RDS_DB_USERNAME = 'postgresql'
     DEFAULT_RDS_AZ = 'us-east-1a'
-    DEFAULT_RDS_STORAGE_SIZE = 20
-    DEFAULT_RDS_INSTANCE_SIZE = 'db.t3.medium'
-    DEFAULT_RDS_STORAGE_TYPE = 'standard'
-    DEFAULT_RDS_POSTGRES_VERSION = '12.9'
+    DEFAULT_RDS_STORAGE_SIZE = 30
+    DEFAULT_RDS_INSTANCE_SIZE = 'db.t4g.medium'
+    DEFAULT_RDS_STORAGE_TYPE = 'gp3'
+    DEFAULT_RDS_POSTGRES_VERSION = '14.4'
 
 
 # dmichaels/2022-06-22: Factored out from C4IAM in iam.py.
 class C4IAMBase:
     """
-    Factored out of C4IAM to to generate names before orchestration (e.g. the setup-remaining-secrets command).
+    Factored out of C4IAM to generate names before orchestration (e.g. the setup-remaining-secrets command).
     """
     STACK_NAME_TOKEN = "iam"
     STACK_TITLE_TOKEN = "IAM"

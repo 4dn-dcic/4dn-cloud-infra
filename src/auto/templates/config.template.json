@@ -15,6 +15,8 @@
     "app.kind": "cgap",
     "app.deploy": "standalone",
 
+    "network.subnet_count": "<network-subnet-count>",
+
     "ecs.indexer.count": "4",
     "ecs.indexer.cpu": "256",
     "ecs.indexer.memory": "512",

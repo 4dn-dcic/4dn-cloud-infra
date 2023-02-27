@@ -20,11 +20,14 @@ class ConfigTemplateVars:
     S3_BUCKET_ENCRYPTION = "<s3-bucket-encryption>"
     GITHUB_REPO_URL = "<github-repo-url>"
     ECR_REPO_NAME = "<ecr-repo-name>"
+    NETWORK_SUBNET_COUNT = "<network-subnet-count>"
 
 
 class SecretsTemplateVars:
+    AUTH0_DOMAIN = "<auth0-domain>"
     AUTH0_CLIENT = "<auth0-client>"
     AUTH0_SECRET = "<auth0-secret>"
+    AUTH0_ALLOWED_CONNECTIONS = "<auth0-allowed-connections>"
     RECAPTCHA_KEY = "<recaptcha-key>"
     RECAPTCHA_SECRET = "<recaptcha-secret>"
     GITHUB_PERSONAL_ACCESS_TOKEN = "<github-pat>"

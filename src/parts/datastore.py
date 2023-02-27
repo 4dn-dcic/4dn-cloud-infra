@@ -7,12 +7,16 @@ from troposphere import (
     Join, Ref, Template, Tags, Parameter, Output, GetAtt,
     AccountId
 )
-from troposphere.elasticsearch import (
-    Domain, ElasticsearchClusterConfig,
+# from troposphere.elasticsearch import (  No longer used post ES7 update
+#     Domain, ElasticsearchClusterConfig,
+#     EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions
+# )
+from troposphere.opensearchservice import (
+    Domain as OSDomain, ClusterConfig,
     EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions
 )
 try:
-    from troposphere.elasticsearch import DomainEndpointOptions  # noQA
+    from troposphere.opensearchservice import DomainEndpointOptions  # noQA
 except ImportError:
     def DomainEndpointOptions(*args, **kwargs):  # noQA
         raise NotImplementedError('DomainEndpointOptions')
@@ -84,6 +88,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
     # APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = "ApplicationConfiguration"
 
     SHARING = 'env'
+    OPENSEARCH_LATEST = 'OpenSearch_2.3'
 
     @classmethod
     def rds_postgres_version(cls):
@@ -99,7 +104,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
     IAM_EXPORTS = C4IAMExports()
 
     DEFAULT_ES_DATA_NODE_COUNT = '1'
-    DEFAULT_ES_DATA_NODE_TYPE = 'c5.large.elasticsearch'
+    DEFAULT_ES_DATA_NODE_TYPE = 'c6g.large.search'
 
     # Buckets used by the Application layer we need to initialize as part of the datastore
     # Intended to be .formatted with the deploying env_name
@@ -190,7 +195,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
         template.add_output(self.output_rds_port(rds))
 
         # Adds Elasticsearch + Outputs
-        es = self.elasticsearch_instance()
+        es = self.opensearch_instance()
         template.add_resource(es)
         template.add_output(self.output_es_url(es))
 
@@ -274,10 +279,10 @@ class C4Datastore(C4DatastoreBase, C4Part):
                         StorageClass='STANDARD_IA',
                         TransitionInDays=30
                     ),
-                    NoncurrentVersionTransition=NoncurrentVersionTransition(
+                    NoncurrentVersionTransitions=[NoncurrentVersionTransition(
                         StorageClass='STANDARD_IA',
                         TransitionInDays=30
-                    )
+                    )]
                 ),
                 LifecycleRule(
                     'glacier',
@@ -287,10 +292,10 @@ class C4Datastore(C4DatastoreBase, C4Part):
                         StorageClass='GLACIER',
                         TransitionInDays=1
                     ),
-                    NoncurrentVersionTransition=NoncurrentVersionTransition(
+                    NoncurrentVersionTransitions=[NoncurrentVersionTransition(
                         StorageClass='GLACIER',
                         TransitionInDays=1
-                    )
+                    )]
                 ),
                 LifecycleRule(
                     'glacierda',
@@ -300,10 +305,10 @@ class C4Datastore(C4DatastoreBase, C4Part):
                         StorageClass='DEEP_ARCHIVE',
                         TransitionInDays=1
                     ),
-                    NoncurrentVersionTransition=NoncurrentVersionTransition(
+                    NoncurrentVersionTransitions=[NoncurrentVersionTransition(
                         StorageClass='DEEP_ARCHIVE',
                         TransitionInDays=1
-                    )
+                    )]
                 ),
                 LifecycleRule(
                     'expire',
@@ -461,7 +466,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
                                       self.IAM_EXPORTS.import_value(C4IAMExports.S3_IAM_USER)]),
                             # dmichaels/2022-06-17:
                             # Added to ECS_ASSUMED_IAM_ROLE to allow access to S3 with encrypted account.
-                            Join('', ['arn:aws:iam::', AccountId, ':user/',
+                            Join('', ['arn:aws:iam::', AccountId, ':role/',
                                       self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)])
                         ]},
                         'Action': [
@@ -508,7 +513,8 @@ class C4Datastore(C4DatastoreBase, C4Part):
             DBSubnetGroupDescription=f'RDS subnet group for {env_name}.',
             SubnetIds=[
                 self.NETWORK_EXPORTS.import_value(subnet_key)
-                for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                for subnet_key in C4NetworkExports.PRIVATE_SUBNETS[:int(ConfigManager.get_config_setting(
+                    Settings.SUBNET_PAIR_COUNT, default=2))]
             ],
             Tags=self.tags.cost_tag_array(),
         )
@@ -608,26 +614,73 @@ class C4Datastore(C4DatastoreBase, C4Part):
             TargetId=Ref(self.rds_instance()),
         )
 
-    def elasticsearch_instance(self, data_node_count=None, data_node_type=None):
-        """ Returns an Elasticsearch domain with 1 data node, configurable via data_node_instance_type. Ref:
+    # def elasticsearch_instance(self, data_node_count=None, data_node_type=None) -> Domain:
+    #     """ Returns an ElasticSearch domain with 1 data node, configurable via data_node_instance_type. Ref:
+    #         https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
+    #         TODO allow master node configuration, update to opensearch
+    #     """
+    #     env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+    #     logical_id = self.name.logical_id(f"{camelize(env_name)}ElasticSearch")  # was env_name
+    #     domain_name = self.name.domain_name(f"os-{env_name}")
+    #     options = {}
+    #     try:  # feature not yet supported by troposphere
+    #         options['DomainEndpointOptions'] = DomainEndpointOptions(EnforceHTTPS=True)
+    #     except NotImplementedError:
+    #         pass
+    #     # account_num = ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER)
+    #     domain = Domain(
+    #         logical_id,
+    #         DomainName=domain_name,
+    #         NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
+    #         EncryptionAtRestOptions=EncryptionAtRestOptions(Enabled=True),  # TODO specify KMS key
+    #         ElasticsearchClusterConfig=ElasticsearchClusterConfig(
+    #             InstanceCount=(data_node_count
+    #                            or ConfigManager.get_config_setting(Settings.ES_DATA_COUNT,
+    #                                                                default=self.DEFAULT_ES_DATA_NODE_COUNT)),
+    #             InstanceType=(data_node_type
+    #                           or ConfigManager.get_config_setting(Settings.ES_DATA_TYPE,
+    #                                                               default=self.DEFAULT_ES_DATA_NODE_TYPE)),
+    #         ),
+    #         ElasticsearchVersion='6.8',
+    #         EBSOptions=EBSOptions(
+    #             EBSEnabled=True,
+    #             VolumeSize=ConfigManager.get_config_setting(Settings.ES_VOLUME_SIZE, 10),
+    #             VolumeType='gp2',  # gp3?
+    #         ),
+    #         VPCOptions=VPCOptions(
+    #             SecurityGroupIds=[
+    #                 self.NETWORK_EXPORTS.import_value(C4NetworkExports.HTTPS_SECURITY_GROUP),
+    #             ],
+    #             SubnetIds=[
+    #                 # TODO: Is this right? Just one subnet? -kmp 14-Aug-2021
+    #                 # self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
+    #                 self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNETS[0]),
+    #             ],
+    #         ),
+    #         Tags=self.tags.cost_tag_array(name=domain_name),
+    #         **options,
+    #     )
+    #     return domain
+
+    def opensearch_instance(self, data_node_count=None, data_node_type=None) -> OSDomain:
+        """ Returns an OpenSearch domain with 1 data node, configurable via data_node_instance_type. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
-            TODO allow master node configuration
+            TODO allow master node configuration, update to opensearch
         """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         logical_id = self.name.logical_id(f"{camelize(env_name)}ElasticSearch")  # was env_name
-        domain_name = self.name.domain_name(f"es-{env_name}")
+        domain_name = self.name.domain_name(f"os-{env_name}")
         options = {}
         try:  # feature not yet supported by troposphere
             options['DomainEndpointOptions'] = DomainEndpointOptions(EnforceHTTPS=True)
         except NotImplementedError:
             pass
-        # account_num = ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER)
-        domain = Domain(
+        domain = OSDomain(
             logical_id,
             DomainName=domain_name,
             NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
             EncryptionAtRestOptions=EncryptionAtRestOptions(Enabled=True),  # TODO specify KMS key
-            ElasticsearchClusterConfig=ElasticsearchClusterConfig(
+            ClusterConfig=ClusterConfig(
                 InstanceCount=(data_node_count
                                or ConfigManager.get_config_setting(Settings.ES_DATA_COUNT,
                                                                    default=self.DEFAULT_ES_DATA_NODE_COUNT)),
@@ -635,11 +688,11 @@ class C4Datastore(C4DatastoreBase, C4Part):
                               or ConfigManager.get_config_setting(Settings.ES_DATA_TYPE,
                                                                   default=self.DEFAULT_ES_DATA_NODE_TYPE)),
             ),
-            ElasticsearchVersion='6.8',
+            EngineVersion=self.OPENSEARCH_LATEST,
             EBSOptions=EBSOptions(
                 EBSEnabled=True,
-                VolumeSize=ConfigManager.get_config_setting(Settings.ES_VOLUME_SIZE, 10),
-                VolumeType='gp2',  # gp3?
+                VolumeSize=ConfigManager.get_config_setting(Settings.ES_VOLUME_SIZE, 30),
+                VolumeType='gp3',
             ),
             VPCOptions=VPCOptions(
                 SecurityGroupIds=[
@@ -651,17 +704,17 @@ class C4Datastore(C4DatastoreBase, C4Part):
                     self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNETS[0]),
                 ],
             ),
-            Tags=self.tags.cost_tag_array(name=domain_name),
+            Tags=self.tags.cost_tag_obj(name=domain_name),
             **options,
         )
         return domain
 
-    def output_es_url(self, resource: Domain, export_name=C4DatastoreExports.ES_URL) -> Output:
+    def output_es_url(self, resource: OSDomain, export_name=C4DatastoreExports.ES_URL) -> Output:
         """ Outputs ES URL """
         logical_id = self.name.logical_id(export_name)
         return Output(
             logical_id,
-            Description='ES URL for this environment',
+            Description='OS URL for this environment',
             Value=GetAtt(resource, 'DomainEndpoint'),
             Export=self.EXPORTS.export(export_name)
         )
