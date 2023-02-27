@@ -150,9 +150,8 @@ class Aws(AwsContext):
                     continue
                 key_metadata = key_description["KeyMetadata"]
                 key_manager = key_metadata["KeyManager"]
-                if key_manager == "CUSTOMER":
-                    # TODO: If multiple keys (for some reason) silently pick the most recently created one (?)
-                    # key_creation_date = key_metadata["CreationDate"]
+                key_enabled = key_metadata.get("Enabled")
+                if key_manager == "CUSTOMER" and (key_enabled is None or key_enabled):
                     kms_keys.append(key_id)
         return kms_keys
 

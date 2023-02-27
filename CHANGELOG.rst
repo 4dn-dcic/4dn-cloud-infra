@@ -9,7 +9,7 @@ Change Log
 3.9.3
 =====
 * Added scripts/prune_chalice_package.sh to prunne the Foursight Chalice package of
-  modules which are useless in produciton and which take up space; we are butting
+  modules which are useless in production and which take up space; we are butting
   up against the 50MB max for packages; called from the build_config_and_package
   function in the foursight-core module foursight_core/deploy.py.
 * Minor fix to the update-kms-policy script (in case multiple keys defined).
