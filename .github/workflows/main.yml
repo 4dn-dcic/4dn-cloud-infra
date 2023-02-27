@@ -23,9 +23,7 @@ jobs:
           python-version: '3.7'
 
       - name: Install
-        run: |
-          pip install poetry==1.2.0
-          poetry install
+        run: make build
 
       - name: Mock
         run: |
