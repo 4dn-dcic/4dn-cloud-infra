@@ -5,7 +5,7 @@ import re
 from typing import Optional
 from dcicutils.cloudformation_utils import C4OrchestrationManager
 from dcicutils.command_utils import yes_or_no
-from dcicutils.misc_utils import ignored, PRINT
+from dcicutils.misc_utils import get_error_message, ignored, PRINT
 from .aws_context import AwsContext
 from .misc_utils import (obfuscate, print_exception, should_obfuscate)
 
@@ -146,7 +146,7 @@ class Aws(AwsContext):
                     key_description = kms.describe_key(KeyId=key_id)
                 except Exception as e:
                     PRINT(f"ERROR: Cannot get description of KMS Key ID (skipping): {key_id}")
-                    PRINT(f"       {str(e)}")
+                    PRINT(f"       {get_error_message(e)}")
                     continue
                 key_metadata = key_description["KeyMetadata"]
                 key_manager = key_metadata["KeyManager"]

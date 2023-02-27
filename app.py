@@ -33,6 +33,15 @@ def _is_foursight_fourfront():
 # environment name. However, this expansion is now also done at runtime by Foursight, using
 # the default environment name, so running resolve-foursight-checks is now not strictly necesssary.
 
+# TODO
+# Don't think we need to do this anymore now that we automatically pickup check_setup.json
+# from either chalicelib_foursight/check_setup.json or chalicelib_cgap/check_setup.json
+# as appropriate; this being done in foursight_core.app.AppUtilsCore.__init__ via the
+# _locate_check_setup_file function there (and expanding <env-name> as appropriate
+# obviating the need for resolve-foursight-checks as mentioned above). Doing the
+# below will force that lookup to look here for check_setup.json instead, which
+# would assume that you did the appropriate resolve-foursight-checks here manually.
+#
 if not os.environ.get("FOURSIGHT_CHECK_SETUP_DIR", None):
     os.environ["FOURSIGHT_CHECK_SETUP_DIR"] = os.path.dirname(__file__)
 

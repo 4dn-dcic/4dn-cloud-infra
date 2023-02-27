@@ -30,8 +30,6 @@ def get_json_config_file_value(name: str, config_file: str, fallback: str = None
         with io.open(config_file, "r") as config_fp:
             config_json = json.load(config_fp)
             value = config_json.get(name)
-            if value is not None:
-                value = str(value)
             return value if value else fallback
     except Exception:
         return fallback
