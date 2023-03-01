@@ -18,7 +18,7 @@ chalice = "1.27.1"
 dcicutils = "^6.9.9.0b4"
 
 # Foursight-Core
-foursight-core = "^3.3.2.1b0"
+foursight-core = "^3.3.2.1b1"
 
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
@@ -37,7 +37,7 @@ troposphere = "^3.2.2"
 # not both in the Chalice package (via foursight_core/deploy.py). dmichaels/2022-11-01.
 
 [tool.poetry.group.foursight_cgap.dependencies]
-foursight-cgap = "3.3.2.1.b0"
+foursight-cgap = "^3.3.2.1.b1"
 
 [tool.poetry.group.foursight_fourfront.dependencies]
 foursight = "^3.3.2.1b0"

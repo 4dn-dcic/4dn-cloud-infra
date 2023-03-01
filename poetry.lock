@@ -1233,14 +1233,14 @@ tibanna_ff = ">=0.22.5"
 
 [[package]]
 name = "foursight-cgap"
-version = "3.3.2.1b0"
+version = "3.3.2.1b1"
 description = "Serverless Chalice Application for Monitoring"
 category = "dev"
 optional = false
 python-versions = ">=3.7.1,<3.8"
 files = [
-    {file = "foursight_cgap-3.3.2.1b0-py3-none-any.whl", hash = "sha256:58729ed38efb6f1cc89c39efb5cef88d6b85a9dce3a5e2e176f8e5769015468f"},
-    {file = "foursight_cgap-3.3.2.1b0.tar.gz", hash = "sha256:22de373bc36e80b1b9ca8bf2456299a5ce6d600fd109caed6b583fdb60e89aa2"},
+    {file = "foursight_cgap-3.3.2.1b1-py3-none-any.whl", hash = "sha256:d4ff79cad9c2a9392ddda92e16cc81566d9550ff7bd50d7eeb029c3ba6ce9a04"},
+    {file = "foursight_cgap-3.3.2.1b1.tar.gz", hash = "sha256:d6b80f34a0972664b33da057b657ff18069739a7cb9dd97ac7b60e6ff36bc46e"},
 ]
 
 [package.dependencies]
@@ -1249,7 +1249,7 @@ click = ">=7.1.2,<8.0.0"
 dcicutils = ">=6.9.9.0b4,<7.0.0.0"
 elasticsearch = ">=7.13.4,<8.0.0"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
-foursight-core = "3.3.2.1b0"
+foursight-core = ">=3.3.2.1b0,<4.0.0.0"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.12.5,<2.0.0"
@@ -1263,14 +1263,14 @@ tibanna-ff = ">=1.3.0,<2.0.0"
 
 [[package]]
 name = "foursight-core"
-version = "3.3.2.1b0"
+version = "3.3.2.1b1"
 description = "Serverless Chalice Application for Monitoring"
 category = "main"
 optional = false
 python-versions = ">=3.7,<3.10"
 files = [
-    {file = "foursight_core-3.3.2.1b0-py3-none-any.whl", hash = "sha256:c8deafd00ff3cdcb746589be6ed8a1b749586b0db49a6b6c93a0cde1ca2318e6"},
-    {file = "foursight_core-3.3.2.1b0.tar.gz", hash = "sha256:96b5d2500e4fe722d7c24a2a3b8c9ca6da81c2b87025bf33020842fa01bd3f01"},
+    {file = "foursight_core-3.3.2.1b1-py3-none-any.whl", hash = "sha256:c1c4f702f3d664f429addc18ab8d0c9e9b7b32de57002634369b1e4df058b1f7"},
+    {file = "foursight_core-3.3.2.1b1.tar.gz", hash = "sha256:184ea539772ddcd7ed4cedc60e59e59ead2b56e560d631f6bd1a781731e78803"},
 ]
 
 [package.dependencies]
@@ -3782,4 +3782,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.7.1,<3.8"
-content-hash = "54853c491b2cc3ccaa1beb77f65c04e087196404eaf18196df09e5d6016e67db"
+content-hash = "5350012e8e2c286ab27fea16f8a09f63ea55920fe019c32f0d3ac3728cc8c2d9"
