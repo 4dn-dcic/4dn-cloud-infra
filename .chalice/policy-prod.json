@@ -19,6 +19,7 @@
         "states:*",
         "dynamodb:*",
         "codebuild:*",
+        "elasticache:*",
         "secretsmanager:GetSecretValue",
         "secretsmanager:ListSecrets",
         "iam:ListAccountAliases"

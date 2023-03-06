@@ -15,7 +15,8 @@
         "codebuild:*",
         "secretsmanager:GetSecretValue",
         "secretsmanager:ListSecrets",
-        "iam:ListAccountAliases"
+        "iam:ListAccountAliases",
+        "elasticache:*"
       ],
       "Resource": [
         "*"
