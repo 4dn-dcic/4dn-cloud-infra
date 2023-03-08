@@ -38,11 +38,13 @@ class C4CodeBuild(C4Part):
     DEFAULT_ECR_REPO_NAME = DEFAULT_ECOSYSTEM_NAME
     DEFAULT_GITHUB_REPOSITORY = 'https://github.com/dbmi-bgm/cgap-portal'
     DEFAULT_GITHUB_PIPELINE_REPOSITORY = 'https://github.com/dbmi-bgm/cgap-pipeline-main'
+    DEFAULT_EXTERNAL_GITHUB_PIPELINE_REPOSITORY = 'https://github.com/dbmi-bgm/cgap-pipeline-contribution'
     DEFAULT_TIBANNA_REPOSITORY = 'https://github.com/4dn-dcic/tibanna'
     STACK_NAME_TOKEN = 'codebuild'
     STACK_TITLE_TOKEN = 'CodeBuild'
     DEFAULT_DEPLOY_BRANCH = 'master'
     DEFAULT_PIPELINE_DEPLOY_BRANCH = 'v1.0.0'  # version release tag for cgap-pipeline-main
+    DEFAULT_EXTERNAL_GITHUB_PIPELINE_BRANCH = 'v1.0.0'  # TODO: this should be verified
     NETWORK_EXPORTS = C4NetworkExports()
     EXPORTS = C4CodeBuildExports()
 
@@ -56,6 +58,7 @@ class C4CodeBuild(C4Part):
 
         portal_env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         pipeline_project_name = portal_env_name + '-pipeline-builder'
+        external_pipeline_project_name = portal_env_name + '-external-pipeline-builder'
         tibanna_project_name = portal_env_name + '-tibanna-awsf-builder'
 
         # IAM role for cb builds
@@ -63,6 +66,8 @@ class C4CodeBuild(C4Part):
         template.add_resource(iam_role)
         pipeline_iam_role = self.cb_iam_role(project_name=pipeline_project_name)
         template.add_resource(pipeline_iam_role)
+        external_pipeline_iam_role = self.cb_iam_role(project_name=external_pipeline_project_name)
+        template.add_resource(external_pipeline_iam_role)
         tibanna_iam_role = self.cb_iam_role(project_name=tibanna_project_name)
         template.add_resource(tibanna_iam_role)
 
@@ -90,6 +95,15 @@ class C4CodeBuild(C4Part):
         )
         template.add_resource(pipeline_build_project)
 
+        # Build project for external pipeline images
+        external_pipeline_build_project = self.cb_project(
+            project_name=external_pipeline_project_name,
+            github_repo_url=self.DEFAULT_EXTERNAL_GITHUB_PIPELINE_REPOSITORY,
+            branch=self.DEFAULT_EXTERNAL_GITHUB_PIPELINE_BRANCH,
+            environment=self.cb_external_pipeline_environment_vars()
+        )
+        template.add_resource(external_pipeline_build_project)
+
         # Build project for Tibanna AWSF
         tibanna_build_project = self.cb_project(
             project_name=tibanna_project_name,
@@ -108,6 +122,10 @@ class C4CodeBuild(C4Part):
                                               export_name=C4CodeBuildExports.output_project_key(
                                                   project_name=pipeline_project_name
                                               )))
+        template.add_output(self.output_value(resource=external_pipeline_build_project,
+                                              export_name=C4CodeBuildExports.output_project_key(
+                                                  project_name=external_pipeline_project_name
+                                              )))
         template.add_output(self.output_value(resource=tibanna_build_project,
                                               export_name=C4CodeBuildExports.output_project_key(
                                                   project_name=tibanna_project_name
@@ -120,11 +138,14 @@ class C4CodeBuild(C4Part):
                                               export_name=C4CodeBuildExports.output_project_iam_role(
                                                   project_name=pipeline_project_name
                                               )))
+        template.add_output(self.output_value(resource=external_pipeline_iam_role,
+                                              export_name=C4CodeBuildExports.output_project_iam_role(
+                                                  project_name=external_pipeline_project_name
+                                              )))
         template.add_output(self.output_value(resource=tibanna_iam_role,
                                               export_name=C4CodeBuildExports.output_project_iam_role(
                                                   project_name=tibanna_project_name
                                               )))
-
         return template
 
     @staticmethod
@@ -217,6 +238,23 @@ class C4CodeBuild(C4Part):
                 {'Name': 'IMAGE_TAG',  # Use standard default version as of now, no locked version to resolve
                  'Value': self.DEFAULT_PIPELINE_DEPLOY_BRANCH},
                 {'Name': 'BUILD_PATH', 'Value': 'cgap-pipeline-base/dockerfiles/base'}  # default to base, override by caller
+            ],
+            Type=self.BUILD_TYPE,
+            PrivilegedMode=True
+        )
+
+    def cb_external_pipeline_environment_vars(self) -> Environment:
+        """ Environment configuration for the external pipeline builds """
+        return Environment(
+            ComputeType=self.DEFAULT_COMPUTE_TYPE,
+            Image=self.BUILD_IMAGE,
+            EnvironmentVariables=[
+                {'Name': 'AWS_DEFAULT_REGION', 'Value': REGION},
+                {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
+                {'Name': 'IMAGE_REPO_NAME', 'Value': 'xtea_germline'},  # default to xtea, override by caller
+                {'Name': 'IMAGE_TAG',  # Use standard default version as of now, no locked version to resolve
+                 'Value': self.DEFAULT_EXTERNAL_GITHUB_PIPELINE_BRANCH},
+                {'Name': 'BUILD_PATH', 'Value': 'xTea-germline/dockerfiles/xtea_germline'}
             ],
             Type=self.BUILD_TYPE,
             PrivilegedMode=True
