@@ -84,7 +84,7 @@ Step Five: Update check_setup.json
 Create the appropriate *check_setup.json* for the environment of interest to use for
 checks/actions via::
 
-        poetry run resolve-foursight-checks
+        poetry run resolve-foursight-checks --app cgap
 
 **Note**: If adding or deleting checks/actions, be sure to modify the foursight repo's
 check setup file prior to the above.
