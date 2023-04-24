@@ -46,7 +46,7 @@ if [ -z $current_python ]; then
 fi
 
 if [ -z $current_poetry ]; then
-    curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+    curl -sSL https://install.python-poetry.org | python3 -
     source "$HOME/.poetry/env"
     sed -i '1i export PATH="$HOME/.poetry/bin:$PATH"' ~/.bashrc
 fi

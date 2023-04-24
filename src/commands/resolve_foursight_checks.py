@@ -11,7 +11,7 @@ from foursight_core.check_utils import CheckHandler
 # Importing both chalicelib_cgap and chalicelib_fourfront from (now) separate packages;
 # choose which one is the source via the (new) --app argument. dmichaels/2022-10-31.
 # from .chalicelib.package import PackageDeploy as PackageDeploy_from_app
-from chalicelib_fourfront.vars import CHECK_SETUP_FILE as FOURSIGHT_FOURFRONT_CHECK_TEMPLATE
+# from chalicelib_fourfront.vars import CHECK_SETUP_FILE as FOURSIGHT_FOURFRONT_CHECK_TEMPLATE
 from chalicelib_cgap.vars import CHECK_SETUP_FILE as FOURSIGHT_CGAP_CHECK_TEMPLATE
 from dcicutils.misc_utils import full_class_name
 
@@ -90,7 +90,8 @@ def main(simulated_args=None):
     parser.add_argument("--env_name", default=None,
                         help=f"name of environment to configure (default {DEFAULT_ENVIRONMENT})")
     parser.add_argument("--template_file", default=None,
-                        help=f"template path to use for testing instead of {FOURSIGHT_CGAP_CHECK_TEMPLATE} or {FOURSIGHT_FOURFRONT_CHECK_TEMPLATE}")
+                        #                        help=f"template path to use for testing instead of {FOURSIGHT_CGAP_CHECK_TEMPLATE} or {FOURSIGHT_FOURFRONT_CHECK_TEMPLATE}")
+    )
     parser.add_argument("--target_file", default=None,
                         help=f"target path to use for testing instead of {DEFAULT_TARGET_FILE}")
     parser.add_argument("--app", type=str, default=None, required=True,

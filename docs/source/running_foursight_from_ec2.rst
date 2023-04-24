@@ -40,7 +40,7 @@ This step can be performed in either of the following manners:
 
 For either of the two suggested routes above, an appropriately configured *custom*
 directory **must** be included in the repository if certain environmental variables are
-not set (see Step Six below). If using ``scp`` for either the entire rrepository or just
+not set (see Step Six below). If using ``scp`` for either the entire repository or just
 the *custom* directory, ensure it is sym-linked appropriately for the CGAP environment
 of the EC2 prior to copying.
 
