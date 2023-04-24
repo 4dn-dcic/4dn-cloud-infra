@@ -47,8 +47,8 @@ fi
 
 if [ -z $current_poetry ]; then
     curl -sSL https://install.python-poetry.org | python3 -
-    source "$HOME/.poetry/env"
-    sed -i '1i export PATH="$HOME/.poetry/bin:$PATH"' ~/.bashrc
+    export PATH="$HOME/.local/bin:$PATH"
+    sed -i '1i export PATH="$HOME/.local/bin:$PATH"' ~/.bashrc
 fi
 
 if [ ! -d $expected_4dn_infra_dir ]; then

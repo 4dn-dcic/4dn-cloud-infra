@@ -202,18 +202,18 @@ dev = ["black (==23.1.0)", "boto3 (>=1.23,<2)", "boto3-stubs[appconfig,serverles
 
 [[package]]
 name = "awscli"
-version = "1.27.117"
+version = "1.27.118"
 description = "Universal Command Line Environment for AWS."
 category = "main"
 optional = false
 python-versions = ">= 3.7"
 files = [
-    {file = "awscli-1.27.117-py3-none-any.whl", hash = "sha256:e107db89b8e0e969ff9134fd95d4992d62c188a05406654b00d924ecd3cb6f1b"},
-    {file = "awscli-1.27.117.tar.gz", hash = "sha256:0611ae60aa486dc4661753ff91e42ed9daa43fddc2be13492ff64e52c9f12851"},
+    {file = "awscli-1.27.118-py3-none-any.whl", hash = "sha256:a41d6d97398cc0ef7a54f788a1909fe98a69694acb1b3ae2a74d1a551abf02e0"},
+    {file = "awscli-1.27.118.tar.gz", hash = "sha256:590fcdd7c49194b09e575e2e1594c5838a2320d9c8216eda15fdc659c45866fd"},
 ]
 
 [package.dependencies]
-botocore = "1.29.117"
+botocore = "1.29.118"
 colorama = ">=0.2.5,<0.4.5"
 docutils = ">=0.10,<0.17"
 PyYAML = ">=3.10,<5.5"
@@ -301,18 +301,18 @@ wcwidth = ">=0.1.4"
 
 [[package]]
 name = "boto3"
-version = "1.26.117"
+version = "1.26.118"
 description = "The AWS SDK for Python"
 category = "main"
 optional = false
 python-versions = ">= 3.7"
 files = [
-    {file = "boto3-1.26.117-py3-none-any.whl", hash = "sha256:84cc8947560d89581ef693895cb36d8c8c70d567900d86c8f7cc612d037fdd17"},
-    {file = "boto3-1.26.117.tar.gz", hash = "sha256:1e9128b7d8a1b8af789ea6a04a46e641d82446e1e15c022c0fef697d3c9aab97"},
+    {file = "boto3-1.26.118-py3-none-any.whl", hash = "sha256:1ff703152553f4d5fc9774071d114dbf06ec661eb1b29b6051f6b1f9d0c24873"},
+    {file = "boto3-1.26.118.tar.gz", hash = "sha256:d0ed43228952b55c9f44d1c733f74656418c39c55dbe36bc37feeef6aa583ded"},
 ]
 
 [package.dependencies]
-botocore = ">=1.29.117,<1.30.0"
+botocore = ">=1.29.118,<1.30.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.6.0,<0.7.0"
 
@@ -321,14 +321,14 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "boto3-stubs"
-version = "1.26.117"
-description = "Type annotations for boto3 1.26.117 generated with mypy-boto3-builder 7.14.5"
+version = "1.26.118"
+description = "Type annotations for boto3 1.26.118 generated with mypy-boto3-builder 7.14.5"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "boto3-stubs-1.26.117.tar.gz", hash = "sha256:5bbcd0446463023415d4e2b130610cc9b8a01e244733ab27efe5272faef1cb7d"},
-    {file = "boto3_stubs-1.26.117-py3-none-any.whl", hash = "sha256:b57274ad5e7183e5247133299ef19ffabd8b0296250339f7481a7c355d464d18"},
+    {file = "boto3-stubs-1.26.118.tar.gz", hash = "sha256:dbe41b2027eb7d33f168d65b902ae2e02914e2490d0568f5195aaf158b64b2f1"},
+    {file = "boto3_stubs-1.26.118-py3-none-any.whl", hash = "sha256:b6fab54b375fcb34854e2b77c77ee2fe73eae587deea8eecd2628baba7e9bdae"},
 ]
 
 [package.dependencies]
@@ -371,7 +371,7 @@ backup-gateway = ["mypy-boto3-backup-gateway (>=1.26.0,<1.27.0)"]
 backupstorage = ["mypy-boto3-backupstorage (>=1.26.0,<1.27.0)"]
 batch = ["mypy-boto3-batch (>=1.26.0,<1.27.0)"]
 billingconductor = ["mypy-boto3-billingconductor (>=1.26.0,<1.27.0)"]
-boto3 = ["boto3 (==1.26.117)", "botocore (==1.29.117)"]
+boto3 = ["boto3 (==1.26.118)", "botocore (==1.29.118)"]
 braket = ["mypy-boto3-braket (>=1.26.0,<1.27.0)"]
 budgets = ["mypy-boto3-budgets (>=1.26.0,<1.27.0)"]
 ce = ["mypy-boto3-ce (>=1.26.0,<1.27.0)"]
@@ -686,14 +686,14 @@ xray = ["mypy-boto3-xray (>=1.26.0,<1.27.0)"]
 
 [[package]]
 name = "botocore"
-version = "1.29.117"
+version = "1.29.118"
 description = "Low-level, data-driven core of boto 3."
 category = "main"
 optional = false
 python-versions = ">= 3.7"
 files = [
-    {file = "botocore-1.29.117-py3-none-any.whl", hash = "sha256:2e6f6c9be770ed5737de093cfe8d592be15f8763f7bf2906afba90f19836d72d"},
-    {file = "botocore-1.29.117.tar.gz", hash = "sha256:1fc4469e80daab657d1254518ee44a82e284320c8b24cbfbaaa60570afc33743"},
+    {file = "botocore-1.29.118-py3-none-any.whl", hash = "sha256:44cb088a73b02dd716c5c5715143a64d5f10388957285246e11f3cc893eebf9d"},
+    {file = "botocore-1.29.118.tar.gz", hash = "sha256:b51fc5d50cbc43edaf58b3ec4fa933b82755801c453bf8908c8d3e70ae1142c1"},
 ]
 
 [package.dependencies]
@@ -706,14 +706,14 @@ crt = ["awscrt (==0.16.9)"]
 
 [[package]]
 name = "botocore-stubs"
-version = "1.29.117"
+version = "1.29.118"
 description = "Type annotations and code completion for botocore"
 category = "dev"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "botocore_stubs-1.29.117-py3-none-any.whl", hash = "sha256:80e494f6d6dfe9f141900176c0857988f6c333030348b7590b4ec515a6971cf1"},
-    {file = "botocore_stubs-1.29.117.tar.gz", hash = "sha256:f4de553d1106624884ce198fe9d2ea030bfee7a78e395df827a8c79d04e9f33a"},
+    {file = "botocore_stubs-1.29.118-py3-none-any.whl", hash = "sha256:b0ce0670c7e69a6282dbb0daaf2acf25467c4950217035b02ed2aad4ef27782e"},
+    {file = "botocore_stubs-1.29.118.tar.gz", hash = "sha256:221d031f8c3546bdd422de603dbb13dde4b91c60dc1fb0ca0288dce074b95f7d"},
 ]
 
 [package.dependencies]
@@ -2248,21 +2248,21 @@ test = ["coverage", "nbval", "pytest", "pytest-cov", "requests", "requests-unixs
 
 [[package]]
 name = "notebook-shim"
-version = "0.2.2"
+version = "0.2.3"
 description = "A shim layer for notebook traits and config"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "notebook_shim-0.2.2-py3-none-any.whl", hash = "sha256:9c6c30f74c4fbea6fce55c1be58e7fd0409b1c681b075dcedceb005db5026949"},
-    {file = "notebook_shim-0.2.2.tar.gz", hash = "sha256:090e0baf9a5582ff59b607af523ca2db68ff216da0c69956b62cab2ef4fc9c3f"},
+    {file = "notebook_shim-0.2.3-py3-none-any.whl", hash = "sha256:a83496a43341c1674b093bfcebf0fe8e74cbe7eda5fd2bbc56f8e39e1486c0c7"},
+    {file = "notebook_shim-0.2.3.tar.gz", hash = "sha256:f69388ac283ae008cd506dda10d0288b09a017d822d5e8c7129a152cbd3ce7e9"},
 ]
 
 [package.dependencies]
 jupyter-server = ">=1.8,<3"
 
 [package.extras]
-test = ["pytest", "pytest-console-scripts", "pytest-tornasync"]
+test = ["pytest", "pytest-console-scripts", "pytest-jupyter", "pytest-tornasync"]
 
 [[package]]
 name = "oauthlib"
@@ -3203,14 +3203,14 @@ win32 = ["pywin32"]
 
 [[package]]
 name = "setuptools"
-version = "67.7.1"
+version = "67.7.2"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "setuptools-67.7.1-py3-none-any.whl", hash = "sha256:6f0839fbdb7e3cfef1fc38d7954f5c1c26bf4eebb155a55c9bf8faf997b9fb67"},
-    {file = "setuptools-67.7.1.tar.gz", hash = "sha256:bb16732e8eb928922eabaa022f881ae2b7cdcfaf9993ef1f5e841a96d32b8e0c"},
+    {file = "setuptools-67.7.2-py3-none-any.whl", hash = "sha256:23aaf86b85ca52ceb801d32703f12d77517b2556af839621c641fca11287952b"},
+    {file = "setuptools-67.7.2.tar.gz", hash = "sha256:f104fa03692a2602fa0fec6c6a9e63b6c8a968de13e17c026957dd1f53d80990"},
 ]
 
 [package.extras]
@@ -3483,14 +3483,14 @@ policy = ["awacs (>=2.0.0)"]
 
 [[package]]
 name = "types-awscrt"
-version = "0.16.15"
+version = "0.16.16"
 description = "Type annotations and code completion for awscrt"
 category = "dev"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "types_awscrt-0.16.15-py3-none-any.whl", hash = "sha256:89d052f4c018ee0fc5d6ed8ae64c2e1f9f1078a2f9a29f5246a42af72f7f4e77"},
-    {file = "types_awscrt-0.16.15.tar.gz", hash = "sha256:9f858e9b6237b58bc550d0fb5785758aba2b4e454a71edf81882b5908b37174c"},
+    {file = "types_awscrt-0.16.16-py3-none-any.whl", hash = "sha256:fe38c6fd71199a9f739b69a7c2f3a574585457c4f63730a62830628a7bffc5b0"},
+    {file = "types_awscrt-0.16.16.tar.gz", hash = "sha256:40854d9d7ce055620d5d41e5adc84df11b879aedbd2cf20de84e73f084aa5797"},
 ]
 
 [[package]]

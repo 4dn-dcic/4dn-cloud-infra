@@ -97,6 +97,7 @@ To run checks/actions, the following environmental variables **must** be set
 appropriately:
 
 * ``S3_ENCRYPT_KEY``
+* ``STACK_NAME`` (from AWS CloudFormation)
 * ``AWS_DEFAULT_REGION`` (or *~/.aws* configured appropriately)
 * ``AWS_ACCESS_KEY_ID``, ``AWS_SECRET_ACCESS_KEY``, ``AWS_SESSION_TOKEN`` (or IAM role
   appropriately configured)
