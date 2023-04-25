@@ -46,7 +46,7 @@ if [ -z $current_python ]; then
 fi
 
 if [ -z $current_poetry ]; then
-    curl -sSL https://install.python-poetry.org | python3 -
+    curl -sSL https://install.python-poetry.org | python3 - --version 1.3.2
     export PATH="$HOME/.local/bin:$PATH"
     sed -i '1i export PATH="$HOME/.local/bin:$PATH"' ~/.bashrc
 fi

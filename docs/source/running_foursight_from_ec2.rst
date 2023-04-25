@@ -34,7 +34,7 @@ This step can be performed in either of the following manners:
 
 * Clone repository to EC2 instance.
 
-  - This will be performed automatically by this repo's configuration script.
+  - Can be done on instance or over ``ssh`` using this repo's configuration script.
   - **Note**: GitHub credentials may need to be configured on the EC2 first. This is
     recommended if debugging foursight so commits can be pushed.
 
@@ -82,7 +82,7 @@ Step Five: Update check_setup.json
 ------------------------------------
 
 Create the appropriate *check_setup.json* for the environment of interest to use for
-checks/actions via::
+checks/actions via (for CGAP)::
 
         poetry run resolve-foursight-checks --app cgap
 
