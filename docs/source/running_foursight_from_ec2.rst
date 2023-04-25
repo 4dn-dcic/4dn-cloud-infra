@@ -78,7 +78,32 @@ Even if not utilizing a development branch with changes to checks/actions, it is
 recommended to checkout a branch to prevent commits to master.
 
 
-Step Five: Update check_setup.json
+Step Five: Ensure up-to-date AWS variables available
+------------------------------------------------------
+
+To run checks/actions, the following environmental variables **must** be set
+appropriately:
+
+* ``S3_ENCRYPT_KEY``
+* ``AWS_DEFAULT_REGION`` (or *~/.aws* configured appropriately)
+* ``AWS_ACCESS_KEY_ID``, ``AWS_SECRET_ACCESS_KEY``, ``AWS_SESSION_TOKEN`` (or IAM role
+  appropriately configured)
+* ``STACK_NAME`` (can be set to anything, as per configuration script)
+
+If this repository does not have a configured *custom* directory, the following
+variables will also need to be set:
+
+* ``GLOBAL_ENV_BUCKET``
+* ``ENV_NAME``
+* ``IDENTITY`` (GAC name)
+
+Some of these variable you may be able to source from *custom/aws_creds/test_creds.sh*,
+but beware of setting expired AWS credentials with this route, especially if the EC2 is
+configured with an IAM role.
+
+
+
+Step Six: Update check_setup.json
 ------------------------------------
 
 Create the appropriate *check_setup.json* for the environment of interest to use for
@@ -88,30 +113,6 @@ checks/actions via (for CGAP)::
 
 **Note**: If adding or deleting checks/actions, be sure to modify the foursight repo's
 check setup file prior to the above.
-
-
-Step Six: Ensure up-to-date AWS variables available
-------------------------------------------------------
-
-To run checks/actions, the following environmental variables **must** be set
-appropriately:
-
-* ``S3_ENCRYPT_KEY``
-* ``STACK_NAME`` (from AWS CloudFormation)
-* ``AWS_DEFAULT_REGION`` (or *~/.aws* configured appropriately)
-* ``AWS_ACCESS_KEY_ID``, ``AWS_SECRET_ACCESS_KEY``, ``AWS_SESSION_TOKEN`` (or IAM role
-  appropriately configured)
-
-If this repository does not have a configured *custom* directory, the following
-variables will also need to be set:
-
-* ``GLOBAL_ENV_BUCKET``
-* ``ES_HOST``
-* ``ENV_NAME``
-
-Some of these variable you may be able to source from *custom/aws_creds/test_creds.sh*,
-but beware of setting expired AWS credentials with this route, especially if the EC2 is
-configured with an IAM role.
 
 
 Step Seven: Run check script
@@ -140,7 +141,7 @@ accomplished by starting the notebook on the EC2 instance via the command::
 from the root of this repository (with the port option of your preference). Then, on
 the local computer, connect to the EC2 via::
 
-        ssh -N -L localhost:8888::localhost:8888 -i <path to PEM> ubuntu@<EC2 address>
+        ssh -N -L localhost:8888:localhost:8888 -i <path to PEM> ubuntu@<EC2 address>
 
 with the ports updated as required.
 

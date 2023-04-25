@@ -21,6 +21,7 @@ sudo apt-get update
 sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
 	libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev \
 	libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python-openssl
+export VARIABLE="${VARIABLE:='foo'}"
 
 if [ -z $current_pyenv ]; then
     git clone https://github.com/pyenv/pyenv.git ~/.pyenv
@@ -60,8 +61,11 @@ if [ ! -d $expected_foursight_dir ]; then
 fi
 
 cd 4dn-cloud-infra
-pyenv virtualenv $desired_python_version foursight-development
-pyenv local foursight-development
+
+# Poetry not respecting pyenv virtualenv when run via ssh, so just use global
+# pyenv virtualenv $desired_python_version foursight-development
+# pyenv local foursight-development
+
 git_branch=$(git rev-parse --abbrev-ref HEAD)
 if [ $git_branch = "master" ]; then
     git checkout -b foursight-local  # Prevent accidental master commits
@@ -79,6 +83,7 @@ if [ $foursight_local_installed -eq 0 ]; then
 fi
 
 pip install --upgrade pip
+poetry update
 poetry install
 
 cd $start_path
