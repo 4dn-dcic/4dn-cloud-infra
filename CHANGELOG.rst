@@ -6,6 +6,14 @@
 Change Log
 ----------
 
+3.9.4
+=====
+
+* Update magma, foursight packages, and dcicutils
+* Fix bugs in foursight "local" development configuration script
+* Update docs to reflect previous changes to foursight deployment
+
+
 3.9.3
 =====
 * Added scripts/prune_chalice_package.sh to prunne the Foursight Chalice package of
