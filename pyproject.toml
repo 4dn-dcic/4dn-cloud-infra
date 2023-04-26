@@ -41,7 +41,7 @@ troposphere = "^3.2.2"
 foursight-cgap = "3.3.3b1"
 
 [tool.poetry.group.foursight_fourfront.dependencies]
-# foursight = "^3.3.2"
+foursight = "3.3.3b0"
 
 [tool.poetry.dev-dependencies]
 jupyter = "1.0.0"
