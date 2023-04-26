@@ -9,6 +9,8 @@ expected_4dn_infra_dir="$HOME/4dn-cloud-infra"
 expected_foursight_dir="$HOME/foursight-cgap"
 desired_pyproject_foursight_version='foursight-cgap = { path = "..\/foursight-cgap", develop = true }' 
 desired_pyproject_foursight_package='{ include = "foursight_development" }'
+default_stack_name="foo"
+default_aws_region="us-east-1"
 
 current_python=$(which python)
 current_pyenv=$(which pyenv)
@@ -60,6 +62,16 @@ if [ ! -d $expected_foursight_dir ]; then
     git clone https://github.com/dbmi-bgm/foursight-cgap
 fi
 
+if [ -z $STACK_NAME ]; then
+    export STACK_NAME=$default_stack_name
+    sed -i "1i export STACK_NAME=$default_stack_name" ~/.bashrc
+fi
+
+if [ -z $AWS_DEFAULT_REGION ]; then
+    export AWS_DEFAULT_REGION=$default_aws_region
+    sed -i "1i export AWS_DEFAULT_REGION=$default_aws_region" ~/.bashrc
+fi
+
 cd 4dn-cloud-infra
 
 # Poetry not respecting pyenv virtualenv when run via ssh, so just use global
@@ -83,7 +95,6 @@ if [ $foursight_local_installed -eq 0 ]; then
 fi
 
 pip install --upgrade pip
-poetry update
 poetry install
 
 cd $start_path
