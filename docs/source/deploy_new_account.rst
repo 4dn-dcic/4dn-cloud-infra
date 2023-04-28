@@ -346,20 +346,19 @@ of AWS to simplify the maintenance of the application.
 You'll need to initialize the foursight checks for your environment. This will create the file
 ``vendor/check_setup.py`` that you need for use with Foursight. To do this, do::
 
-    resolve-foursight-checks
+    resolve-foursight-checks --app <app of choice>
 
-By default, the ``resolve-foursight-checks`` command copies foursight-cgap's ``check_setup.json`` into ``vendor/check_setup.json``,
+This command copies the given app's ``check_setup.json`` into ``vendor/check_setup.json``,
 replacing ``"<env-name>"`` with your chosen environment name, which is taken from the setting of ``ENCODED_ENV_NAME``
 in your ``config.json``. If a different check configuration is desired, run the command
 with the ``--template_file`` argument set accordingly, e.g.::
 
-   resolve-foursight-checks --template_file <path to check file>
+   resolve-foursight-checks --app <app of choice> --template_file <path to check file>
 
 
 At this point, you should be ready to deploy foursight. To do so, use this command::
 
     source custom/aws_creds/test_creds.sh
-    ln -s app-cgap.py app.py
     poetry run cli provision foursight --upload-change-set --stage prod
 
 
