@@ -1,68 +1,4 @@
 {
-<<<<<<< HEAD
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Action": [
-        "s3:*",
-        "lambda:*",
-        "sqs:*",
-        "es:*",
-        "rds:*",
-        "ec2:*",
-        "ecs:*",
-        "cloudformation:*",
-        "states:*",
-        "codebuild:*",
-        "secretsmanager:GetSecretValue",
-        "secretsmanager:ListSecrets",
-        "iam:ListAccountAliases",
-        "elasticache:*"
-      ],
-      "Resource": [
-        "*"
-      ],
-      "Effect": "Allow",
-      "Sid": "bf900f21bc4349b19c4ad59b62fade1b"
-    },
-    {
-      "Action": [
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents"
-      ],
-      "Resource": "arn:aws:logs:*:*:*",
-      "Effect": "Allow"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents",
-        "ec2:CreateNetworkInterface",
-        "ec2:DescribeNetworkInterfaces",
-        "ec2:DeleteNetworkInterface",
-        "ec2:AssignPrivateIpAddresses",
-        "ec2:UnassignPrivateIpAddresses"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "kms:Encrypt",
-        "kms:Decrypt",
-        "kms:ReEncrypt*",
-        "kms:GenerateDataKey*",
-        "kms:DescribeKey"
-      ],
-      "Resource": [
-        "*"
-      ]
-    }
-  ]
-=======
     "Version": "2012-10-17",
     "Statement": [
         {
@@ -78,6 +14,7 @@
                 "states:*",
                 "codebuild:*",
                 "pricing:*",
+                "elasticache:*",
                 "ce:*",
                 "secretsmanager:GetSecretValue",
                 "secretsmanager:ListSecrets",
@@ -126,5 +63,4 @@
             ]
         }
     ]
->>>>>>> master
 }
