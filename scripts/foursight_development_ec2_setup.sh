@@ -9,6 +9,8 @@ expected_4dn_infra_dir="$HOME/4dn-cloud-infra"
 expected_foursight_dir="$HOME/foursight-cgap"
 desired_pyproject_foursight_version='foursight-cgap = { path = "..\/foursight-cgap", develop = true }' 
 desired_pyproject_foursight_package='{ include = "foursight_development" }'
+default_stack_name="foo"
+default_aws_region="us-east-1"
 
 current_python=$(which python)
 current_pyenv=$(which pyenv)
@@ -46,9 +48,10 @@ if [ -z $current_python ]; then
 fi
 
 if [ -z $current_poetry ]; then
-    curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
-    source "$HOME/.poetry/env"
-    sed -i '1i export PATH="$HOME/.poetry/bin:$PATH"' ~/.bashrc
+    # Following poetry docs (https://python-poetry.org/docs/#installation) as of 2023-04-26 -drr
+    curl -sSL https://install.python-poetry.org | python3 - --version 1.3.2
+    export PATH="$HOME/.local/bin:$PATH"
+    sed -i '1i export PATH="$HOME/.local/bin:$PATH"' ~/.bashrc
 fi
 
 if [ ! -d $expected_4dn_infra_dir ]; then
@@ -59,9 +62,22 @@ if [ ! -d $expected_foursight_dir ]; then
     git clone https://github.com/dbmi-bgm/foursight-cgap
 fi
 
+if [ -z $STACK_NAME ]; then
+    export STACK_NAME=$default_stack_name
+    sed -i "1i export STACK_NAME=$default_stack_name" ~/.bashrc
+fi
+
+if [ -z $AWS_DEFAULT_REGION ]; then
+    export AWS_DEFAULT_REGION=$default_aws_region
+    sed -i "1i export AWS_DEFAULT_REGION=$default_aws_region" ~/.bashrc
+fi
+
 cd 4dn-cloud-infra
-pyenv virtualenv $desired_python_version foursight-development
-pyenv local foursight-development
+
+# Poetry not respecting pyenv virtualenv when run via ssh, so just use global
+# pyenv virtualenv $desired_python_version foursight-development
+# pyenv local foursight-development
+
 git_branch=$(git rev-parse --abbrev-ref HEAD)
 if [ $git_branch = "master" ]; then
     git checkout -b foursight-local  # Prevent accidental master commits

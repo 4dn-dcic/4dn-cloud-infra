@@ -34,13 +34,13 @@ This step can be performed in either of the following manners:
 
 * Clone repository to EC2 instance.
 
-  - This will be performed automatically by this repo's configuration script.
+  - Can be done on instance or over ``ssh`` using this repo's configuration script.
   - **Note**: GitHub credentials may need to be configured on the EC2 first. This is
     recommended if debugging foursight so commits can be pushed.
 
 For either of the two suggested routes above, an appropriately configured *custom*
 directory **must** be included in the repository if certain environmental variables are
-not set (see Step Six below). If using ``scp`` for either the entire rrepository or just
+not set (see Step Five below). If using ``scp`` for either the entire repository or just
 the *custom* directory, ensure it is sym-linked appropriately for the CGAP environment
 of the EC2 prior to copying.
 
@@ -78,19 +78,7 @@ Even if not utilizing a development branch with changes to checks/actions, it is
 recommended to checkout a branch to prevent commits to master.
 
 
-Step Five: Update check_setup.json
-------------------------------------
-
-Create the appropriate *check_setup.json* for the environment of interest to use for
-checks/actions via::
-
-        poetry run resolve-foursight-checks
-
-**Note**: If adding or deleting checks/actions, be sure to modify the foursight repo's
-check setup file prior to the above.
-
-
-Step Six: Ensure up-to-date AWS variables available
+Step Five: Ensure up-to-date AWS variables available
 ------------------------------------------------------
 
 To run checks/actions, the following environmental variables **must** be set
@@ -100,17 +88,31 @@ appropriately:
 * ``AWS_DEFAULT_REGION`` (or *~/.aws* configured appropriately)
 * ``AWS_ACCESS_KEY_ID``, ``AWS_SECRET_ACCESS_KEY``, ``AWS_SESSION_TOKEN`` (or IAM role
   appropriately configured)
+* ``STACK_NAME`` (can be set to anything, as per configuration script)
 
 If this repository does not have a configured *custom* directory, the following
 variables will also need to be set:
 
 * ``GLOBAL_ENV_BUCKET``
-* ``ES_HOST``
 * ``ENV_NAME``
+* ``IDENTITY`` (GAC name)
 
 Some of these variable you may be able to source from *custom/aws_creds/test_creds.sh*,
 but beware of setting expired AWS credentials with this route, especially if the EC2 is
 configured with an IAM role.
+
+
+
+Step Six: Update check_setup.json
+------------------------------------
+
+Create the appropriate *check_setup.json* for the environment of interest to use for
+checks/actions via (for CGAP)::
+
+        poetry run resolve-foursight-checks --app cgap
+
+**Note**: If adding or deleting checks/actions, be sure to modify the foursight repo's
+check setup file prior to the above.
 
 
 Step Seven: Run check script
@@ -139,7 +141,7 @@ accomplished by starting the notebook on the EC2 instance via the command::
 from the root of this repository (with the port option of your preference). Then, on
 the local computer, connect to the EC2 via::
 
-        ssh -N -L localhost:8888::localhost:8888 -i <path to PEM> ubuntu@<EC2 address>
+        ssh -N -L localhost:8888:localhost:8888 -i <path to PEM> ubuntu@<EC2 address>
 
 with the ports updated as required.
 

@@ -3,7 +3,7 @@ import logging
 import os
 
 from chalice import Chalice
-from chalicelib.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
+from chalicelib_cgap.app_utils import AppUtils as AppUtils_from_cgap  # naming convention used in foursight-cgap
 from dcicutils.exceptions import InvalidParameterError
 from dcicutils.misc_utils import environ_bool, remove_suffix
 from foursight_core.deploy import Deploy
@@ -90,7 +90,7 @@ class AppUtils(AppUtils_from_cgap):
     prefix = FOURSIGHT_PREFIX
     FAVICON = 'https://cgap.hms.harvard.edu/static/img/favicon-fs.ico'
     host = HOST
-    package_name = 'chalicelib'
+    package_name = 'chalicelib_cgap'
     # check_setup is moved to vendor/ where it will be automatically placed at top level
     check_setup_dir = os.path.dirname(os.path.dirname(__file__))
     # This will heuristically mostly title-case te DEFAULT_ENV but will put CGAP in all-caps.
