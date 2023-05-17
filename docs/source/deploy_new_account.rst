@@ -668,7 +668,7 @@ Cannot login to CGAP/Foursight
     * Ensure that the Deployment action has been run recently. Access keys, including those
       that run Foursight and Tibanna, expire every 90 days. Running the deployment action
       from ECS will refresh the keys. You can also do this from Foursight, which should
-      alert you as the expiration time 
+      alert you as the expiration time
 
 Tibanna jobs fail
 
