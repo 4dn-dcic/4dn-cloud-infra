@@ -20,6 +20,7 @@
                 "dynamodb:*",
                 "codebuild:*",
                 "pricing:*",
+                "elasticache:*",
                 "ce:*",
                 "secretsmanager:GetSecretValue",
                 "secretsmanager:ListSecrets",

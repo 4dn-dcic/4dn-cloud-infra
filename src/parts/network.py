@@ -630,6 +630,24 @@ class C4Network(C4NetworkBase, C4Part):
                 FromPort=22,
                 ToPort=22,
             ),
+            SecurityGroupIngress(
+                self.name.logical_id('ApplicationRedisInboundAccess', context='application_security_rules9'),
+                CidrIp=self.CIDR_BLOCK,
+                Description='allows inbound traffic on tcp port 6379',
+                GroupId=Ref(self.application_security_group()),
+                IpProtocol='tcp',
+                FromPort=6379,
+                ToPort=6379,
+            ),
+            SecurityGroupEgress(
+                self.name.logical_id('ApplicationRedisOutboundAllAccess', context='application_security_rules10'),
+                CidrIp=self.CIDR_BLOCK,
+                Description='allows outbound traffic on tcp port 6379',
+                GroupId=Ref(self.application_security_group()),
+                IpProtocol='tcp',
+                FromPort=6379,
+                ToPort=6379,
+            ),
         ]
 
     def bastion_host(self):

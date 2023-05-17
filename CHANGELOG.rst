@@ -6,6 +6,13 @@
 Change Log
 ----------
 
+3.10.0
+======
+
+* Add redis support
+* Pin poetry 1.4.2
+
+
 3.9.4
 =====
 

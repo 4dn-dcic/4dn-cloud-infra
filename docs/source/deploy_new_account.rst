@@ -664,6 +664,10 @@ Cannot login to CGAP/Foursight
     * Ensure that you have run the Initial Deployment using ``custom`` deployment inserts and that
       you have set the ``ENCODED_ADMIN_USERS`` value in the application configuration. Further users
       can be added from the Foursight users page.
+    * Ensure that the Deployment action has been run recently. Access keys, including those
+      that run Foursight and Tibanna, expire every 90 days. Running the deployment action
+      from ECS will refresh the keys. You can also do this from Foursight, which should
+      alert you as the expiration time
 
 Tibanna jobs fail
 

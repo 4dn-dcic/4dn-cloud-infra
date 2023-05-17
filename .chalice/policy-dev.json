@@ -14,6 +14,7 @@
                 "states:*",
                 "codebuild:*",
                 "pricing:*",
+                "elasticache:*",
                 "ce:*",
                 "secretsmanager:GetSecretValue",
                 "secretsmanager:ListSecrets",
