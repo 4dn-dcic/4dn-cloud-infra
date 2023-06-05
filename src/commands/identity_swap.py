@@ -62,7 +62,8 @@ class C4IdentitySwap:
     """ Methods and variables common to an identity swap procedure for both FF and CGAP are here """
     PORTAL = 'Portal'
     INDEXER = 'Indexer'
-    SERVICE_TYPES = [PORTAL, INDEXER]  # note caps are intentional and this set determines the valid services to swap
+    INGESTER = 'Ingester'
+    SERVICE_TYPES = [PORTAL, INDEXER, INGESTER]  # note caps are intentional and this set determines the valid services to swap
 
     @staticmethod
     def unseparate(identifier: str) -> str:
@@ -276,7 +277,7 @@ class FFIdentitySwap(C4IdentitySwap):
             cls.update_service(ecs, cluster, service, new_task_definition)
 
     @classmethod
-    def _update_foursight(cls, assure_prod_color=None):
+    def _update_foursight(cls, assure_prod_color=None, do_legacy=False) -> None:
         """ Triggers foursight update by updating data/staging env entries in GLOBAL_ENV_BUCKET. """
         with EnvBase.global_env_bucket_named('foursight-prod-envs'):
 
@@ -303,81 +304,84 @@ class FFIdentitySwap(C4IdentitySwap):
             else:
                 raise NotImplementedError("need to add support for forcing a specific color")
 
-            data = s3Utils.get_synthetic_env_config('data')  # Compute the real value from the real bucket
-            data_env = data['ff_env']
-            data['fourfront'] = DATA_URL
-            data['ff_env'] = 'data'  # Synthetic value would say the full env name here, but we used to not do that.
-            data[
-                'ecosystem'] = 'main.ecosystem'  # THe synthetic values don't have an ecosystem, so add it in old style.
-            # It's not supposed to matter which format, but since the old tools were using this without http://
-            # let's be maximally compatible. -kmp 23-Aug-2022
-            data['es'] = remove_prefix('https://', data['es'])
+            # if we want to make changes to the old (foursight-envs) bucket, pass do_legacy=True
+            # note that this should no longer ever be necessary, but we keep for historical reasons
+            if do_legacy:
+                data = s3Utils.get_synthetic_env_config('data')  # Compute the real value from the real bucket
+                data_env = data['ff_env']
+                data['fourfront'] = DATA_URL
+                data['ff_env'] = 'data'  # Synthetic value would say the full env name here, but we used to not do that.
+                data[
+                    'ecosystem'] = 'main.ecosystem'  # THe synthetic values don't have an ecosystem, so add it in old style.
+                # It's not supposed to matter which format, but since the old tools were using this without http://
+                # let's be maximally compatible. -kmp 23-Aug-2022
+                data['es'] = remove_prefix('https://', data['es'])
 
-            staging = s3Utils.get_synthetic_env_config('staging')  # Compute the real value from the real bucket
-            staging_env = staging['ff_env']
-            staging['fourfront'] = STAGING_URL
-            staging[
-                'ff_env'] = 'staging'  # Synthetic value would say the full env name here, but we used to not do that.
-            staging[
-                'ecosystem'] = 'main.ecosystem'  # THe synthetic values don't have an ecosystem, so add it in old style.
-            # It's not supposed to matter which format, but since the old tools were using this without http://
-            # let's be maximally compatible. -kmp 23-Aug-2022
-            staging['es'] = remove_prefix('https://', staging['es'])
+                staging = s3Utils.get_synthetic_env_config('staging')  # Compute the real value from the real bucket
+                staging_env = staging['ff_env']
+                staging['fourfront'] = STAGING_URL
+                staging[
+                    'ff_env'] = 'staging'  # Synthetic value would say the full env name here, but we used to not do that.
+                staging[
+                    'ecosystem'] = 'main.ecosystem'  # THe synthetic values don't have an ecosystem, so add it in old style.
+                # It's not supposed to matter which format, but since the old tools were using this without http://
+                # let's be maximally compatible. -kmp 23-Aug-2022
+                staging['es'] = remove_prefix('https://', staging['es'])
 
-            main = download_config(bucket='foursight-envs', key='main.ecosystem')
+                main = download_config(bucket='foursight-envs', key='main.ecosystem')
 
-            # There's an element that was 'stg_env' in foursight-envs main.ecosystem that I THINK should be stg_env_name,
-            # but since it's harmless to keep both, and this is an interim tool intended to be maximally compatible,
-            # let's add the one I think is right rather than replace it.
-            # -kmp 23-Aug-2022
-            new_main = {}
-            for k, v in main.items():
-                if k == 'stg_env':  # This seems like a typo, but just in case it's old compatibility, leave it.
-                    new_main[k] = v
-                    new_main['stg_env_name'] = v
-                else:
-                    new_main[k] = v
-            main = new_main
+                # There's an element that was 'stg_env' in foursight-envs main.ecosystem that I THINK should be stg_env_name,
+                # but since it's harmless to keep both, and this is an interim tool intended to be maximally compatible,
+                # let's add the one I think is right rather than replace it.
+                # -kmp 23-Aug-2022
+                new_main = {}
+                for k, v in main.items():
+                    if k == 'stg_env':  # This seems like a typo, but just in case it's old compatibility, leave it.
+                        new_main[k] = v
+                        new_main['stg_env_name'] = v
+                    else:
+                        new_main[k] = v
+                main = new_main
 
-            # Now finally do surgery to make sure we really know what env (green or blue) is dominant.
-            # Must update both the top-level declaration and the environment mapping.
-            # For now we are assuming that the declarations files for fourfront-production-blue
-            # and fourfront-production-green need no adjustment. -kmp 23-Aug-2022
+                # Now finally do surgery to make sure we really know what env (green or blue) is dominant.
+                # Must update both the top-level declaration and the environment mapping.
+                # For now we are assuming that the declarations files for fourfront-production-blue
+                # and fourfront-production-green need no adjustment. -kmp 23-Aug-2022
 
-            main['prd_env_name'] = data_env
-            main['stg_env'] = staging_env
-            main['stg_env_name'] = staging_env
+                main['prd_env_name'] = data_env
+                main['stg_env'] = staging_env
+                main['stg_env_name'] = staging_env
 
-            public_url_table = main['public_url_table']
+                public_url_table = main['public_url_table']
 
-            data_entry = find_association(public_url_table, name='data')
-            # data_entry['name'] is unchanged ('data')
-            data_entry['url'] = DATA_URL
-            data_entry['host'] = 'data.4dnucleome.org'
-            data_entry['environment'] = data_env
+                data_entry = find_association(public_url_table, name='data')
+                # data_entry['name'] is unchanged ('data')
+                data_entry['url'] = DATA_URL
+                data_entry['host'] = 'data.4dnucleome.org'
+                data_entry['environment'] = data_env
 
-            staging_entry = find_association(public_url_table, name='staging')
-            # staging_entry['name'] is unchanged ('staging')
-            staging_entry['url'] = STAGING_URL  # note https:// is recently preferred
-            staging_entry['host'] = 'staging.4dnucleome.org'
-            staging_entry['environment'] = staging_env
+                staging_entry = find_association(public_url_table, name='staging')
+                # staging_entry['name'] is unchanged ('staging')
+                staging_entry['url'] = STAGING_URL  # note https:// is recently preferred
+                staging_entry['host'] = 'staging.4dnucleome.org'
+                staging_entry['environment'] = staging_env
 
-            green_env = 'fourfront-production-green'
-            green = download_config(bucket='foursight-envs', key=green_env)
-            green['fourfront'] = find_association(public_url_table, environment=green_env)['url']
+                green_env = 'fourfront-production-green'
+                green = download_config(bucket='foursight-envs', key=green_env)
+                green['fourfront'] = find_association(public_url_table, environment=green_env)['url']
 
-            blue_env = 'fourfront-production-blue'
-            blue = download_config(bucket='foursight-envs', key='fourfront-production-blue')
-            blue['fourfront'] = find_association(public_url_table, environment=blue_env)['url']
+                blue_env = 'fourfront-production-blue'
+                blue = download_config(bucket='foursight-envs', key='fourfront-production-blue')
+                blue['fourfront'] = find_association(public_url_table, environment=blue_env)['url']
 
-            upload_config(bucket='foursight-envs', key='data', data=data)
-            upload_config(bucket='foursight-envs', key='staging', data=staging)
-            upload_config(bucket='foursight-envs', key=green_env, data=green)
-            upload_config(bucket='foursight-envs', key=blue_env, data=blue)
-            upload_config(bucket='foursight-envs', key='main.ecosystem', data=main)
+                upload_config(bucket='foursight-envs', key='data', data=data)
+                upload_config(bucket='foursight-envs', key='staging', data=staging)
+                upload_config(bucket='foursight-envs', key=green_env, data=green)
+                upload_config(bucket='foursight-envs', key=blue_env, data=blue)
+                upload_config(bucket='foursight-envs', key='main.ecosystem', data=main)
 
     @classmethod
-    def identity_swap(cls, *, blue: str, green: str, mirror: bool) -> None:
+    def identity_swap(cls, *, blue: str, green: str, mirror: bool, do_legacy: bool) -> None:
         """ Triggers an ECS Service update for the blue and green clusters,
             swapping their tasks. """
         ecs = ECSUtils()
@@ -401,7 +405,7 @@ class FFIdentitySwap(C4IdentitySwap):
             PRINT(f'Swap plan executed - new tasks should reflect within 5 minutes')
 
         # update GLOBAL_ENV_BUCKET
-        cls._update_foursight()
+        cls._update_foursight(do_legacy=do_legacy)
 
 
 def main():
@@ -411,10 +415,12 @@ def main():
     parser.add_argument('green', help='Second env we are swapping', type=str)
     parser.add_argument('--mirror', help='Whether or not we are doing a mirror swap.', action='store_true',
                         default=False)
+    parser.add_argument('--do-legacy', help='Specify this to make changes to the legacy foursight-envs'
+                                            ' bucket (should be unused)', action='store_true', default=False)
     args = parser.parse_args()
 
     with ConfigManager.validate_and_source_configuration():
-        FFIdentitySwap.identity_swap(blue=args.blue, green=args.green, mirror=args.mirror)
+        FFIdentitySwap.identity_swap(blue=args.blue, green=args.green, mirror=args.mirror, do_legacy=args.do_legacy)
 
 
 if __name__ == '__main__':
