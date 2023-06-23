@@ -8,12 +8,15 @@ from dcicutils.cloudformation_utils import camelize
 from dcicutils.common import REGION  # note to deploy outside us-east-1 you will need to change this
 from .network import C4NetworkExports
 from ..part import C4Part
-from ..exports import C4Exports
-from ..base import ConfigManager, Settings, Secrets
+from ..exports import C4Exports, exportify
+from ..base import ConfigManager, Settings, Secrets, APP_DEPLOYMENT, DeploymentParadigm, APP_KIND
 
 
 class C4CodeBuildExports(C4Exports):
     """ Defines export metadata for codebuild """
+
+    BLUE_CB_URL = exportify('BlueCodeBuildURL')
+    GREEN_CB_URL = exportify('GreenCodeBuildURL')
 
     @classmethod
     def output_project_key(cls, project_name):
@@ -64,45 +67,94 @@ class C4CodeBuild(C4Part):
         # IAM role for cb builds
         iam_role = self.cb_iam_role(project_name=portal_env_name)
         template.add_resource(iam_role)
-        pipeline_iam_role = self.cb_iam_role(project_name=pipeline_project_name)
-        template.add_resource(pipeline_iam_role)
-        external_pipeline_iam_role = self.cb_iam_role(project_name=external_pipeline_project_name)
-        template.add_resource(external_pipeline_iam_role)
+        template.add_output(self.output_value(resource=iam_role,
+                                              export_name=C4CodeBuildExports.output_project_iam_role(
+                                                  project_name=portal_env_name
+                                              )))
         tibanna_iam_role = self.cb_iam_role(project_name=tibanna_project_name)
         template.add_resource(tibanna_iam_role)
+        template.add_output(self.output_value(resource=tibanna_iam_role,
+                                              export_name=C4CodeBuildExports.output_project_iam_role(
+                                                  project_name=tibanna_project_name
+                                              )))
 
         # credentials for cb
         creds = self.cb_source_credential()
         template.add_resource(creds)
 
-        # Build project for portal image
-        build_project = self.cb_project(
-            project_name=portal_env_name,
-            github_repo_url=ConfigManager.get_config_setting(Settings.CODEBUILD_GITHUB_REPOSITORY_URL,
-                                                             default=self.DEFAULT_GITHUB_REPOSITORY),
-            branch=ConfigManager.get_config_setting(Settings.CODEBUILD_DEPLOY_BRANCH,
-                                                    default=self.DEFAULT_DEPLOY_BRANCH),
-            environment=self.cb_portal_environment_vars()
-        )
-        template.add_resource(build_project)
+        # Build project for portal image in blue/green
+        if APP_DEPLOYMENT == DeploymentParadigm.BLUE_GREEN:
+            for env, export in {
+                f'-{DeploymentParadigm.BLUE}': C4CodeBuildExports.BLUE_CB_URL,
+                f'-{DeploymentParadigm.GREEN}': C4CodeBuildExports.GREEN_CB_URL
+            }.items():
+                env_name = ConfigManager.get_config_setting(Settings.ENV_NAME) + env
+                build_project = self.cb_project(
+                    project_name=env_name,
+                    github_repo_url=ConfigManager.get_config_setting(Settings.CODEBUILD_GITHUB_REPOSITORY_URL,
+                                                                     default=self.DEFAULT_GITHUB_REPOSITORY),
+                    branch=ConfigManager.get_config_setting(Settings.CODEBUILD_DEPLOY_BRANCH,
+                                                            default=self.DEFAULT_DEPLOY_BRANCH),
+                    environment=self.cb_portal_environment_vars(repo_name=ConfigManager.get_config_setting(
+                        Settings.ENV_NAME), image_tag=env.lstrip('-'))
+                )
+                template.add_resource(build_project)
+                template.add_output(self.output_value(resource=build_project,
+                                                      export_name=C4CodeBuildExports.output_project_key(
+                                                          project_name=env_name
+                                                      )))
+        else:  # standalone
+            build_project = self.cb_project(
+                project_name=portal_env_name,
+                github_repo_url=ConfigManager.get_config_setting(Settings.CODEBUILD_GITHUB_REPOSITORY_URL,
+                                                                 default=self.DEFAULT_GITHUB_REPOSITORY),
+                branch=ConfigManager.get_config_setting(Settings.CODEBUILD_DEPLOY_BRANCH,
+                                                        default=self.DEFAULT_DEPLOY_BRANCH),
+                environment=self.cb_portal_environment_vars()
+            )
+            template.add_resource(build_project)
+            template.add_output(self.output_value(resource=build_project,
+                                                  export_name=C4CodeBuildExports.output_project_key(
+                                                      project_name=portal_env_name
+                                                  )))
+        if APP_KIND == 'cgap':
+            pipeline_iam_role = self.cb_iam_role(project_name=pipeline_project_name)
+            template.add_resource(pipeline_iam_role)
+            external_pipeline_iam_role = self.cb_iam_role(project_name=external_pipeline_project_name)
+            template.add_resource(external_pipeline_iam_role)
+            template.add_output(self.output_value(resource=pipeline_iam_role,
+                                                  export_name=C4CodeBuildExports.output_project_iam_role(
+                                                      project_name=pipeline_project_name
+                                                  )))
+            template.add_output(self.output_value(resource=external_pipeline_iam_role,
+                                                  export_name=C4CodeBuildExports.output_project_iam_role(
+                                                      project_name=external_pipeline_project_name
+                                                  )))
+            # Build project for pipeline images
+            pipeline_build_project = self.cb_project(
+                project_name=pipeline_project_name,
+                github_repo_url=self.DEFAULT_GITHUB_PIPELINE_REPOSITORY,
+                branch=self.DEFAULT_PIPELINE_DEPLOY_BRANCH,
+                environment=self.cb_pipeline_environment_vars()
+            )
+            template.add_resource(pipeline_build_project)
+            template.add_output(self.output_value(resource=pipeline_build_project,
+                                                  export_name=C4CodeBuildExports.output_project_key(
+                                                      project_name=pipeline_project_name
+                                                  )))
 
-        # Build project for pipeline images
-        pipeline_build_project = self.cb_project(
-            project_name=pipeline_project_name,
-            github_repo_url=self.DEFAULT_GITHUB_PIPELINE_REPOSITORY,
-            branch=self.DEFAULT_PIPELINE_DEPLOY_BRANCH,
-            environment=self.cb_pipeline_environment_vars()
-        )
-        template.add_resource(pipeline_build_project)
-
-        # Build project for external pipeline images
-        external_pipeline_build_project = self.cb_project(
-            project_name=external_pipeline_project_name,
-            github_repo_url=self.DEFAULT_EXTERNAL_GITHUB_PIPELINE_REPOSITORY,
-            branch=self.DEFAULT_EXTERNAL_GITHUB_PIPELINE_BRANCH,
-            environment=self.cb_external_pipeline_environment_vars()
-        )
-        template.add_resource(external_pipeline_build_project)
+            # Build project for external pipeline images
+            external_pipeline_build_project = self.cb_project(
+                project_name=external_pipeline_project_name,
+                github_repo_url=self.DEFAULT_EXTERNAL_GITHUB_PIPELINE_REPOSITORY,
+                branch=self.DEFAULT_EXTERNAL_GITHUB_PIPELINE_BRANCH,
+                environment=self.cb_external_pipeline_environment_vars()
+            )
+            template.add_resource(external_pipeline_build_project)
+            template.add_output(self.output_value(resource=external_pipeline_build_project,
+                                                  export_name=C4CodeBuildExports.output_project_key(
+                                                      project_name=external_pipeline_project_name
+                                                  )))
 
         # Build project for Tibanna AWSF
         tibanna_build_project = self.cb_project(
@@ -112,38 +164,8 @@ class C4CodeBuild(C4Part):
             environment=self.cb_tibanna_environment_vars()
         )
         template.add_resource(tibanna_build_project)
-
-        # output build project names, iam roles
-        template.add_output(self.output_value(resource=build_project,
-                                              export_name=C4CodeBuildExports.output_project_key(
-                                                  project_name=portal_env_name
-                                              )))
-        template.add_output(self.output_value(resource=pipeline_build_project,
-                                              export_name=C4CodeBuildExports.output_project_key(
-                                                  project_name=pipeline_project_name
-                                              )))
-        template.add_output(self.output_value(resource=external_pipeline_build_project,
-                                              export_name=C4CodeBuildExports.output_project_key(
-                                                  project_name=external_pipeline_project_name
-                                              )))
         template.add_output(self.output_value(resource=tibanna_build_project,
                                               export_name=C4CodeBuildExports.output_project_key(
-                                                  project_name=tibanna_project_name
-                                              )))
-        template.add_output(self.output_value(resource=iam_role,
-                                              export_name=C4CodeBuildExports.output_project_iam_role(
-                                                  project_name=portal_env_name
-                                              )))
-        template.add_output(self.output_value(resource=pipeline_iam_role,
-                                              export_name=C4CodeBuildExports.output_project_iam_role(
-                                                  project_name=pipeline_project_name
-                                              )))
-        template.add_output(self.output_value(resource=external_pipeline_iam_role,
-                                              export_name=C4CodeBuildExports.output_project_iam_role(
-                                                  project_name=external_pipeline_project_name
-                                              )))
-        template.add_output(self.output_value(resource=tibanna_iam_role,
-                                              export_name=C4CodeBuildExports.output_project_iam_role(
                                                   project_name=tibanna_project_name
                                               )))
         return template
@@ -210,7 +232,7 @@ class C4CodeBuild(C4Part):
         """
         return Artifacts(Type='NO_ARTIFACTS')
 
-    def cb_portal_environment_vars(self) -> Environment:
+    def cb_portal_environment_vars(self, repo_name=None, image_tag=None) -> Environment:
         """ Environment configuration for the portal build """
         return Environment(
             ComputeType=self.DEFAULT_COMPUTE_TYPE,
@@ -218,9 +240,12 @@ class C4CodeBuild(C4Part):
             EnvironmentVariables=[
                 {'Name': 'AWS_DEFAULT_REGION', 'Value': REGION},
                 {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
-                {'Name': 'IMAGE_REPO_NAME', 'Value': self.DEFAULT_ECR_REPO_NAME},  # main is the default repo name
+                # main is the default repo name, only needs override in blue/green
+                {'Name': 'IMAGE_REPO_NAME', 'Value': self.DEFAULT_ECR_REPO_NAME if not repo_name else repo_name},
                 {'Name': 'IMAGE_TAG',
-                 'Value': ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, default='latest')},
+                 'Value': image_tag if image_tag else ConfigManager.get_config_setting(
+                     Settings.ECS_IMAGE_TAG, default='latest'
+                 )},
             ],
             Type=self.BUILD_TYPE,
             PrivilegedMode=True
@@ -314,7 +339,7 @@ class C4CodeBuild(C4Part):
             Description=f'Build project for {project_name}',
             Environment=environment,
             Name=project_name,
-            ServiceRole=Ref(self.cb_iam_role(project_name=project_name)),
+            ServiceRole=Ref(self.cb_iam_role(project_name=ConfigManager.get_config_setting(Settings.ENV_NAME))),
             Source=self.cb_source(github_repo_url=github_repo_url),
             SourceVersion=branch,
             VpcConfig=self.cb_vpc_config(),

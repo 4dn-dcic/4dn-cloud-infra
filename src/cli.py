@@ -184,7 +184,8 @@ class C4Client:
                 '--parameter-overrides',  # the flag itself
                 cls.build_parameter_override(param_name='NetworkStackNameParameter',
                                              value=ConfigManager.app_case(if_cgap=network_stack_name.stack_name,
-                                                                          if_ff=cls.FOURFRONT_NETWORK_STACK)),
+                                                                          if_ff=cls.FOURFRONT_NETWORK_STACK,
+                                                                          if_smaht=network_stack_name.stack_name)),
                 cls.build_parameter_override(param_name='ECRStackNameParameter',
                                              value=ecr_stack_name.stack_name),
                 cls.build_parameter_override(param_name='IAMStackNameParameter',

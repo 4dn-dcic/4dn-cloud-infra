@@ -19,7 +19,7 @@ from .logging import C4LoggingExports
 from .fourfront_ecs import FourfrontApplicationTypes
 
 
-class FourfrontECSBlueGreen(C4ECSApplication):
+class ECSBlueGreen(C4ECSApplication):
     """ Configures two ECS clusters in a blue/green fashion (identity swap compatible).
     """
     VPC_SQS_URL = 'https://sqs.us-east-1.amazonaws.com/'
@@ -281,7 +281,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
         return Service(
             f'Fourfront{image_tag}PortalService',
             Cluster=Ref(self.ecs_cluster()) if not cluster_ref else cluster_ref,
-            DependsOn=[self.name.logical_id(f'LBListener{image_tag.capitalize()}')],
+            DependsOn=[self.name.logical_id(f'LBListener{image_tag}')],
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(

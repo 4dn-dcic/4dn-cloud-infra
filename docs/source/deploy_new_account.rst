@@ -114,7 +114,7 @@ The minimum arguments needed for `init-custom-dir` is `--credentials` which shou
     #   the --verbose arg.                                                         #
     ################################################################################
     ./scripts/assure_s3_encrypt_key --verbose
-
+    poetry run cli provision appconfig --validate --upload-change-set
     poetry run cli provision datastore --validate --upload-change-set
 
 More info: https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/slr-es.html

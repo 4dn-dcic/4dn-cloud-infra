@@ -1,7 +1,7 @@
-from ..base import register_stack_creator, registered_stack_class
+from ..base import ConfigManager, register_stack_creator, registered_stack_class
 from ..parts import (
     network, datastore, ecr, iam, logging, ecs, fourfront_ecs,
-    appconfig, datastore_slim, sentieon, jupyterhub, higlass, fourfront_ecs_blue_green,
+    appconfig, datastore_slim, sentieon, jupyterhub, higlass, ecs_blue_green,
     codebuild, redis
 )
 from ..stack import (
@@ -12,6 +12,8 @@ from ..stack import (
 
 # Stack metadata
 # 'alpha' in this case refers to the first iteration of CGAP Docker on ECS
+# 'alpha' has taken on a new meaning in recent time, referring to any stack resources that
+# are used by 4DN, CGAP or SMaHT - Will June 23 2023
 def _c4_stack_name(name, kind):
     """ This function determines stack names and is shared by CGAP/FF. """
     if isinstance(name, str):
@@ -37,6 +39,11 @@ def c4_4dn_stack_name(name):
 def c4_alpha_stack_tags():
     """ Tag resources with Alpha (CGAP) tag """
     return C4Tags(env='prod', project='cgap', owner='project')
+
+
+def c4_smaht_stack_tags():
+    """ Tag resources with the SMaHT tag """
+    return C4Tags(env='prod', project='smaht', owner='project')
 
 
 def c4_4dn_stack_tags():
@@ -69,9 +76,14 @@ def c4_alpha_stack_metadata(name):  # was name='network'
 
 def create_c4_alpha_stack(*, name: str, account: C4Account):
     part = registered_stack_class(name, kind='alpha')
+    tags = ConfigManager.app_case(
+        if_ff=c4_4dn_stack_tags(),
+        if_cgap=c4_smaht_stack_tags(),
+        if_smaht=c4_smaht_stack_tags()
+    )
     return C4Stack(
         name=c4_alpha_stack_name(name),
-        tags=c4_alpha_stack_tags(),
+        tags=tags,
         account=account,
         parts=[part],
         description=c4_alpha_stack_description(name),
@@ -91,9 +103,14 @@ def create_c4_4dn_stack(*, name: str, account: C4Account):
 
 def create_c4_alpha_foursight_stack(*, name, account: C4Account):
     foursight_class = registered_stack_class(name, kind='alpha')
+    tags = ConfigManager.app_case(
+        if_ff=c4_4dn_stack_tags(),
+        if_cgap=c4_smaht_stack_tags(),
+        if_smaht=c4_smaht_stack_tags()
+    )
     return foursight_class(
         name=c4_alpha_stack_name(name),
-        tags=c4_alpha_stack_tags(),
+        tags=tags,
         account=account,
         description=c4_alpha_stack_description(name),
     )
@@ -162,10 +179,17 @@ def c4_alpha_stack_fourfront_ecs_standalone(account: C4Account):
 
 
 @register_stack_creator(name='fourfront_ecs_blue_green', kind='4dn',
-                        implementation_class=fourfront_ecs_blue_green.FourfrontECSBlueGreen)
+                        implementation_class=ecs_blue_green.ECSBlueGreen)
 def c4_alpha_stack_fourfront_ecs_blue_green(account: C4Account):
     """ ECS Stack for a blue/green fourfront environment. """
     return create_c4_4dn_stack(name='fourfront_ecs_blue_green', account=account)
+
+
+@register_stack_creator(name='ecs_blue_green', kind='alpha',
+                        implementation_class=ecs_blue_green.ECSBlueGreen)
+def c4_alpha_stack_ecs_blue_green(account: C4Account):
+    """ ECS Stack for a blue/green environment (that is not fourfront). """
+    return create_c4_alpha_stack(name='ecs_blue_green', account=account)
 
 
 @register_stack_creator(name='datastore_slim', kind='4dn',

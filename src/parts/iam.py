@@ -37,12 +37,18 @@ class C4IAM(C4IAMBase, C4Part):
         Right now, there is only one important IAM Role to configure.
         That is the assumed IAM role assigned to ECS.
     """
-    ROLE_NAME = ConfigManager.app_case(if_cgap='CGAPECSRole', if_ff='FFECSRole')
-    DEV_ROLE = ConfigManager.app_case(if_cgap='CGAPDevRole', if_ff='FFDevRole')
+    ROLE_NAME = ConfigManager.app_case(if_cgap='CGAPECSRole',
+                                       if_ff='FFECSRole',
+                                       if_smaht='SMaHTECSRole')
+    DEV_ROLE = ConfigManager.app_case(if_cgap='CGAPDevRole',
+                                      if_ff='FFDevRole',
+                                      if_smaht='SMaHTDevRole')
     INSTANCE_PROFILE_NAME = ConfigManager.app_case(if_cgap='CGAPECSInstanceProfile',
-                                                   if_ff='FFECSInstanceProfile')
+                                                   if_ff='FFECSInstanceProfile',
+                                                   if_smaht='SMaHTInstanceProfile')
     AUTOSCALING_ROLE_NAME = ConfigManager.app_case(if_cgap='CGAPECSAutoscalingRole',
-                                                   if_ff='FFECSAutoscalingRole')
+                                                   if_ff='FFECSAutoscalingRole',
+                                                   if_smaht='SMaHTAutoscalingRole')
     EXPORTS = C4IAMExports()
     # dmichaels/2022-06-22: Factored out into C4IAMBase in constants.py
     # SHARING = 'ecosystem'

@@ -134,11 +134,11 @@ class ConfigManager:
         ecosystem_name = ConfigManager.get_config_setting(Settings.S3_BUCKET_ECOSYSTEM, default=DEFAULT_ECOSYSTEM)
         ecosystem_part = f"{ecosystem_name}-" if ecosystem_name else ""
         app_kind = ConfigManager.get_config_setting(Settings.APP_KIND)
-        base_prefix = f"{app_kind}-{org_part}{ecosystem_part}"
+        base_prefix = f"{ecosystem_part}"
         foursight_prefix = f"{base_prefix}foursight-"
         application_prefix = f"{base_prefix}application-"
-        bucket_name = bucket_template.format(env_name=env_name,
-                                             env_part=env_part,
+        bucket_name = bucket_template.format(env_name='',
+                                             env_part='',
                                              application_prefix=application_prefix,
                                              foursight_prefix=foursight_prefix,
                                              )
@@ -274,11 +274,15 @@ class ConfigManager:
                     return found
 
     @classmethod
-    def app_case(cls, *, if_cgap, if_ff):
+    def app_case(cls, *, if_cgap, if_ff, if_smaht):
         """ Helper function for 'if app kind is FF give this value else its CGAP
             and give that value.
         """
-        return if_ff if cls.get_config_setting(Settings.APP_KIND) == 'ff' else if_cgap
+        if cls.get_config_setting(Settings.APP_KIND) == 'ff':
+            return if_ff
+        elif cls.get_config_setting(Settings.APP_KIND) == 'cgap':
+            return if_cgap
+        return if_smaht
 
     class AppBucketTemplate:
 
@@ -467,7 +471,7 @@ def configured_main_command(debug=False):
     return _command_wrapper
 
 
-VALID_APP_KINDS = ['cgap', 'ff']
+VALID_APP_KINDS = ['cgap', 'ff', 'smaht']
 
 APP_KIND = ConfigManager.get_config_setting(Settings.APP_KIND)
 
