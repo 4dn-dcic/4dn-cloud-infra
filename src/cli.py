@@ -32,7 +32,8 @@ class C4Client:
     CAPABILITY_IAM = 'CAPABILITY_IAM'
     FOURFRONT_NETWORK_STACK = 'c4-network-main-stack'  # this stack name is shared by all fourfront envs
     # these stacks require CAPABILITY_IAM, just IAM for now
-    REQUIRES_CAPABILITY_IAM = ['iam', 'foursight', 'foursight-development', 'foursight-production', 'codebuild']
+    REQUIRES_CAPABILITY_IAM = ['iam', 'foursight', 'foursight-development', 'foursight-production', 'codebuild',
+                               'foursight-smaht']
 
     @classmethod
     def _out_templates_mapping_for_mount(cls) -> str:

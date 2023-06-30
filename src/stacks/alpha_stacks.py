@@ -6,7 +6,7 @@ from ..parts import (
 )
 from ..stack import (
     C4Stack, C4Tags, C4Account, C4Part, BaseC4FoursightStack,
-    C4FoursightCGAPStack, C4FoursightFourfrontStack
+    C4FoursightCGAPStack, C4FoursightFourfrontStack, C4FoursightSMAHTStack
 )
 
 
@@ -229,6 +229,12 @@ def c4_alpha_stack_codebuild(account: C4Account):
 def c4_alpha_stack_foursight_cgap(account: C4Account):
     """ Foursight (prod) stack for cgap - note that either stage can be deployed """
     return create_c4_alpha_foursight_stack(name='foursight', account=account)
+
+
+@register_stack_creator(name='foursight-smaht', kind='alpha', implementation_class=C4FoursightSMAHTStack)
+def c4_alpha_stack_foursight_smaht(account: C4Account):
+    """ Foursight (prod) stack for smaht - note that either stage can be deployed """
+    return create_c4_alpha_foursight_stack(name='foursight-smaht', account=account)
 
 
 @register_stack_creator(name='foursight-production', kind='4dn', implementation_class=C4FoursightFourfrontStack)
