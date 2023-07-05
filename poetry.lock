@@ -1035,14 +1035,14 @@ tox = ["tox"]
 
 [[package]]
 name = "dcicutils"
-version = "7.5.2"
+version = "7.5.3"
 description = "Utility package for interacting with the 4DN Data Portal and other 4DN resources"
 category = "main"
 optional = false
 python-versions = ">=3.7,<3.10"
 files = [
-    {file = "dcicutils-7.5.2-py3-none-any.whl", hash = "sha256:474832b77c9d02af1c127992c96f5d028b2ae2677944b022270fb91c29189324"},
-    {file = "dcicutils-7.5.2.tar.gz", hash = "sha256:10ad0d803f9a557b6996da6c6bd82205df76d5ba94a0ad9e2f6fe9bd019a56f4"},
+    {file = "dcicutils-7.5.3-py3-none-any.whl", hash = "sha256:3d11da2b8b4a9d77c75f0a4cf0825849901fedf88ca07ea1cf42650f4c60ea69"},
+    {file = "dcicutils-7.5.3.tar.gz", hash = "sha256:b65c0c7880902ee8e2e0dedc95c15cb24830c329c15a59648c1fc81de2329f14"},
 ]
 
 [package.dependencies]
@@ -1336,14 +1336,14 @@ tzlocal = ">=5.0.1,<6.0.0"
 
 [[package]]
 name = "foursight-smaht"
-version = "0.0.0.1b2"
+version = "0.0.0.1b3"
 description = "Serverless Chalice Application for Monitoring"
 category = "dev"
 optional = false
 python-versions = ">=3.7.1,<3.8"
 files = [
-    {file = "foursight_smaht-0.0.0.1b2-py3-none-any.whl", hash = "sha256:5a970662c31773bca9928c6344e8479dec103024b961e67b8bcb329035afbeca"},
-    {file = "foursight_smaht-0.0.0.1b2.tar.gz", hash = "sha256:b2033a70abc0e7dcc21dcfbae163f7272242ec45166742eccc6e61f78994dfa6"},
+    {file = "foursight_smaht-0.0.0.1b3-py3-none-any.whl", hash = "sha256:3aa65afa6ca1874547743ec1e45731736377290bdca0144c3221760349b58136"},
+    {file = "foursight_smaht-0.0.0.1b3.tar.gz", hash = "sha256:a55478e19cf7684e9c18db2b673f6cc64ed341f581fb8a782555139365e515aa"},
 ]
 
 [package.dependencies]
@@ -3965,4 +3965,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.7.1,<3.8"
-content-hash = "24a78f3f6894a28d1dde82a6bbedac6282855662b33c899fdf33302b81f6f3e2"
+content-hash = "015feb54f78de0afaf0aae273f8a783d8b489c65315963c71684ff1e99ec1397"

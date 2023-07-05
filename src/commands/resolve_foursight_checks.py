@@ -2,9 +2,6 @@ import argparse
 import io
 import json
 import os
-import sys
-from dcicutils.env_utils import EnvUtils
-from dcicutils.secrets_utils import assumed_identity
 from foursight_core.check_utils import CheckHandler
 
 
@@ -13,6 +10,7 @@ from foursight_core.check_utils import CheckHandler
 # from .chalicelib.package import PackageDeploy as PackageDeploy_from_app
 from chalicelib_fourfront.vars import CHECK_SETUP_FILE as FOURSIGHT_FOURFRONT_CHECK_TEMPLATE
 from chalicelib_cgap.vars import CHECK_SETUP_FILE as FOURSIGHT_CGAP_CHECK_TEMPLATE
+from chalicelib_smaht.vars import CHECK_SETUP_FILE as FOURSIGHT_SMAHT_CHECK_TEMPLATE
 from dcicutils.misc_utils import full_class_name
 
 from src.constants import Settings
@@ -44,6 +42,8 @@ def resolve_foursight_checks(env_name=None, template_file=None, target_file=None
     # to help distinguish between foursight-cgap and foursight-fourfront.
     if app_name in ["foursight-fourfront", "fourfront"]:
         foursight_check_template = FOURSIGHT_FOURFRONT_CHECK_TEMPLATE
+    elif app_name in ["foursight-smaht", "smaht"]:
+        foursight_check_template = FOURSIGHT_SMAHT_CHECK_TEMPLATE
     else:
         foursight_check_template = FOURSIGHT_CGAP_CHECK_TEMPLATE
     env_name = env_name or DEFAULT_ENVIRONMENT
@@ -66,21 +66,6 @@ def resolve_foursight_checks(env_name=None, template_file=None, target_file=None
         print(f"Target file written: {target_file}.")
 
 
-# def json_subst_all(exp, substitutions):  # This might want to move to dcicutils.misc_utils later
-#     """
-#     Given an expression and some substitutions, substitutes all occurrences of the given
-#     """
-#     def do_subst(e):
-#         return json_subst_all(e, substitutions)
-#     if isinstance(exp, dict):
-#         return {do_subst(k): do_subst(v) for k, v in exp.items()}
-#     elif isinstance(exp, list):
-#         return [do_subst(e) for e in exp]
-#     elif exp in substitutions:  # Something atomic like a string or number
-#         return substitutions[exp]
-#     return exp
-
-
 def main(simulated_args=None):
 
     parser = argparse.ArgumentParser(  # noqa - PyCharm wrongly thinks the formatter_class is specified wrong here.
@@ -99,8 +84,8 @@ def main(simulated_args=None):
 
     # New (November 2022) --app command-line argument to help
     # distinguish between foursight-cgap and foursight-fourfront.
-    if args.app not in ["foursight-cgap", "cgap", "foursight-fourfront", "fourfront"]:
-        print("The --app argument must specify one of: cgap, fourfront")
+    if args.app not in ["foursight-cgap", "cgap", "foursight-fourfront", "fourfront", "smaht", "foursight-smaht"]:
+        print("The --app argument must specify one of: cgap, fourfront, smaht")
         exit(1)
 
     try:

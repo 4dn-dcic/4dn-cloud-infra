@@ -15,7 +15,7 @@ awscli = "^1.27.135"
 boto3 = "^1.26.135"
 botocore = "^1.29.135"
 chalice = "1.27.1"
-dcicutils = "^7.5.2.0b0"
+dcicutils = "^7.5.3"
 
 # Foursight-Core
 foursight-core = "4.3.0.1b46"
@@ -37,7 +37,7 @@ troposphere = "^3.2.2"
 # not both in the Chalice package (via foursight_core/deploy.py). dmichaels/2022-11-01.
 
 [tool.poetry.group.foursight_smaht.dependencies]
-foursight-smaht = "^0.0.0.1b2"
+foursight-smaht = "^0.0.0.1b3"
 
 [tool.poetry.group.foursight_cgap.dependencies]
 foursight-cgap = "^3.3.3"
