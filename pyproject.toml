@@ -18,7 +18,7 @@ chalice = "1.27.1"
 dcicutils = "^7.5.3"
 
 # Foursight-Core
-foursight-core = "4.3.0.1b47"
+foursight-core = "4.3.0.1b49"
 
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
