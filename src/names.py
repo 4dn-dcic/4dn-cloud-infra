@@ -9,7 +9,6 @@ from .constants import (
     C4NetworkBase,
     C4SentieonSupportBase
 )
-from .base import ConfigManager, Settings
 from .exports import C4DatastoreExportsMixin
 from .mixins import StackNameBaseMixin
 
@@ -51,8 +50,6 @@ class Names(StackNameBaseMixin):
     # dmichaels/2022-06-06: Factored out from C4Datastore.application_configuration_secret() in datastore.py.
     @classmethod
     def application_configuration_secret(cls, env_name: str, c4name: C4Name = None) -> str:
-        if ConfigManager.get_config_setting(Settings.IDENTITY, default=None):
-            return ConfigManager.get_config_setting(Settings.IDENTITY)
         if not c4name:
             c4name = cls.datastore_stack_name_object(env_name)
         return c4name.logical_id(camelize(env_name) + C4DatastoreBase.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
