@@ -48,6 +48,7 @@ echo "Deleting cruft from chalice package."
 rm -rf `find . -name examples -type d`
 rm -rf `find . -name tests -type d`
 rm -rf `find . -name test -type d`
+rm -rf `find . -name "libopenblasp*.so" -type f`
 echo "Done deleting cruft from chalice package."
 
 zip -r ${TMP_CHALICE_PACKAGE_FILE} . 2>&1 > $TMP_LOG_FILE
