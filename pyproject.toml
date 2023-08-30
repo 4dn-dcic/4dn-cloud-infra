@@ -39,14 +39,17 @@ troposphere = "^3.2.2"
 # foursight_fourfront, respectively. This is so we can conditionally include either but
 # not both in the Chalice package (via foursight_core/deploy.py). dmichaels/2022-11-01.
 
+[tool.poetry.group.foursight_smaht.dependencies]
+foursight-smaht = "^0.0.1.1b4"
+
 [tool.poetry.group.foursight_cgap.dependencies]
 #foursight-cgap = "3.6.0.1b3"
-foursight-cgap = "3.6.1.1b2"  # WRT Clara's pandas/numpy dependency removal
+### foursight-cgap = "3.6.1.1b2"  # WRT Clara's pandas/numpy dependency removal
 
 [tool.poetry.group.foursight_fourfront.dependencies]
 #foursight = "3.6.1.1b3"
 #foursight = "3.6.3.1b1"  # WRT Clara's pandas/numpy dependency removal
-#foursight = "3.7.0"
+### foursight = "3.7.0"
 
 [tool.poetry.dev-dependencies]
 jupyter = "1.0.0"
