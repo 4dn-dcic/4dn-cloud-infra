@@ -1001,13 +1001,13 @@ tox = ["tox"]
 
 [[package]]
 name = "dcicutils"
-version = "7.7.2"
+version = "7.9.0"
 description = "Utility package for interacting with the 4DN Data Portal and other 4DN resources"
 optional = false
 python-versions = ">=3.7,<3.10"
 files = [
-    {file = "dcicutils-7.7.2-py3-none-any.whl", hash = "sha256:2c4cf37c950ebee90de0fad63d44a27ee97f5a1b03952a7ce04ecc500e889c56"},
-    {file = "dcicutils-7.7.2.tar.gz", hash = "sha256:481c7d828391198cf03919ca4aed8b03d16a8a315de008e214af727024bfd5e7"},
+    {file = "dcicutils-7.9.0-py3-none-any.whl", hash = "sha256:e15d7e6d9551e5a732abb7c84731df9f70c5011b0e19b8f4ce024a2ff1a56ad7"},
+    {file = "dcicutils-7.9.0.tar.gz", hash = "sha256:0126f46f60c873c498f67bf137d585093f30e1373b0ea5d052a12920106e2395"},
 ]
 
 [package.dependencies]
@@ -1196,14 +1196,73 @@ pycodestyle = ">=2.9.0,<2.10.0"
 pyflakes = ">=2.5.0,<2.6.0"
 
 [[package]]
+name = "foursight"
+version = "3.8.0.1b1"
+description = "Serverless Chalice Application for Monitoring"
+optional = false
+python-versions = ">=3.7.1,<3.10"
+files = [
+    {file = "foursight-3.8.0.1b1-py3-none-any.whl", hash = "sha256:868972a74ed97ac24cd700bd1d4e3c1ed46305e82852142e7a2f4c97709b88ae"},
+    {file = "foursight-3.8.0.1b1.tar.gz", hash = "sha256:00a561675becbb3b5bf8f7c595da2f2ed50f0aa2c83b5e5565312125ab79d68d"},
+]
+
+[package.dependencies]
+click = ">=7.1.2,<8.0.0"
+dcicutils = ">=7.8.0,<8.0.0"
+elasticsearch = ">=7.13.4,<8.0.0"
+elasticsearch-dsl = ">=7.0.0,<8.0.0"
+foursight-core = "4.4.0.1b9"
+geocoder = "1.38.1"
+gitpython = ">=3.1.2,<4.0.0"
+google-api-python-client = ">=1.7.4,<2.0.0"
+gspread = ">=3.6.0"
+Jinja2 = "2.10.1"
+MarkupSafe = "1.1.1"
+oauth2client = ">=4.1.3"
+PyJWT = ">=2.5.0,<3.0.0"
+pytest = "5.1.2"
+pytz = ">=2020.1,<2021.0"
+tibanna_ff = ">=0.22.5"
+
+[[package]]
+name = "foursight-cgap"
+version = "3.6.1.1b3"
+description = "Serverless Chalice Application for Monitoring"
+optional = false
+python-versions = ">=3.7.1,<3.8"
+files = [
+    {file = "foursight_cgap-3.6.1.1b3-py3-none-any.whl", hash = "sha256:7b89e8e80ae593a6da499fa48c9eb86860f4f0bedddb1131aca12d6a0a8cd46f"},
+    {file = "foursight_cgap-3.6.1.1b3.tar.gz", hash = "sha256:c9e80edd4491809b098c66f6eb91ba034130515f850f10b87031e4ddde164401"},
+]
+
+[package.dependencies]
+cgap-pipeline-utils = "23.0"
+click = ">=7.1.2,<8.0.0"
+dcicutils = ">=7.5.2,<8.0.0"
+elasticsearch = ">=7.13.4,<8.0.0"
+elasticsearch-dsl = ">=7.0.0,<8.0.0"
+foursight-core = "4.4.0.1b9"
+geocoder = "1.38.1"
+gitpython = ">=3.1.2,<4.0.0"
+google-api-python-client = ">=1.12.5,<2.0.0"
+google-auth = ">=2.22.0,<3.0.0"
+Jinja2 = "2.10.1"
+magma-suite = ">=1.2.2,<2.0.0"
+MarkupSafe = "1.1.1"
+PyJWT = ">=2.5.0,<3.0.0"
+pytest = "5.1.2"
+pytz = ">=2020.1,<2021.0"
+tibanna-ff = ">=1.3.0,<2.0.0"
+
+[[package]]
 name = "foursight-core"
-version = "4.4.0.1b8"
+version = "4.4.0.1b9"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
 python-versions = ">=3.7,<3.10"
 files = [
-    {file = "foursight_core-4.4.0.1b8-py3-none-any.whl", hash = "sha256:3afa98bad5d944948170df2defbf9744b5e26d673bbb7aefdfdab55797020ef7"},
-    {file = "foursight_core-4.4.0.1b8.tar.gz", hash = "sha256:6c7e9db6e00c28489fb13decbf61f6f51a71c5df8d380ca395c22c4361ebd857"},
+    {file = "foursight_core-4.4.0.1b9-py3-none-any.whl", hash = "sha256:462754201c4896137de2375a03282905891e72eef0415d372ff7777b46855a2c"},
+    {file = "foursight_core-4.4.0.1b9.tar.gz", hash = "sha256:0f222d31df17d372037631b83f9709a7a191d716f118345c7f3976c1272eede2"},
 ]
 
 [package.dependencies]
@@ -1229,13 +1288,13 @@ tzlocal = ">=5.0.1,<6.0.0"
 
 [[package]]
 name = "foursight-smaht"
-version = "0.0.1.1b4"
+version = "0.0.1.1b5"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
 python-versions = ">=3.7.1,<3.8"
 files = [
-    {file = "foursight_smaht-0.0.1.1b4-py3-none-any.whl", hash = "sha256:66cd3541aaca8d8593dda69a7784a65d83e1ac73518cb468592829f5f717cc43"},
-    {file = "foursight_smaht-0.0.1.1b4.tar.gz", hash = "sha256:17ad66461211ae54c84acf7bb7f77dc19c8cb858e0c424815730a199f0fa3847"},
+    {file = "foursight_smaht-0.0.1.1b5-py3-none-any.whl", hash = "sha256:2e6cdf7cb93397aa147c002155f4350d378842dba94a73f991e0cba5f36b6b01"},
+    {file = "foursight_smaht-0.0.1.1b5.tar.gz", hash = "sha256:e7d48295023edb18d7d69760b681bccc5a28646d1171284dd9e56c24dbaf3826"},
 ]
 
 [package.dependencies]
@@ -1244,7 +1303,7 @@ click = ">=7.1.2,<8.0.0"
 dcicutils = ">=7.5.1,<8.0.0"
 elasticsearch = ">=7.13.4,<8.0.0"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
-foursight-core = "4.4.0.1b8"
+foursight-core = "4.4.0.1b9"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.12.5,<2.0.0"
@@ -1443,6 +1502,21 @@ protobuf = ">=3.19.5,<3.20.0 || >3.20.0,<3.20.1 || >3.20.1,<4.21.1 || >4.21.1,<4
 
 [package.extras]
 grpc = ["grpcio (>=1.44.0,<2.0.0dev)"]
+
+[[package]]
+name = "gspread"
+version = "5.10.0"
+description = "Google Spreadsheets Python API"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "gspread-5.10.0-py3-none-any.whl", hash = "sha256:f58b15d950ef5c45c8607edb3687188d5a543f2b66242f9c26fbb0d2cf36169d"},
+    {file = "gspread-5.10.0.tar.gz", hash = "sha256:2b6bba6dc111580170346a9bcd1893e0e8c52f67a9e537caec7b7a1e27c14435"},
+]
+
+[package.dependencies]
+google-auth = ">=1.12.0"
+google-auth-oauthlib = ">=0.4.1"
 
 [[package]]
 name = "httplib2"
@@ -2203,6 +2277,24 @@ jupyter-server = ">=1.8,<3"
 
 [package.extras]
 test = ["pytest", "pytest-console-scripts", "pytest-jupyter", "pytest-tornasync"]
+
+[[package]]
+name = "oauth2client"
+version = "4.1.3"
+description = "OAuth 2.0 client library"
+optional = false
+python-versions = "*"
+files = [
+    {file = "oauth2client-4.1.3-py2.py3-none-any.whl", hash = "sha256:b8a81cc5d60e2d364f0b1b98f958dbd472887acaf1a5b05e21c28c31a2d6d3ac"},
+    {file = "oauth2client-4.1.3.tar.gz", hash = "sha256:d486741e451287f69568a4d26d70d9acd73a2bbfa275746c535b4209891cccc6"},
+]
+
+[package.dependencies]
+httplib2 = ">=0.9.1"
+pyasn1 = ">=0.1.7"
+pyasn1-modules = ">=0.0.5"
+rsa = ">=3.1.4"
+six = ">=1.6.1"
 
 [[package]]
 name = "oauthlib"
@@ -3602,4 +3694,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.7.1,<3.8"
-content-hash = "7f4a8ec51f9752e40d330bd893d2342ed34babc08db108cb3e7304268015e576"
+content-hash = "99eab01897793c115dc9eb380fda8da3e50066625916d1bdf9e7bf08773d48bc"
