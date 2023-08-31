@@ -24,7 +24,7 @@ def _is_foursight_cgap():
     """
     with assumed_identity():
         EnvUtils.init()
-        return EnvUtils.app_case(if_cgap=False, if_fourfront=True)
+        return EnvUtils.app_case(if_cgap=True, if_fourfront=False)
 
 
 # TODO: Better way to communicate the directory containing the check_setup.json

@@ -39,6 +39,7 @@ class C4Client:
     def _out_templates_mapping_for_mount(cls) -> str:
         templates_dir = ConfigManager.templates_dir()
         docker_templates_dir = ConfigManager.templates_dir(relative_to='/root')
+        import pdb ; pdb.set_trace()
         mount_yaml = f"{templates_dir}:{docker_templates_dir}"
         return mount_yaml
 
@@ -50,6 +51,7 @@ class C4Client:
         mount_creds = f'{creds_dir}:/root/.aws'
         validation_cmd = 'amazon/aws-cli cloudformation validate-template'
         validation_args = f'--template-body file://{file_path}'
+        import pdb ; pdb.set_trace()
         docker_invocation = f'docker run --rm -it -v {mount_yaml} -v {mount_creds} {validation_cmd} {validation_args}'
         logger.info('Validating provisioned template...')
         os.system(docker_invocation)
@@ -118,6 +120,7 @@ class C4Client:
             ])
 
         # flags for cloudformation package command
+        import pdb ; pdb.set_trace()
         package_flags = ' '.join([
             '--template-file ./sam.yaml',
             '--s3-bucket',
@@ -128,6 +131,7 @@ class C4Client:
         if s3_key:  # if an s3 key is set, pass to enable server side encryption
             package_flags += f' --kms-key-id {s3_key}'
         # construct package cmd
+        import pdb ; pdb.set_trace()
         cmd_package = 'docker run --rm -it {mount_points} {cmd} {flags}'.format(
             mount_points=mount_points,
             cmd='amazon/aws-cli cloudformation package',
@@ -152,6 +156,7 @@ class C4Client:
         if s3_key:  # if an s3 key is set, pass to enable server side encryption
             deploy_flags += f' --kms-key-id {s3_key}'
         # construct deploy cmd
+        import pdb ; pdb.set_trace()
         cmd_deploy = 'docker run --rm -it {mount_points} {cmd} {flags}'.format(
             mount_points=mount_points,
             cmd='amazon/aws-cli cloudformation deploy',
@@ -204,6 +209,7 @@ class C4Client:
             capability_flags=cls.build_capability_param(stack)  # defaults to IAM
         )
 
+        import pdb ; pdb.set_trace()
         cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {flags}'.format(
             mount_yaml=cls._out_templates_mapping_for_mount(),
             mount_creds=f'{creds_dir}:/root/.aws',
@@ -304,6 +310,7 @@ class C4Client:
                 raise CLIException(f'Ambiguous stack name {stack_name} resolved'
                                    f' to both alpha and 4dn stacks! Update your stack'
                                    f' name so it does not clash with other stacks.')
+            stack = None
             if alpha_stack:
                 stack = alpha_stack
             if dcic_stack:
@@ -326,6 +333,7 @@ class C4Client:
 
                 stack.package_foursight_stack(args)  # <-- this will implicitly use args.stage, among others
                 if upload_change_set:
+                    import pdb ; pdb.set_trace()
                     bucket = ConfigManager.get_config_setting(Settings.FOURSIGHT_APP_VERSION_BUCKET, default=None)
                     cls.upload_chalice_package(output_file=output_file, stack=stack, bucket=bucket)
                 if use_stdout_and_exit:
