@@ -9,8 +9,9 @@ Change Log
 4.0.0
 =====
 
-* Build support for SMaHT
-* Fix remaining bugs associated with complete blue/green deploy
+* Upgrade to Python 3.11.
+* Build support for SMaHT.
+* Fix remaining bugs associated with complete blue/green deploy.
 
 3.10.0
 ======
