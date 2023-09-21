@@ -252,5 +252,4 @@ def c4_alpha_stack_foursight_fourfront(account: C4Account):
 @register_stack_creator(name='redis', kind='alpha', implementation_class=redis.C4Redis)
 def c4_alpha_stack_redis(account: C4Account):
     """ Builds the Redis stack """
-    import pdb ; pdb.set_trace()
     return create_c4_alpha_stack(name='redis', account=account)
