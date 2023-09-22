@@ -22,7 +22,7 @@ dcicutils = "7.12.0.1b5"
 
 # Foursight-Core
 #foursight-core = "4.4.0"  # WRT Clara's pandas/numpy dependency removal
-foursight-core = "4.5.0.1b3"
+foursight-core = "4.5.0.1b6"
 
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
@@ -44,15 +44,15 @@ troposphere = "^3.2.2"
 # not both in the Chalice package (via foursight_core/deploy.py). dmichaels/2022-11-01.
 
 [tool.poetry.group.foursight_smaht.dependencies]
-foursight-smaht = "0.0.1.1b2"
+foursight-smaht = "0.0.1.1b3"
 
 [tool.poetry.group.foursight_cgap.dependencies]
 ### foursight-cgap = "3.6.1.1b2"  # WRT Clara's pandas/numpy dependency removal
-foursight-cgap = "3.6.1.2b2"
+foursight-cgap = "3.6.1.2b3"
 
 [tool.poetry.group.foursight_fourfront.dependencies]
 #foursight = "3.6.3.1b1"  # WRT Clara's pandas/numpy dependency removal
-foursight = "3.9.0.1b2"
+foursight = "3.9.0.1b3"
 
 [tool.poetry.dev-dependencies]
 jupyter = "1.0.0"
