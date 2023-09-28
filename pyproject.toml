@@ -10,7 +10,7 @@ packages = [
 
 [tool.poetry.dependencies]
 # Chalice is problematic with Python 3.11 (cffi package won't install and required at run-time).
-python = ">=3.8,<3.12"
+python = ">=3.8,<3.11"
 awacs = "^2.0.0"
 awscli = "^1.29.52"
 boto3 = "^1.28.52"
@@ -19,10 +19,6 @@ chalice = "^1.29.0"
 cffi = "^1.15.1"
 #dcicutils = "^7.5.2"
 dcicutils = "7.12.0.2b6"
-
-# Foursight-Core
-#foursight-core = "4.4.0"  # WRT Clara's pandas/numpy dependency removal
-foursight-core = "4.5.0.1b12"
 
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
@@ -39,20 +35,22 @@ tibanna-ff = "2.0.1.1b6"
 tqdm = ">=4.62.3"
 troposphere = "^3.2.2"
 
+# Foursight ...
+
+foursight-core = "4.5.0.1b13"
+
 # Define poetry "groups" for foursight-cgap and foursight, named foursight_cgap and
 # foursight_fourfront, respectively. This is so we can conditionally include either but
 # not both in the Chalice package (via foursight_core/deploy.py). dmichaels/2022-11-01.
 
 [tool.poetry.group.foursight_smaht.dependencies]
-foursight-smaht = "0.0.1.2b12"
+foursight-smaht = "0.0.1.2b13"
 
 [tool.poetry.group.foursight_cgap.dependencies]
-### foursight-cgap = "3.6.1.1b2"  # WRT Clara's pandas/numpy dependency removal
-foursight-cgap = "3.6.1.2b12"
+foursight-cgap = "3.6.1.2b13"
 
 [tool.poetry.group.foursight_fourfront.dependencies]
-#foursight = "3.6.3.1b1"  # WRT Clara's pandas/numpy dependency removal
-foursight = "3.9.0.1b12"
+foursight = "3.9.0.1b13"
 
 [tool.poetry.dev-dependencies]
 jupyter = "1.0.0"
