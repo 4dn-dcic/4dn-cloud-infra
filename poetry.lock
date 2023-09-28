@@ -207,17 +207,17 @@ dev = ["black (==23.3.0)", "boto3 (>=1.23,<2)", "boto3-stubs[appconfig,serverles
 
 [[package]]
 name = "awscli"
-version = "1.29.55"
+version = "1.29.56"
 description = "Universal Command Line Environment for AWS."
 optional = false
 python-versions = ">= 3.7"
 files = [
-    {file = "awscli-1.29.55-py3-none-any.whl", hash = "sha256:e461ccbaca1c9268ed75934a314a730eeb2963a2b679918d3b238e61e394631f"},
-    {file = "awscli-1.29.55.tar.gz", hash = "sha256:ba78a3d1a0358fe100ecf3818d7195f5da817be0972dfe0a99e1a0b31f6a8852"},
+    {file = "awscli-1.29.56-py3-none-any.whl", hash = "sha256:c32183b90398bef6db48ea73a853df7bfc1226067dec2b025247691a7668459a"},
+    {file = "awscli-1.29.56.tar.gz", hash = "sha256:2664250be92addde8a1cf12688fba19c00d1987e37bcdfd654991055f8b895b4"},
 ]
 
 [package.dependencies]
-botocore = "1.31.55"
+botocore = "1.31.56"
 colorama = ">=0.2.5,<0.4.5"
 docutils = ">=0.10,<0.17"
 PyYAML = ">=3.10,<6.1"
@@ -328,17 +328,17 @@ wcwidth = ">=0.1.4"
 
 [[package]]
 name = "boto3"
-version = "1.28.55"
+version = "1.28.56"
 description = "The AWS SDK for Python"
 optional = false
 python-versions = ">= 3.7"
 files = [
-    {file = "boto3-1.28.55-py3-none-any.whl", hash = "sha256:2680c0e36167e672777110ccef5303d59fa4a6a4f10086f9c14158c5cb008d5c"},
-    {file = "boto3-1.28.55.tar.gz", hash = "sha256:2ceb644b1df7c3c8907913ab367a9900af79e271b4cfca37b542ec1fa142faf8"},
+    {file = "boto3-1.28.56-py3-none-any.whl", hash = "sha256:f5fcb27cdbd08ca38d699f2d2e32d96d1d9fab3368c15c6bc326256612d2cfd7"},
+    {file = "boto3-1.28.56.tar.gz", hash = "sha256:b927a7ed335d543c33c15fa63f1076f3fa8422959771c2187da74bc4395ab6e3"},
 ]
 
 [package.dependencies]
-botocore = ">=1.31.55,<1.32.0"
+botocore = ">=1.31.56,<1.32.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.7.0,<0.8.0"
 
@@ -347,13 +347,13 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "boto3-stubs"
-version = "1.28.55"
-description = "Type annotations for boto3 1.28.55 generated with mypy-boto3-builder 7.19.0"
+version = "1.28.56"
+description = "Type annotations for boto3 1.28.56 generated with mypy-boto3-builder 7.19.0"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "boto3-stubs-1.28.55.tar.gz", hash = "sha256:5121b26e4c4bb8adc7ac1a19dd27d3bfe236b18bec2ace5f987b9df6e2511cd3"},
-    {file = "boto3_stubs-1.28.55-py3-none-any.whl", hash = "sha256:530437c949b35e70613667d50c04ff3a41512ad03c3295851cc2c58a7309928d"},
+    {file = "boto3-stubs-1.28.56.tar.gz", hash = "sha256:2b77d4b9e944ffa4308822dc0327269f47cc4527a97903a3c5d14b9abed4eaad"},
+    {file = "boto3_stubs-1.28.56-py3-none-any.whl", hash = "sha256:e9c1f32463cf8e6ba56588f7c0f5cae52190b87eb19744ad1067a717be1c80b3"},
 ]
 
 [package.dependencies]
@@ -397,7 +397,7 @@ backup-gateway = ["mypy-boto3-backup-gateway (>=1.28.0,<1.29.0)"]
 backupstorage = ["mypy-boto3-backupstorage (>=1.28.0,<1.29.0)"]
 batch = ["mypy-boto3-batch (>=1.28.0,<1.29.0)"]
 billingconductor = ["mypy-boto3-billingconductor (>=1.28.0,<1.29.0)"]
-boto3 = ["boto3 (==1.28.55)", "botocore (==1.31.55)"]
+boto3 = ["boto3 (==1.28.56)", "botocore (==1.31.56)"]
 braket = ["mypy-boto3-braket (>=1.28.0,<1.29.0)"]
 budgets = ["mypy-boto3-budgets (>=1.28.0,<1.29.0)"]
 ce = ["mypy-boto3-ce (>=1.28.0,<1.29.0)"]
@@ -723,13 +723,13 @@ xray = ["mypy-boto3-xray (>=1.28.0,<1.29.0)"]
 
 [[package]]
 name = "botocore"
-version = "1.31.55"
+version = "1.31.56"
 description = "Low-level, data-driven core of boto 3."
 optional = false
 python-versions = ">= 3.7"
 files = [
-    {file = "botocore-1.31.55-py3-none-any.whl", hash = "sha256:5ec27caa440257619712af0a71524cc2e56110fc502853c3e4046f87b65e42e9"},
-    {file = "botocore-1.31.55.tar.gz", hash = "sha256:21ba89c4df083338ec463d9c2a8cffca42a99f9ad5f24bcac1870393b216c5a7"},
+    {file = "botocore-1.31.56-py3-none-any.whl", hash = "sha256:66c686e4eda7051ffcc9357d9075390c8ab2f95a2977669039618ee186fb533b"},
+    {file = "botocore-1.31.56.tar.gz", hash = "sha256:70252cd8abc2fe9b791328e187620f5a3911545e2520486b01ecfad31f41b9cb"},
 ]
 
 [package.dependencies]
@@ -742,13 +742,13 @@ crt = ["awscrt (==0.16.26)"]
 
 [[package]]
 name = "botocore-stubs"
-version = "1.31.55"
+version = "1.31.56"
 description = "Type annotations and code completion for botocore"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "botocore_stubs-1.31.55-py3-none-any.whl", hash = "sha256:ada1712ca340f29530c33837db552a9fa087f1c2224c410e6b20c4edbf7d9d6b"},
-    {file = "botocore_stubs-1.31.55.tar.gz", hash = "sha256:e75c725841a6fdaffe2b39ebf892828ce690132ebeab5be30a7568641e7eae10"},
+    {file = "botocore_stubs-1.31.56-py3-none-any.whl", hash = "sha256:e8f7273f57c09ef47f8bdc89765b151f43a46b3c29c52fb58e9982115ed14d84"},
+    {file = "botocore_stubs-1.31.56.tar.gz", hash = "sha256:e1510bd361acf755ecace42ee984281adfea6f96695ed22a08a4ceeabfe66f5f"},
 ]
 
 [package.dependencies]
@@ -1031,13 +1031,13 @@ tox = ["tox"]
 
 [[package]]
 name = "dcicutils"
-version = "7.12.0.2b6"
+version = "7.12.0.2b9"
 description = "Utility package for interacting with the 4DN Data Portal and other 4DN resources"
 optional = false
 python-versions = ">=3.8,<3.12"
 files = [
-    {file = "dcicutils-7.12.0.2b6-py3-none-any.whl", hash = "sha256:6e03e4d168f7056d4db4ebf7ec6c0367af62c9a2d36ba9808b20ed1ead875752"},
-    {file = "dcicutils-7.12.0.2b6.tar.gz", hash = "sha256:1e499d539bef10d955ed1303530f74a5207aef7b454829ab5eedee7a76e2b7a2"},
+    {file = "dcicutils-7.12.0.2b9-py3-none-any.whl", hash = "sha256:12d3e6cd0f26ad7e464a5e8c7c646d28d23f63a1e423ca4fa7ae536f3b9fd4d2"},
+    {file = "dcicutils-7.12.0.2b9.tar.gz", hash = "sha256:ef0da351164cd2495e5570d393c6564fdf8dab1f60a1b613c40dfd405693894e"},
 ]
 
 [package.dependencies]
@@ -1243,22 +1243,22 @@ pyflakes = ">=2.5.0,<2.6.0"
 
 [[package]]
 name = "foursight"
-version = "3.9.0.1b13"
+version = "3.9.0.1b15"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
 python-versions = ">=3.8,<3.12"
 files = [
-    {file = "foursight-3.9.0.1b13-py3-none-any.whl", hash = "sha256:74f21ce31060cbab603a7ebba205f78c8900ae88d862f24330acf6ba7640c549"},
-    {file = "foursight-3.9.0.1b13.tar.gz", hash = "sha256:a63d672ce1d38685fe9e6e3f1e5f43cb76b84d1e12601f01672eff282a333027"},
+    {file = "foursight-3.9.0.1b15-py3-none-any.whl", hash = "sha256:964f58b071f01625040f4706a815e2b736832edf449851b747b2e0ec5cd7cc58"},
+    {file = "foursight-3.9.0.1b15.tar.gz", hash = "sha256:9ce55112ab334e0c040f9f24ed69207cdfe1c5c6403244b1b228cd182e8d2ec8"},
 ]
 
 [package.dependencies]
 benchmark-4dn = ">=0.5.17,<0.6.0"
 click = ">=7.1.2,<8.0.0"
-dcicutils = "7.12.0.2b6"
+dcicutils = "7.12.0.2b9"
 elasticsearch = "7.13.4"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
-foursight-core = "4.5.0.1b13"
+foursight-core = "4.5.0.1b15"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-analytics-data = ">=0.17.1,<0.18.0"
@@ -1270,53 +1270,53 @@ PyJWT = ">=2.5.0,<3.0.0"
 pytest = ">=7.4.2,<8.0.0"
 pytest-redis = ">=3.0.2,<4.0.0"
 pytz = ">=2020.1,<2021.0"
-tibanna-ff = "2.0.1.1b6"
+tibanna-ff = "2.0.1.1b10"
 
 [[package]]
 name = "foursight-cgap"
-version = "3.6.1.2b13"
+version = "3.6.1.2b15"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
 python-versions = ">=3.8,<3.12"
 files = [
-    {file = "foursight_cgap-3.6.1.2b13-py3-none-any.whl", hash = "sha256:6b63040d716be36260e380a744f0af78dae79ccfba0ee3e4984c8e2fc8d3bb8f"},
-    {file = "foursight_cgap-3.6.1.2b13.tar.gz", hash = "sha256:9d92b4298e23c4c3ea928d2134746f66f775baa1da4439aaac18a89aca9692c4"},
+    {file = "foursight_cgap-3.6.1.2b15-py3-none-any.whl", hash = "sha256:5402616fa35b546e3cb60a9473789deeda39c566e8a40c641692e1e020351578"},
+    {file = "foursight_cgap-3.6.1.2b15.tar.gz", hash = "sha256:b8a83004ec66385b9a39ac245775861499cc04470e5dcaec8cdcb30e35e307b1"},
 ]
 
 [package.dependencies]
 click = ">=7.1.2,<8.0.0"
-dcicutils = "7.12.0.2b6"
+dcicutils = "7.12.0.2b9"
 elasticsearch = "7.13.4"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
-foursight-core = "4.5.0.1b13"
+foursight-core = "4.5.0.1b15"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.12.5,<2.0.0"
 Jinja2 = ">=3.1.2,<4.0.0"
-magma-suite = "1.5.0.3b2"
+magma-suite = "1.5.0.3b5"
 MarkupSafe = ">=2.1.3,<3.0.0"
 PyJWT = ">=2.5.0,<3.0.0"
 pytest = ">=7.4.2,<8.0.0"
 pytest-redis = ">=3.0.2,<4.0.0"
 pytz = ">=2020.1,<2021.0"
-tibanna-ff = "2.0.1.1b6"
+tibanna-ff = "2.0.1.1b10"
 
 [[package]]
 name = "foursight-core"
-version = "4.5.0.1b13"
+version = "4.5.0.1b15"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
 python-versions = ">=3.8,<3.12"
 files = [
-    {file = "foursight_core-4.5.0.1b13-py3-none-any.whl", hash = "sha256:0db37e54b3dc4748051b4bf4ae7990d5a0f46b75ea63dd7ab951fa179159ccfc"},
-    {file = "foursight_core-4.5.0.1b13.tar.gz", hash = "sha256:a28d091f5fa334afd283b6028314d32eb3973155f0c4b06e393792949285af71"},
+    {file = "foursight_core-4.5.0.1b15-py3-none-any.whl", hash = "sha256:e39b8489105c944902b079cf92f08f43d28f5c66567e388d69fe58737626d0d4"},
+    {file = "foursight_core-4.5.0.1b15.tar.gz", hash = "sha256:68f2058930153dfcce3f349030cd1ccdd398a2bf836dd3ab55b0b60f52fc1ede"},
 ]
 
 [package.dependencies]
 click = ">=7.1.2,<8.0.0"
 cron-descriptor = ">=1.2.31,<2.0.0"
 cryptography = "39.0.2"
-dcicutils = "7.12.0.2b6"
+dcicutils = "7.12.0.2b9"
 elasticsearch = "7.13.4"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
 geocoder = "1.38.1"
@@ -1335,32 +1335,32 @@ tzlocal = ">=5.0.1,<6.0.0"
 
 [[package]]
 name = "foursight-smaht"
-version = "0.0.1.2b13"
+version = "0.0.1.2b15"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
 python-versions = ">=3.8,<3.12"
 files = [
-    {file = "foursight_smaht-0.0.1.2b13-py3-none-any.whl", hash = "sha256:943d9eed9eef2d40ea300a52c57bf45954f09f6a56d388eab904b82dbbbf516e"},
-    {file = "foursight_smaht-0.0.1.2b13.tar.gz", hash = "sha256:7512f33b56d67514b06414b05610cb731165981dc3d5ad446355a0b8cbdfbaf8"},
+    {file = "foursight_smaht-0.0.1.2b15-py3-none-any.whl", hash = "sha256:33b91ee9e74880764b3c435ec542212ac36f566bed8475eb9345d1608c259138"},
+    {file = "foursight_smaht-0.0.1.2b15.tar.gz", hash = "sha256:a4041145276d5c2d8e932a75be8a1dac748d5f8b59f1a74733822de1f4f9bd96"},
 ]
 
 [package.dependencies]
 click = ">=7.1.2,<8.0.0"
-dcicutils = "7.12.0.2b6"
+dcicutils = "7.12.0.2b9"
 elasticsearch = "7.13.4"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
-foursight-core = "4.5.0.1b13"
+foursight-core = "4.5.0.1b15"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.12.5,<2.0.0"
 Jinja2 = ">=3.1.2,<4.0.0"
-magma-suite = "1.5.0.3b2"
+magma-suite = "1.5.0.3b5"
 MarkupSafe = ">=2.1.3,<3.0.0"
 PyJWT = ">=2.5.0,<3.0.0"
 pytest = ">=7.4.2,<8.0.0"
 pytest-redis = ">=3.0.2,<4.0.0"
 pytz = ">=2020.1,<2021.0"
-tibanna-ff = "2.0.1.1b6"
+tibanna-ff = "2.0.1.1b10"
 
 [[package]]
 name = "future"
@@ -2147,18 +2147,18 @@ files = [
 
 [[package]]
 name = "magma-suite"
-version = "1.5.0.3b2"
+version = "1.5.0.3b5"
 description = "Collection of tools to manage meta-workflows automation."
 optional = false
 python-versions = ">=3.8,<3.12"
 files = [
-    {file = "magma_suite-1.5.0.3b2-py3-none-any.whl", hash = "sha256:017d3381790124b8272fa96b5451098a23ddb2c99097280fec416cd6f39fca9a"},
-    {file = "magma_suite-1.5.0.3b2.tar.gz", hash = "sha256:b45d0c91f8336a91c887d537c78142965766b619cae8c53fbf0c1e7cb3a69d6b"},
+    {file = "magma_suite-1.5.0.3b5-py3-none-any.whl", hash = "sha256:bc9b97bae6dc2457cd66bd965238836e7a9d952c08417086e7ecf63abc47480b"},
+    {file = "magma_suite-1.5.0.3b5.tar.gz", hash = "sha256:85aa56cb69fb42377a95ceec80015e028dfa8d1262bc7539fe92be3fccafaccf"},
 ]
 
 [package.dependencies]
-dcicutils = "7.12.0.2b6"
-tibanna-ff = "2.0.1.1b6"
+dcicutils = "7.12.0.2b9"
+tibanna-ff = "2.0.1.1b10"
 
 [[package]]
 name = "markupsafe"
@@ -2858,13 +2858,13 @@ files = [
 
 [[package]]
 name = "pydantic"
-version = "2.4.1"
+version = "2.4.2"
 description = "Data validation using Python type hints"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "pydantic-2.4.1-py3-none-any.whl", hash = "sha256:2b2240c8d54bb8f84b88e061fac1bdfa1761c2859c367f9d3afe0ec2966deddc"},
-    {file = "pydantic-2.4.1.tar.gz", hash = "sha256:b172505886028e4356868d617d2d1a776d7af1625d1313450fd51bdd19d9d61f"},
+    {file = "pydantic-2.4.2-py3-none-any.whl", hash = "sha256:bc3ddf669d234f4220e6e1c4d96b061abe0998185a8d7855c0126782b7abc8c1"},
+    {file = "pydantic-2.4.2.tar.gz", hash = "sha256:94f336138093a5d7f426aac732dcfe7ab4eb4da243c88f891d65deb4a2556ee7"},
 ]
 
 [package.dependencies]
@@ -3740,39 +3740,39 @@ test = ["pre-commit", "pytest (>=7.0)", "pytest-timeout"]
 
 [[package]]
 name = "tibanna"
-version = "4.0.0.1b2"
+version = "4.0.0.1b4"
 description = "Tibanna runs portable pipelines (in CWL/WDL) on the AWS Cloud."
 optional = false
 python-versions = ">=3.8,<3.12"
 files = [
-    {file = "tibanna-4.0.0.1b2-py3-none-any.whl", hash = "sha256:bc7f52cbe53c6b723d1650939afeaa46765893986d1760074d32d4aafe9967e7"},
-    {file = "tibanna-4.0.0.1b2.tar.gz", hash = "sha256:2565aa7da5d2ef55558fda69a02f3dac9dbe559a8f504fca107dbe072eec0d40"},
+    {file = "tibanna-4.0.0.1b4-py3-none-any.whl", hash = "sha256:f3fde1244f3a52641bdb0cdfd2688f46e3b31197b195b05f7fbb3161df2d4dfb"},
+    {file = "tibanna-4.0.0.1b4.tar.gz", hash = "sha256:6a8a8a4a2daa6c0c079ed9db764dd107ea97b0d1356941b90831f4437b24fbab"},
 ]
 
 [package.dependencies]
 Benchmark-4dn = ">=0.5.23,<0.6.0"
-boto3 = ">=1.28.51,<2.0.0"
-botocore = ">=1.31.51,<2.0.0"
+boto3 = ">=1.28.56,<2.0.0"
+botocore = ">=1.31.56,<2.0.0"
 python-lambda-4dn = "0.12.3"
 tomlkit = ">=0.11.0,<0.12.0"
 
 [[package]]
 name = "tibanna-ff"
-version = "2.0.1.1b6"
+version = "2.0.1.1b10"
 description = "Tibanna runs portable pipelines (in CWL/WDL) on the AWS Cloud."
 optional = false
 python-versions = ">=3.8,<3.12"
 files = [
-    {file = "tibanna_ff-2.0.1.1b6-py3-none-any.whl", hash = "sha256:c30e777b3076683d7b367284ae7c22f574b470e6da1b8b268d6c167b41be9780"},
-    {file = "tibanna_ff-2.0.1.1b6.tar.gz", hash = "sha256:45f978dba2d215a3256d9256199bc97022d0dbbee74db2eadbb89ee9c95b7ca1"},
+    {file = "tibanna_ff-2.0.1.1b10-py3-none-any.whl", hash = "sha256:0e482f6cf98bfa18b4353e91686da176d4cdc1b4636b5cc0bde1529bd70ef0bd"},
+    {file = "tibanna_ff-2.0.1.1b10.tar.gz", hash = "sha256:f08ad73325dce65157c36a780b8e0252ec56829dae17b0960bd86faae18aa594"},
 ]
 
 [package.dependencies]
-boto3 = ">=1.28.54,<2.0.0"
-botocore = ">=1.31.54,<2.0.0"
-dcicutils = "7.12.0.2b6"
+boto3 = ">=1.28.56,<2.0.0"
+botocore = ">=1.31.56,<2.0.0"
+dcicutils = "7.12.0.2b9"
 requests = "2.27.1"
-tibanna = "4.0.0.1b2"
+tibanna = "4.0.0.1b4"
 tomlkit = ">=0.11.0,<0.12.0"
 
 [[package]]
@@ -4134,4 +4134,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.11"
-content-hash = "fe0dc8649249a895a864712137653474bec362abca07b4f71ce1206b5a1328bf"
+content-hash = "f42bdb7cafb5ab51fa964a35d65cd2a77c688f86faef3de31286c2c00f64f88c"
