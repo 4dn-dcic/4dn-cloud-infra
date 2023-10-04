@@ -1231,13 +1231,13 @@ pyflakes = ">=2.5.0,<2.6.0"
 
 [[package]]
 name = "foursight"
-version = "3.9.0.1b18"
+version = "3.9.0.1b19"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
 python-versions = ">=3.8,<3.12"
 files = [
-    {file = "foursight-3.9.0.1b18-py3-none-any.whl", hash = "sha256:e8011fcfb3c475cdc25d6be66212bc8711823f2d11c22c029097ae1596e24242"},
-    {file = "foursight-3.9.0.1b18.tar.gz", hash = "sha256:373c806a8b501ebeb1a092fd9bba9eb9ec57369bfef9a0784fb2d2494e209eec"},
+    {file = "foursight-3.9.0.1b19-py3-none-any.whl", hash = "sha256:84107d1c830b4509b740a8f9eeb3fb603ab968cf0c405c9ff4f05037969ef7bb"},
+    {file = "foursight-3.9.0.1b19.tar.gz", hash = "sha256:8010124e918c70a38dd5a626f57038755d00e1acbc4bc281f00e4515597caeab"},
 ]
 
 [package.dependencies]
@@ -1246,7 +1246,7 @@ click = ">=7.1.2,<8.0.0"
 dcicutils = "7.12.0.2b9"
 elasticsearch = "7.13.4"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
-foursight-core = "4.5.0.1b18"
+foursight-core = "4.5.0.1b19"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-analytics-data = ">=0.17.1,<0.18.0"
@@ -1262,13 +1262,13 @@ tibanna-ff = "2.0.1.1b10"
 
 [[package]]
 name = "foursight-cgap"
-version = "3.6.1.2b18"
+version = "3.6.1.2b19"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
 python-versions = ">=3.8,<3.12"
 files = [
-    {file = "foursight_cgap-3.6.1.2b18-py3-none-any.whl", hash = "sha256:0dbd616cacbe303c4e6ce421c14f8686e1e1cf0be2cfa755ffb0321b0d7da333"},
-    {file = "foursight_cgap-3.6.1.2b18.tar.gz", hash = "sha256:af0de4a91929364ea67a4f0eaa578d9f9893d9c669378690580b05b476892dbb"},
+    {file = "foursight_cgap-3.6.1.2b19-py3-none-any.whl", hash = "sha256:76dedeaa48c46a826805edb16c257553e0bc65767f7eb9ba3564fdb359fcbd9d"},
+    {file = "foursight_cgap-3.6.1.2b19.tar.gz", hash = "sha256:203a377d2fbbf936ff59c99c9c9be73f1b6898028d244c0c2d08b6f9386bf873"},
 ]
 
 [package.dependencies]
@@ -1276,7 +1276,7 @@ click = ">=7.1.2,<8.0.0"
 dcicutils = "7.12.0.2b9"
 elasticsearch = "7.13.4"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
-foursight-core = "4.5.0.1b18"
+foursight-core = "4.5.0.1b19"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.12.5,<2.0.0"
@@ -1291,13 +1291,13 @@ tibanna-ff = "2.0.1.1b10"
 
 [[package]]
 name = "foursight-core"
-version = "4.5.0.1b18"
+version = "4.5.0.1b19"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
 python-versions = ">=3.8,<3.12"
 files = [
-    {file = "foursight_core-4.5.0.1b18-py3-none-any.whl", hash = "sha256:03635536b1f15dad0748d59bc2f069b5217abe4aa35ebca7673aa35c07a8e915"},
-    {file = "foursight_core-4.5.0.1b18.tar.gz", hash = "sha256:1ef613a498a07db2ef22a8e8b913017edcddbd2d1e8ff6183e884f59b9cecdbd"},
+    {file = "foursight_core-4.5.0.1b19-py3-none-any.whl", hash = "sha256:e2f358fe135ffe9ae017fa47736eb7d9ae613b6771bbc7f84f40ab608faf2600"},
+    {file = "foursight_core-4.5.0.1b19.tar.gz", hash = "sha256:852acb9de2b5b14658badff91f51daaad612c2ccff66d82bce73f9f5c9f2926c"},
 ]
 
 [package.dependencies]
@@ -1323,13 +1323,13 @@ tzlocal = ">=5.0.1,<6.0.0"
 
 [[package]]
 name = "foursight-smaht"
-version = "0.0.1.2b18"
+version = "0.0.1.2b19"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
 python-versions = ">=3.8,<3.12"
 files = [
-    {file = "foursight_smaht-0.0.1.2b18-py3-none-any.whl", hash = "sha256:1fce630cfdb11950dfd01b6cd0d8ed4bf348f277744fcec5c3219f91be736c19"},
-    {file = "foursight_smaht-0.0.1.2b18.tar.gz", hash = "sha256:c0ab707eaa77b3bdb7339b36e546656ef7087c9021958aa6638efcc28ebf14ae"},
+    {file = "foursight_smaht-0.0.1.2b19-py3-none-any.whl", hash = "sha256:507277194ee204b5e1917e027101f44716fd8b01851be109c81b8ffe7f9bd3dc"},
+    {file = "foursight_smaht-0.0.1.2b19.tar.gz", hash = "sha256:db5ba815b288bb47b9b35a2dfa6fcfffd6e915b12f2f6fe3dd19c2f57486ac0a"},
 ]
 
 [package.dependencies]
@@ -1337,7 +1337,7 @@ click = ">=7.1.2,<8.0.0"
 dcicutils = "7.12.0.2b9"
 elasticsearch = "7.13.4"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
-foursight-core = "4.5.0.1b18"
+foursight-core = "4.5.0.1b19"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.12.5,<2.0.0"
@@ -4121,4 +4121,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.11"
-content-hash = "04bebec92afd850774ea0b79b9ab6007020cda3051cb68903e93c2f810f4d62f"
+content-hash = "1eb8e98bc193804e7a93e531e7a9d5dbf2e77c4e921774402067734a5a1c2cd5"
