@@ -70,6 +70,7 @@ class C4Redis(C4Part):
         """ Builds a Redis cluster in the ElastiCache paradigm """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         logical_id = self.name.logical_id(self.redis_cluster_name(env_name))
+        # TODO: add back encryption options once they are supported.
         return CacheCluster(
             logical_id,
             AutoMinorVersionUpgrade=True,
