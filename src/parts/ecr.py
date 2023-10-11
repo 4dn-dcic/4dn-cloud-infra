@@ -118,8 +118,9 @@ class C4ContainerRegistry(C4Part):
 
         ]
         for rname, export in repo_export_pairs:
-            if ConfigManager.get_config_setting(Settings.APP_KIND) == 'ff' and rname != ECOSYSTEM:
-                break  # do not add tibanna repos if building a fourfront env
+            if (ConfigManager.get_config_setting(Settings.APP_KIND) in ['ff', 'smaht'] and
+                    rname not in [ECOSYSTEM, 'tibanna-awsf']):
+                break  # do not add tibanna repos if building a fourfront/smaht env
             repo = self.repository(repo_name=rname)
             template.add_resource(repo)
             template.add_output(self.output_repo_url(repo, export))

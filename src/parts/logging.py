@@ -60,14 +60,14 @@ class C4Logging(C4Part):
                                                        retention_in_days=365, deletion_policy='Retain'))
         return template
 
-    @staticmethod
-    def build_log_group(*, identifier: str,
+    def build_log_group(self, identifier: str,
                         retention_in_days: int, deletion_policy='Retain') -> logs.LogGroup:
         """ Builds a log group under the given identifier with the given retention policy. """
         return logs.LogGroup(
             identifier,
             RetentionInDays=retention_in_days,
-            DeletionPolicy=deletion_policy
+            DeletionPolicy=deletion_policy,
+            Tags=self.tags.cost_tag_obj()
         )
 
     def output_application_log_group(self, resource: logs.LogGroup, export_name=None) -> Output:

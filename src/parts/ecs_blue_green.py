@@ -9,27 +9,33 @@ from troposphere.ecs import (
     Environment, CapacityProviderStrategyItem, SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
 from dcicutils.cloudformation_utils import camelize
-from ..base import ConfigManager, APP_DEPLOYMENT
+from ..base import ConfigManager, APP_DEPLOYMENT, APP_KIND
 from ..constants import Settings, DeploymentParadigm
 from .ecs import C4ECSApplicationExports, C4ECSApplication
 from .network import C4NetworkExports
 from .ecr import C4ECRExports
 from .iam import C4IAMExports
 from .logging import C4LoggingExports
-from .fourfront_ecs import FourfrontApplicationTypes
 
 
-class FourfrontECSBlueGreen(C4ECSApplication):
+class ApplicationTypes:
+    """ Defines the set of possible fourfront application types. """
+    PORTAL = 'portal'
+    INDEXER = 'indexer'
+    INGESTER = 'ingester'
+    DEPLOYMENT = 'deployment'
+
+
+class ECSBlueGreen(C4ECSApplication):
     """ Configures two ECS clusters in a blue/green fashion (identity swap compatible).
     """
+    STACK_NAME_TOKEN = 'ecs-blue-green'
     VPC_SQS_URL = 'https://sqs.us-east-1.amazonaws.com/'
     PORTAL_CONTAINER_DEFINITION = 'Portal'
     INDEXER_CONTAINER_DEFINITION = 'Indexer'
     DEPLOYMENT_CONTAINER_DEFINITION = 'DeploymentAction'
-    #
-    # New at suggestion from Kent 2022-05-17 @ 2:15pm
-    #
-    SHARING = 'account'
+
+    SHARING = 'ecosystem'
 
     def build_template(self, template: Template) -> Template:
         """ Builds the template containing two ECS environments. """
@@ -113,6 +119,15 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                                                        task_definition=Ref(indexer_task))
             template.add_resource(indexer_service)
 
+            # Ingester task/service
+            ingester_task = self.ecs_ingester_task(image_tag=tag, log_group_export=log_export, identity=identity)
+            template.add_resource(ingester_task)
+            ingester_service = self.ecs_ingester_service(
+                cluster_ref=Ref(cluster),
+                image_tag=tag, task_definition=Ref(ingester_task)
+            )
+            template.add_resource(ingester_service)
+
             # Deployment tasks
             template.add_resource(self.ecs_deployment_task(image_tag=tag, log_group_export=log_export,
                                                            identity=identity, initial=True))
@@ -155,7 +170,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
         env = env or (ConfigManager.get_config_setting(Settings.ENV_NAME) + DeploymentParadigm.BLUE)
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
-            Description='URL of Fourfront-Portal-Blue.',
+            Description=f'URL of {APP_KIND.capitalize()}-Portal-Blue.',
             Value=Join('', ['http://', GetAtt(
                 self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.BLUE), 'DNSName')])
         )
@@ -165,7 +180,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
         env = env or (ConfigManager.get_config_setting(Settings.ENV_NAME) + DeploymentParadigm.GREEN)
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
-            Description='URL of Fourfront-Portal-Green.',
+            Description=f'URL of {APP_KIND.capitalize()}-Portal-Green.',
             Value=Join('', ['http://',
                 GetAtt(self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.GREEN), 'DNSName')])
         )
@@ -213,7 +228,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             :param mirror: build a mirror task
         """
         return TaskDefinition(
-            f'Fourfront{image_tag}Portal',
+            f'{APP_KIND.capitalize()}{image_tag}Portal',
             RequiresCompatibilities=['FARGATE'],
             Cpu=ConfigManager.get_config_setting(Settings.ECS_WSGI_CPU, cpu),
             Memory=ConfigManager.get_config_setting(Settings.ECS_WSGI_MEMORY, mem),
@@ -240,7 +255,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                                     log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP
                                 ),
                             'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': 'fourfront-portal'
+                            'awslogs-stream-prefix': f'{APP_KIND}-portal'
                         }
                     ),
                     Environment=[
@@ -252,7 +267,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                         ),
                         Environment(
                             Name='application_type',
-                            Value=FourfrontApplicationTypes.PORTAL
+                            Value=ApplicationTypes.PORTAL
                         ),
                         Environment(
                             Name='SQS_URL',
@@ -279,9 +294,9 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                                 production, this value is 8, approximately matching our current resources.
         """  # noQA - ignore line length issues
         return Service(
-            f'Fourfront{image_tag}PortalService',
+            f'{APP_KIND.capitalize()}{image_tag}PortalService',
             Cluster=Ref(self.ecs_cluster()) if not cluster_ref else cluster_ref,
-            DependsOn=[self.name.logical_id(f'LBListener{image_tag.capitalize()}')],
+            DependsOn=[self.name.logical_id(f'LBListener{image_tag}')],
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(
@@ -330,7 +345,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                              or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
         """
         return TaskDefinition(
-            f'Fourfront{image_tag}Indexer',
+            f'{APP_KIND.capitalize()}{image_tag}Indexer',
             RequiresCompatibilities=['FARGATE'],
             Cpu=cpu or ConfigManager.get_config_setting(Settings.ECS_INDEXER_CPU, self.DEFAULT_INDEXER_CPU),
             Memory=memory or ConfigManager.get_config_setting(Settings.ECS_INDEXER_MEMORY, self.DEFAULT_INDEXER_MEMORY),
@@ -354,7 +369,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                                     log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP
                                 ),
                             'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': 'fourfront-indexer'
+                            'awslogs-stream-prefix': f'{APP_KIND}-indexer'
                         }
                     ),
                     Environment=[
@@ -367,7 +382,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                         ),
                         Environment(
                             Name='application_type',
-                            Value=FourfrontApplicationTypes.INDEXER
+                            Value=ApplicationTypes.INDEXER
                         ),
                         Environment(
                             Name='SQS_URL',
@@ -389,7 +404,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                                 production, this value is 4, approximately matching our current resources.
         """
         return Service(
-            f'Fourfront{image_tag}IndexerService',
+            f'{APP_KIND.capitalize()}{image_tag}IndexerService',
             Cluster=Ref(self.ecs_cluster()) if not cluster_ref else cluster_ref,
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_INDEXER_COUNT, concurrency),
             CapacityProviderStrategy=[
@@ -418,6 +433,106 @@ class FourfrontECSBlueGreen(C4ECSApplication):
             Tags=self.tags.cost_tag_obj()
         )
 
+    def ecs_ingester_task(self, cpu=None, memory=None, image_tag='', log_group_export=None,
+                          identity=None) -> TaskDefinition:
+        """ Defines the Ingester task (ingester app).
+            See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html
+
+            :param cpu: CPU value to assign to this task, default 256 (play with this value)
+            :param memory: Memory amount for this task, default to 512 (play with this value)
+            :param image_tag: image tag to use for this task, latest by default
+            :param log_group_export: log group export name to use
+            :param identity: name of secret containing the identity information for this environment
+                             (defaults to value of environment variable IDENTITY,
+                             or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
+        """
+        return TaskDefinition(
+            f'{APP_KIND}{image_tag}Ingester',
+            RequiresCompatibilities=['FARGATE'],
+            Cpu=cpu or ConfigManager.get_config_setting(Settings.ECS_INGESTER_CPU, self.DEFAULT_INGESTER_CPU),
+            Memory=memory or ConfigManager.get_config_setting(Settings.ECS_INGESTER_MEMORY,
+                                                              self.DEFAULT_INGESTER_MEMORY),
+            TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
+            ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
+            NetworkMode='awsvpc',  # required for Fargate
+            ContainerDefinitions=[
+                ContainerDefinition(
+                    Name='Ingester',
+                    Essential=True,
+                    Image=Join("", [
+                        self.ECR_EXPORTS.import_value(C4ECRExports.PORTAL_REPO_URL),
+                        ':',
+                        image_tag or self.IMAGE_TAG
+                    ]),
+                    LogConfiguration=LogConfiguration(
+                        LogDriver='awslogs',
+                        Options={
+                            'awslogs-group':
+                                self.LOGGING_EXPORTS.import_value(
+                                    log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP),
+                            'awslogs-region': Ref(AWS_REGION),
+                            'awslogs-stream-prefix': f'{APP_KIND}-ingester'
+                        }
+                    ),
+                    Environment=[
+                        Environment(
+                            Name='IDENTITY',
+                            Value=(identity
+                                   or ConfigManager.get_config_setting(Settings.IDENTITY,
+                                                                       self.LEGACY_DEFAULT_IDENTITY)),
+                        ),
+                        Environment(
+                            Name='application_type',
+                            Value=ApplicationTypes.INGESTER
+                        ),
+                        Environment(
+                            Name='SQS_URL',
+                            Value=self.VPC_SQS_URL
+                        ),
+                    ]
+                )
+            ],
+            Tags=self.tags.cost_tag_obj()
+        )
+
+    def ecs_ingester_service(self, cluster_ref=None, image_tag='',
+                            task_definition=None, concurrency=1) -> Service:
+        """ Defines the Ingester service (manages Ingestion Tasks)
+
+            Defined by the ECR Image tag 'latest-ingester'
+            TODO SQS Trigger?
+        """
+        return Service(
+            f"{APP_KIND}{image_tag}IngesterService",
+            Cluster=cluster_ref or Ref(self.ecs_cluster()),
+            DesiredCount=concurrency or ConfigManager.get_config_setting(Settings.ECS_INGESTER_COUNT, 1),
+            TaskDefinition=task_definition or Ref(self.ecs_ingester_task()),
+            SchedulingStrategy=SCHEDULING_STRATEGY_REPLICA,
+            NetworkConfiguration=NetworkConfiguration(
+                AwsvpcConfiguration=AwsvpcConfiguration(
+                    Subnets=[
+                        self.NETWORK_EXPORTS.import_value(subnet_key)
+                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                    ],
+                    SecurityGroups=[Ref(self.ecs_container_security_group())],
+                )
+            ),
+            # Run ingester service on normal Fargate as this could be even more long running than indexing
+            CapacityProviderStrategy=[
+                CapacityProviderStrategyItem(
+                    CapacityProvider='FARGATE',
+                    Base=1,
+                    Weight=1
+                ),
+                CapacityProviderStrategyItem(
+                    CapacityProvider='FARGATE_SPOT',
+                    Base=0,
+                    Weight=0
+                )
+            ],
+            Tags=self.tags.cost_tag_obj()
+        )
+
     def ecs_deployment_task(self, cpu='1024', memory='2048', image_tag='',
                             log_group_export=None, identity=None, initial=False) -> TaskDefinition:
         """ Defines the Deployment task (run deployment action).
@@ -437,7 +552,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                             causing a different initialization sequence.
         """
         return TaskDefinition(
-            f'Fourfront{image_tag}InitialDeployment' if initial else f'Fourfront{image_tag}Deployment',
+            f'{APP_KIND.capitalize()}{image_tag}InitialDeployment' if initial else f'{APP_KIND.capitalize()}{image_tag}Deployment',
             RequiresCompatibilities=['FARGATE'],
             Cpu=cpu or ConfigManager.get_config_setting(Settings.ECS_INITIAL_DEPLOYMENT_CPU
                                                         if initial else
@@ -471,7 +586,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                                     log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP
                                 ),
                             'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': 'fourfront-initial-deployment' if initial else 'fourfront-deployment',
+                            'awslogs-stream-prefix': f'{APP_KIND}-initial-deployment' if initial else f'{APP_KIND}-deployment',
                         }
                     ),
                     Environment=[
@@ -486,7 +601,7 @@ class FourfrontECSBlueGreen(C4ECSApplication):
                         ),
                         Environment(
                             Name='application_type',
-                            Value=FourfrontApplicationTypes.DEPLOYMENT
+                            Value=ApplicationTypes.DEPLOYMENT
                         ),
                         Environment(
                             Name='SQS_URL',

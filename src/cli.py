@@ -32,7 +32,8 @@ class C4Client:
     CAPABILITY_IAM = 'CAPABILITY_IAM'
     FOURFRONT_NETWORK_STACK = 'c4-network-main-stack'  # this stack name is shared by all fourfront envs
     # these stacks require CAPABILITY_IAM, just IAM for now
-    REQUIRES_CAPABILITY_IAM = ['iam', 'foursight', 'foursight-development', 'foursight-production', 'codebuild']
+    REQUIRES_CAPABILITY_IAM = ['iam', 'foursight', 'foursight-development', 'foursight-production', 'codebuild',
+                               'foursight-smaht']
 
     @classmethod
     def _out_templates_mapping_for_mount(cls) -> str:
@@ -184,7 +185,8 @@ class C4Client:
                 '--parameter-overrides',  # the flag itself
                 cls.build_parameter_override(param_name='NetworkStackNameParameter',
                                              value=ConfigManager.app_case(if_cgap=network_stack_name.stack_name,
-                                                                          if_ff=cls.FOURFRONT_NETWORK_STACK)),
+                                                                          if_ff=cls.FOURFRONT_NETWORK_STACK,
+                                                                          if_smaht=network_stack_name.stack_name)),
                 cls.build_parameter_override(param_name='ECRStackNameParameter',
                                              value=ecr_stack_name.stack_name),
                 cls.build_parameter_override(param_name='IAMStackNameParameter',
@@ -302,6 +304,7 @@ class C4Client:
                 raise CLIException(f'Ambiguous stack name {stack_name} resolved'
                                    f' to both alpha and 4dn stacks! Update your stack'
                                    f' name so it does not clash with other stacks.')
+            stack = None
             if alpha_stack:
                 stack = alpha_stack
             if dcic_stack:

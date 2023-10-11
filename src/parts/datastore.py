@@ -29,7 +29,7 @@ from troposphere.s3 import (
 )
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
-from ..base import ConfigManager, COMMON_STACK_PREFIX
+from ..base import ConfigManager, COMMON_STACK_PREFIX, APP_DEPLOYMENT, DeploymentParadigm
 from ..constants import C4DatastoreBase, Settings
 from ..exports import C4DatastoreExportsMixin, C4Exports
 from ..part import C4Part
@@ -81,11 +81,6 @@ class C4DatastoreExports(C4Exports, C4DatastoreExportsMixin):
 
 class C4Datastore(C4DatastoreBase, C4Part):
     """ Defines the datastore stack - see resources created in build_template method. """
-
-    # dmichaels/2022-06-09: Refactored these into C4DatastoreBase in constants.py.
-    # STACK_NAME_TOKEN = "datastore"
-    # STACK_TITLE_TOKEN = "Datastore"
-    # APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX = "ApplicationConfiguration"
 
     SHARING = 'env'
     OPENSEARCH_LATEST = 'OpenSearch_2.3'
@@ -195,24 +190,38 @@ class C4Datastore(C4DatastoreBase, C4Part):
         template.add_output(self.output_rds_port(rds))
 
         # Adds Elasticsearch + Outputs
-        es = self.opensearch_instance()
-        template.add_resource(es)
-        template.add_output(self.output_es_url(es))
+        # Elasticsearch
+        if APP_DEPLOYMENT == DeploymentParadigm.BLUE_GREEN:
+            for env, export in {
+                f'-{DeploymentParadigm.BLUE}': C4DatastoreExports.BLUE_ES_URL,
+                f'-{DeploymentParadigm.GREEN}': C4DatastoreExports.GREEN_ES_URL
+            }.items():
+                env_name = ConfigManager.get_config_setting(Settings.ENV_NAME) + env
+                es = self.opensearch_instance(env_name=env_name)
+                template.add_resource(es)
+                template.add_output(self.output_es_url(es, export_name=export))
+        else:
+            es = self.opensearch_instance()
+            template.add_resource(es)
+            template.add_output(self.output_es_url(es, export_name=C4DatastoreExports.ES_URL))
 
         # Add s3_encrypt_key, application configuration template
         # IMPORTANT: This s3_encrypt_key is different than the key used for admin access keys in the
         # system bucket. This key is used to encrypt all objects uploaded to s3.
+        # New: encryption is now enabled by default - Will June 23 2023
         s3_encrypt_key = None
-        encryption_enabled = ConfigManager.get_config_setting(Settings.S3_BUCKET_ENCRYPTION, default=False)
+        encryption_enabled = ConfigManager.get_config_setting(Settings.S3_BUCKET_ENCRYPTION, default=True)
         if encryption_enabled:
             s3_encrypt_key = self.s3_encrypt_key()
             template.add_resource(s3_encrypt_key)
-        secret = self.application_configuration_secret()
-        template.add_resource(secret)
-        template.add_output(
-            self.output_application_configuration_secret_name(
-                C4DatastoreExports.APPLICATION_CONFIGURATION_SECRET_NAME,
-                secret))
+
+        # AppConfig moved to the appconfig stack
+        # secret = self.application_configuration_secret()
+        # template.add_resource(secret)
+        # template.add_output(
+        #     self.output_application_configuration_secret_name(
+        #         C4DatastoreExports.APPLICATION_CONFIGURATION_SECRET_NAME,
+        #         secret))
 
         # Adds SQS Queues + Outputs
         for export_name, i in [(C4DatastoreExports.APPLICATION_INDEXER_PRIMARY_QUEUE, self.primary_queue()),
@@ -373,8 +382,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
             }
         )
 
-    @classmethod
-    def build_s3_bucket(cls, bucket_name, access_control=Private, include_lifecycle=True,
+    def build_s3_bucket(self, bucket_name, access_control=Private, include_lifecycle=True,
                         s3_encrypt_key_ref=None, versioning=True) -> Bucket:
         """ Creates an S3 bucket under the given name/access control permissions.
             See troposphere.s3 for access control options.
@@ -386,13 +394,14 @@ class C4Datastore(C4DatastoreBase, C4Part):
         bucket_kwargs = {
             "BucketName": bucket_name,
             "AccessControl": access_control,
-            "LifecycleConfiguration": cls.build_s3_lifecycle_policy() if include_lifecycle else None,
+            "LifecycleConfiguration": self.build_s3_lifecycle_policy() if include_lifecycle else None,
             "BucketEncryption":
-                cls.build_s3_bucket_encryption(s3_encrypt_key_ref) if s3_encrypt_key_ref is not None else None,
+                self.build_s3_bucket_encryption(s3_encrypt_key_ref) if s3_encrypt_key_ref is not None else None,
             "VersioningConfiguration": VersioningConfiguration(Status='Enabled') if versioning else None,
         }
         return Bucket(
-            cls.build_s3_bucket_resource_name(bucket_name),
+            self.build_s3_bucket_resource_name(bucket_name),
+            Tags=self.tags.cost_tag_obj(),
             **{k: v for k, v in bucket_kwargs.items() if v is not None}  # do not pass kwargs that are None
         )
 
@@ -484,25 +493,27 @@ class C4Datastore(C4DatastoreBase, C4Part):
             Tags=self.tags.cost_tag_array()
         )
 
-    def application_configuration_secret(self) -> Secret:
-        """ Returns the application configuration secret. Note that this pushes up just a
-            template - you must fill it out according to the specification in the README.
-        """
-        identity = ConfigManager.get_config_setting(Settings.IDENTITY)  # will use setting from config
-        if not identity:
-            # dmichaels/2022-06-06: Refactored to use Names.application_configuration_secret() in names.py.
-            # identity = self.name.logical_id(camelize(
-            #                ConfigManager.get_config_setting(Settings.ENV_NAME)) +
-            #                    self.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
-            identity = Names.application_configuration_secret(
-                ConfigManager.get_config_setting(Settings.ENV_NAME), self.name)
-        return Secret(
-            identity,
-            Name=identity,
-            Description='This secret defines the application configuration for the orchestrated environment.',
-            SecretString=json.dumps(ApplicationConfigurationSecrets.build_initial_values(), indent=2),
-            Tags=self.tags.cost_tag_array()
-        )
+    # XXX: This is no longer used, see the appconfig stack - Will 23 June 2023
+    # def application_configuration_secret(self) -> Secret:
+    #     """ Returns the application configuration secret. Note that this pushes up just a
+    #         template - you must fill it out according to the specification in the README.
+    #     """
+    #
+    #     identity = ConfigManager.get_config_setting(Settings.IDENTITY)  # will use setting from config
+    #     if not identity:
+    #         # dmichaels/2022-06-06: Refactored to use Names.application_configuration_secret() in names.py.
+    #         # identity = self.name.logical_id(camelize(
+    #         #                ConfigManager.get_config_setting(Settings.ENV_NAME)) +
+    #         #                    self.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
+    #         identity = Names.application_configuration_secret(
+    #             ConfigManager.get_config_setting(Settings.ENV_NAME), self.name)
+    #     return Secret(
+    #         identity,
+    #         Name=identity,
+    #         Description='This secret defines the application configuration for the orchestrated environment.',
+    #         SecretString=json.dumps(ApplicationConfigurationSecrets.build_initial_values(), indent=2),
+    #         Tags=self.tags.cost_tag_array()
+    #     )
 
     def rds_subnet_group(self) -> DBSubnetGroup:
         """ Returns a subnet group for the single RDS instance in the infrastructure stack """
@@ -614,61 +625,13 @@ class C4Datastore(C4DatastoreBase, C4Part):
             TargetId=Ref(self.rds_instance()),
         )
 
-    # def elasticsearch_instance(self, data_node_count=None, data_node_type=None) -> Domain:
-    #     """ Returns an ElasticSearch domain with 1 data node, configurable via data_node_instance_type. Ref:
-    #         https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
-    #         TODO allow master node configuration, update to opensearch
-    #     """
-    #     env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-    #     logical_id = self.name.logical_id(f"{camelize(env_name)}ElasticSearch")  # was env_name
-    #     domain_name = self.name.domain_name(f"os-{env_name}")
-    #     options = {}
-    #     try:  # feature not yet supported by troposphere
-    #         options['DomainEndpointOptions'] = DomainEndpointOptions(EnforceHTTPS=True)
-    #     except NotImplementedError:
-    #         pass
-    #     # account_num = ConfigManager.get_config_setting(Settings.ACCOUNT_NUMBER)
-    #     domain = Domain(
-    #         logical_id,
-    #         DomainName=domain_name,
-    #         NodeToNodeEncryptionOptions=NodeToNodeEncryptionOptions(Enabled=True),
-    #         EncryptionAtRestOptions=EncryptionAtRestOptions(Enabled=True),  # TODO specify KMS key
-    #         ElasticsearchClusterConfig=ElasticsearchClusterConfig(
-    #             InstanceCount=(data_node_count
-    #                            or ConfigManager.get_config_setting(Settings.ES_DATA_COUNT,
-    #                                                                default=self.DEFAULT_ES_DATA_NODE_COUNT)),
-    #             InstanceType=(data_node_type
-    #                           or ConfigManager.get_config_setting(Settings.ES_DATA_TYPE,
-    #                                                               default=self.DEFAULT_ES_DATA_NODE_TYPE)),
-    #         ),
-    #         ElasticsearchVersion='6.8',
-    #         EBSOptions=EBSOptions(
-    #             EBSEnabled=True,
-    #             VolumeSize=ConfigManager.get_config_setting(Settings.ES_VOLUME_SIZE, 10),
-    #             VolumeType='gp2',  # gp3?
-    #         ),
-    #         VPCOptions=VPCOptions(
-    #             SecurityGroupIds=[
-    #                 self.NETWORK_EXPORTS.import_value(C4NetworkExports.HTTPS_SECURITY_GROUP),
-    #             ],
-    #             SubnetIds=[
-    #                 # TODO: Is this right? Just one subnet? -kmp 14-Aug-2021
-    #                 # self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-    #                 self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNETS[0]),
-    #             ],
-    #         ),
-    #         Tags=self.tags.cost_tag_array(name=domain_name),
-    #         **options,
-    #     )
-    #     return domain
-
-    def opensearch_instance(self, data_node_count=None, data_node_type=None) -> OSDomain:
+    def opensearch_instance(self, env_name=None, data_node_count=None, data_node_type=None) -> OSDomain:
         """ Returns an OpenSearch domain with 1 data node, configurable via data_node_instance_type. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
             TODO allow master node configuration, update to opensearch
         """
-        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        logical_id = self.name.logical_id(f"{camelize(env_name)}ElasticSearch")  # was env_name
+        env_name = env_name or ConfigManager.get_config_setting(Settings.ENV_NAME)
+        logical_id = self.name.logical_id(f"{camelize(env_name)}OpenSearch")  # was env_name
         domain_name = self.name.domain_name(f"os-{env_name}")
         options = {}
         try:  # feature not yet supported by troposphere

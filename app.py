@@ -14,7 +14,17 @@ def _is_foursight_fourfront():
     """
     with assumed_identity():
         EnvUtils.init()
-        return EnvUtils.app_case(if_cgap=False, if_fourfront=True)
+        return EnvUtils.app_case(if_cgap=False, if_fourfront=True, if_smaht=False)
+
+
+def _is_foursight_cgap():
+    """
+    Returns True iff this is Foursight-cgap, in contrast to Foursight-fourfront or foursight-smaht.
+    This will be called at RUNTIME at Chalice app startup in the deployed (in AWS) environment.
+    """
+    with assumed_identity():
+        EnvUtils.init()
+        return EnvUtils.app_case(if_cgap=True, if_fourfront=False, if_smaht=False)
 
 
 # TODO: Better way to communicate the directory containing the check_setup.json
@@ -54,7 +64,11 @@ if _is_foursight_fourfront():
     PRINT("Foursight-Fourfront: Importing app_utils and check_schedules from chalicelib_fourfront.")
     from chalicelib_fourfront.app_utils import AppUtils
     from chalicelib_fourfront.check_schedules import *
-else:
+elif _is_foursight_cgap():
     PRINT("Foursight-CGAP: Importing app_utils and check_schedules from chalicelib_cgap.")
     from chalicelib_cgap.app_utils import AppUtils
     from chalicelib_cgap.check_schedules import *
+else:
+    PRINT("Foursight-smaht: Importing app_utils and check_schedules from chalicelib_smaht.")
+    from chalicelib_smaht.app_utils import AppUtils
+    from chalicelib_smaht.check_schedules import *

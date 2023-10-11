@@ -259,3 +259,59 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")
+
+
+class C4FoursightSMAHTStack(C4FoursightCGAPStack):
+
+    STACK_NAME_TOKEN = "foursight"
+    STACK_TITLE_TOKEN = "Foursight"
+    SHARING = 'env'
+
+    NETWORK_EXPORTS = C4NetworkExports()
+
+    def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account):
+
+        with ConfigManager.validate_and_source_configuration():
+            self.security_ids = C4NetworkExports.get_security_ids()
+            self.subnet_ids = C4NetworkExports.get_subnet_ids()
+            self.global_env_bucket = C4DatastoreExports.get_env_bucket()
+            env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+            self.trial_creds = get_trial_creds(env_name)
+        super().__init__(description, name, tags, account)
+
+    def package_foursight_stack(self, args):
+        # # TODO (C4-691): foursight-core presently picks up the global bucket env as an environment variable.
+        # #       We should fix it to pass the argument lexically instead, as shown below.
+        # #       Meanwhile, too, we're transitioning the name of the variable (from GLOBAL_BUCKET_ENV
+        # #       to GLOBAL_ENV_BUCKET), so we compatibly bind both variables just in case that
+        # #       name change goes into effect first. -kmp 4-Aug-2021
+        # # TODO (C4-692): foursight-core presently wants us to pass an 'args' argument (from 'argparser').
+        # #       It should instead ask for all the various arguments it plans to look at.
+        # with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
+        # dmichaels/20220725: Pass in identity to build_config_and_package (C4-826) to identity-ize Foursight.
+        if args.foursight_identity:
+            identity = args.foursight_identity
+            PRINT(f"Using custom IDENTITY (via --foursight-identity) for Foursight deployment: {identity}")
+        else:
+            raise Exception('Must use --foursight-identity to deploy foursight-smaht')
+        self.PackageDeploy.build_config_and_package(
+            args,  # this should not be needed any more, but we didn't quite write the code that way
+            identity=identity,
+            stack_name=self.name.stack_name,
+            merge_template=args.merge_template,
+            output_file=args.output_file,
+            stage=args.stage,
+            trial=args.trial,
+            global_env_bucket=self.global_env_bucket,
+            security_ids=self.security_ids,
+            subnet_ids=self.subnet_ids,
+            trial_creds=self.trial_creds
+        )
+
+    class PackageDeploy(PackageDeploy_from_core):
+
+        CONFIG_BASE = PackageDeploy_from_core.CONFIG_BASE
+        CONFIG_BASE['app_name'] = 'foursight-smaht'
+
+        config_dir = dirname(dirname(__file__))
+        PRINT(f"Config dir: {config_dir}")

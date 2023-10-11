@@ -16,6 +16,7 @@ class Secrets:
     RECAPTCHA_SECRET = 'reCaptchaSecret'
     S3_ENCRYPT_KEY = 'S3_ENCRYPT_KEY'
     GITHUB_PERSONAL_ACCESS_TOKEN = 'GITHUB_PERSONAL_ACCESS_TOKEN'
+    GA4_API_SECRET = 'GA4_API_SECRET'
 
 
 class DeploymentParadigm:
@@ -38,6 +39,7 @@ class Settings:
     ENV_NAME = 'ENCODED_ENV_NAME'  # probably should just be 'env.name'
     ADMIN_USERS = 'ENCODED_ADMIN_USERS'  # for customizing the user inserts
     DATA_SET = 'ENCODED_DATA_SET'  # to trigger custom insert load
+    GLOBAL_ENV_BUCKET = 'GLOBAL_ENV_BUCKET'  # configure name of ecosystem bucket
 
     # We no longer use this setting. Now we do C4DatastoreExports.get_env_bucket()
     # GLOBAL_ENV_BUCKET = 'GLOBAL_ENV_BUCKET'

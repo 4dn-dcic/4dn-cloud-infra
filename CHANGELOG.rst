@@ -6,6 +6,14 @@
 Change Log
 ----------
 
+4.0.0
+=====
+
+* Upgrade to Python 3.10.
+  Tried 3.11 but chalice is problematic with Python 3.11 (cffi package won't install and required at run-time).
+* Build support for SMaHT.
+* Fix remaining bugs associated with complete blue/green deploy.
+
 3.10.0
 ======
 

@@ -19,7 +19,7 @@ from .logging import C4LoggingExports
 
 
 class FourfrontApplicationTypes:
-    """ Defines the set of possible fourfront applicaation types. """
+    """ Defines the set of possible fourfront application types. """
     PORTAL = 'portal'
     INDEXER = 'indexer'
     DEPLOYMENT = 'deployment'

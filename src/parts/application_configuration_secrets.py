@@ -70,7 +70,8 @@ class ApplicationConfigurationSecrets:
             'RDS_USERNAME': ApplicationConfigurationSecrets.rds_db_username(),
             'RDS_PASSWORD': None,
             # foursight-envs bucket
-            'GLOBAL_ENV_BUCKET': ConfigManager.resolve_bucket_name(ConfigManager.FSBucketTemplate.ENVS),
+            'GLOBAL_ENV_BUCKET': (ConfigManager.get_config_setting(Settings.GLOBAL_ENV_BUCKET, default=None) or
+                                  ConfigManager.resolve_bucket_name(ConfigManager.FSBucketTemplate.ENVS)),
             'S3_ENCRYPT_KEY': ConfigManager.get_config_secret(Secrets.S3_ENCRYPT_KEY,
                                                               ConfigManager.get_s3_encrypt_key_from_file()),
             # 'S3_BUCKET_ENV': env_name,  # NOTE: not prod_bucket_env(env_name); see notes in resolve_bucket_name
@@ -80,5 +81,6 @@ class ApplicationConfigurationSecrets:
             'ENCODED_ADMIN_USERS': ConfigManager.get_config_setting(Settings.ADMIN_USERS, default=''),
             'reCaptchaKey': ConfigManager.get_config_secret(Secrets.RECAPTCHA_KEY, default=None),
             'reCaptchaSecret': ConfigManager.get_config_secret(Secrets.RECAPTCHA_SECRET, default=None),
+            'GA4_API_SECRET': ConfigManager.get_config_setting(Secrets.GA4_API_SECRET, default='')
         }
         return cls._add_placeholders(keys_values)

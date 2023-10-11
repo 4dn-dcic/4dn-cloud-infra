@@ -141,7 +141,7 @@ class C4Part(StackNameMixin):
         if res != item_string:
             print(f"Reducing {item_string!r} to {res!r}.")
         else:
-            print(f"Not reducing {item_string!r} because {self.name.string_to_trim} wasn't there.")
+            print(f"Not reducing {item_string!r} because {self.name.string_to_trim} cannot be shortened.")
         return res
 
     def trim_names(self, items):
