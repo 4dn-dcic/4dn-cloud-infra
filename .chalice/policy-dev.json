@@ -18,7 +18,9 @@
                 "ce:*",
                 "secretsmanager:GetSecretValue",
                 "secretsmanager:ListSecrets",
-                "iam:ListAccountAliases"
+                "iam:ListAccountAliases",
+                "ecr:DescribeRepositories",
+                "ecr:DescribeImages"
             ],
             "Resource": [
                 "*"
