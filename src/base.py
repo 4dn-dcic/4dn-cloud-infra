@@ -134,23 +134,23 @@ class ConfigManager:
         ecosystem_name = ConfigManager.get_config_setting(Settings.S3_BUCKET_ECOSYSTEM, default=DEFAULT_ECOSYSTEM)
         ecosystem_part = f"{ecosystem_name}-" if ecosystem_name else ""
         app_kind = ConfigManager.get_config_setting(Settings.APP_KIND)
-#       base_prefix = f"{ecosystem_part}"
-#       foursight_prefix = f"{base_prefix}foursight-"
-#       application_prefix = f"{base_prefix}application-"
-#       bucket_name = bucket_template.format(env_name='',
-#                                            env_part='',
-#                                            application_prefix=application_prefix,
-#                                            foursight_prefix=foursight_prefix,
-#                                            )
-        base_prefix = f"{app_kind}-{org_part}{ecosystem_part}"
+        base_prefix = f"{env_name}-"
         foursight_prefix = f"{base_prefix}foursight-"
         application_prefix = f"{base_prefix}application-"
-        bucket_name = bucket_template.format(env_name=env_name,
-                                             env_part=env_part,
+        bucket_name = bucket_template.format(env_name='',
+                                             env_part='',
                                              application_prefix=application_prefix,
                                              foursight_prefix=foursight_prefix,
                                              )
-        # print(bucket_template,"=>",bucket_name)
+        # base_prefix = f"{app_kind}-{org_part}{ecosystem_part}"
+        # foursight_prefix = f"{base_prefix}foursight-"
+        # application_prefix = f"{base_prefix}application-"
+        # bucket_name = bucket_template.format(env_name=env_name,
+        #                                      env_part=env_part,
+        #                                      application_prefix=application_prefix,
+        #                                      foursight_prefix=foursight_prefix,
+        #                                      )
+        PRINT(f'{bucket_template} => {bucket_name}')
         return bucket_name
 
     REQUIRED_CONFIGS = [Settings.ACCOUNT_NUMBER, Settings.DEPLOYING_IAM_USER, Settings.ENV_NAME]

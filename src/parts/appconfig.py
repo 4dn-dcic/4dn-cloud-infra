@@ -1,5 +1,5 @@
 import json
-
+import re
 from dcicutils.misc_utils import ignorable
 from dcicutils.cloudformation_utils import dehyphenate
 from troposphere import (
@@ -20,6 +20,7 @@ from ..constants import Secrets, DeploymentParadigm
 from ..exports import C4Exports
 from ..part import C4Part
 from ..parts.network import C4NetworkExports
+from ..constants import C4AppConfigBase
 
 
 ignorable(Output)
@@ -32,6 +33,7 @@ class C4AppConfigExports(C4Exports):
 
     # Standalone, blue/green version is inlined
     EXPORT_APPLICATION_CONFIG = 'ExportApplicationConfig'
+    _ENV_BUCKET_EXPORT_PATTERN = re.compile(".*AppConfig.*Env.*Bucket")
 
     # RDS Exports
     RDS_URL = 'ExportRDSURL'
@@ -61,11 +63,13 @@ class C4AppConfigExports(C4Exports):
         parameter = 'AppConfigStackNameParameter'
         super().__init__(parameter)
 
+    @classmethod
+    def get_env_bucket(cls):
+        return ConfigManager.find_stack_output(cls._ENV_BUCKET_EXPORT_PATTERN.match, value_only=True)
 
-class C4AppConfig(C4Part):
+
+class C4AppConfig(C4AppConfigBase, C4Part):
     """ Defines the AppConfig stack - see resources created in build_template method. """
-    STACK_NAME_TOKEN = 'appconfig'
-    STACK_TITLE_TOKEN = 'AppConfig'
     SHARING = 'env'
 
     RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names

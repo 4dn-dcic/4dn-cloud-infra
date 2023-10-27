@@ -7,7 +7,8 @@ from .constants import (
     C4DatastoreBase,
     C4IAMBase,
     C4NetworkBase,
-    C4SentieonSupportBase
+    C4SentieonSupportBase,
+    C4AppConfigBase,
 )
 from .exports import C4DatastoreExportsMixin
 from .mixins import StackNameBaseMixin
@@ -34,6 +35,13 @@ class Names(StackNameBaseMixin):
         return cls.suggest_stack_name(title_token, name_token, qualifier)
 
     @classmethod
+    def appconfig_stack_name_object(cls, env_name: str) -> C4Name:
+        title_token = C4AppConfigBase.STACK_TITLE_TOKEN
+        name_token = C4AppConfigBase.STACK_NAME_TOKEN
+        qualifier = ''
+        return cls.suggest_stack_name(title_token, name_token, qualifier)
+
+    @classmethod
     def datastore_stack_name(cls, env_name: str) -> C4Name:
         return cls.datastore_stack_name_object(env_name).stack_name
 
@@ -48,11 +56,12 @@ class Names(StackNameBaseMixin):
         return cls.datastore_stack_name_object(env_name).logical_id(C4DatastoreExportsMixin.APPLICATION_WFOUT_BUCKET)
 
     # dmichaels/2022-06-06: Factored out from C4Datastore.application_configuration_secret() in datastore.py.
+    # XXX: Updated to reference the appconfig stack in newer versions - Will 27 Oct 2023
     @classmethod
     def application_configuration_secret(cls, env_name: str, c4name: C4Name = None) -> str:
         if not c4name:
-            c4name = cls.datastore_stack_name_object(env_name)
-        return c4name.logical_id(camelize(env_name) + C4DatastoreBase.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
+            c4name = cls.appconfig_stack_name_object(env_name)
+        return c4name.logical_id(camelize(env_name))
 
     # dmichaels/2022-06-20: Factored out from C4Datastore.rds_secret_logical_id() in datastore.py.
     @classmethod

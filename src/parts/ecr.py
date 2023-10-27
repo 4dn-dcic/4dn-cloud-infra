@@ -73,17 +73,15 @@ class C4ContainerRegistry(C4Part):
             Type='String',
         ))
 
-        # NOTE: Behavior here assumes is_fourfront_env will return true
-        # for this if we are building a fourfront environment. As such
-        # when building a fourfront env, like with cgap we always use the
-        # "fourfront-" prefix.
+        # NOTE: Nowadays we no longer use "main" as the repo name and always use the env name, in case
+        # we want to bring up new envs in the same account - Will Oct 27 2023
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
 
         # build repos
         # note that these are defined by the structure in cgap-pipeline-master - Will Dec 6 2021
         repo_export_pairs = [
             # Main application portal image
-            (ECOSYSTEM, self.EXPORTS.PORTAL_REPO_URL),
+            (env_name or ECOSYSTEM, self.EXPORTS.PORTAL_REPO_URL),
 
             # Tibanna executor image
             ('tibanna-awsf', self.EXPORTS.TIBANNA_REPO_URL),
@@ -119,7 +117,7 @@ class C4ContainerRegistry(C4Part):
         ]
         for rname, export in repo_export_pairs:
             if (ConfigManager.get_config_setting(Settings.APP_KIND) in ['ff', 'smaht'] and
-                    rname not in [ECOSYSTEM, 'tibanna-awsf']):
+                    rname not in [env_name, 'tibanna-awsf']):
                 break  # do not add tibanna repos if building a fourfront/smaht env
             repo = self.repository(repo_name=rname)
             template.add_resource(repo)

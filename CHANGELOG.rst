@@ -6,6 +6,12 @@
 Change Log
 ----------
 
+4.0.1
+=====
+
+* Small fixes encountered during deploy of SMaHT testing envs
+
+
 4.0.0
 =====
 

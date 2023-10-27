@@ -110,7 +110,8 @@ class C4CodeBuild(C4Part):
                                                                  default=self.DEFAULT_GITHUB_REPOSITORY),
                 branch=ConfigManager.get_config_setting(Settings.CODEBUILD_DEPLOY_BRANCH,
                                                         default=self.DEFAULT_DEPLOY_BRANCH),
-                environment=self.cb_portal_environment_vars()
+                environment=self.cb_portal_environment_vars(repo_name=ConfigManager.get_config_setting(
+                        Settings.ENV_NAME))
             )
             template.add_resource(build_project)
             template.add_output(self.output_value(resource=build_project,

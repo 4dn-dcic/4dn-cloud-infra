@@ -167,7 +167,7 @@ class C4ECSApplication(C4Part):
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         return Cluster(
             # Fallback, but should always be set
-            f'CGAPDockerClusterFor{camelize(env_name)}',
+            f'{ConfigManager.get_config_setting(Settings.APP_KIND)}DockerClusterFor{camelize(env_name)}',
             # dehyphenate(ConfigManager.get_config_setting(Settings.ENV_NAME, 'CGAPDockerCluster'))
             CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
             Tags=self.tags.cost_tag_obj()  # XXX: bug in troposphere - does not take tags array
@@ -289,7 +289,7 @@ class C4ECSApplication(C4Part):
         env = env or ConfigManager.get_config_setting(Settings.ENV_NAME)
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
-            Description='URL of CGAP-Portal.',
+            Description=f'URL of {ConfigManager.get_config_setting(Settings.APP_KIND)}-Portal.',
             Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer(), 'DNSName')])
         )
 
@@ -326,7 +326,7 @@ class C4ECSApplication(C4Part):
                              or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
         """
         return TaskDefinition(
-            'CGAPportal',
+            f'{ConfigManager.get_config_setting(Settings.APP_KIND)}portal',
             RequiresCompatibilities=['FARGATE'],
             Cpu=ConfigManager.get_config_setting(Settings.ECS_WSGI_CPU, cpu),
             Memory=ConfigManager.get_config_setting(Settings.ECS_WSGI_MEMORY, mem),
@@ -351,7 +351,7 @@ class C4ECSApplication(C4Part):
                             'awslogs-group':
                                 self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': 'cgap-portal'
+                            'awslogs-stream-prefix': f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-portal'
                         }
                     ),
                     Environment=[
@@ -388,7 +388,7 @@ class C4ECSApplication(C4Part):
                                 production, this value is 8, approximately matching our current resources.
         """  # noQA - ignore line length issues
         return Service(
-            "CGAPportalService",
+            f"{ConfigManager.get_config_setting(Settings.APP_KIND)}portalService",
             Cluster=Ref(self.ecs_cluster()),
             DependsOn=[self.name.logical_id('LBListener')],
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
@@ -439,7 +439,7 @@ class C4ECSApplication(C4Part):
                              or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
         """
         return TaskDefinition(
-            'CGAPIndexer',
+            f'{ConfigManager.get_config_setting(Settings.APP_KIND)}Indexer',
             RequiresCompatibilities=['FARGATE'],
             Cpu=cpu or ConfigManager.get_config_setting(Settings.ECS_INDEXER_CPU, self.DEFAULT_INDEXER_CPU),
             Memory=memory or ConfigManager.get_config_setting(Settings.ECS_INDEXER_MEMORY, self.DEFAULT_INDEXER_MEMORY),
@@ -461,7 +461,7 @@ class C4ECSApplication(C4Part):
                             'awslogs-group':
                                 self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': 'cgap-indexer'
+                            'awslogs-stream-prefix': f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-indexer'
                         }
                     ),
                     Environment=[
@@ -492,7 +492,7 @@ class C4ECSApplication(C4Part):
                                 production, this value is 4, approximately matching our current resources.
         """
         return Service(
-            "CGAPIndexerService",
+            f"{ConfigManager.get_config_setting(Settings.APP_KIND)}IndexerService",
             Cluster=Ref(self.ecs_cluster()),
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_INDEXER_COUNT, concurrency),
             CapacityProviderStrategy=[
@@ -589,7 +589,7 @@ class C4ECSApplication(C4Part):
                              or to C4ECSApplication.LEGACY_DEFAULT_IDENTITY if that is empty or undefined).
         """
         return TaskDefinition(
-            'CGAPIngester',
+            f'{ConfigManager.get_config_setting(Settings.APP_KIND)}Ingester',
             RequiresCompatibilities=['FARGATE'],
             Cpu=cpu or ConfigManager.get_config_setting(Settings.ECS_INGESTER_CPU, self.DEFAULT_INGESTER_CPU),
             Memory=memory or ConfigManager.get_config_setting(Settings.ECS_INGESTER_MEMORY,
@@ -612,7 +612,7 @@ class C4ECSApplication(C4Part):
                             'awslogs-group':
                                 self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': 'cgap-ingester'
+                            'awslogs-stream-prefix': f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-ingester'
                         }
                     ),
                     Environment=[
@@ -639,7 +639,7 @@ class C4ECSApplication(C4Part):
             TODO SQS Trigger?
         """
         return Service(
-            "CGAPIngesterService",
+            f"{ConfigManager.get_config_setting(Settings.APP_KIND)}IngesterService",
             Cluster=Ref(self.ecs_cluster()),
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_INGESTER_COUNT, 1),
             TaskDefinition=Ref(self.ecs_ingester_task()),
@@ -731,7 +731,7 @@ class C4ECSApplication(C4Part):
                             causing a different initialization sequence.
         """
         return TaskDefinition(
-            'CGAPInitialDeployment' if initial else 'CGAPDeployment',
+            f'{ConfigManager.get_config_setting(Settings.APP_KIND)}InitialDeployment' if initial else f'{ConfigManager.get_config_setting(Settings.APP_KIND)}Deployment',
             RequiresCompatibilities=['FARGATE'],
             Cpu=cpu or ConfigManager.get_config_setting(Settings.ECS_INITIAL_DEPLOYMENT_CPU
                                                         if initial else
@@ -763,7 +763,7 @@ class C4ECSApplication(C4Part):
                             'awslogs-group':
                                 self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
                             'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': 'cgap-initial-deployment' if initial else 'cgap-deployment',
+                            'awslogs-stream-prefix': f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-initial-deployment' if initial else f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-deployment',
                         }
                     ),
                     Environment=[
@@ -797,7 +797,7 @@ class C4ECSApplication(C4Part):
             TODO foursight Trigger?
         """
         return Service(
-            "CGAPDeploymentService",
+            f"{ConfigManager.get_config_setting(Settings.APP_KIND)}DeploymentService",
             Cluster=Ref(self.ecs_cluster()),
             DesiredCount=0,  # Explicitly triggered
             # deployments should happen fast enough to tolerate potential interruption

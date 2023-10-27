@@ -278,7 +278,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
                 Lifecycle:expire to delete the current version after 24 hours
         """
         return LifecycleConfiguration(
-            title='CGAPS3LifecyclePolicy',
+            title=f'{ConfigManager.get_config_setting(Settings.APP_KIND)}S3LifecyclePolicy',
             Rules=[
                 LifecycleRule(
                     'IA',
@@ -574,10 +574,6 @@ class C4Datastore(C4DatastoreBase, C4Part):
             ]),
             Tags=self.tags.cost_tag_array(name=logical_id),
         )
-
-    # def rds_password(self, resource: DBInstance) -> str:
-    #     import pdb; pdb.set_trace()
-    #     return GetAtt(resource, 'Endpoint.Password')
 
     def output_rds_url(self, resource: DBInstance) -> Output:
         """ Outputs RDS URL """

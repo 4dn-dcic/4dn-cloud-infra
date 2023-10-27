@@ -1,9 +1,6 @@
 import logging
 import os
 import sys
-from dcicutils.env_utils import EnvUtils
-from dcicutils.misc_utils import PRINT
-from dcicutils.secrets_utils import assumed_identity
 
 # Do not need this PackageDeploy import from (now) chalicelib_cgap or chalicelib_fourfront
 # as the only thing it's doing is what's being done here anyways. dmichaels/2022-10-31.
@@ -19,6 +16,7 @@ from .names import Names
 from .part import C4Name, C4Tags, C4Account, C4Part, StackNameMixin
 from .parts.datastore import C4DatastoreExports
 from .parts.network import C4NetworkExports
+from .parts.appconfig import C4AppConfigExports
 
 # Version string identifies template capabilities. Ref:
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/format-version-structure.html
@@ -274,7 +272,7 @@ class C4FoursightSMAHTStack(C4FoursightCGAPStack):
         with ConfigManager.validate_and_source_configuration():
             self.security_ids = C4NetworkExports.get_security_ids()
             self.subnet_ids = C4NetworkExports.get_subnet_ids()
-            self.global_env_bucket = C4DatastoreExports.get_env_bucket()
+            self.global_env_bucket = C4AppConfigExports.get_env_bucket()
             env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
             self.trial_creds = get_trial_creds(env_name)
         super().__init__(description, name, tags, account)

@@ -123,10 +123,10 @@ More info: https://docs.aws.amazon.com/elasticsearch-service/latest/developergui
 These will take about fifteen minutes or so to finish provisioning, and should be run in order.
 
 
-Step Three (Intermission): Push a cgap-portal Image
+Step Three (Intermission): Push a portal Image
 ---------------------------------------------------
 
-**NOTE:** This step is done from the ``cgap-portal`` repo. You probably want to
+**NOTE:** This step is done from the ``cgap-portal`` (or other portal) repo. You probably want to
 create a CodeBuild project to expedite the build process, but you can build/push
 an image manually from your local machine. We strongly recommend use of CodeBuild. Note
 that you cannot build using CodeBuild until the network has come online.
