@@ -43,7 +43,7 @@ foursight-core = "^5.0.0"
 foursight-smaht = "^0.1.0"
 
 [tool.poetry.group.foursight_cgap.dependencies]
-foursight-cgap = "^4.0.0"
+foursight-cgap = "^4.0.1"
 
 [tool.poetry.group.foursight_fourfront.dependencies]
 foursight = "^4.0.0"
