@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "4dn-cloud-infra"
-version = "4.0.0"
+version = "4.0.1"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
 authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
@@ -43,7 +43,7 @@ foursight-core = "^5.0.0"
 foursight-smaht = "^0.1.0"
 
 [tool.poetry.group.foursight_cgap.dependencies]
-foursight-cgap = "^4.0.0"
+foursight-cgap = "^4.0.1"
 
 [tool.poetry.group.foursight_fourfront.dependencies]
 foursight = "^4.0.0"

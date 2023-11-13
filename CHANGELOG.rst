@@ -6,6 +6,12 @@
 Change Log
 ----------
 
+4.0.1
+=====
+
+* Update foursight-cgap and magma for pipeline fixes
+
+
 4.0.0
 =====
 
