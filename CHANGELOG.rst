@@ -6,10 +6,16 @@
 Change Log
 ----------
 
-4.0.1
+4.1.0
 =====
 
 * Small fixes encountered during deploy of SMaHT testing envs
+
+
+4.0.1
+=====
+
+* Update foursight-cgap and magma for pipeline fixes
 
 
 4.0.0
