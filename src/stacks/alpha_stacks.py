@@ -127,6 +127,12 @@ def create_c4_4dn_foursight_stack(*, name, account: C4Account):
 
 
 # Trial-Alpha (ECS) Stacks
+@register_stack_creator(name='appconfig', kind='alpha', implementation_class=appconfig.C4AppConfig)
+def c4_smaht_stack_appconfig(account: C4Account):
+    """ Appconfig stack for the ECS version of smaht (just GAC) """
+    return create_c4_alpha_stack(name='appconfig', account=account)
+
+
 @register_stack_creator(name='appconfig', kind='4dn', implementation_class=appconfig.C4AppConfig)
 def c4_4dn_stack_trial_appconfig(account: C4Account):
     """ Appconfig stack for the ECS version of Fourfront (just GAC) """

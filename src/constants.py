@@ -138,6 +138,12 @@ COMMON_STACK_PREFIX = "c4-"
 COMMON_STACK_PREFIX_CAMEL_CASE = "C4"
 
 
+class C4AppConfigBase:
+    """ Factored out similar to Datastore for GAC name resolution """
+    STACK_NAME_TOKEN = 'appconfig'
+    STACK_TITLE_TOKEN = 'AppConfig'
+
+
 # dmichaels/2022-06-06: Factored out from datastore.py.
 class C4DatastoreBase:
     """
@@ -178,6 +184,7 @@ class C4SentieonSupportBase:
 class C4NetworkBase:
     STACK_NAME_TOKEN = 'network'
     STACK_TITLE_TOKEN = 'Network'
+
 
 class EC2Constants:
     DEFAULT_AMI_IMAGE = "ami-087c17d1fe0178315"

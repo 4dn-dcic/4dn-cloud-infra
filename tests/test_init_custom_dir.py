@@ -129,7 +129,7 @@ def _call_main(pre_existing_s3_encrypt_key_file: bool = True) -> None:
             assert config_json["account_number"] == TestData.account_number
             assert config_json["s3.bucket.org"] == TestData.s3_bucket_org
             assert config_json["deploying_iam_user"] == TestData.deploying_iam_user
-            assert config_json["identity"] == "C4DatastoreYourCredentialsNameApplicationConfiguration"
+            assert config_json["identity"] == "C4AppConfigYourCredentialsName"
             assert config_json["ENCODED_ENV_NAME"] == TestData.aws_credentials_name
             assert config_json["s3.bucket.encryption"] == TestData.s3_bucket_encryption
 
@@ -331,7 +331,7 @@ def test_main_with_keyboard_interrupt() -> None:
 
 
 def test_get_fallback_identity() -> None:
-    assert get_fallback_identity("your-test") == "C4DatastoreYourTestApplicationConfiguration"
+    assert get_fallback_identity("your-test") == "C4AppConfigYourTest"
 
 
 def test_what_else_i_think_we_have_most_important_cases_covered() -> None:

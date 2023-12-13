@@ -311,9 +311,17 @@ def validate_and_get_auth0(auth0_domain: str, auth0_client: str, auth0_secret: s
     """
     if auth0_domain == "hms-dbmi.auth0.com":
         PRINT(f"Auth0 Domain unset - using default {auth0_domain}")
+    elif auth0_domain == "hms-dbmi":  # infer the reasonable thing for us
+        auth0_domain = "hms-dbmi.auth0.com"
     else:
         if not auth0_domain.endswith(".auth0.com"):
-            exit_with_no_action(f"Malformed Auth0 domain: {auth0_domain}")
+            PRINT(f"Auth0 domain does not match expected format, attempting repair\n"
+                  f"{auth0_domain} ----> {auth0_domain}.auth0.com\n"
+                  f"Auth0 domain may be malformed!")
+            # instead of exiting I think attempting repair is reasonable since in most cases this value
+            # is copied as the standalone hms-dbmi for example (and not hms-dbmi.auth0.com)
+            # exit_with_no_action(f"Malformed Auth0 domain: {auth0_domain}")
+            auth0_domain = f'{auth0_domain}.auth0.com'
     if not auth0_client:
         PRINT("You must specify an Auth0 client ID using the --auth0client option.")
         auth0_client = input("Or enter your Auth0 client ID: ").strip()
@@ -423,10 +431,10 @@ def validate_and_get_subnet_count(subnet_count: int) -> int:
     :param subnet_count: data set name
     :return: the count
     """
-    valid_subnet_counts = list(range(1, 7))
+    valid_subnet_counts = list(range(1, 7))  # in us-east-1 this is a-f, might be lower in other AZs - Will
     if subnet_count not in valid_subnet_counts:
         exit_with_no_action(f"Your specified value for subnet_count, {subnet_count} is not valid. Valid counts are"
-                            f" {conjoined_list(valid_subnet_counts)}.")
+                            f" {conjoined_list(list(map(lambda i: str(i), valid_subnet_counts)))}.")
     PRINT(f'Building network with {subnet_count} subnet pairs ({2 * subnet_count} total).')
     return subnet_count
 
@@ -598,6 +606,8 @@ def main(override_argv: Optional[list] = None) -> None:
     """
     The main function and args parser for this CLI script.
     Calls into init_custom_dir to do the real work.
+
+    TODO: make app_kind configurable (right now defaults to CGAP)
     """
     argp = argparse.ArgumentParser()
     argp.add_argument("--account", "-a", dest="account_number", type=str, required=False,

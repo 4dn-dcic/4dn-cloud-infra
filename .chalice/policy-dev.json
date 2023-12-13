@@ -18,7 +18,9 @@
                 "ce:*",
                 "secretsmanager:GetSecretValue",
                 "secretsmanager:ListSecrets",
-                "iam:ListAccountAliases"
+                "iam:ListAccountAliases",
+                "ecr:DescribeRepositories",
+                "ecr:DescribeImages"
             ],
             "Resource": [
                 "*"
@@ -41,6 +43,7 @@
                 "logs:CreateLogGroup",
                 "logs:CreateLogStream",
                 "logs:PutLogEvents",
+                "logs:GetLogEvents",
                 "ec2:CreateNetworkInterface",
                 "ec2:DescribeNetworkInterfaces",
                 "ec2:DeleteNetworkInterface",

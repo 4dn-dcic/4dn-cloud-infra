@@ -1,5 +1,5 @@
 from troposphere import logs, Template, Output, Ref
-from dcicutils.cloudformation_utils import dehyphenate
+from dcicutils.cloudformation_utils import dehyphenate, camelize
 from ..constants import DeploymentParadigm
 from ..base import ConfigManager, Settings, APP_DEPLOYMENT
 from ..part import C4Part
@@ -50,8 +50,9 @@ class C4Logging(C4Part):
                                                        retention_in_days=365, deletion_policy='Retain'))
         else:
             docker_log_group = self.build_log_group(
-                identifier=('CGAPDockerLogs' if ConfigManager.get_config_setting(Settings.APP_KIND) != 'ff'
-                            else f'{dehyphenate(ConfigManager.get_config_setting(Settings.ENV_NAME))}DockerLogs'),
+                identifier=('CGAPDockerLogs' if ConfigManager.get_config_setting(Settings.APP_KIND) == 'cgap'
+                            else f'{camelize(dehyphenate(ConfigManager.get_config_setting(Settings.ENV_NAME)))}'
+                                 f'DockerLogs'),
                 retention_in_days=365, deletion_policy='Retain'
             )
             template.add_resource(docker_log_group)

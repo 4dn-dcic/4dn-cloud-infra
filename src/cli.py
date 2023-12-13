@@ -301,15 +301,17 @@ class C4Client:
             alpha_stack = cls.resolve_alpha_stack(stack_name=stack_name)
             dcic_stack = cls.resolve_4dn_stack(stack_name=stack_name)
             if alpha_stack and dcic_stack:
-                raise CLIException(f'Ambiguous stack name {stack_name} resolved'
-                                   f' to both alpha and 4dn stacks! Update your stack'
-                                   f' name so it does not clash with other stacks.')
-            stack = None
+                # old (rejects a clash entirely) :
+                # raise CLIException(f'Ambiguous stack name {stack_name} resolved'
+                #                    f' to both alpha and 4dn stacks! Update your stack'
+                #                    f' name so it does not clash with other stacks.')
+                # new (allows a clash and prefers the alpha stack):
+                PRINT(f'Ambigious stack name {stack_name} resolved! Preferring the ALPHA stack')
             if alpha_stack:
                 stack = alpha_stack
-            if dcic_stack:
+            elif dcic_stack:
                 stack = dcic_stack
-            if not stack:
+            else:
                 raise CLIException(f'Did not locate stack name: {stack_name}')
 
             if cls.is_foursight_stack(stack):  # Handle foursight
