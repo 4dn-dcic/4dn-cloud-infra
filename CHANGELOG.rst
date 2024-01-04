@@ -6,6 +6,12 @@
 Change Log
 ----------
 
+4.1.1
+=====
+
+* Update smaht codebuild to support pipelines
+
+
 4.1.0
 =====
 
