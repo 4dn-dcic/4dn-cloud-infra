@@ -29,7 +29,7 @@ prettytable = "3.3.0"
 tibanna = "^5.1.0"
 tibanna-ff = "^3.1.1"
 tqdm = ">=4.62.3"
-troposphere = "^3.2.2"
+troposphere = "^4.7.0"
 
 # Foursight ...
 
