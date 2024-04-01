@@ -41,6 +41,7 @@ class C4CodeBuild(C4Part):
     DEFAULT_ECR_REPO_NAME = DEFAULT_ECOSYSTEM_NAME
     DEFAULT_GITHUB_REPOSITORY = 'https://github.com/dbmi-bgm/cgap-portal'
     DEFAULT_GITHUB_PIPELINE_REPOSITORY = 'https://github.com/dbmi-bgm/cgap-pipeline-main'
+    SMAHT_GITHUB_REPOSITORY = 'https://github.com/smaht-dac/main-pipelines'
     DEFAULT_EXTERNAL_GITHUB_PIPELINE_REPOSITORY = 'https://github.com/dbmi-bgm/cgap-pipeline-contribution'
     DEFAULT_TIBANNA_REPOSITORY = 'https://github.com/4dn-dcic/tibanna'
     STACK_NAME_TOKEN = 'codebuild'
@@ -155,6 +156,26 @@ class C4CodeBuild(C4Part):
             template.add_output(self.output_value(resource=external_pipeline_build_project,
                                                   export_name=C4CodeBuildExports.output_project_key(
                                                       project_name=external_pipeline_project_name
+                                                  )))
+
+        elif APP_KIND == 'smaht':
+            pipeline_iam_role = self.cb_iam_role(project_name=pipeline_project_name)
+            template.add_resource(pipeline_iam_role)
+            template.add_output(self.output_value(resource=pipeline_iam_role,
+                                                  export_name=C4CodeBuildExports.output_project_iam_role(
+                                                      project_name=pipeline_project_name
+                                                  )))
+            # Build project for pipeline images
+            pipeline_build_project = self.cb_project(
+                project_name=pipeline_project_name,
+                github_repo_url=self.SMAHT_GITHUB_REPOSITORY,
+                branch='main',
+                environment=self.cb_pipeline_environment_vars()
+            )
+            template.add_resource(pipeline_build_project)
+            template.add_output(self.output_value(resource=pipeline_build_project,
+                                                  export_name=C4CodeBuildExports.output_project_key(
+                                                      project_name=pipeline_project_name
                                                   )))
 
         # Build project for Tibanna AWSF
