@@ -6,6 +6,12 @@
 Change Log
 ----------
 
+4.1.2
+=====
+
+* Update redis layer to pass encryption options (previously unsupported)
+
+
 4.1.1
 =====
 
