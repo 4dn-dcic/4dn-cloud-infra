@@ -1369,13 +1369,13 @@ tzlocal = ">=5.0.1,<6.0.0"
 
 [[package]]
 name = "foursight-smaht"
-version = "0.8.1"
+version = "0.8.4"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
-python-versions = ">=3.8,<3.12"
+python-versions = "<3.12,>=3.8"
 files = [
-    {file = "foursight_smaht-0.8.1-py3-none-any.whl", hash = "sha256:c2bda35edb31d3e2425531c27d9459f7c1029ce6c8c9c5d8336761f6954ef199"},
-    {file = "foursight_smaht-0.8.1.tar.gz", hash = "sha256:1f2f504361e1606c2cb1a2d67e53d486181356901dcd14d2f042ca5a1662fd79"},
+    {file = "foursight_smaht-0.8.4-py3-none-any.whl", hash = "sha256:5fffb5646738659127d73c541a7faaeee7e6dade4cba1dd799af47bb9dd8580b"},
+    {file = "foursight_smaht-0.8.4.tar.gz", hash = "sha256:a4d3762043d10fcc27a9781b7383d8072532278abbab67ed0af6f7a372bd77c6"},
 ]
 
 [package.dependencies]
@@ -4200,4 +4200,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.11"
-content-hash = "1bcebe77a67902c7db534f43f73044a37f99ae471b088907c6ef17477b0cb131"
+content-hash = "dbb3ce87004b319a4422571b9e580435e590a2145d43e5f2c3001ca2004c59c3"

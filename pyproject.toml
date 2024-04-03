@@ -33,7 +33,7 @@ troposphere = "^4.7.0"
 
 # Foursight ...
 
-foursight-core = "^5.1.0"
+foursight-core = "^5.4.1"
 #foursight-core = "5.1.0.1b1"
 
 # Define poetry "groups" for foursight-cgap and foursight, named foursight_cgap and
@@ -41,15 +41,18 @@ foursight-core = "^5.1.0"
 # not both in the Chalice package (via foursight_core/deploy.py). dmichaels/2022-11-01.
 
 [tool.poetry.group.foursight_smaht.dependencies]
-foursight-smaht = "^0.8.1"
+#foursight-smaht = "^0.8.1"
+foursight-smaht = "^0.8.4"  # For Alex V: 2024-04-03
 
 [tool.poetry.group.foursight_cgap.dependencies]
-foursight-cgap = "^4.1.0"
+#foursight-cgap = "^4.1.0"
 #foursight-cgap = "4.1.0.1b2"
+foursight-cgap = "^4.2.0"
 
 [tool.poetry.group.foursight_fourfront.dependencies]
-foursight = "^4.1.0"
+#foursight = "^4.2.0"
 #foursight = "4.1.0.1b1"
+foursight = "^4.4.1"
 
 [tool.poetry.dev-dependencies]
 jupyter = "1.0.0"
