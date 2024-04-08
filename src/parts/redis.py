@@ -1,8 +1,8 @@
-from troposphere import Ref, Template, Parameter, Output, GetAtt
-from troposphere.elasticache import CacheCluster, SubnetGroup, SecurityGroup, SecurityGroupIngress
+from troposphere import Ref, Template, Parameter, Output
+from troposphere.elasticache import CacheCluster, SubnetGroup, ReplicationGroup
 from dcicutils.cloudformation_utils import camelize
 
-from .network import C4NetworkExports, C4Network
+from .network import C4NetworkExports
 from ..base import ConfigManager
 from ..constants import Settings
 from ..exports import C4Exports
@@ -38,8 +38,8 @@ class C4Redis(C4Part):
 
         # Build Redis Cluster
         template.add_resource(self.build_redis_subnet_group())
-        cluster = template.add_resource(self.build_redis_cache_cluster())
-        template.add_output(self.output_redis_endpoint(cluster))
+        replication_group = self.build_redis_replication_group()
+        template.add_resource(replication_group)
         return template
 
     @staticmethod
@@ -66,23 +66,25 @@ class C4Redis(C4Part):
             Tags=self.tags.cost_tag_obj(),
         )
 
-    def build_redis_cache_cluster(self) -> CacheCluster:
-        """ Builds a Redis cluster in the ElastiCache paradigm """
+    def build_redis_replication_group(self) -> ReplicationGroup:
+        """ Pass additional security settings to Redis via Replication Group """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         logical_id = self.name.logical_id(self.redis_cluster_name(env_name))
-        # TODO: add back encryption options once they are supported.
-        return CacheCluster(
+        return ReplicationGroup(
             logical_id,
+            AutomaticFailoverEnabled=False,
+            ReplicationGroupDescription='Pass additional options to the Redis Cluster',
+            AtRestEncryptionEnabled=True,
+            TransitEncryptionEnabled=True,
             AutoMinorVersionUpgrade=True,
-            ClusterName=logical_id,
             Engine=self.DEFAULT_ENGINE,
             EngineVersion=ConfigManager.get_config_setting(Settings.REDIS_ENGINE_VERSION,
                                                            default=self.DEFAULT_ENGINE_VERSION),
-            NumCacheNodes=ConfigManager.get_config_setting(Settings.REDIS_NODE_COUNT,
-                                                           default=self.DEFAULT_NODE_COUNT),
+            NumCacheClusters=ConfigManager.get_config_setting(Settings.REDIS_NODE_COUNT,
+                                                              default=self.DEFAULT_NODE_COUNT),
             CacheNodeType=ConfigManager.get_config_setting(Settings.REDIS_NODE_TYPE,
                                                            default=self.DEFAULT_CACHE_NODE_TYPE),
             CacheSubnetGroupName=Ref(self.build_redis_subnet_group()),
-            VpcSecurityGroupIds=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.APPLICATION_SECURITY_GROUP)],
+            SecurityGroupIds=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.APPLICATION_SECURITY_GROUP)],
             Tags=self.tags.cost_tag_obj(),
         )
