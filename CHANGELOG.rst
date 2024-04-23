@@ -6,6 +6,12 @@
 Change Log
 ----------
 
+4.1.3
+=====
+
+* Update supported python versions (in pyproject.toml) from 3.8 thru 3.10 to 3.9 thru 3.11.
+
+
 4.1.2
 =====
 
