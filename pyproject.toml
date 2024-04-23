@@ -17,7 +17,7 @@ boto3 = "^1.34.89"
 botocore = "^1.34.89"
 chalice = "^1.29.0"
 cffi = "^1.15.1"
-dcicutils = "^8.0.0"
+dcicutils = "^8.0.0"  # TODO: Correct foursight-core to have dcicutils dependency with ^ (currently is "8.0.0").
 
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
@@ -33,28 +33,27 @@ troposphere = "^4.7.0"
 
 # Foursight ...
 
-foursight-core = "^5.1.0"
+foursight-core = "^5.4.1"
 
 # Define poetry "groups" for foursight-cgap and foursight, named foursight_cgap and
 # foursight_fourfront, respectively. This is so we can conditionally include either but
 # not both in the Chalice package (via foursight_core/deploy.py). dmichaels/2022-11-01.
 
 [tool.poetry.group.foursight_smaht.dependencies]
-#foursight-smaht = "^0.8.1"
-foursight-smaht = "0.8.6.1b3"
+foursight-smaht = "^0.8.7"
 
 [tool.poetry.group.foursight_cgap.dependencies]
-foursight-cgap = "^4.1.0"
+foursight-cgap = "^4.2.0"
 
 [tool.poetry.group.foursight_fourfront.dependencies]
-foursight = "^4.1.0"
+foursight = "^4.4.6"
 
 [tool.poetry.dev-dependencies]
 jupyter = "1.0.0"
 #numpy = "1.21.6"  # added to allow to lock, last viable version for 3.7 - Will July 21 2022
 #pandas = "1.3.5"  # added to allow to lock, last viable version for 3.7 - Will July 21 2022
 cfn-flip = "1.2.3"  # do we need to specify this explicitly? -kmp 27-Jul-2021
-cfn-lint = "0.48.3"  # a secondary check that catches more things than standard validate - Will 4/1/2021
+cfn-lint = "^0.86.4"  # a secondary check that catches more things than standard validate - Will 4/1/2021
 boto3-stubs = "^1.34.69"
 botocore-stubs = "^1.34.69"
 # Linting generally
