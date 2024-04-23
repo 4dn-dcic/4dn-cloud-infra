@@ -17,7 +17,7 @@ boto3 = "^1.34.89"
 botocore = "^1.34.89"
 chalice = "^1.29.0"
 cffi = "^1.15.1"
-dcicutils = "^8.0.0"  # TODO: Correct foursight-core to have dcicutils dependency with ^ (currently is "8.0.0").
+dcicutils = "^8.8.4"
 
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
@@ -33,7 +33,7 @@ troposphere = "^4.7.0"
 
 # Foursight ...
 
-foursight-core = "^5.4.1"
+foursight-core = "^5.4.2"
 
 # Define poetry "groups" for foursight-cgap and foursight, named foursight_cgap and
 # foursight_fourfront, respectively. This is so we can conditionally include either but
