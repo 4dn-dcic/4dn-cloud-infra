@@ -88,7 +88,7 @@ class C4ECSApplication(C4Part):
     LB_NAME = 'AppLB'
     IMAGE_TAG = ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, 'latest')
     LEGACY_DEFAULT_IDENTITY = 'dev/beanstalk/cgap-dev'
-    TARGET_GROUP_NAME = 'TargetGroupPortal'  # consider better name?
+    TARGET_GROUP_NAME = f'{camelize(ConfigManager.get_config_setting(Settings.ENV_NAME))}TargetGroupPortal'
 
     STACK_NAME_TOKEN = "ecs"
     STACK_TITLE_TOKEN = "ECS"

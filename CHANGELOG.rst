@@ -6,6 +6,12 @@
 Change Log
 ----------
 
+4.2.0
+=====
+
+* Changes/notes on single account standalone (non blue/green) env setup
+
+
 4.1.3
 =====
 

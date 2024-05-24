@@ -161,7 +161,7 @@ class C4DatastoreBase:
     DEFAULT_RDS_STORAGE_SIZE = 30
     DEFAULT_RDS_INSTANCE_SIZE = 'db.t4g.medium'
     DEFAULT_RDS_STORAGE_TYPE = 'gp3'
-    DEFAULT_RDS_POSTGRES_VERSION = '14.4'
+    DEFAULT_RDS_POSTGRES_VERSION = '14.10'  # TODO: this may need to be pulled as it changes frequently throwing errors
 
 
 # dmichaels/2022-06-22: Factored out from C4IAM in iam.py.

@@ -46,11 +46,12 @@ class C4CodeBuild(C4Part):
     DEFAULT_TIBANNA_REPOSITORY = 'https://github.com/4dn-dcic/tibanna'
     STACK_NAME_TOKEN = 'codebuild'
     STACK_TITLE_TOKEN = 'CodeBuild'
-    DEFAULT_DEPLOY_BRANCH = 'master'
+    DEFAULT_DEPLOY_BRANCH = 'master'  # TODO: handle this better, as there is mixed master/main usage
     DEFAULT_PIPELINE_DEPLOY_BRANCH = 'v1.0.0'  # version release tag for cgap-pipeline-main
     DEFAULT_EXTERNAL_GITHUB_PIPELINE_BRANCH = 'v1.0.0'  # TODO: this should be verified
     NETWORK_EXPORTS = C4NetworkExports()
     EXPORTS = C4CodeBuildExports()
+    SHARING = 'env'  # TODO this may need to be read from config/overridden depending on situation
 
     def build_template(self, template: Template) -> Template:
         # Network Stack Parameter
@@ -72,16 +73,11 @@ class C4CodeBuild(C4Part):
                                               export_name=C4CodeBuildExports.output_project_iam_role(
                                                   project_name=portal_env_name
                                               )))
-        tibanna_iam_role = self.cb_iam_role(project_name=tibanna_project_name)
-        template.add_resource(tibanna_iam_role)
-        template.add_output(self.output_value(resource=tibanna_iam_role,
-                                              export_name=C4CodeBuildExports.output_project_iam_role(
-                                                  project_name=tibanna_project_name
-                                              )))
 
         # credentials for cb
-        creds = self.cb_source_credential()
-        template.add_resource(creds)
+        # TODO: this setup does not work for multi environment builds, needs a single cb credential
+        # creds = self.cb_source_credential()
+        # template.add_resource(creds)
 
         # Build project for portal image in blue/green
         if APP_DEPLOYMENT == DeploymentParadigm.BLUE_GREEN:
@@ -158,7 +154,7 @@ class C4CodeBuild(C4Part):
                                                       project_name=external_pipeline_project_name
                                                   )))
 
-        elif APP_KIND == 'smaht':
+        elif APP_KIND == 'smaht' and self.SHARING != 'env':
             pipeline_iam_role = self.cb_iam_role(project_name=pipeline_project_name)
             template.add_resource(pipeline_iam_role)
             template.add_output(self.output_value(resource=pipeline_iam_role,
@@ -178,18 +174,25 @@ class C4CodeBuild(C4Part):
                                                       project_name=pipeline_project_name
                                                   )))
 
-        # Build project for Tibanna AWSF
-        tibanna_build_project = self.cb_project(
-            project_name=tibanna_project_name,
-            github_repo_url=self.DEFAULT_TIBANNA_REPOSITORY,
-            branch=tibanna_version,  # default branch to version
-            environment=self.cb_tibanna_environment_vars()
-        )
-        template.add_resource(tibanna_build_project)
-        template.add_output(self.output_value(resource=tibanna_build_project,
-                                              export_name=C4CodeBuildExports.output_project_key(
-                                                  project_name=tibanna_project_name
-                                              )))
+        # Build project for Tibanna AWSF if we are shared
+        if self.SHARING != 'env':
+            tibanna_iam_role = self.cb_iam_role(project_name=tibanna_project_name)
+            template.add_resource(tibanna_iam_role)
+            template.add_output(self.output_value(resource=tibanna_iam_role,
+                                                  export_name=C4CodeBuildExports.output_project_iam_role(
+                                                      project_name=tibanna_project_name
+                                                  )))
+            tibanna_build_project = self.cb_project(
+                project_name=tibanna_project_name,
+                github_repo_url=self.DEFAULT_TIBANNA_REPOSITORY,
+                branch=tibanna_version,  # default branch to version
+                environment=self.cb_tibanna_environment_vars()
+            )
+            template.add_resource(tibanna_build_project)
+            template.add_output(self.output_value(resource=tibanna_build_project,
+                                                  export_name=C4CodeBuildExports.output_project_key(
+                                                      project_name=tibanna_project_name
+                                                  )))
         return template
 
     @staticmethod
@@ -325,7 +328,7 @@ class C4CodeBuild(C4Part):
     def cb_source_credential() -> SourceCredential:
         """ Grabs a Github Personal Access Token for use with CodeBuild """
         return SourceCredential(
-            'GithubSourceCredential',
+            f'{camelize(ConfigManager.get_config_setting(Settings.ENV_NAME))}GithubSourceCredential',
             AuthType='PERSONAL_ACCESS_TOKEN',
             ServerType='GITHUB',
             Token=ConfigManager.get_config_secret(Secrets.GITHUB_PERSONAL_ACCESS_TOKEN)
@@ -334,10 +337,10 @@ class C4CodeBuild(C4Part):
     def cb_source(self, *, github_repo_url) -> Source:
         """ Defines the source for the code build job, typically Github """
         return Source(
-            Auth=SourceAuth(
-                Resource=Ref(self.cb_source_credential()),
-                Type='OAUTH'
-            ),
+            # Auth=SourceAuth(
+            #     Resource=Ref(self.cb_source_credential()),
+            #     Type='OAUTH'
+            # ),
             Location=github_repo_url,
             Type='GITHUB',
             GitSubmodulesConfig=GitSubmodulesConfig(
