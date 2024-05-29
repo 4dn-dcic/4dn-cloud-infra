@@ -57,8 +57,9 @@ class C4Logging(C4Part):
             )
             template.add_resource(docker_log_group)
             template.add_output(self.output_application_log_group(docker_log_group))
-            template.add_resource(self.build_log_group(identifier='VPCFlowLogs',
-                                                       retention_in_days=365, deletion_policy='Retain'))
+            # TODO: this should only be built if we're building a "main"
+            # template.add_resource(self.build_log_group(identifier='VPCFlowLogs',
+            #                                            retention_in_days=365, deletion_policy='Retain'))
         return template
 
     def build_log_group(self, identifier: str,

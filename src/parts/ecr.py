@@ -63,7 +63,7 @@ class C4ContainerRegistry(C4Part):
 
     STACK_NAME_TOKEN = "ecr"
     STACK_TITLE_TOKEN = "ECR"
-    SHARING = 'ecosystem'
+    SHARING = 'env'  # TODO: should be overridden if we are building a blue/green
 
     def build_template(self, template: Template) -> Template:
         # Adds IAM Stack Parameter
@@ -119,6 +119,8 @@ class C4ContainerRegistry(C4Part):
             if (ConfigManager.get_config_setting(Settings.APP_KIND) in ['ff', 'smaht'] and
                     rname not in [env_name, 'tibanna-awsf']):
                 break  # do not add tibanna repos if building a fourfront/smaht env
+            if self.SHARING == 'env' and rname == 'tibanna-awsf':
+                break  # also exit if we are in a multi env setup (we do not build tibanna-awsf twice)
             repo = self.repository(repo_name=rname)
             template.add_resource(repo)
             template.add_output(self.output_repo_url(repo, export))

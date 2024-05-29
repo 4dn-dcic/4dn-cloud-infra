@@ -12,6 +12,15 @@ Step Zero: Setup: Installation, and fill in config
 
 First, see `<docs/setup.rst>`_ for detailed setup instructions.
 
+IMPORTANT NOTE: Building multiple environments in a single account is considered advanced usage and is not fully automated at this time. Certain steps will fail if you attempt to do this without fixing several things. See the below notes:
+
+    * If you intend to do this, you must leave ``s3.bucket.ecosystem`` unset to default to main when building the ``network`` stack in order to use shared network. It is ideal to do this because the network has some inherent costs you wouldn't want to replicate. After building the network, switch this value to the env name you intend to use, and use the env name for the rest of the environments for ``s3.bucket.ecosystem``.
+    * As a result of this change, you will need to manually override input arguments for the network stack parameter - by default it will look for whatever is in ``s3.bucket.ecosystem``, but you need this value to be the env name in order for stack names to not clash. This applies for ALL Docker commands where ``NetworkStackNameParameter`` is passed!
+    * The ``SHARING`` value on various ``parts`` needs to be changed depending on the situation.
+    * Certain stacks will build duplicate resources, such as logging, IAM and ECR - in some cases customization to the ``parts`` file is needed, or you can duplicate where IDs are not clashing and cleanup later.
+    * Codebuild ``source credentials`` can only support 1 value per account, so you will have to omit this and use OAuth to link various builds.
+    * Datastore will create multiple ``GLOBAL_ENV_BUCKET`` buckets, use only one and delete the others. It will also create multiple KMS keys - use the one associated with the correct ``GLOBAL_ENV_BUCKET``
+
 Step One: Create New Account
 ----------------------------
 
