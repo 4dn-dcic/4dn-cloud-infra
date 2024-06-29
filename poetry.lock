@@ -1380,22 +1380,22 @@ tzlocal = ">=5.1,<6.0"
 
 [[package]]
 name = "foursight-core"
-version = "5.4.2"
+version = "5.5.0.1b1"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
-python-versions = "<3.12,>=3.8"
+python-versions = "<3.13,>=3.8.1"
 files = [
-    {file = "foursight_core-5.4.2-py3-none-any.whl", hash = "sha256:9e3a450f4cf73cc2536a225d3294fcfba508e316ad7746e7d981b78fb40f72e3"},
-    {file = "foursight_core-5.4.2.tar.gz", hash = "sha256:3c241d5f4190e4c398e1bcb6bce5ade54d85eb4803757635ca24f55fbf6a1f44"},
+    {file = "foursight_core-5.5.0.1b1-py3-none-any.whl", hash = "sha256:cabf21fd6540945bfeac3f080631431c1a36bdf6ec146964b838564479a42805"},
+    {file = "foursight_core-5.5.0.1b1.tar.gz", hash = "sha256:36860bbe36c7c3e9eaab39dbc83c0f5b24cc8bd05cb7ec22b4f3a3ee7d254f3a"},
 ]
 
 [package.dependencies]
-boto3 = ">=1.34.89,<2.0.0"
-botocore = ">=1.34.89,<2.0.0"
+boto3 = ">=1.34.136,<2.0.0"
+botocore = ">=1.34.136,<2.0.0"
 click = ">=7.1.2,<8.0.0"
 cron-descriptor = ">=1.2.31,<2.0.0"
 cryptography = "39.0.2"
-dcicutils = ">=8.8.4,<9.0.0"
+dcicutils = "8.12.0.1b6"
 elasticsearch = "7.13.4"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
 geocoder = "1.38.1"
@@ -4765,4 +4765,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.12"
-content-hash = "c4633451704f874da5f922c7664e75a6f653ff69fd037a6dfde76c9cdfd5fe3a"
+content-hash = "13ded24b97cf059f6b29fc71433cb5c8954d8725a81bd074f928dde38b82a2af"

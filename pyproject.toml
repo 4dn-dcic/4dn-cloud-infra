@@ -33,7 +33,7 @@ troposphere = "^4.7.0"
 
 # Foursight ...
 
-foursight-core = "^5.4.2"
+foursight-core = "5.5.0.1b1"
 
 # Define poetry "groups" for foursight-cgap and foursight, named foursight_cgap and
 # foursight_fourfront, respectively. This is so we can conditionally include either but
