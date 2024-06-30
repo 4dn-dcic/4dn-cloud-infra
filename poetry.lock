@@ -1316,23 +1316,24 @@ pyflakes = ">=3.2.0,<3.3.0"
 
 [[package]]
 name = "foursight"
-version = "4.7.1"
+version = "4.7.1.1b3"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
-python-versions = "<3.12,>=3.8"
+python-versions = "<3.13,>=3.8.1"
 files = [
-    {file = "foursight-4.7.1-py3-none-any.whl", hash = "sha256:fe7b81475e42da18a9c9a299059e05bfe7594254f89afc236a9c230f3de8719c"},
-    {file = "foursight-4.7.1.tar.gz", hash = "sha256:9aac1db53c6794cdb4c50794af9fc5d0140e9a890e34687ee2d3c235d0a851df"},
+    {file = "foursight-4.7.1.1b3-py3-none-any.whl", hash = "sha256:be1799c1e517c4dc2d5339551d973c27102a1e4efc6b62c42eff40cbc835dfca"},
+    {file = "foursight-4.7.1.1b3.tar.gz", hash = "sha256:ab5aa001700c5c42edfdee1b4a52246290f3d15c5f5dcc6e1efcf4b3bb2b541a"},
 ]
 
 [package.dependencies]
 benchmark-4dn = ">=0.5.17,<0.6.0"
 click = ">=7.1.2,<8.0.0"
 cron-descriptor = ">=1.4.0,<2.0.0"
-dcicutils = ">=8.8.4,<9.0.0"
+dcicutils = "8.12.0.1b6"
+docutils = ">=0.10,<0.17"
 elasticsearch = "7.13.4"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
-foursight-core = ">=5.4.2,<6.0.0"
+foursight-core = "5.5.0.1b1"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-analytics-data = ">=0.17.1,<0.18.0"
@@ -1344,38 +1345,38 @@ PyJWT = ">=2.5.0,<3.0.0"
 pytest = ">=7.4.2,<8.0.0"
 pytest-redis = ">=3.0.2,<4.0.0"
 pytz = ">=2020.1,<2021.0"
-tibanna-ff = ">=3.4.0,<4.0.0"
+tibanna-ff = "3.4.1.1b1"
 tzlocal = ">=5.1,<6.0"
 
 [[package]]
 name = "foursight-cgap"
-version = "4.3.0"
+version = "4.3.0.1b3"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
-python-versions = "<3.12,>=3.8"
+python-versions = "<3.13,>=3.8.1"
 files = [
-    {file = "foursight_cgap-4.3.0-py3-none-any.whl", hash = "sha256:d7d9d8be2a4d16e0b654ad1720e42ad9a5893003898ea5d92e554f6cff1e2992"},
-    {file = "foursight_cgap-4.3.0.tar.gz", hash = "sha256:99dccd4d72ef6d7b043026d91c1ffabb413cdba58c562a7585b7f899ea550e21"},
+    {file = "foursight_cgap-4.3.0.1b3-py3-none-any.whl", hash = "sha256:6c3b6ed8405cd94b78b3e99fbedd2c4f27620a79cc009cefe8dcc47ef9cd99b5"},
+    {file = "foursight_cgap-4.3.0.1b3.tar.gz", hash = "sha256:96316879ba605696353679df0ae5c0c783ecaf25d350b483ec467d39f36311b8"},
 ]
 
 [package.dependencies]
 click = ">=7.1.2,<8.0.0"
 cron-descriptor = ">=1.4.0,<2.0.0"
-dcicutils = ">=8.0.0,<9.0.0"
+dcicutils = "8.12.0.1b6"
 elasticsearch = "7.13.4"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
-foursight-core = ">=5.3.0,<6.0.0"
+foursight-core = "5.5.0.1b1"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.12.5,<2.0.0"
 Jinja2 = ">=3.1.2,<4.0.0"
-magma-suite = ">=3.0.0,<4.0.0"
+magma-suite = "3.4.1.1b2"
 MarkupSafe = ">=2.1.3,<3.0.0"
 PyJWT = ">=2.5.0,<3.0.0"
 pytest = ">=7.4.2,<8.0.0"
 pytest-redis = ">=3.0.2,<4.0.0"
 pytz = ">=2020.1,<2021.0"
-tibanna-ff = ">=3.4.0,<4.0.0"
+tibanna-ff = "3.4.1.1b1"
 tzlocal = ">=5.1,<6.0"
 
 [[package]]
@@ -1414,34 +1415,35 @@ tzlocal = ">=5.0.1,<6.0.0"
 
 [[package]]
 name = "foursight-smaht"
-version = "0.8.7"
+version = "0.8.7.1b4"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
-python-versions = "<3.12,>=3.8"
+python-versions = "<3.13,>=3.9"
 files = [
-    {file = "foursight_smaht-0.8.7-py3-none-any.whl", hash = "sha256:9f1dc686365708e5970d4cc9ca49d869905e769f4c4e9f5d42b63a768f8feca5"},
-    {file = "foursight_smaht-0.8.7.tar.gz", hash = "sha256:330a350b652266bb3c8e6e12f96c2ef97bf5ab48afe4c210a5d495af517a85c0"},
+    {file = "foursight_smaht-0.8.7.1b4-py3-none-any.whl", hash = "sha256:6008b32815f00b09eb6fed81098d57907472fd5788a36baf1010814cb1712c83"},
+    {file = "foursight_smaht-0.8.7.1b4.tar.gz", hash = "sha256:70e64f3d44827e3fdb1bc2fd580bf5c1561c4c5f262dab8eead9fb5499730b66"},
 ]
 
 [package.dependencies]
+awscli = ">=1.33.18,<2.0.0"
 click = ">=7.1.2,<8.0.0"
 cron-descriptor = ">=1.4.0,<2.0.0"
-dcicutils = ">=8.0.0,<9.0.0"
+dcicutils = "8.12.0.1b6"
 elasticsearch = "7.13.4"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
-foursight-core = ">=5.4.0,<6.0.0"
+foursight-core = "5.5.0.1b1"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-api-python-client = ">=1.12.5,<2.0.0"
 Jinja2 = ">=3.1.2,<4.0.0"
-magma-suite = ">=3.2.1,<4.0.0"
+magma-suite = "3.4.1.1b2"
 MarkupSafe = ">=2.1.3,<3.0.0"
 packaging = ">=23.0,<24.0"
 PyJWT = ">=2.5.0,<3.0.0"
 pytest = ">=7.4.2,<8.0.0"
 pytest-redis = ">=3.0.2,<4.0.0"
 pytz = ">=2020.1,<2021.0"
-tibanna-ff = ">=3.4.0,<4.0.0"
+tibanna-ff = "3.4.1.1b1"
 tzlocal = ">=5.1,<6.0"
 
 [[package]]
@@ -2341,20 +2343,21 @@ files = [
 
 [[package]]
 name = "magma-suite"
-version = "3.4.1"
+version = "3.4.1.1b2"
 description = "Collection of tools to manage meta-workflows automation."
 optional = false
-python-versions = "<3.12,>=3.8"
+python-versions = "<3.13,>=3.8.1"
 files = [
-    {file = "magma_suite-3.4.1-py3-none-any.whl", hash = "sha256:9298aacd4224af41a1436417992299346bbf504708ab13b3b48646b4d6d178ef"},
-    {file = "magma_suite-3.4.1.tar.gz", hash = "sha256:81b63252e0601cbfd000b15d261661a3f60216802543f9dbe6d441e2f60d3915"},
+    {file = "magma_suite-3.4.1.1b2-py3-none-any.whl", hash = "sha256:f327e03418fe40e17e363b4d04060288a7cea4bbdd3f5278f38eb4743a48bbd4"},
+    {file = "magma_suite-3.4.1.1b2.tar.gz", hash = "sha256:dbdcbd43e385292d52db6b724e5e07e9197e896d856e726054830681842edd8f"},
 ]
 
 [package.dependencies]
 click = ">=7.1.2,<8.0.0"
-dcicutils = ">=8.0.0,<9.0.0"
+dcicutils = "8.12.0.1b6"
+docutils = ">=0.10,<0.17"
 packaging = ">=23.0,<24.0"
-tibanna-ff = ">=3.2.0"
+tibanna-ff = "3.4.1.1b1"
 
 [[package]]
 name = "markupsafe"
@@ -4246,40 +4249,40 @@ typing = ["mypy (>=1.6,<2.0)", "traitlets (>=5.11.1)"]
 
 [[package]]
 name = "tibanna"
-version = "5.2.2"
+version = "5.2.2.1b1"
 description = "Tibanna runs portable pipelines (in CWL/WDL) on the AWS Cloud."
 optional = false
-python-versions = "<3.12,>=3.8"
+python-versions = "<3.13,>=3.8"
 files = [
-    {file = "tibanna-5.2.2-py3-none-any.whl", hash = "sha256:bb5e5653206214562beb20b12c3a55d98dbb2de635521a2a0cd3e05fba5b54ce"},
-    {file = "tibanna-5.2.2.tar.gz", hash = "sha256:5bd55bde0158ac60536174411cae9c52ab2f23de968ea15ab019344034ece033"},
+    {file = "tibanna-5.2.2.1b1-py3-none-any.whl", hash = "sha256:1db42c287d50638225381a0c2ca3d81ef3e9f063806f2222c8bcf7809fb468dc"},
+    {file = "tibanna-5.2.2.1b1.tar.gz", hash = "sha256:69095092bbbfa88bb5c498d1a3e24a0f819c9ebca3b98222f01b7651a6b40ffa"},
 ]
 
 [package.dependencies]
 Benchmark-4dn = ">=0.5.24,<0.6.0"
-boto3 = ">=1.28.56,<2.0.0"
-botocore = ">=1.31.56,<2.0.0"
+boto3 = ">=1.34.136,<2.0.0"
+botocore = ">=1.34.136,<2.0.0"
 python-lambda-4dn = "0.12.3"
 tomlkit = ">=0.11.0,<0.12.0"
 
 [[package]]
 name = "tibanna-ff"
-version = "3.4.0"
+version = "3.4.1.1b1"
 description = "Tibanna runs portable pipelines (in CWL/WDL) on the AWS Cloud."
 optional = false
-python-versions = "<3.12,>=3.8"
+python-versions = "<3.13,>=3.8.1"
 files = [
-    {file = "tibanna_ff-3.4.0-py3-none-any.whl", hash = "sha256:a460fdb3325e47853a03b48a638b81be8881b92062040358bac29f06f0314cbd"},
-    {file = "tibanna_ff-3.4.0.tar.gz", hash = "sha256:0de476914a8bcfef36d2a0f0f7ce2edd805550e24329565f5b0d6238eec7319e"},
+    {file = "tibanna_ff-3.4.1.1b1-py3-none-any.whl", hash = "sha256:4834c083db9eb2827f3d48fab85866ff7fb4df850d6fba397e06c9370b52966b"},
+    {file = "tibanna_ff-3.4.1.1b1.tar.gz", hash = "sha256:8a1d5223c402f3c23795a40c7f3e6ac0ae6b7dffb4bd6bd9a5796fe26b2880ed"},
 ]
 
 [package.dependencies]
-boto3 = ">=1.28.56,<2.0.0"
-botocore = ">=1.31.56,<2.0.0"
-dcicutils = ">=8.0.0,<9.0.0"
+boto3 = ">=1.34.136,<2.0.0"
+botocore = ">=1.34.136,<2.0.0"
+dcicutils = "8.12.0.1b6"
 pydantic = ">=2.4.2,<3.0.0"
 requests = "2.27.1"
-tibanna = ">=5.1.0,<6.0.0"
+tibanna = "5.2.2.1b1"
 tomlkit = ">=0.11.0,<0.12.0"
 
 [[package]]
@@ -4764,5 +4767,5 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 
 [metadata]
 lock-version = "2.0"
-python-versions = ">=3.9,<3.12"
-content-hash = "13ded24b97cf059f6b29fc71433cb5c8954d8725a81bd074f928dde38b82a2af"
+python-versions = ">=3.9,<3.13"
+content-hash = "c9138ac0f468f0ae8808d3c8cb3f5015b454715c4772559c35aa1afda4b18c66"
