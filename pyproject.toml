@@ -36,7 +36,7 @@ troposphere = "^4.7.0"
 
 # Foursight ...
 
-foursight-core = "5.5.0.1b3"
+foursight-core = "5.5.0.1b4"
 
 # Define poetry "groups" for foursight-cgap and foursight, named foursight_cgap and
 # foursight_fourfront, respectively. This is so we can conditionally include either but
@@ -44,13 +44,13 @@ foursight-core = "5.5.0.1b3"
 
 [tool.poetry.group.foursight_smaht.dependencies]
 # foursight-smaht = "^0.8.7"
-foursight-smaht = "0.8.7.1b6"
+foursight-smaht = "0.8.7.1b8"
 
 [tool.poetry.group.foursight_cgap.dependencies]
-foursight-cgap = "4.3.0.1b5"
+foursight-cgap = "4.3.0.1b6"
 
 [tool.poetry.group.foursight_fourfront.dependencies]
-foursight = "4.7.1.1b5"
+foursight = "4.7.1.1b6"
 
 [tool.poetry.dev-dependencies]
 jupyter = "1.0.0"

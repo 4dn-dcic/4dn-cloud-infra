@@ -199,7 +199,7 @@ class ConfigManager:
         """
         with io.open(filename) as fp:
             config = json.load(fp)
-            #config = {k: v and str(v) for k, v in config.items()}
+            # config = {k: v and str(v) for k, v in config.items()}
             config = {k: str(v) if v is not None else None for k, v in config.items()}
             return config
 
@@ -361,6 +361,11 @@ class ConfigManager:
                     if value_only
                     else results)   # if not value-only, result is a dictionary, which is fine
         else:
+            # 2024-07-02: Fix for results == ["smaht-devtest-foursight-envs", "smaht-wolf-foursight-envs"]
+            # and ConfigManager.get_config_setting(Settings.ENV_NAME) == "smaht-wolf".
+            if env_name := ConfigManager.get_config_setting(Settings.ENV_NAME):
+                if (results := [result for result in results if env_name in result]) and (len(results) == 1):
+                    return results[0]
             raise ValueError(f"Too many matches for {key_or_pred}: {results}")
 
     @classmethod
