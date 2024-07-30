@@ -348,11 +348,15 @@ class SMaHTIdentitySwap(C4IdentitySwap):
             cls._execute_swap_plan(ecs, blue_cluster_arn, green_cluster_arn, swap_plan)
             PRINT(f'Swap plan executed - new tasks should reflect within 5 minutes')
 
-        # update GLOBAL_ENV_BUCKET
-        cls._update_foursight()
+            # update GLOBAL_ENV_BUCKET
+            cls._update_foursight()
 
-        # Update indexer task autoscaling triggers
-        cls._update_autoscaling(autoscaling, swap_plan)
+            # Update indexer task autoscaling triggers
+            PRINT(f'Updating indexer autoscaling to reflect new state')
+            cls._update_autoscaling(autoscaling, swap_plan)
+
+        else:
+            PRINT(f'Swap plan NOT executed - exiting with no further action')
 
 
 class FFIdentitySwap(C4IdentitySwap):
