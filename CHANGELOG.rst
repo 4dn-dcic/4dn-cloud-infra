@@ -6,6 +6,12 @@
 Change Log
 ----------
 
+4.3.0
+=====
+
+* Implements identity swap procedure for SMaHT, including autoscaling configuration
+
+
 4.2.0
 =====
 
