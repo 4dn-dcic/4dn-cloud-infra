@@ -1316,13 +1316,13 @@ pyflakes = ">=3.2.0,<3.3.0"
 
 [[package]]
 name = "foursight"
-version = "4.8.0"
+version = "4.8.1"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
 python-versions = "<3.13,>=3.8.1"
 files = [
-    {file = "foursight-4.8.0-py3-none-any.whl", hash = "sha256:4db80f4d94d67024db55ce21139226c0819c780251850277502ca5636688597f"},
-    {file = "foursight-4.8.0.tar.gz", hash = "sha256:18eb3d4351e75bd951dcae1920ba6ba4a7f1592b3debd429414f9cbf35054f71"},
+    {file = "foursight-4.8.1-py3-none-any.whl", hash = "sha256:6e7b5b3df945e1cfdd6f65d0135055c72850ab360fafe88147b30cc9337ad896"},
+    {file = "foursight-4.8.1.tar.gz", hash = "sha256:1203dd84a012f386966413f8b7c0f6e3667a78ccdc95da242ec6bc30e1f5a674"},
 ]
 
 [package.dependencies]
@@ -4266,13 +4266,13 @@ typing = ["mypy (>=1.6,<2.0)", "traitlets (>=5.11.1)"]
 
 [[package]]
 name = "tibanna"
-version = "5.4.1"
+version = "5.4.3"
 description = "Tibanna runs portable pipelines (in CWL/WDL) on the AWS Cloud."
 optional = false
 python-versions = "<3.13,>=3.8"
 files = [
-    {file = "tibanna-5.4.1-py3-none-any.whl", hash = "sha256:d94183c27f6cf15daf25ae9e13e90e8ae7137f917ec1155e5eb79ec41ac9fa96"},
-    {file = "tibanna-5.4.1.tar.gz", hash = "sha256:c9406ee6dd9ff3c55f3ea936c74c9cb64903d9c278647ccb9fe4219cd1e55fa8"},
+    {file = "tibanna-5.4.3-py3-none-any.whl", hash = "sha256:d1f25ac4d466117b3d768692db098e81703101c68320a4024b0229b3cb9e8b7b"},
+    {file = "tibanna-5.4.3.tar.gz", hash = "sha256:0df237bfdfbc091bfb452932bf8d8772d41cc0c8bc26e6350252e18010f7eb86"},
 ]
 
 [package.dependencies]
@@ -4785,4 +4785,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "c49ce27ff3bb56dbe3935212682a538eb2466497b901b0014ed6276465680935"
+content-hash = "1be8f40afe68730fc140cad2396729fc3faa7259428ea963a1d59aa59cd9ef6c"

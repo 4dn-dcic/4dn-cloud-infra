@@ -6,6 +6,12 @@
 Change Log
 ----------
 
+4.2.1
+=====
+
+* Update some versions.
+
+
 4.2.0
 =====
 
