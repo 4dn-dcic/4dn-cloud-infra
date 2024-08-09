@@ -10,6 +10,8 @@ Change Log
 =====
 
 * Update some versions.
+* Change to base.py to allow s3_encrypt_key.txt file to alternatively live directly
+  in the custom directory rather than in the custom/aws_creds directory.
 
 
 4.2.0
