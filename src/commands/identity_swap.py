@@ -42,7 +42,7 @@ def upload_config(*, bucket, key, data: Union[str, dict], query=True, kms_key=No
             data = json.dumps(data, indent=2, default=str) + "\n"
         stream = io.BytesIO(data.encode('utf-8'))
         s3 = boto3.client('s3')
-        if not key:
+        if not kms_key:
             s3.upload_fileobj(Fileobj=stream, Bucket=bucket, Key=key)
         else:
 
