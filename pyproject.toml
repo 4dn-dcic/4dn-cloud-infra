@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "4dn-cloud-infra"
-version = "4.3.0.1b1"  # TODO: To become 4.4.0
+version = "4.4.0"
 description = "Repository for generating Cloudformation Templates to orchestrate the CGAP Ecosystem"
 authors = ["4DN-DCIC Team <4dn-dcic@gmail.com>"]
 license = "MIT"
@@ -17,7 +17,8 @@ boto3 = "^1.34.147"
 botocore = "^1.34.147"
 chalice = "^1.29.0"
 cffi = "^1.15.1"
-dcicutils = "^8.14.1"
+# dcicutils = "^8.14.2"
+dcicutils = "8.14.1.1b2"
 
 # pyrsistent = "^0.17.3"
 # We don't want to use python-levenshtein if at all possible. See me or Andy for details. -kmp 17-Aug-2021
@@ -33,7 +34,7 @@ troposphere = "^4.7.0"
 
 # Foursight ...
 
-foursight-core = "^5.6.0"
+foursight-core = "^5.6.1"
 
 # Define poetry "groups" for foursight-cgap and foursight, named foursight_cgap and
 # foursight_fourfront, respectively. This is so we can conditionally include either but
@@ -46,7 +47,7 @@ foursight-smaht = "^0.8.8"
 foursight-cgap = "^4.4.0"
 
 [tool.poetry.group.foursight_fourfront.dependencies]
-foursight = "^4.8.1"
+foursight = "^4.8.2"
 
 [tool.poetry.dev-dependencies]
 jupyter = "1.0.0"
