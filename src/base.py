@@ -230,6 +230,9 @@ class ConfigManager:
             yield
 
     S3_ENCRYPT_KEY_FILE = os.path.join(ROOT_DIR, "custom/aws_creds/s3_encrypt_key.txt")
+    # 2024-08-09: Allow s3_encrypt_key.txt file to reside in custom directory directly rather than custom/aws_creds.
+    if not os.path.exists(S3_ENCRYPT_KEY_FILE):
+        S3_ENCRYPT_KEY_FILE = os.path.join(ROOT_DIR, "custom/s3_encrypt_key.txt")
 
     @classmethod
     def get_s3_encrypt_key_from_file(cls):
