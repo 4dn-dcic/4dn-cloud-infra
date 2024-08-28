@@ -183,7 +183,7 @@ class AwsEcs:
         return value
 
     @property
-    def account_info(self) -> Optional[object]:
+    def account(self) -> Optional[object]:
         boto_sts = BotoClient("sts")
         boto_iam = BotoClient("iam")
         try:
@@ -432,12 +432,12 @@ def main():
 
     ecs = AwsEcs(blue_green=blue_green, nocolor=nocolor)
 
-    if not (ecs_account_info := ecs.account_info):
+    if not (ecs_account := ecs.account):
         print("AWS credentials do not appear to be working.")
         exit(1)
 
-    print(f"Showing current ECS cluster info for AWS account: {ecs_account_info.account_number}"
-          f"{f' ({ecs_account_info.account_alias})' if ecs_account_info.account_alias else ''} ...")
+    print(f"Showing current ECS cluster info for AWS account: {ecs_account.account_number}"
+          f"{f' ({ecs_account.account_alias})' if ecs_account.account_alias else ''} ...")
 
     ecs.print(shortened_names=shortened_names, versioned_names=versioned_names)
 
@@ -446,8 +446,8 @@ def main():
         if error:
             print(error)
             exit(1)
-        print(f"Showing proposed ECS identity swap plan for AWS account: {ecs_account_info.account_number}"
-              f"{f' ({ecs_account_info.account_alias})' if ecs_account_info.account_alias else ''} ...")
+        print(f"Showing proposed ECS identity swap plan for AWS account: {ecs_account.account_number}"
+              f"{f' ({ecs_account.account_alias})' if ecs_account.account_alias else ''} ...")
         for swap in swaps:
             service_name = ecs.format_name(swap.service.service_name,
                                            versioned=versioned_names, shortened=shortened_names)
