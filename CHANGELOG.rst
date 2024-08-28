@@ -11,6 +11,7 @@ Change Log
 
 * Added utility show-ecs script for view AWS ECS info;
   mostly learning exercise to help understand identity-swap script.
+  Run like: show-ecs or show-ecs --bluegreen or show-ecs --swap
 
 
 4.4.0
