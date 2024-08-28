@@ -62,6 +62,7 @@ mock = "^4.0.3"
 # pygments is used by PyCharm
 pygments = ">=2.10.0"
 pytest = ">=5.1.2"  # 5.1.2 is needed by foursight-cgap, but otherwise we'd be happier for a higher version
+termcolor = "^2.4.0"
 
 [tool.poetry.scripts]
 # dcicutils commands
@@ -94,6 +95,7 @@ setup-tibanna-pipeline-repo = "src.commands.setup_tibanna:setup_tibanna_pipeline
 setup-tibanna-precheck = "src.commands.setup_tibanna:setup_tibanna_precheck_main"
 setup-tibanna = "src.commands.setup_tibanna:setup_tibanna_main"
 show-datastore-attribute = "src.commands.find_resources:show_datastore_attribute_main"
+show-ecs = "src.commands.show_ecs:main"
 show-foursight-url = "src.commands.find_resources:show_foursight_url_main"
 show-health-page-url = "src.commands.find_resources:show_health_page_url_main"
 show-network-attribute = "src.commands.find_resources:show_network_attribute_main"

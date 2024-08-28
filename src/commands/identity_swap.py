@@ -275,6 +275,7 @@ class SMaHTIdentitySwap(C4IdentitySwap):
               has been harmonized, so this issue is no longer a problem.
     """
     GLOBAL_ENV_BUCKET = 'smaht-production-foursight-envs'
+    # TODO: Could get this from secrets manager (ENCODED_S3_ENCRYPT_KEY_ID)
     SMAHT_KMS_KEY_ID = '9777cd71-4b5b-44b7-a8a0-de107c667c64'
 
     # These constants refer to alarms created as part of this repo - if changed, the autoscaling updates

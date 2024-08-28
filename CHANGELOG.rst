@@ -6,6 +6,13 @@
 Change Log
 ----------
 
+4.4.1
+=====
+
+* Added utility show-ecs script for view AWS ECS info;
+  mostly learning exercise to help understand identity-swap script.
+
+
 4.4.0
 =====
 
