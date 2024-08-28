@@ -283,10 +283,6 @@ class AwsEcs:
                           f"{f' | ({service_running_task_count})' if service_running_task_count > 0 else ''}")
         print("")
 
-    def _note_name(self, value: str) -> None:
-        if isinstance(value, str) and value and (value.lower() != "default"):
-            self._names.append(value)
-
     def _list_clusters(self) -> List[str]:
         try:
             return self._boto_ecs.list_clusters().get("clusterArns", [])
@@ -364,6 +360,10 @@ class AwsEcs:
         if isinstance(value, str) and ((colon := value.rfind(":")) > 0):
             return value[:colon]
         return value
+
+    def _note_name(self, value: str) -> None:
+        if isinstance(value, str) and value and (value.lower() != "default"):
+            self._names.append(value)
 
     @staticmethod
     def _longest_common_prefix(strings: List[str]) -> str:
