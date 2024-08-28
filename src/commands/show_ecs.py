@@ -203,7 +203,7 @@ class AwsEcs:
             return None, error
         return swaps, None
 
-    def identity_swap_preview(self) -> Tuple[Optional[AwsEcs], Optional[str]]:
+    def identity_swap(self) -> Tuple[Optional[AwsEcs], Optional[str]]:
         identity_swapped, error = self._identity_swap(swap=True)
         if error:
             return None, error
@@ -466,11 +466,11 @@ def main():
         print()
 
         print("It would look like this after the swap:")
-        swaps, error = ecs.identity_swap_preview()
+        ecs_swapped, error = ecs.identity_swap()
         if error:
             print(error)
             exit(1)
-        swaps.print(shortened_names=shortened_names, versioned_names=versioned_names)
+        ecs_swapped.print(shortened_names=shortened_names, versioned_names=versioned_names)
 
 
 if __name__ == "__main__":
