@@ -20,14 +20,12 @@ class AwsEcs:
     TYPES = [PORTAL, INDEXER, INGESTER]
 
     class Cluster:
-        def __init__(self, cluster_arn: str, initialize: bool = False, ecs: Optional[AwsEcs] = None) -> None:
+        def __init__(self, cluster_arn: str, ecs: Optional[AwsEcs] = None) -> None:
             self.cluster_arn = cluster_arn or ""
             self.cluster_name = AwsEcs._arn_to_name(cluster_arn)
             self._services = None
             self._ecs = ecs if isinstance(ecs, AwsEcs) else AwsEcs()
             self._ecs._note_name(self.cluster_name)
-            if initialize is True:
-                _ = self.services
         @property  # noqa
         def services(self) -> List[AwsEcs.Service]:
             if self._services is None:
@@ -159,20 +157,21 @@ class AwsEcs:
             self.service = service
             self.new_task_definition = new_task_definition
 
-    def __init__(self, blue_green: bool = False, initialize: bool = False,
-                 nocolor: bool = False, boto_ecs: Optional[BotoEcs] = None) -> None:
+    def __init__(self, blue_green: bool = False, nocolor: bool = False, boto_ecs: Optional[BotoEcs] = None) -> None:
         self._boto_ecs = BotoClient("ecs") if not isinstance(boto_ecs, BotoEcs) else boto_ecs
         self._blue_green = blue_green is True
         self._clusters = None
         self._nocolor = nocolor is True
         self._names = []
-        if initialize is True:
-            self._clusters = self._get_clusters(initialize=True)
 
     @property
     def clusters(self) -> List[Cluster]:
         if self._clusters is None:
-            self._clusters = self._get_clusters()
+            self._clusters = []
+            for cluster_arn in self._list_clusters():
+                if (not self._blue_green) or AwsEcs._blue_or_green(cluster_arn):
+                    self._clusters.append(AwsEcs.Cluster(cluster_arn, ecs=self))
+            self._clusters = sorted(self._clusters, key=lambda item: (not item.blue_or_green, item.cluster_name))
         return self._clusters
 
     def format_name(self, value: str, versioned: bool = True, shortened: bool = False) -> str:
@@ -199,10 +198,10 @@ class AwsEcs:
             return None
 
     def identity_swap_plan(self) -> Tuple[Optional[List[AwsEcs.TaskDefinitionSwap]], Optional[str]]:
-        identity_swaps, error = self._identity_swap(swap=False)
+        swaps, error = self._identity_swap(swap=False)
         if error:
             return None, error
-        return identity_swaps, None
+        return swaps, None
 
     def identity_swap_preview(self) -> Tuple[Optional[AwsEcs], Optional[str]]:
         identity_swapped, error = self._identity_swap(swap=True)
@@ -234,7 +233,7 @@ class AwsEcs:
             return None, f"Different number of blue ({len(blue_services)}) and green ({len(green_services)}) services."
 
         if swap is not True:
-            identity_swaps = []
+            swaps = []
 
         for service_type in AwsEcs.TYPES:
             blue_services_of_type = [service for service in blue_services if service.type == service_type]
@@ -252,13 +251,13 @@ class AwsEcs:
                     blue_service.task_definition = green_service_task_definition
                 else:
                     # Record the proposed swap in list of TaskDefinitionSwap objects.
-                    identity_swaps.append(AwsEcs.TaskDefinitionSwap(green_service, blue_service_task_definition))
-                    identity_swaps.append(AwsEcs.TaskDefinitionSwap(blue_service, green_service_task_definition))
+                    swaps.append(AwsEcs.TaskDefinitionSwap(green_service, blue_service_task_definition))
+                    swaps.append(AwsEcs.TaskDefinitionSwap(blue_service, green_service_task_definition))
 
         if swap is True:
             return self, None
         else:
-            return identity_swaps, None
+            return swaps, None
 
     def print(self, shortened_names: bool = False, versioned_names: bool = False) -> AwsEcs:
         for cluster in self.clusters:
@@ -287,14 +286,6 @@ class AwsEcs:
     def _note_name(self, value: str) -> None:
         if isinstance(value, str) and value and (value.lower() != "default"):
             self._names.append(value)
-
-    def _get_clusters(self, initialize: bool = False) -> List[Cluster]:
-        clusters = []
-        for cluster_arn in self._list_clusters():
-            if (not self._blue_green) or AwsEcs._blue_or_green(cluster_arn):
-                clusters.append(AwsEcs.Cluster(cluster_arn, initialize=initialize, ecs=self))
-        clusters = sorted(clusters, key=lambda item: (not item.blue_or_green, item.cluster_name))
-        return clusters
 
     def _list_clusters(self) -> List[str]:
         try:
@@ -451,13 +442,13 @@ def main():
     ecs.print(shortened_names=shortened_names, versioned_names=versioned_names)
 
     if identity_swap:
-        identity_swaps, error = ecs.identity_swap_plan()
+        swaps, error = ecs.identity_swap_plan()
         if error:
             print(error)
             exit(1)
         print(f"Showing proposed ECS identity swap plan for AWS account: {ecs_account_info.account_number}"
               f"{f' ({ecs_account_info.account_alias})' if ecs_account_info.account_alias else ''} ...")
-        for swap in identity_swaps:
+        for swap in swaps:
             service_name = ecs.format_name(swap.service.service_name,
                                            versioned=versioned_names, shortened=shortened_names)
             service_annotation = swap.service.annotation
@@ -475,11 +466,11 @@ def main():
         print()
 
         print("It would look like this after the swap:")
-        identity_swaps, error = ecs.identity_swap_preview()
+        swaps, error = ecs.identity_swap_preview()
         if error:
             print(error)
             exit(1)
-        identity_swaps.print(shortened_names=shortened_names, versioned_names=versioned_names)
+        swaps.print(shortened_names=shortened_names, versioned_names=versioned_names)
 
 
 if __name__ == "__main__":
