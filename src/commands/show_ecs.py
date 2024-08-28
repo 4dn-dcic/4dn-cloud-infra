@@ -464,7 +464,6 @@ def main():
             print(f"     ▶▶ NEW TASK: {new_task_definition_name}"
                   f"{f' | {new_task_definition_annotation}' if new_task_definition_annotation else ''}")
         print()
-
         print("It would look like this after the swap:")
         ecs_swapped, error = ecs.identity_swap()
         if error:
