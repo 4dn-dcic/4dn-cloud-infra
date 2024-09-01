@@ -1322,13 +1322,13 @@ pyflakes = ">=3.2.0,<3.3.0"
 
 [[package]]
 name = "foursight"
-version = "4.8.2"
+version = "4.9.1"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
 python-versions = "<3.13,>=3.8.1"
 files = [
-    {file = "foursight-4.8.2-py3-none-any.whl", hash = "sha256:78e75b1d0cff15da758054df991f779f0a5a56b2b464ee16165ef652d1008f93"},
-    {file = "foursight-4.8.2.tar.gz", hash = "sha256:953c91327823827499011f7d81d7e765fd4b151f003f18f45cb4d9f4f44fc198"},
+    {file = "foursight-4.9.1-py3-none-any.whl", hash = "sha256:9f042e03bfcb9a74275fd0d88d3dacb273ddeb5453e1e28e4944bb9d1f064169"},
+    {file = "foursight-4.9.1.tar.gz", hash = "sha256:9b7c32bfd745ef48c0590d003275017123034d859ad96b9037942b80ac97d9c2"},
 ]
 
 [package.dependencies]
@@ -1339,7 +1339,7 @@ dcicutils = ">=8.13.3,<9.0.0"
 docutils = ">=0.10,<0.17"
 elasticsearch = "7.13.4"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
-foursight-core = ">=5.6.0,<6.0.0"
+foursight-core = ">=5.6.2,<6.0.0"
 geocoder = "1.38.1"
 gitpython = ">=3.1.2,<4.0.0"
 google-analytics-data = ">=0.17.1,<0.18.0"
@@ -1387,13 +1387,13 @@ tzlocal = ">=5.1,<6.0"
 
 [[package]]
 name = "foursight-core"
-version = "5.6.1"
+version = "5.6.2"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
 python-versions = "<3.13,>=3.8.1"
 files = [
-    {file = "foursight_core-5.6.1-py3-none-any.whl", hash = "sha256:2dfa3508855ea6b27a279f29518f6c77a7efe685e09322c2e0d9fe3cff3f3f2d"},
-    {file = "foursight_core-5.6.1.tar.gz", hash = "sha256:6f36ca06c28f9e0b17d8739351c5b8976c5b894504a2def363ab0fa11e050941"},
+    {file = "foursight_core-5.6.2-py3-none-any.whl", hash = "sha256:a51a6fc5484903be894377805fe9603cf076ae231951495577414b4c5e5da91f"},
+    {file = "foursight_core-5.6.2.tar.gz", hash = "sha256:6458e91455930772a9c4490ee1aa21857dc623975c37fdd104ddae46f958c850"},
 ]
 
 [package.dependencies]
@@ -4827,4 +4827,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "c5436ec86e4d91f77766be22faab6169182378b7eb880b9a8d77b5bab42ca5f0"
+content-hash = "c8661d1326e41290e2543aa8c5442ed23e46d934763942cfcbd270ea5919fbfd"
