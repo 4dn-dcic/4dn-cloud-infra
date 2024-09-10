@@ -267,6 +267,9 @@ class ConfigManager:
             # At some point, we can & should get rid of the use of os.environ
             # and just get this straight from the config.
             if default is _MISSING:
+                if (os.environ.get(var) is None) and (var == "S3_ENCRYPT_KEY"):
+                    print("NOTE: Ignoring missing S3_ENCRYPT_KEY. Should be fine (except on initial deploy).")
+                    return None
                 return os.environ[var]
             else:
                 # Note that this is different defaulting behavior than os.environ.get
