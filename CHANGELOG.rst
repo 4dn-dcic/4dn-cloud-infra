@@ -6,6 +6,16 @@
 Change Log
 ----------
 
+4.4.1
+=====
+
+* Added utility show-ecs script for view AWS ECS info;
+  mostly learning exercise to help understand identity-swap script.
+  Run like: show-ecs or show-ecs --bluegreen or show-ecs --swap
+* Do not error out if s3_encrypt_key.txt file missing (see base.ConfigManager.get_config_setting);
+  do not actually need this at least to provision (create change-set for) foursight.
+
+
 4.4.0
 =====
 
