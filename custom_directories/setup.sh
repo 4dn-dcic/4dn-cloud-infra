@@ -24,6 +24,7 @@ YOUR_CUSTOM_DIR=$YOUR_BASE_DIR/custom
 AUTH0_CLIENT=`aws-get-secret $IDENTITY/ENCODED_AUTH0_CLIENT`
 AUTH0_SECRET=`aws-get-secret $IDENTITY/ENCODED_AUTH0_SECRET`
 S3_ENCRYPT_KEY=`aws-get-secret $IDENTITY/S3_ENCRYPT_KEY`
+S3_ENCRYPT_KEY_ID=`aws-get-secret $IDENTITY/ENCODED_S3_ENCRYPT_KEY_ID`
 
 if [[ -z "$AUTH0_CLIENT" ]]; then
     echo "ERROR: cannot set AUTH0_CLIENT"
@@ -40,7 +41,7 @@ fi
 
 rm -rf $THIS_CUSTOM_DIR ; mkdir -p $THIS_CUSTOM_DIR
 
-sed -e "s/\${IDENTITY}/$IDENTITY/" $THIS_SETUP_DIR/template.config.json > $THIS_CUSTOM_DIR/config.json
+sed -e "s/\${IDENTITY}/$IDENTITY/ ; s/\${S3_ENCRYPT_KEY_ID}/$S3_ENCRYPT_KEY_ID/" $THIS_SETUP_DIR/template.config.json > $THIS_CUSTOM_DIR/config.json
 
 sed -e "s/\${AUTH0_CLIENT}/$AUTH0_CLIENT/ ; s/\${AUTH0_SECRET}/$AUTH0_SECRET/" $THIS_SETUP_DIR/template.secrets.json > $THIS_CUSTOM_DIR/secrets.json
 chmod 400 $THIS_CUSTOM_DIR/secrets.json
