@@ -18,14 +18,14 @@ else
 fi
 
 THIS_CUSTOM_DIR=$THIS_SETUP_DIR/custom
-YOUR_CUSTOM_DIR=$THIS_SETUP_DIR/../../custom
+YOUR_BASE_DIR=$THIS_SETUP_DIR/../..
+YOUR_CUSTOM_DIR=$YOUR_BASE_DIR/custom
 
 AUTH0_CLIENT=`aws-get-secret $IDENTITY/ENCODED_AUTH0_CLIENT`
 AUTH0_SECRET=`aws-get-secret $IDENTITY/ENCODED_AUTH0_SECRET`
 S3_ENCRYPT_KEY=`aws-get-secret $IDENTITY/S3_ENCRYPT_KEY`
 
 if [[ -z "$AUTH0_CLIENT" ]]; then
-        echo foo
     echo "ERROR: cannot set AUTH0_CLIENT"
     exit 1
 fi
@@ -52,3 +52,8 @@ ln -s ~/.aws $THIS_CUSTOM_DIR/aws_creds
 
 rm -f $YOUR_CUSTOM_DIR
 ln -s $THIS_SETUP_DIR/custom $YOUR_CUSTOM_DIR
+
+if [[ -f $THIS_SETUP_DIR/chalice.config.json ]]; then
+    rm -f $YOUR_BASE_DIR/.chalice/config.json
+    ln -f -s $THIS_SETUP_DIR/chalice.config.json  $YOUR_BASE_DIR/.chalice/config.json
+fi
