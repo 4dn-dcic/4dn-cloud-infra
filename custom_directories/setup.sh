@@ -40,7 +40,7 @@ fi
 
 rm -rf $THIS_CUSTOM_DIR ; mkdir -p $THIS_CUSTOM_DIR
 
-cp $THIS_SETUP_DIR/template.config.json $THIS_CUSTOM_DIR/config.json
+sed -e "s/\${IDENTITY}/$IDENTITY/" $THIS_SETUP_DIR/template.config.json > $THIS_CUSTOM_DIR/config.json
 
 sed -e "s/\${AUTH0_CLIENT}/$AUTH0_CLIENT/ ; s/\${AUTH0_SECRET}/$AUTH0_SECRET/" $THIS_SETUP_DIR/template.secrets.json > $THIS_CUSTOM_DIR/secrets.json
 chmod 400 $THIS_CUSTOM_DIR/secrets.json

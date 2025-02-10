@@ -1,0 +1,17 @@
+{
+    "deploying_iam_user": "arn:aws:iam::537626822796:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_AdministratorAccess_5c5b330c7fb5d354",
+    "app.kind": "smaht",
+    "app.deploy": "standalone",
+    "account_number": "537626822796",
+    "ENCODED_ENV_NAME": "smaht-wolf",
+    "s3.bucket.ecosystem": "smaht-development",
+    "GLOBAL_ENV_BUCKET": "smaht-wolf-foursight-envs",
+    "subnet.pair_count": 6,
+    "s3.bucket.encryption": true,
+    "s3.encrypt_key_id": "27d040a3-ead1-4f5a-94ce-0fa6e7f84a95",
+    "rds.name": "rds-smaht-wolf",
+    "foursight.identity": "${IDENTITY}",
+    "foursight.es_url": "vpc-os-smaht-wolf-3el5ybno3hmmsd5lftdsntvfj4.us-east-1.es.amazonaws.com:443",
+    "foursight.application_version_bucket": "smaht-wolf-foursight-application-versions",
+    "foursight.app_name": "development"
+}

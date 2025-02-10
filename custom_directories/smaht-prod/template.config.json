@@ -1,6 +1,6 @@
 {
     "account_number": "865557043974",
-    "identity": "C4AppConfigFoursightSmahtProduction",
+    "identity": "${IDENTITY}",
     "deploying_iam_user": "arn:aws:iam::865557043974:user/david.michaels",
     "ENCODED_ENV_NAME": "production",
     "app.kind": "smaht",
