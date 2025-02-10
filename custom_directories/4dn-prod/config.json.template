@@ -1,0 +1,22 @@
+{
+    "deploying_iam_user": "david.michaels",
+    "app.kind": "ff",
+    "account_number": 643366669028,
+    "ENCODED_ENV_NAME": "fourfront-production-green",
+    "s3.bucket.ecosystem": "fourfront-production",
+    "GLOBAL_ENV_BUCKET": "foursight-prod-envs",
+
+    "foursight.es_url": "vpc-es-fourfront-mastertest-b3j36tdu7mwrgdxt6y7jt46dem.us-east-1.es.amazonaws.com:443",
+    "foursight.application_version_bucket": "foursight-fourfront-application-versions",
+    "foursight.check_runner": "c4-foursight-fourfront-production-stac-CheckRunner-MW4VHuCIsDXc",
+    "foursight.app_name": "fourfront-production",
+
+    "rds.name": "rds-fourfront-production",
+
+    "fourfront.vpc": "vpc-066421dc99161d0ea",
+    "fourfront.vpc.cidr": "172.31.0.0/16",
+    "fourfront.vpc.subnet_a": "subnet-0289fd123573a5d6f",
+    "fourfront.vpc.subnet_b": "subnet-002fd63c6e10a102b",
+    "fourfront.rds.sg": "sg-00a1706c6a3fa86af",
+    "fourfront.https.sg": "sg-0d550dd8ac0529d3b"
+}
