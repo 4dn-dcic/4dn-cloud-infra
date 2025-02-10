@@ -12,9 +12,9 @@ S3_ENCRYPT_KEY=`aws-get-secret ${IDENTITY}/S3_ENCRYPT_KEY`
 rm -rf $THIS_CUSTOM_DIR
 mkdir -p $THIS_CUSTOM_DIR
 
-cp $THIS_SETUP_DIR/config.json.template $THIS_CUSTOM_DIR/config.json
+cp $THIS_SETUP_DIR/template.config.json $THIS_CUSTOM_DIR/config.json
 
-sed -e "s/\${AUTH0_CLIENT}/$AUTH0_CLIENT/ ; s/\${AUTH0_SECRET}/$AUTH0_SECRET/" $THIS_SETUP_DIR/secrets.json.template > $THIS_CUSTOM_DIR/secrets.json
+sed -e "s/\${AUTH0_CLIENT}/$AUTH0_CLIENT/ ; s/\${AUTH0_SECRET}/$AUTH0_SECRET/" $THIS_SETUP_DIR/template.secrets.json > $THIS_CUSTOM_DIR/secrets.json
 chmod 400 $THIS_CUSTOM_DIR/secrets.json
 
 echo $S3_ENCRYPT_KEY > $THIS_CUSTOM_DIR/s3_encrypt_key.txt
