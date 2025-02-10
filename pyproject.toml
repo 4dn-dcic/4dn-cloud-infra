@@ -103,6 +103,7 @@ queue-ingestion = "src.commands.queue_ingestion:main"
 resolve-foursight-checks = "src.commands.resolve_foursight_checks:main"
 upload-application-version = "src.commands.upload_application_version:main"
 upload-file-processed = "src.commands.upload_file_processed:main"
+aws-get-secret = "src.commands.aws_get_secret:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
