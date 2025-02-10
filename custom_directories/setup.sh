@@ -10,7 +10,7 @@ ENV=$1
 THIS_SETUP_DIR=$DIR/$ENV
 
 if [[ -d "$THIS_SETUP_DIR" ]]; then
-    echo "Setting up for: $ENV"
+    echo "Setting up custom directory for: $ENV"
 else
     echo "sub-directory not found: $THIS_SETUP_DIR"
     exit 1
