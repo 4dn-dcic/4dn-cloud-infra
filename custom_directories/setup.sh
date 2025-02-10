@@ -1,28 +1,42 @@
 #!/bin/bash
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [[ $# -ne 1 ]]; then
-    echo "usage: $0 custom_directories_sub_directory_name"
+if [[ $# -ne 2 ]]; then
+    echo "usage: $0 custom_directories_sub_directory_name identity_environment_variable_name"
     exit 1
 fi
 
 ENV=$1
+IDENTITY=$2
 THIS_SETUP_DIR=$DIR/$ENV
 
 if [[ -d "$THIS_SETUP_DIR" ]]; then
     echo "Setting up custom directory for: $ENV"
 else
-    echo "sub-directory not found: $THIS_SETUP_DIR"
+    echo "ERROR: sub-directory not found - $THIS_SETUP_DIR"
     exit 1
 fi
 
 THIS_CUSTOM_DIR=$THIS_SETUP_DIR/custom
 YOUR_CUSTOM_DIR=$THIS_SETUP_DIR/../../custom
 
-IDENTITY=FoursightProductionApplicationConfiguration
-AUTH0_CLIENT=`aws-get-secret ${IDENTITY}/ENCODED_AUTH0_CLIENT`
-AUTH0_SECRET=`aws-get-secret ${IDENTITY}/ENCODED_AUTH0_SECRET`
-S3_ENCRYPT_KEY=`aws-get-secret ${IDENTITY}/S3_ENCRYPT_KEY`
+AUTH0_CLIENT=`aws-get-secret $IDENTITY/ENCODED_AUTH0_CLIENT`
+AUTH0_SECRET=`aws-get-secret $IDENTITY/ENCODED_AUTH0_SECRET`
+S3_ENCRYPT_KEY=`aws-get-secret $IDENTITY/S3_ENCRYPT_KEY`
+
+if [[ -z "$AUTH0_CLIENT" ]]; then
+        echo foo
+    echo "ERROR: cannot set AUTH0_CLIENT"
+    exit 1
+fi
+if [[ -z "$AUTH0_SECRET" ]]; then
+    echo "ERROR: cannot set AUTH0_SECRET"
+    exit 1
+fi
+if [[ -z "$S3_ENCRYPT_KEY" ]]; then
+    echo "ERROR: cannot set S3_ENCRYPT_KEY"
+    exit 1
+fi
 
 rm -rf $THIS_CUSTOM_DIR ; mkdir -p $THIS_CUSTOM_DIR
 
