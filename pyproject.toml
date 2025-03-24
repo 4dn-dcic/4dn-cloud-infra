@@ -40,7 +40,7 @@ foursight-core = "^5.8.0"
 # not both in the Chalice package (via foursight_core/deploy.py). dmichaels/2022-11-01.
 
 [tool.poetry.group.foursight_smaht.dependencies]
-foursight-smaht = "^0.8.11"
+foursight-smaht = "^0.8.12"
 
 [tool.poetry.group.foursight_cgap.dependencies]
 foursight-cgap = "^4.7.0"
