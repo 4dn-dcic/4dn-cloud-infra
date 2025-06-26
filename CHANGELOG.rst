@@ -6,6 +6,12 @@
 Change Log
 ----------
 
+4.4.1
+=====
+
+* Update foursight-smaht to include audit checks
+
+
 4.4.0
 =====
 
