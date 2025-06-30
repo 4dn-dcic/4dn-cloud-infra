@@ -6,6 +6,12 @@
 Change Log
 ----------
 
+4.4.1
+=====
+
+* Update foursight-smaht to version 0.8.12
+
+
 4.4.0
 =====
 
