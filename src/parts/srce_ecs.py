@@ -1,29 +1,31 @@
 from troposphere import Ref
 from troposphere.ec2 import SecurityGroup, SecurityGroupRule
 
-from .ecs_blue_green import ECSBlueGreen
+from .ecs import C4ECSApplication
 from .network import C4Network, C4NetworkExports
-from .scre_network import C4SCRENetworkExports
+from .srce_network import C4SRCENetworkExports
 from ..base import ConfigManager
 from ..constants import Settings
 
 
-class SCREECSBlueGreen(ECSBlueGreen):
+class C4SRCEECSApplication(C4ECSApplication):
     """
-    SCRE variant of ECSBlueGreen. Deploys a blue/green ECS configuration inside an
-    IT-provided VPC by swapping in C4SCRENetworkExports so all VPC/subnet cross-stack
-    references resolve against the SCRE network stack outputs.
+    SRCE variant of C4ECSApplication. Creates the ECS cluster, services, load balancer,
+    and supporting resources inside an IT-provided VPC.
 
-    ecs_container_security_group() is overridden to use a config-driven VPC CIDR
-    (vpc.cidr) instead of the hardcoded C4Network.CIDR_BLOCK.
+    Two changes from the base class:
+    1. NETWORK_EXPORTS is swapped to C4SRCENetworkExports so VPC/subnet cross-stack
+       references resolve against the SRCE network stack outputs.
+    2. ecs_container_security_group() is overridden to use a config-driven VPC CIDR
+       (vpc.cidr) instead of the hardcoded C4Network.CIDR_BLOCK ('10.0.0.0/16').
 
-    All blue/green cluster, task, service, load balancer, and alarm logic is inherited
-    from ECSBlueGreen unchanged.
+    All other ECS resources (cluster, tasks, services, load balancer, alarms) are
+    inherited unchanged.
     """
-    NETWORK_EXPORTS = C4SCRENetworkExports()
+    NETWORK_EXPORTS = C4SRCENetworkExports()
 
-    STACK_NAME_TOKEN = 'scre-ecs-blue-green'
-    STACK_TITLE_TOKEN = 'SCREEcsBlueGreen'
+    STACK_NAME_TOKEN = 'srce-ecs'
+    STACK_TITLE_TOKEN = 'SRCEEcs'
 
     def ecs_container_security_group(self) -> SecurityGroup:
         """Security group for the container runtime, using config-provided VPC CIDR."""

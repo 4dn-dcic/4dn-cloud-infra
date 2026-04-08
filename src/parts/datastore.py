@@ -7,10 +7,6 @@ from troposphere import (
     Join, Ref, Template, Tags, Parameter, Output, GetAtt,
     AccountId
 )
-# from troposphere.elasticsearch import (  No longer used post ES7 update
-#     Domain, ElasticsearchClusterConfig,
-#     EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions
-# )
 from troposphere.opensearchservice import (
     Domain as OSDomain, ClusterConfig,
     EBSOptions, EncryptionAtRestOptions, NodeToNodeEncryptionOptions, VPCOptions

@@ -2,8 +2,8 @@ from ..base import ConfigManager, register_stack_creator, registered_stack_class
 from ..parts import (
     network, datastore, ecr, iam, logging, ecs, fourfront_ecs,
     appconfig, datastore_slim, sentieon, jupyterhub, higlass, ecs_blue_green,
-    codebuild, redis, scre_network, scre_datastore, scre_ecs,
-    scre_ecs_blue_green, scre_sentieon, scre_redis
+    codebuild, redis, srce_network, srce_datastore, srce_ecs,
+    srce_ecs_blue_green, srce_sentieon, srce_redis
 )
 from ..stack import (
     C4Stack, C4Tags, C4Account, C4Part, BaseC4FoursightStack,
@@ -262,43 +262,64 @@ def c4_alpha_stack_redis(account: C4Account):
     return create_c4_alpha_stack(name='redis', account=account)
 
 
-@register_stack_creator(name='scre-network', kind='alpha',
-                        implementation_class=scre_network.C4SCRENetwork)
-def c4_alpha_stack_scre_network(account: C4Account):
-    """ SCRE network stack: creates security groups only; exports IT-provided VPC and subnet IDs. """
-    return create_c4_alpha_stack(name='scre-network', account=account)
+@register_stack_creator(name='srce-network', kind='alpha',
+                        implementation_class=srce_network.C4SRCENetwork)
+def c4_alpha_stack_srce_network(account: C4Account):
+    """ SRCE network stack: security groups + subnet/VPC exports for the Application VPC
+        (ECS portal + foursight). Configure via vpc.id / vpc.cidr / private.subnets in config.json.
+    """
+    return create_c4_alpha_stack(name='srce-network', account=account)
 
 
-@register_stack_creator(name='scre-datastore', kind='alpha',
-                        implementation_class=scre_datastore.C4SCREDatastore)
-def c4_alpha_stack_scre_datastore(account: C4Account):
-    """ SCRE datastore stack: creates RDS, OpenSearch, S3, and SQS inside an IT-provided VPC. """
-    return create_c4_alpha_stack(name='scre-datastore', account=account)
+@register_stack_creator(name='srce-network-db', kind='alpha',
+                        implementation_class=srce_network.C4SRCEDBNetwork)
+def c4_alpha_stack_srce_network_db(account: C4Account):
+    """ SRCE Database network stack: security groups + subnet/VPC exports for the Database VPC
+        (RDS, OpenSearch, Redis). Configure via db.vpc.id / db.vpc.cidr / db.private.subnets.
+    """
+    return create_c4_alpha_stack(name='srce-network-db', account=account)
 
 
-@register_stack_creator(name='scre-ecs', kind='alpha',
-                        implementation_class=scre_ecs.C4SCREECSApplication)
-def c4_alpha_stack_scre_ecs(account: C4Account):
-    """ SCRE ECS stack: creates ECS cluster, services, and load balancer inside an IT-provided VPC. """
-    return create_c4_alpha_stack(name='scre-ecs', account=account)
+@register_stack_creator(name='srce-network-compute', kind='alpha',
+                        implementation_class=srce_network.C4SRCEComputeNetwork)
+def c4_alpha_stack_srce_network_compute(account: C4Account):
+    """ SRCE Compute network stack: security groups + subnet/VPC exports for the Compute VPC
+        (Sentieon, JupyterHub, Higlass). Configure via compute.vpc.id / compute.vpc.cidr /
+        compute.private.subnets in config.json.
+    """
+    return create_c4_alpha_stack(name='srce-network-compute', account=account)
 
 
-@register_stack_creator(name='scre-ecs-blue-green', kind='alpha',
-                        implementation_class=scre_ecs_blue_green.SCREECSBlueGreen)
-def c4_alpha_stack_scre_ecs_blue_green(account: C4Account):
-    """ SCRE blue/green ECS stack: dual-cluster deployment inside an IT-provided VPC. """
-    return create_c4_alpha_stack(name='scre-ecs-blue-green', account=account)
+@register_stack_creator(name='srce-datastore', kind='alpha',
+                        implementation_class=srce_datastore.C4SRCEDatastore)
+def c4_alpha_stack_srce_datastore(account: C4Account):
+    """ SRCE datastore stack: creates RDS, OpenSearch, S3, and SQS inside an IT-provided VPC. """
+    return create_c4_alpha_stack(name='srce-datastore', account=account)
 
 
-@register_stack_creator(name='scre-sentieon', kind='alpha',
-                        implementation_class=scre_sentieon.C4SCRESentieonSupport)
-def c4_alpha_stack_scre_sentieon(account: C4Account):
-    """ SCRE Sentieon stack: license server EC2 instance inside an IT-provided VPC. """
-    return create_c4_alpha_stack(name='scre-sentieon', account=account)
+@register_stack_creator(name='srce-ecs', kind='alpha',
+                        implementation_class=srce_ecs.C4SRCEECSApplication)
+def c4_alpha_stack_srce_ecs(account: C4Account):
+    """ SRCE ECS stack: creates ECS cluster, services, and load balancer inside an IT-provided VPC. """
+    return create_c4_alpha_stack(name='srce-ecs', account=account)
 
 
-@register_stack_creator(name='scre-redis', kind='alpha',
-                        implementation_class=scre_redis.C4SCRERedis)
-def c4_alpha_stack_scre_redis(account: C4Account):
-    """ SCRE Redis stack: Redis replication group inside an IT-provided VPC. """
-    return create_c4_alpha_stack(name='scre-redis', account=account)
+@register_stack_creator(name='srce-ecs-blue-green', kind='alpha',
+                        implementation_class=srce_ecs_blue_green.SRCEECSBlueGreen)
+def c4_alpha_stack_srce_ecs_blue_green(account: C4Account):
+    """ SRCE blue/green ECS stack: dual-cluster deployment inside an IT-provided VPC. """
+    return create_c4_alpha_stack(name='srce-ecs-blue-green', account=account)
+
+
+@register_stack_creator(name='srce-sentieon', kind='alpha',
+                        implementation_class=srce_sentieon.C4SRCESentieonSupport)
+def c4_alpha_stack_srce_sentieon(account: C4Account):
+    """ SRCE Sentieon stack: license server EC2 instance inside an IT-provided VPC. """
+    return create_c4_alpha_stack(name='srce-sentieon', account=account)
+
+
+@register_stack_creator(name='srce-redis', kind='alpha',
+                        implementation_class=srce_redis.C4SRCERedis)
+def c4_alpha_stack_srce_redis(account: C4Account):
+    """ SRCE Redis stack: Redis replication group inside an IT-provided VPC. """
+    return create_c4_alpha_stack(name='srce-redis', account=account)

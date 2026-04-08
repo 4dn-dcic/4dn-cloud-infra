@@ -55,10 +55,23 @@ class Settings:
 
     # Network options
     SUBNET_PAIR_COUNT = 'subnet.pair_count'
+
+    # Application VPC (ECS portal + foursight) — used in SRCE deployments
     VPC_ID = 'vpc.id'
-    VPC_CIDR = 'vpc.cidr'  # CIDR block of IT-provided VPC (used in SCRE deployments)
+    VPC_CIDR = 'vpc.cidr'
     PUBLIC_SUBNETS = 'public.subnets'
     PRIVATE_SUBNETS = 'private.subnets'
+
+    # Database VPC (RDS, OpenSearch, Redis) — used in SRCE deployments
+    DB_VPC_ID = 'db.vpc.id'
+    DB_VPC_CIDR = 'db.vpc.cidr'
+    DB_PRIVATE_SUBNETS = 'db.private.subnets'
+
+    # Compute VPC (Sentieon, JupyterHub, Higlass) — used in SRCE deployments
+    COMPUTE_VPC_ID = 'compute.vpc.id'
+    COMPUTE_VPC_CIDR = 'compute.vpc.cidr'
+    COMPUTE_PRIVATE_SUBNETS = 'compute.private.subnets'
+    COMPUTE_PUBLIC_SUBNETS = 'compute.public.subnets'
 
     # RDS Configuration Options
     RDS_INSTANCE_SIZE = 'rds.instance_size'

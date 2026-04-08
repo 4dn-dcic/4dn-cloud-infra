@@ -2,30 +2,29 @@ from troposphere import Ref
 from troposphere.ec2 import SecurityGroupEgress, SecurityGroupIngress
 
 from .sentieon import C4SentieonSupport
-from .network import C4Network, C4NetworkExports
-from .scre_network import C4SCRENetworkExports
+from .network import C4Network
+from .srce_network import C4SRCEComputeNetworkExports
 from ..base import ConfigManager
 from ..constants import Settings
 
 
-class C4SCRESentieonSupport(C4SentieonSupport):
+class C4SRCESentieonSupport(C4SentieonSupport):
     """
-    SCRE variant of C4SentieonSupport. Deploys the Sentieon license server inside an
-    IT-provided VPC by swapping in C4SCRENetworkExports.
+    SRCE variant of C4SentieonSupport. Deploys the Sentieon license server inside the
+    IT-provided Compute VPC by swapping in C4SRCEComputeNetworkExports.
 
-    application_security_rules() is overridden to use a config-driven VPC CIDR
-    (vpc.cidr) for the license server port rule instead of the hardcoded C4Network.CIDR_BLOCK.
-
-    All other EC2 instance and security group logic is inherited unchanged.
+    application_security_rules() is overridden to use the Compute VPC CIDR
+    (compute.vpc.cidr) for the license server port rule instead of the hardcoded
+    C4Network.CIDR_BLOCK.  All other EC2 instance logic is inherited unchanged.
     """
-    NETWORK_EXPORTS = C4SCRENetworkExports()
+    NETWORK_EXPORTS = C4SRCEComputeNetworkExports()
 
-    STACK_NAME_TOKEN = 'scre-sentieon'
-    STACK_TITLE_TOKEN = 'SCRESentieon'
+    STACK_NAME_TOKEN = 'srce-sentieon'
+    STACK_TITLE_TOKEN = 'SRCESentieon'
 
     def application_security_rules(self) -> list:
-        """Security rules for the Sentieon license server, using config-provided VPC CIDR."""
-        cidr = ConfigManager.get_config_setting(Settings.VPC_CIDR, default=C4Network.CIDR_BLOCK)
+        """Security rules for the Sentieon license server, using config-provided Compute VPC CIDR."""
+        cidr = ConfigManager.get_config_setting(Settings.COMPUTE_VPC_CIDR, default=C4Network.CIDR_BLOCK)
         return [
             # SSH Access
             SecurityGroupIngress(
