@@ -557,6 +557,9 @@ class C4Datastore(C4DatastoreBase, C4Part):
             DBSubnetGroupName=Ref(self.rds_subnet_group()),
             StorageEncrypted=True,  # TODO use KmsKeyId to configure KMS key (requires db replacement)
             CopyTagsToSnapshot=True,
+            DeletionProtection=True,
+            BackupRetentionPeriod=ConfigManager.get_config_setting(
+                Settings.RDS_BACKUP_RETENTION, default=self.DEFAULT_RDS_BACKUP_RETENTION),
             AvailabilityZone=az or ConfigManager.get_config_setting(Settings.RDS_AZ, default=self.DEFAULT_RDS_AZ),
             PubliclyAccessible=False,
             StorageType=storage_type or ConfigManager.get_config_setting(Settings.RDS_STORAGE_TYPE,

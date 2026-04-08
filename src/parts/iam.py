@@ -92,8 +92,11 @@ class C4IAM(C4IAMBase, C4Part):
 
     @staticmethod
     def builds_secret_manager_arn(secret_name):
+        # Secrets Manager ARN format: arn:aws:secretsmanager:region:account:secret:name-suffix
+        # AWS appends a random 6-char suffix (-xxxxxx); a trailing wildcard on the name covers this.
         return Join(
-            ':', ['arn', 'aws', 'secretsmanager', Region, AccountId, 'secret', secret_name, '-*']
+            ':', ['arn', 'aws', 'secretsmanager', Region, AccountId,
+                  Join('', ['secret:', secret_name])]
         )
 
     @staticmethod
@@ -108,8 +111,9 @@ class C4IAM(C4IAMBase, C4Part):
             ':', ['arn', 'aws', 'logs', Region, AccountId, 'log-group', log_group_name]
         )
 
-    def ecs_sqs_policy(self, prefix='*') -> Policy:
-        """ Grants ECS access to ElasticSearch.
+    def ecs_sqs_policy(self, prefix='c4-*') -> Policy:
+        """ Grants ECS access to SQS queues. Scoped to the minimum actions needed for
+            portal indexing/ingestion and to queues with the 'c4-' naming prefix.
         """
         return Policy(
             PolicyName='ECSSQSAccessPolicy',
@@ -117,17 +121,26 @@ class C4IAM(C4IAMBase, C4Part):
                 Version='2012-10-17',
                 Statement=dict(
                     Effect='Allow',
-                    Action=['sqs:*'],  # TODO: prune this slightly?
-                    Resource=[self.build_sqs_arn(prefix)]  # TODO: prune this slightly?
+                    Action=[
+                        'sqs:SendMessage',
+                        'sqs:ReceiveMessage',
+                        'sqs:DeleteMessage',
+                        'sqs:GetQueueAttributes',
+                        'sqs:GetQueueUrl',
+                        'sqs:ChangeMessageVisibility',
+                        'sqs:ListQueues',
+                    ],
+                    Resource=[self.build_sqs_arn(prefix)],
                 )
             )
         )
 
     def ecs_es_policy(self, domain_name=None) -> Policy:
-        """ Grants ECS access to ElasticSearch.
+        """ Grants ECS access to OpenSearch/Elasticsearch. Scoped to the HTTP actions
+            needed by the portal and to domains with the 'c4' naming prefix.
         """
         if domain_name is None:
-            domain_name = '*'  # TODO: Namespace better, such as 'c4datastore*' but with something that actually matches
+            domain_name = 'c4*'
         return Policy(
             PolicyName='ECSESAccessPolicy',
             PolicyDocument=dict(
@@ -135,18 +148,24 @@ class C4IAM(C4IAMBase, C4Part):
                 Statement=[dict(
                     Effect='Allow',
                     Action=[
-                        'es:*',
+                        'es:ESHttpGet',
+                        'es:ESHttpPost',
+                        'es:ESHttpPut',
+                        'es:ESHttpDelete',
+                        'es:ESHttpHead',
+                        'es:ESHttpPatch',
+                        'es:DescribeElasticsearchDomains',
+                        'es:DescribeDomain',
+                        'es:ListDomainNames',
                     ],
-                    Resource=[self.build_elasticsearch_arn(domain_name)]
+                    Resource=[self.build_elasticsearch_arn(domain_name)],
                 )],
             )
         )
 
-    @classmethod
-    def ecs_secret_manager_policy(cls) -> Policy:
-        """ Provides ECS access to the specified secret.
-            The secret ID determines the environment name we are creating.
-            TODO: Should this also be created here? Or manually uploaded?
+    def ecs_secret_manager_policy(self) -> Policy:
+        """ Provides ECS access to secrets. Scoped to secrets whose names begin with 'c4-',
+            which covers all secrets created by this infrastructure.
         """
         return Policy(
             PolicyName='ECSSecretManagerPolicy',
@@ -155,12 +174,11 @@ class C4IAM(C4IAMBase, C4Part):
                 Statement=[dict(
                     Effect='Allow',
                     Action=[
-                        'secretsmanager:GetSecretValue',  # at least this needed
-                        'secretsmanager:GetResourcePolicy',  # these might be overly permissive
+                        'secretsmanager:GetSecretValue',
                         'secretsmanager:DescribeSecret',
-                        'secretsmanager:ListSecretVersionIds'
+                        'secretsmanager:ListSecretVersionIds',
                     ],
-                    Resource=['*']  # XXX: should be self.builds_secret_manager_arn(secret_name) but doesn't work
+                    Resource=[self.builds_secret_manager_arn('c4-*')],
                 )],
             )
         )
@@ -184,7 +202,10 @@ class C4IAM(C4IAMBase, C4Part):
 
     @staticmethod
     def ecs_access_policy() -> Policy:
-        """ Give ECS access to itself (and loadbalancing APIs). """
+        """ Give ECS access to manage its own services and interact with load balancers.
+            Resource must be '*' — most ECS and ELB Describe actions do not support
+            resource-level restrictions.
+        """
         return Policy(
             PolicyName='ECSManagementPolicy',
             PolicyDocument=dict(
@@ -192,8 +213,28 @@ class C4IAM(C4IAMBase, C4Part):
                 Statement=[dict(
                     Effect="Allow",
                     Action=[
-                        'ecs:*',
-                        'elasticloadbalancing:*',
+                        'ecs:DescribeServices',
+                        'ecs:DescribeTaskDefinition',
+                        'ecs:DescribeTasks',
+                        'ecs:DescribeClusters',
+                        'ecs:ListTasks',
+                        'ecs:ListServices',
+                        'ecs:ListClusters',
+                        'ecs:RunTask',
+                        'ecs:StopTask',
+                        'ecs:UpdateService',
+                        'ecs:RegisterTaskDefinition',
+                        'ecs:DeregisterTaskDefinition',
+                        'ecs:CreateService',
+                        'ecs:DeleteService',
+                        'ecs:TagResource',
+                        'elasticloadbalancing:DescribeLoadBalancers',
+                        'elasticloadbalancing:DescribeTargetGroups',
+                        'elasticloadbalancing:DescribeTargetHealth',
+                        'elasticloadbalancing:DescribeListeners',
+                        'elasticloadbalancing:DescribeRules',
+                        'elasticloadbalancing:RegisterTargets',
+                        'elasticloadbalancing:DeregisterTargets',
                     ],
                     Resource=['*'],
                 )],
@@ -202,7 +243,12 @@ class C4IAM(C4IAMBase, C4Part):
 
     @staticmethod
     def ecs_log_policy() -> Policy:
-        """ Grants ECS container the ability to log things. """
+        """ Grants ECS container the ability to log to CloudWatch. Scoped to log groups
+            and streams with the 'c4-' naming prefix.
+        """
+        log_group_arn = Join(':', ['arn', 'aws', 'logs', Region, AccountId, 'log-group:c4-*'])
+        log_stream_arn = Join(':', ['arn', 'aws', 'logs', Region, AccountId,
+                                    'log-group:c4-*:log-stream:*'])
         return Policy(
             PolicyName='ECSLoggingPolicy',
             PolicyDocument=dict(
@@ -210,31 +256,41 @@ class C4IAM(C4IAMBase, C4Part):
                 Statement=[dict(
                     Effect='Allow',
                     Action=[
-                        'logs:Create*',
+                        'logs:CreateLogGroup',
+                        'logs:CreateLogStream',
                         'logs:PutLogEvents',
                     ],
-                    Resource=['*']  # XXX: Constrain further? Must match WRT log group and AWS logs
+                    Resource=[log_group_arn, log_stream_arn],
                 )]
             )
         )
 
     @staticmethod
     def ecs_ecr_policy() -> Policy:
-        """ Policy allowing ECS to pull ECR images. """
+        """ Policy allowing ECS to pull ECR images. GetAuthorizationToken is an account-level
+            call that requires Resource '*'; image pull actions are scoped to 'c4-*' repositories.
+        """
         return Policy(
             PolicyName='ECSECRPolicy',
             PolicyDocument=dict(
                 Version='2012-10-17',
-                Statement=[dict(
-                    Effect='Allow',
-                    Action=[
-                        GetAuthorizationToken,
-                        GetDownloadUrlForLayer,
-                        BatchGetImage,
-                        BatchCheckLayerAvailability,
-                    ],
-                    Resource=['*'],  # XXX: constrain further?
-                )],
+                Statement=[
+                    dict(
+                        Effect='Allow',
+                        Action=[GetAuthorizationToken],
+                        Resource=['*'],
+                    ),
+                    dict(
+                        Effect='Allow',
+                        Action=[
+                            GetDownloadUrlForLayer,
+                            BatchGetImage,
+                            BatchCheckLayerAvailability,
+                        ],
+                        Resource=[Join(':', ['arn', 'aws', 'ecr', Region, AccountId,
+                                            'repository/c4-*'])],
+                    ),
+                ],
             ),
         )
 
@@ -261,23 +317,28 @@ class C4IAM(C4IAMBase, C4Part):
 
     @staticmethod
     def ecs_cfn_policy() -> Policy:
-        """ Gives access to the DescribeStacks and list stacks API of cloudformation so that Application
-            services can read outputs from stacks.
+        """ Gives access to CloudFormation stack APIs so application services can read stack outputs.
+            ListStacks is an account-level action (requires '*'); DescribeStacks is scoped to 'c4-*' stacks.
 
             Associated API: get_ecs_real_url, others within foursight
         """
+        stack_arn = Join(':', ['arn', 'aws', 'cloudformation', Region, AccountId, 'stack/c4-*/*'])
         return Policy(
             PolicyName='ECSCfnPolicy',
             PolicyDocument=dict(
                 Version='2012-10-17',
-                Statement=[dict(
-                    Effect='Allow',
-                    Action=[
-                        'cloudformation:DescribeStacks',
-                        'cloudformation:ListStacks'
-                    ],
-                    Resource=['*'],  # XXX: constrain further?
-                )],
+                Statement=[
+                    dict(
+                        Effect='Allow',
+                        Action=['cloudformation:ListStacks'],
+                        Resource=['*'],
+                    ),
+                    dict(
+                        Effect='Allow',
+                        Action=['cloudformation:DescribeStacks'],
+                        Resource=[stack_arn],
+                    ),
+                ],
             ),
         )
 

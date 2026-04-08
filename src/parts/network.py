@@ -166,7 +166,7 @@ class C4Network(C4NetworkBase, C4Part):
             template.add_resource(i)
 
         # Add Bastion Host
-        # template.add_resource(self.bastion_host())
+        template.add_resource(self.bastion_host())
         # Add VPC Interface Endpoints for AWS Services (to reduce NAT Gateway charges)
         # NOTE: the service names vary by region, so this may need to be configurable
         # See: aws ec2 describe-vpc-endpoint-services

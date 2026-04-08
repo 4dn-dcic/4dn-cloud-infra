@@ -81,5 +81,7 @@ scripts/delete_pending_buckets.data.txt
 foursight_development/*.ipynb
 !foursight_development/RunCheckAndAction.ipynb
 
+.vscode/*
+
 custom_directories/*/custom
 custom_directories/*/custom/**

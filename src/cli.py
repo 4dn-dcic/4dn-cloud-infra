@@ -28,7 +28,7 @@ AWS_REGION = 'us-east-1'
 
 class C4Client:
     """ Client class for interacting with and provisioning CGAP Infrastructure as Code. """
-    ALPHA_LEAF_STACKS = ['iam', 'logging', 'network', 'appconfig']  # stacks that only export values
+    ALPHA_LEAF_STACKS = ['iam', 'logging', 'network', 'appconfig', 'scre-network']  # stacks that only export values
     CAPABILITY_IAM = 'CAPABILITY_IAM'
     FOURFRONT_NETWORK_STACK = 'c4-network-main-stack'  # this stack name is shared by all fourfront envs
     # these stacks require CAPABILITY_IAM, just IAM for now
@@ -148,6 +148,8 @@ class C4Client:
             stack.name.stack_name,
             cls.build_capability_param(stack),  # defaults to IAM
             '--no-execute-changeset',  # creates a changeset, does not execute template
+            '--region',
+            'us-east-1'
         ])
         if s3_key:  # if an s3 key is set, pass to enable server side encryption
             deploy_flags += f' --kms-key-id {s3_key}'

@@ -55,6 +55,10 @@ class Settings:
 
     # Network options
     SUBNET_PAIR_COUNT = 'subnet.pair_count'
+    VPC_ID = 'vpc.id'
+    VPC_CIDR = 'vpc.cidr'  # CIDR block of IT-provided VPC (used in SCRE deployments)
+    PUBLIC_SUBNETS = 'public.subnets'
+    PRIVATE_SUBNETS = 'private.subnets'
 
     # RDS Configuration Options
     RDS_INSTANCE_SIZE = 'rds.instance_size'
@@ -66,6 +70,7 @@ class Settings:
     RDS_AZ = 'rds.az'                        # TODO: Ignored for now. Always defaults to "us-east-1"
     RDS_POSTGRES_VERSION = 'rds.postgres_version'
     RDS_NAME = 'rds.name'  # can be used to configure name of RDS instance, foursight must know it - Will Nov 2 2021
+    RDS_BACKUP_RETENTION = 'rds.backup_retention_days'  # default 7 days
 
     # ES Configuration Options
     ES_MASTER_COUNT = 'elasticsearch.master_node_count'
@@ -162,6 +167,7 @@ class C4DatastoreBase:
     DEFAULT_RDS_INSTANCE_SIZE = 'db.t4g.medium'
     DEFAULT_RDS_STORAGE_TYPE = 'gp3'
     DEFAULT_RDS_POSTGRES_VERSION = '14.4'
+    DEFAULT_RDS_BACKUP_RETENTION = 7  # days
 
 
 # dmichaels/2022-06-22: Factored out from C4IAM in iam.py.
