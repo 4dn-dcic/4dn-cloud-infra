@@ -3,20 +3,49 @@
 # To use this script, fill out the buckets you want to ls/delete in
 # delete_pending_buckets.data.txt. Output is streamed into files in
 # the out/ directory. BE EXTREMELY CAREFUL. You will need
-# to confirm the deletion of every bucket. Note that this will NOT
-# remove versions if you enable object versioning. The easiest way to
-# deal with versions is from the AWS console
+# to confirm the deletion of every bucket. This script removes all
+# object versions and delete markers before removing the bucket.
+#
+# Requires: aws cli, jq
 
 # shellcheck disable=SC2013
 for i in $(cat delete_pending_buckets.data.txt)
 do
   echo "force deleting ${i}..."
-  docker run --rm -ti -v ~/.aws_test:/root/.aws amazon/aws-cli s3 ls s3://${i} --summarize
+  aws s3 ls s3://${i} --summarize
   echo "Enter any key to confirm"
   read _
   echo "follow progress with:"
   echo "tail -f ../out/delete_log_${i}.log"
-  docker run --rm -ti -v ~/.aws_test:/root/.aws amazon/aws-cli s3 rb s3://${i} --force >> ../out/delete_log_${i}.log
+
+  # Delete all object versions and delete markers
+  echo "Removing all versions and delete markers from ${i}..." | tee -a ../out/delete_log_${i}.log
+  tmpfile=$(mktemp)
+  trap 'rm -f "${tmpfile}"' EXIT
+  while true; do
+    versions=$(aws s3api list-object-versions --bucket "${i}" --output json --max-keys 1000)
+    obj_count=$(echo "${versions}" | jq '[(.Versions // [])] | add | length')
+    mkr_count=$(echo "${versions}" | jq '[(.DeleteMarkers // [])] | add | length')
+    total=$((obj_count + mkr_count))
+    [ "${total}" -eq 0 ] && break
+
+    if [ "${obj_count}" -gt 0 ]; then
+      echo "Deleting ${obj_count} object versions from ${i}..." | tee -a ../out/delete_log_${i}.log
+      echo "${versions}" | jq -c '{Objects: [.Versions[] | {Key, VersionId}], Quiet: true}' > "${tmpfile}"
+      aws s3api delete-objects --bucket "${i}" \
+        --delete "file://${tmpfile}" >> ../out/delete_log_${i}.log 2>&1
+    fi
+    if [ "${mkr_count}" -gt 0 ]; then
+      echo "Deleting ${mkr_count} delete markers from ${i}..." | tee -a ../out/delete_log_${i}.log
+      echo "${versions}" | jq -c '{Objects: [.DeleteMarkers[] | {Key, VersionId}], Quiet: true}' > "${tmpfile}"
+      aws s3api delete-objects --bucket "${i}" \
+        --delete "file://${tmpfile}" >> ../out/delete_log_${i}.log 2>&1
+    fi
+  done
+  rm -f "${tmpfile}"
+
+  # Remove the now-empty bucket
+  aws s3 rb s3://${i} --force >> ../out/delete_log_${i}.log
 done
 
 echo "All done."
