@@ -39,7 +39,8 @@ class TestData:
     rds_host = "rds.host.for.testing"
     rds_password = "rds-password-for-testing"
 
-    gac_secret_name = f"C4Datastore{camelize(aws_credentials_name)}ApplicationConfiguration"
+    # application_configuration_secret now uses the appconfig stack prefix (Will 27 Oct 2023).
+    gac_secret_name = f"C4AppConfig{camelize(aws_credentials_name)}"
     rds_secret_name = f"C4Datastore{camelize(aws_credentials_name)}RDSSecret"
 
 
