@@ -6,6 +6,98 @@
 Change Log
 ----------
 
+4.5.0
+=====
+
+SRCE (Secure Research Collaborative Environment) support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* Add full SRCE infrastructure stack support for deploying into IT-provided VPCs
+  (3-VPC architecture: Application, Database, and Compute).
+
+* New modules:
+
+  * ``srce_network.py`` -- Network stacks (``C4SRCENetwork``, ``C4SRCEDBNetwork``,
+    ``C4SRCEComputeNetwork``) that export IT-provided VPC/subnet IDs and create
+    security groups with cross-VPC rules, enabling downstream stacks to use the
+    standard ``ImportValue`` pattern unchanged.
+  * ``srce_datastore.py`` -- SRCE datastore (``C4SRCEDatastore``) targeting the
+    Database VPC; patches ``IAMStackNameParameter`` to default to the shared
+    ``c4-iam-main-stack``.
+  * ``srce_ecs.py`` -- SRCE ECS application (``C4SRCEECSApplication``) targeting
+    the Application VPC with config-driven VPC CIDR.
+  * ``srce_ecs_blue_green.py`` -- SRCE blue/green ECS variant (``SRCEECSBlueGreen``).
+  * ``srce_sentieon.py`` -- SRCE Sentieon license server (``C4SRCESentieonSupport``)
+    in the Application VPC with cross-VPC security rules for the Compute VPC.
+  * ``srce_redis.py`` -- SRCE Redis (``C4SRCERedis``) targeting the Database VPC.
+
+* New config.json settings for SRCE deployments: ``vpc.id``, ``vpc.cidr``,
+  ``public.subnets``, ``private.subnets``, ``db.vpc.id``, ``db.vpc.cidr``,
+  ``db.private.subnets``, ``compute.vpc.id``, ``compute.vpc.cidr``,
+  ``compute.private.subnets``.
+
+* Register all SRCE stacks in ``alpha_stacks.py`` (``srce-network``,
+  ``srce-network-db``, ``srce-network-compute``, ``srce-datastore``, ``srce-ecs``,
+  ``srce-ecs-blue-green``, ``srce-sentieon``, ``srce-redis``).
+
+* Update ``cli.py`` to handle SRCE stack deployment:
+
+  * Add SRCE network stacks to ``ALPHA_LEAF_STACKS``.
+  * Add ``SRCE_STACKS`` list and SRCE-specific parameter overrides using hardcoded
+    ecosystem-scoped stack names (``c4-iam-main-stack``, ``c4-ecr-main-stack``,
+    ``c4-logging-main-stack``) to avoid relying on ecosystem config resolution.
+  * Pass ``--region us-east-1`` to ``cloudformation deploy``.
+
+* Fix ECS and blue/green subnet references to use ``self.NETWORK_EXPORTS.PRIVATE_SUBNETS``
+  / ``PUBLIC_SUBNETS`` instead of hardcoded ``C4NetworkExports`` lists, so SRCE stacks
+  only reference the subnets that actually exist in the IT-provided VPC.
+
+* Add ``C4SRCENetworkExports.PRIVATE_SUBNETS`` / ``PUBLIC_SUBNETS`` sized to the
+  configured subnets from config.json.
+
+* Add ``C4SRCEDatastoreBase`` to ``constants.py`` and ``Names.srce_datastore_stack_name_object()``
+  to ``names.py`` for SRCE-aware name generation.
+
+* Update ``setup-remaining-secrets`` to detect SRCE deployments (via ``vpc.id`` in config)
+  and compute the correct RDS secret logical ID using the SRCE datastore prefix.
+
+IAM policy hardening
+~~~~~~~~~~~~~~~~~~~~
+
+* Scope all IAM policies to least-privilege:
+
+  * ``ecs_sqs_policy``: Replace ``sqs:*`` with specific send/receive/delete actions;
+    scope resource to ``c4-*`` queues.
+  * ``ecs_es_policy``: Replace ``es:*`` with specific HTTP actions; scope to ``c4*``
+    domains.
+  * ``ecs_secret_manager_policy``: Replace ``Resource: '*'`` with scoped ARN
+    (``c4-*`` secrets); remove ``GetResourcePolicy``.
+  * ``ecs_access_policy``: Replace ``ecs:*`` and ``elasticloadbalancing:*`` with
+    enumerated actions.
+  * ``ecs_log_policy``: Scope resource from ``*`` to ``c4-*`` log groups/streams.
+  * ``ecs_ecr_policy``: Split into two statements -- ``GetAuthorizationToken`` on ``*``
+    and image pull actions scoped to ``c4-*`` repositories.
+  * ``ecs_cfn_policy``: Scope ``DescribeStacks`` to ``c4-*`` stacks; keep
+    ``ListStacks`` on ``*``.
+
+* Fix ``builds_secret_manager_arn`` to produce correct ARN format
+  (``secret:name`` instead of ``secret:name:-*``).
+
+RDS improvements
+~~~~~~~~~~~~~~~~
+
+* Enable ``DeletionProtection`` on RDS instances by default.
+* Add configurable ``BackupRetentionPeriod`` (``rds.backup_retention_days``, default 7).
+
+Other changes
+~~~~~~~~~~~~~
+
+* Re-enable bastion host resource in network stack.
+* Remove stale commented-out elasticsearch import from datastore.
+* Update Makefile to install poetry via pip instead of curl installer.
+* Add ``.vscode`` to ``.gitignore``.
+
+
 4.4.0
 =====
 
