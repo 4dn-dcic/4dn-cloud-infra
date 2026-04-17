@@ -1,6 +1,8 @@
+import json
 import re
 
 from troposphere import Template, Output, Parameter as CFNParameter, Ref
+from troposphere.ec2 import SecurityGroupIngress, SecurityGroupEgress
 
 from .network import C4Network, C4NetworkExports
 from ..constants import Settings
@@ -9,18 +11,54 @@ from ..exports import C4Exports, exportify
 from ..part import C4Part
 
 
+def _parse_subnet_ids(value):
+    """
+    Parse subnet IDs from a config value that may be:
+    - already a list: ["subnet-abc", "subnet-def"]
+    - a JSON array string: "['subnet-abc', 'subnet-def']" (from str(list) via _load_config)
+    - a comma-separated string: "subnet-abc, subnet-def"
+    Returns a list of clean subnet ID strings.
+    """
+    if isinstance(value, list):
+        return [s.strip() for s in value]
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.startswith('['):
+            try:
+                # Handle proper JSON arrays
+                return [s.strip() for s in json.loads(stripped)]
+            except json.JSONDecodeError:
+                # Handle Python list repr: "['subnet-abc', 'subnet-def']"
+                inner = stripped[1:-1]
+                return [s.strip().strip("'\"") for s in inner.split(',') if s.strip()]
+        return [s.strip() for s in stripped.split(',') if s.strip()]
+    return []
+
+
 class C4SRCENetworkExports(C4Exports):
     """
     Exports for the SRCE Application VPC (ECS portal + foursight).
 
     References the 'srce-network' CloudFormation stack via NetworkStackNameParameter.
     Subnet IDs are read from 'private.subnets' / 'public.subnets' in config.json.
+
+    PRIVATE_SUBNETS and PUBLIC_SUBNETS are sized to match the configured subnets
+    so that downstream stacks (ECS, etc.) only reference exports that actually exist.
     """
     VPC = 'VPC'
 
     APPLICATION_SECURITY_GROUP = exportify('ApplicationSecurityGroup')
     DB_SECURITY_GROUP = exportify('DBSecurityGroup')
     HTTPS_SECURITY_GROUP = exportify('HTTPSSecurityGroup')
+
+    # Subnet export names, limited to the number of IT-provided subnets in config.
+    # Uses the same PrivateSubnetA/B/... naming as C4NetworkExports.
+    PRIVATE_SUBNETS = C4NetworkExports.PRIVATE_SUBNETS[:len(
+        _parse_subnet_ids(ConfigManager.get_config_setting(Settings.PRIVATE_SUBNETS, default=[]))
+    )]
+    PUBLIC_SUBNETS = C4NetworkExports.PUBLIC_SUBNETS[:len(
+        _parse_subnet_ids(ConfigManager.get_config_setting(Settings.PUBLIC_SUBNETS, default=[]))
+    )]
 
     _APPLICATION_SECURITY_GROUP_EXPORT_PATTERN = re.compile('.*Network.*ApplicationSecurityGroup.*')
 
@@ -35,13 +73,11 @@ class C4SRCENetworkExports(C4Exports):
     @classmethod
     def get_subnet_ids(cls):
         """Read IT-provided Application VPC private subnet IDs from config."""
-        subnet_ids = ConfigManager.get_config_setting(Settings.PRIVATE_SUBNETS, default=None)
+        subnet_ids = _parse_subnet_ids(ConfigManager.get_config_setting(Settings.PRIVATE_SUBNETS, default=None))
         if not subnet_ids:
             raise RuntimeError(
                 "get_subnet_ids() requires 'private.subnets' to be set in config.json for SRCE deployments."
             )
-        if isinstance(subnet_ids, str):
-            subnet_ids = [s.strip() for s in subnet_ids.split(',')]
         return subnet_ids
 
     def __init__(self):
@@ -63,18 +99,15 @@ class C4SRCEDBNetworkExports(C4Exports):
     HTTPS_SECURITY_GROUP = C4NetworkExports.HTTPS_SECURITY_GROUP
     APPLICATION_SECURITY_GROUP = C4NetworkExports.APPLICATION_SECURITY_GROUP
     PRIVATE_SUBNETS = C4NetworkExports.PRIVATE_SUBNETS
-    PUBLIC_SUBNETS = C4NetworkExports.PUBLIC_SUBNETS
 
     @classmethod
     def get_subnet_ids(cls):
         """Read IT-provided Database VPC private subnet IDs from config."""
-        subnet_ids = ConfigManager.get_config_setting(Settings.DB_PRIVATE_SUBNETS, default=None)
+        subnet_ids = _parse_subnet_ids(ConfigManager.get_config_setting(Settings.DB_PRIVATE_SUBNETS, default=None))
         if not subnet_ids:
             raise RuntimeError(
                 "get_subnet_ids() requires 'db.private.subnets' to be set in config.json for SRCE deployments."
             )
-        if isinstance(subnet_ids, str):
-            subnet_ids = [s.strip() for s in subnet_ids.split(',')]
         return subnet_ids
 
     def __init__(self):
@@ -92,18 +125,15 @@ class C4SRCEComputeNetworkExports(C4Exports):
     VPC = C4NetworkExports.VPC
     APPLICATION_SECURITY_GROUP = C4NetworkExports.APPLICATION_SECURITY_GROUP
     PRIVATE_SUBNETS = C4NetworkExports.PRIVATE_SUBNETS
-    PUBLIC_SUBNETS = C4NetworkExports.PUBLIC_SUBNETS
 
     @classmethod
     def get_subnet_ids(cls):
         """Read IT-provided Compute VPC private subnet IDs from config."""
-        subnet_ids = ConfigManager.get_config_setting(Settings.COMPUTE_PRIVATE_SUBNETS, default=None)
+        subnet_ids = _parse_subnet_ids(ConfigManager.get_config_setting(Settings.COMPUTE_PRIVATE_SUBNETS, default=None))
         if not subnet_ids:
             raise RuntimeError(
                 "get_subnet_ids() requires 'compute.private.subnets' to be set in config.json for SRCE deployments."
             )
-        if isinstance(subnet_ids, str):
-            subnet_ids = [s.strip() for s in subnet_ids.split(',')]
         return subnet_ids
 
     def __init__(self):
@@ -160,9 +190,7 @@ class C4SRCENetwork(C4Network, C4Part):
         """
         outputs = []
 
-        private_subnet_ids = ConfigManager.get_config_setting(Settings.PRIVATE_SUBNETS, default=[])
-        if isinstance(private_subnet_ids, str):
-            private_subnet_ids = [s.strip() for s in private_subnet_ids.split(',')]
+        private_subnet_ids = _parse_subnet_ids(ConfigManager.get_config_setting(Settings.PRIVATE_SUBNETS, default=[]))
         for i, subnet_id in enumerate(private_subnet_ids):
             if i >= len(C4NetworkExports.PRIVATE_SUBNETS):
                 break
@@ -174,9 +202,7 @@ class C4SRCENetwork(C4Network, C4Part):
                 Export=self.EXPORTS.export(export_name),
             ))
 
-        public_subnet_ids = ConfigManager.get_config_setting(Settings.PUBLIC_SUBNETS, default=[])
-        if isinstance(public_subnet_ids, str):
-            public_subnet_ids = [s.strip() for s in public_subnet_ids.split(',')]
+        public_subnet_ids = _parse_subnet_ids(ConfigManager.get_config_setting(Settings.PUBLIC_SUBNETS, default=[]))
         for i, subnet_id in enumerate(public_subnet_ids):
             if i >= len(C4NetworkExports.PUBLIC_SUBNETS):
                 break
@@ -189,6 +215,100 @@ class C4SRCENetwork(C4Network, C4Part):
             ))
 
         return outputs
+
+    def cross_vpc_security_rules(self):
+        """
+        Additional security group rules for cross-VPC traffic.
+        The App VPC needs to reach the DB VPC (RDS, OpenSearch, Redis)
+        and the Compute VPC (Sentieon, JupyterHub, Higlass), and vice versa.
+        """
+        rules = []
+        db_cidr = ConfigManager.get_config_setting(Settings.DB_VPC_CIDR, default=None)
+        compute_cidr = ConfigManager.get_config_setting(Settings.COMPUTE_VPC_CIDR, default=None)
+
+        if db_cidr:
+            # App -> DB VPC: allow DB port range (RDS)
+            rules.append(SecurityGroupIngress(
+                self.name.logical_id('DBPortRangeFromDBVPC', context='cross_vpc_db_in'),
+                CidrIp=db_cidr,
+                Description='allows DB port access from Database VPC',
+                GroupId=Ref(self.db_security_group()),
+                IpProtocol='tcp',
+                FromPort=self.DB_PORT_LOW,
+                ToPort=self.DB_PORT_HIGH,
+            ))
+            rules.append(SecurityGroupEgress(
+                self.name.logical_id('DBPortRangeToDBVPC', context='cross_vpc_db_out'),
+                CidrIp=db_cidr,
+                Description='allows DB port access to Database VPC',
+                GroupId=Ref(self.db_security_group()),
+                IpProtocol='tcp',
+                FromPort=self.DB_PORT_LOW,
+                ToPort=self.DB_PORT_HIGH,
+            ))
+            # App -> DB VPC: allow Redis (6379)
+            rules.append(SecurityGroupIngress(
+                self.name.logical_id('RedisFromDBVPC', context='cross_vpc_redis_in'),
+                CidrIp=db_cidr,
+                Description='allows Redis access from Database VPC',
+                GroupId=Ref(self.application_security_group()),
+                IpProtocol='tcp',
+                FromPort=6379,
+                ToPort=6379,
+            ))
+            rules.append(SecurityGroupEgress(
+                self.name.logical_id('RedisToDBVPC', context='cross_vpc_redis_out'),
+                CidrIp=db_cidr,
+                Description='allows Redis access to Database VPC',
+                GroupId=Ref(self.application_security_group()),
+                IpProtocol='tcp',
+                FromPort=6379,
+                ToPort=6379,
+            ))
+            # App -> DB VPC: allow HTTPS (443) for OpenSearch
+            rules.append(SecurityGroupEgress(
+                self.name.logical_id('HTTPSToDBVPC', context='cross_vpc_https_db_out'),
+                CidrIp=db_cidr,
+                Description='allows HTTPS access to Database VPC (OpenSearch)',
+                GroupId=Ref(self.application_security_group()),
+                IpProtocol='tcp',
+                FromPort=443,
+                ToPort=443,
+            ))
+
+        if compute_cidr:
+            # App <-> Compute VPC: allow HTTPS (443)
+            rules.append(SecurityGroupEgress(
+                self.name.logical_id('HTTPSToComputeVPC', context='cross_vpc_https_compute_out'),
+                CidrIp=compute_cidr,
+                Description='allows HTTPS access to Compute VPC',
+                GroupId=Ref(self.application_security_group()),
+                IpProtocol='tcp',
+                FromPort=443,
+                ToPort=443,
+            ))
+            rules.append(SecurityGroupIngress(
+                self.name.logical_id('HTTPSFromComputeVPC', context='cross_vpc_https_compute_in'),
+                CidrIp=compute_cidr,
+                Description='allows HTTPS access from Compute VPC',
+                GroupId=Ref(self.application_security_group()),
+                IpProtocol='tcp',
+                FromPort=443,
+                ToPort=443,
+            ))
+            # Compute VPC -> App VPC: allow Sentieon license server port (8990)
+            # Sentieon runs in App VPC but compute jobs in the Compute VPC need to reach it
+            rules.append(SecurityGroupIngress(
+                self.name.logical_id('SentieonFromComputeVPC', context='cross_vpc_sentieon_in'),
+                CidrIp=compute_cidr,
+                Description='allows Sentieon license server access from Compute VPC (port 8990)',
+                GroupId=Ref(self.application_security_group()),
+                IpProtocol='tcp',
+                FromPort=8990,
+                ToPort=8990,
+            ))
+
+        return rules
 
     def build_template(self, template: Template) -> Template:
         # Add VPC parameter (IT-provided; not created here)
@@ -221,6 +341,10 @@ class C4SRCENetwork(C4Network, C4Part):
         for i in self.application_security_rules():
             template.add_resource(i)
 
+        # Add cross-VPC security rules
+        for i in self.cross_vpc_security_rules():
+            template.add_resource(i)
+
         return template
 
 
@@ -243,6 +367,80 @@ class C4SRCEDBNetwork(C4SRCENetwork):
     def CIDR_BLOCK(self):
         return ConfigManager.get_config_setting(Settings.DB_VPC_CIDR, default=C4Network.CIDR_BLOCK)
 
+    def cross_vpc_security_rules(self):
+        """
+        Cross-VPC rules for the Database VPC.
+        The DB VPC must accept inbound connections from the App VPC for
+        RDS (5400-5499), Redis (6379), and OpenSearch/HTTPS (443).
+        """
+        rules = []
+        app_cidr = ConfigManager.get_config_setting(Settings.VPC_CIDR, default=None)
+        if app_cidr:
+            # App VPC -> DB: allow DB port range (RDS)
+            rules.append(SecurityGroupIngress(
+                self.name.logical_id('DBPortRangeFromAppVPC', context='cross_vpc_db_in'),
+                CidrIp=app_cidr,
+                Description='allows DB port access from Application VPC',
+                GroupId=Ref(self.db_security_group()),
+                IpProtocol='tcp',
+                FromPort=self.DB_PORT_LOW,
+                ToPort=self.DB_PORT_HIGH,
+            ))
+            rules.append(SecurityGroupEgress(
+                self.name.logical_id('DBPortRangeToAppVPC', context='cross_vpc_db_out'),
+                CidrIp=app_cidr,
+                Description='allows DB port responses to Application VPC',
+                GroupId=Ref(self.db_security_group()),
+                IpProtocol='tcp',
+                FromPort=self.DB_PORT_LOW,
+                ToPort=self.DB_PORT_HIGH,
+            ))
+            # App VPC -> DB: allow Redis (6379)
+            rules.append(SecurityGroupIngress(
+                self.name.logical_id('RedisFromAppVPC', context='cross_vpc_redis_in'),
+                CidrIp=app_cidr,
+                Description='allows Redis access from Application VPC',
+                GroupId=Ref(self.application_security_group()),
+                IpProtocol='tcp',
+                FromPort=6379,
+                ToPort=6379,
+            ))
+            rules.append(SecurityGroupEgress(
+                self.name.logical_id('RedisToAppVPC', context='cross_vpc_redis_out'),
+                CidrIp=app_cidr,
+                Description='allows Redis responses to Application VPC',
+                GroupId=Ref(self.application_security_group()),
+                IpProtocol='tcp',
+                FromPort=6379,
+                ToPort=6379,
+            ))
+            # App VPC -> DB: allow HTTPS (443) for OpenSearch
+            rules.append(SecurityGroupIngress(
+                self.name.logical_id('HTTPSFromAppVPC', context='cross_vpc_https_in'),
+                CidrIp=app_cidr,
+                Description='allows HTTPS access from Application VPC (OpenSearch)',
+                GroupId=Ref(self.https_security_group()),
+                IpProtocol='tcp',
+                FromPort=443,
+                ToPort=443,
+            ))
+        return rules
+
+    def build_template(self, template: Template) -> Template:
+        """DB VPC only needs the 3 SGs (for RDS, OpenSearch, Redis) and cross-VPC rules."""
+        template.add_parameter(self.virtual_private_cloud())
+        template.add_output(self.output_virtual_private_cloud())
+        for output in self._subnet_outputs():
+            template.add_output(output)
+        for sg in [self.db_security_group(), self.https_security_group(), self.application_security_group()]:
+            template.add_resource(sg)
+        for sg_output in [self.db_security_group_output(), self.https_security_group_output(),
+                          self.application_security_group_output()]:
+            template.add_output(sg_output)
+        for rule in self.cross_vpc_security_rules():
+            template.add_resource(rule)
+        return template
+
     def virtual_private_cloud(self):
         return CFNParameter(
             'ExistingDBVPCId',
@@ -254,9 +452,7 @@ class C4SRCEDBNetwork(C4SRCENetwork):
     def _subnet_outputs(self) -> list:
         """Export Database VPC private subnet IDs using standard PrivateSubnetA/B/... export names."""
         outputs = []
-        subnet_ids = ConfigManager.get_config_setting(Settings.DB_PRIVATE_SUBNETS, default=[])
-        if isinstance(subnet_ids, str):
-            subnet_ids = [s.strip() for s in subnet_ids.split(',')]
+        subnet_ids = _parse_subnet_ids(ConfigManager.get_config_setting(Settings.DB_PRIVATE_SUBNETS, default=[]))
         for i, subnet_id in enumerate(subnet_ids):
             if i >= len(C4NetworkExports.PRIVATE_SUBNETS):
                 break
@@ -272,12 +468,14 @@ class C4SRCEDBNetwork(C4SRCENetwork):
 
 class C4SRCEComputeNetwork(C4SRCENetwork):
     """
-    SRCE Network stack for the Compute VPC (Sentieon, JupyterHub, Higlass).
+    SRCE Network stack for the Compute VPC (JupyterHub, Higlass).
 
     Creates application security group(s) inside the IT-provided Compute VPC specified
-    by 'compute.vpc.id' in config.json.  Exports use standard key names so that
-    C4SRCESentieonSupport and other EC2 compute modules resolve imports correctly via
-    ComputeNetworkStackNameParameter.
+    by 'compute.vpc.id' in config.json.  Exports use standard key names so inherited
+    EC2 compute modules resolve imports correctly via ComputeNetworkStackNameParameter.
+
+    Note: Sentieon runs in the App VPC (needs public subnet), not here. Compute jobs
+    reach the Sentieon license server cross-VPC on port 8990.
     """
     STACK_NAME_TOKEN = 'srce-network-compute'
     STACK_TITLE_TOKEN = 'SRCENetworkCompute'
@@ -286,6 +484,67 @@ class C4SRCEComputeNetwork(C4SRCENetwork):
     @property
     def CIDR_BLOCK(self):
         return ConfigManager.get_config_setting(Settings.COMPUTE_VPC_CIDR, default=C4Network.CIDR_BLOCK)
+
+    def cross_vpc_security_rules(self):
+        """
+        Cross-VPC rules for the Compute VPC.
+        The Compute VPC must accept inbound connections from the App VPC
+        on HTTPS (443) and SSH (22), and reach the Sentieon license server
+        in the App VPC on port 8990.
+        """
+        rules = []
+        app_cidr = ConfigManager.get_config_setting(Settings.VPC_CIDR, default=None)
+        if app_cidr:
+            rules.append(SecurityGroupIngress(
+                self.name.logical_id('HTTPSFromAppVPC', context='cross_vpc_https_in'),
+                CidrIp=app_cidr,
+                Description='allows HTTPS access from Application VPC',
+                GroupId=Ref(self.application_security_group()),
+                IpProtocol='tcp',
+                FromPort=443,
+                ToPort=443,
+            ))
+            rules.append(SecurityGroupIngress(
+                self.name.logical_id('SSHFromAppVPC', context='cross_vpc_ssh_in'),
+                CidrIp=app_cidr,
+                Description='allows SSH access from Application VPC',
+                GroupId=Ref(self.application_security_group()),
+                IpProtocol='tcp',
+                FromPort=22,
+                ToPort=22,
+            ))
+            rules.append(SecurityGroupEgress(
+                self.name.logical_id('HTTPSToAppVPC', context='cross_vpc_https_out'),
+                CidrIp=app_cidr,
+                Description='allows HTTPS responses to Application VPC',
+                GroupId=Ref(self.application_security_group()),
+                IpProtocol='tcp',
+                FromPort=443,
+                ToPort=443,
+            ))
+            # Compute -> App VPC: Sentieon license server (8990)
+            rules.append(SecurityGroupEgress(
+                self.name.logical_id('SentieonToAppVPC', context='cross_vpc_sentieon_out'),
+                CidrIp=app_cidr,
+                Description='allows outbound to Sentieon license server in App VPC (port 8990)',
+                GroupId=Ref(self.application_security_group()),
+                IpProtocol='tcp',
+                FromPort=8990,
+                ToPort=8990,
+            ))
+        return rules
+
+    def build_template(self, template: Template) -> Template:
+        """Compute VPC only needs the Application SG (for JupyterHub, Higlass) and cross-VPC rules."""
+        template.add_parameter(self.virtual_private_cloud())
+        template.add_output(self.output_virtual_private_cloud())
+        for output in self._subnet_outputs():
+            template.add_output(output)
+        template.add_resource(self.application_security_group())
+        template.add_output(self.application_security_group_output())
+        for rule in self.cross_vpc_security_rules():
+            template.add_resource(rule)
+        return template
 
     def virtual_private_cloud(self):
         return CFNParameter(
@@ -296,28 +555,13 @@ class C4SRCEComputeNetwork(C4SRCENetwork):
         )
 
     def _subnet_outputs(self) -> list:
-        """Export Compute VPC private and public subnet IDs using standard export names."""
+        """Export Compute VPC private subnet IDs using standard export names."""
         outputs = []
-        private_ids = ConfigManager.get_config_setting(Settings.COMPUTE_PRIVATE_SUBNETS, default=[])
-        if isinstance(private_ids, str):
-            private_ids = [s.strip() for s in private_ids.split(',')]
+        private_ids = _parse_subnet_ids(ConfigManager.get_config_setting(Settings.COMPUTE_PRIVATE_SUBNETS, default=[]))
         for i, subnet_id in enumerate(private_ids):
             if i >= len(C4NetworkExports.PRIVATE_SUBNETS):
                 break
             export_name = C4NetworkExports.PRIVATE_SUBNETS[i]
-            logical_id = self.name.logical_id(export_name)
-            outputs.append(Output(
-                logical_id,
-                Value=subnet_id,
-                Export=self.EXPORTS.export(export_name),
-            ))
-        public_ids = ConfigManager.get_config_setting(Settings.COMPUTE_PUBLIC_SUBNETS, default=[])
-        if isinstance(public_ids, str):
-            public_ids = [s.strip() for s in public_ids.split(',')]
-        for i, subnet_id in enumerate(public_ids):
-            if i >= len(C4NetworkExports.PUBLIC_SUBNETS):
-                break
-            export_name = C4NetworkExports.PUBLIC_SUBNETS[i]
             logical_id = self.name.logical_id(export_name)
             outputs.append(Output(
                 logical_id,

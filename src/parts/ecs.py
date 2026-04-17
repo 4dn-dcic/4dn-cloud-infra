@@ -279,7 +279,8 @@ class C4ECSApplication(C4Part):
             SecurityGroups=[
                 Ref(self.ecs_lb_security_group())
             ],
-            Subnets=[self.NETWORK_EXPORTS.import_value(subnet_key) for subnet_key in C4NetworkExports.PUBLIC_SUBNETS],
+            Subnets=[self.NETWORK_EXPORTS.import_value(subnet_key)
+                    for subnet_key in self.NETWORK_EXPORTS.PUBLIC_SUBNETS],
             Tags=self.tags.cost_tag_array(name=logical_id),
             Type='application',
         )
@@ -417,7 +418,7 @@ class C4ECSApplication(C4Part):
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
                         self.NETWORK_EXPORTS.import_value(subnet_key)
-                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                        for subnet_key in self.NETWORK_EXPORTS.PRIVATE_SUBNETS
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
@@ -513,7 +514,7 @@ class C4ECSApplication(C4Part):
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
                         self.NETWORK_EXPORTS.import_value(subnet_key)
-                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                        for subnet_key in self.NETWORK_EXPORTS.PRIVATE_SUBNETS
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
@@ -648,7 +649,7 @@ class C4ECSApplication(C4Part):
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
                         self.NETWORK_EXPORTS.import_value(subnet_key)
-                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                        for subnet_key in self.NETWORK_EXPORTS.PRIVATE_SUBNETS
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
@@ -819,7 +820,7 @@ class C4ECSApplication(C4Part):
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
                         self.NETWORK_EXPORTS.import_value(subnet_key)
-                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                        for subnet_key in self.NETWORK_EXPORTS.PRIVATE_SUBNETS
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )

@@ -323,7 +323,7 @@ class ECSBlueGreen(C4ECSApplication):
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
                         self.NETWORK_EXPORTS.import_value(subnet_key)
-                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                        for subnet_key in self.NETWORK_EXPORTS.PRIVATE_SUBNETS
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
@@ -425,7 +425,7 @@ class ECSBlueGreen(C4ECSApplication):
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
                         self.NETWORK_EXPORTS.import_value(subnet_key)
-                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                        for subnet_key in self.NETWORK_EXPORTS.PRIVATE_SUBNETS
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
@@ -512,7 +512,7 @@ class ECSBlueGreen(C4ECSApplication):
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
                         self.NETWORK_EXPORTS.import_value(subnet_key)
-                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                        for subnet_key in self.NETWORK_EXPORTS.PRIVATE_SUBNETS
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )

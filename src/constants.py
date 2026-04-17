@@ -71,7 +71,6 @@ class Settings:
     COMPUTE_VPC_ID = 'compute.vpc.id'
     COMPUTE_VPC_CIDR = 'compute.vpc.cidr'
     COMPUTE_PRIVATE_SUBNETS = 'compute.private.subnets'
-    COMPUTE_PUBLIC_SUBNETS = 'compute.public.subnets'
 
     # RDS Configuration Options
     RDS_INSTANCE_SIZE = 'rds.instance_size'
@@ -179,8 +178,17 @@ class C4DatastoreBase:
     DEFAULT_RDS_STORAGE_SIZE = 30
     DEFAULT_RDS_INSTANCE_SIZE = 'db.t4g.medium'
     DEFAULT_RDS_STORAGE_TYPE = 'gp3'
-    DEFAULT_RDS_POSTGRES_VERSION = '14.4'
+    DEFAULT_RDS_POSTGRES_VERSION = '17.6'
     DEFAULT_RDS_BACKUP_RETENTION = 7  # days
+
+
+class C4SRCEDatastoreBase(C4DatastoreBase):
+    """
+    SRCE variant of C4DatastoreBase. Used to generate SRCE datastore names before orchestration
+    (e.g. setup-remaining-secrets). Inherits RDS defaults from C4DatastoreBase.
+    """
+    STACK_NAME_TOKEN = 'srce-datastore'
+    STACK_TITLE_TOKEN = 'SRCEDatastore'
 
 
 # dmichaels/2022-06-22: Factored out from C4IAM in iam.py.

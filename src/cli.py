@@ -30,8 +30,15 @@ class C4Client:
     """ Client class for interacting with and provisioning CGAP Infrastructure as Code. """
     ALPHA_LEAF_STACKS = ['iam', 'logging', 'network', 'appconfig',
                          'srce-network', 'srce-network-db', 'srce-network-compute']  # stacks that only export values
+    SRCE_STACKS = ['srce-datastore', 'srce-ecs', 'srce-ecs-blue-green',
+                   'srce-sentieon', 'srce-redis']  # stacks that import from SRCE network stacks
     CAPABILITY_IAM = 'CAPABILITY_IAM'
     FOURFRONT_NETWORK_STACK = 'c4-network-main-stack'  # this stack name is shared by all fourfront envs
+    # IAM/ECR/Logging stacks use SHARING='ecosystem' and are shared across all envs in an account.
+    # The ecosystem qualifier defaults to 'main', giving these fixed stack names.
+    SRCE_IAM_STACK_NAME = 'c4-iam-main-stack'
+    SRCE_ECR_STACK_NAME = 'c4-ecr-main-stack'
+    SRCE_LOGGING_STACK_NAME = 'c4-logging-main-stack'
     # these stacks require CAPABILITY_IAM, just IAM for now
     REQUIRES_CAPABILITY_IAM = ['iam', 'foursight', 'foursight-development', 'foursight-production', 'codebuild',
                                'foursight-smaht']
@@ -178,11 +185,33 @@ class C4Client:
         logging_stack_name, _ = c4_alpha_stack_metadata(name='logging')
         # TODO incorporate datastore output to ECS stack
         datastore_stack_name, _ = c4_alpha_stack_metadata(name='datastore')
+        srce_network_stack_name, _ = c4_alpha_stack_metadata(name='srce-network')
+        srce_network_db_stack_name, _ = c4_alpha_stack_metadata(name='srce-network-db')
+        srce_network_compute_stack_name, _ = c4_alpha_stack_metadata(name='srce-network-compute')
 
         # if we are building a leaf stack, our upload doesn't require these parameter overrides
         # since we are not importing values from other stacks
-        if stack.name.stack_name in cls.ALPHA_LEAF_STACKS:
+        is_srce = any(s in stack.name.stack_name for s in cls.SRCE_STACKS)
+        if any(s in stack.name.stack_name for s in cls.ALPHA_LEAF_STACKS):
             parameter_flags = ''
+        elif is_srce:
+            parameter_flags = [
+                '--parameter-overrides',
+                cls.build_parameter_override(param_name='NetworkStackNameParameter',
+                                             value=srce_network_stack_name.stack_name),
+                cls.build_parameter_override(param_name='DBNetworkStackNameParameter',
+                                             value=srce_network_db_stack_name.stack_name),
+                cls.build_parameter_override(param_name='ComputeNetworkStackNameParameter',
+                                             value=srce_network_compute_stack_name.stack_name),
+                # IAM/ECR/Logging are ecosystem-scoped shared stacks (c4-iam-main-stack, etc.)
+                # Use hardcoded names to avoid relying on ecosystem config resolution.
+                cls.build_parameter_override(param_name='ECRStackNameParameter',
+                                             value=cls.SRCE_ECR_STACK_NAME),
+                cls.build_parameter_override(param_name='IAMStackNameParameter',
+                                             value=cls.SRCE_IAM_STACK_NAME),
+                cls.build_parameter_override(param_name='LoggingStackNameParameter',
+                                             value=cls.SRCE_LOGGING_STACK_NAME),
+            ]
         else:
             parameter_flags = [
                 '--parameter-overrides',  # the flag itself

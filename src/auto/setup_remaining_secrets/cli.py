@@ -106,7 +106,8 @@ def validate_and_get_gac_secret_name(gac_secret_name: str, aws_credentials_name:
     return gac_secret_name
 
 
-def validate_and_get_rds_secret_name(rds_secret_name: str, aws_credentials_name: str) -> str:
+def validate_and_get_rds_secret_name(rds_secret_name: str, aws_credentials_name: str,
+                                     config_file: str = None) -> str:
     """
     Validates the given RDS secret name and returns its value. If not set gets it using
     the same code that 4dn-cloud-infra code does, using the given AWS credentials
@@ -115,11 +116,19 @@ def validate_and_get_rds_secret_name(rds_secret_name: str, aws_credentials_name:
 
     :param rds_secret_name: Explicitly specified AWS secret name for the RDS secrets.
     :param aws_credentials_name: AWS credentials name (e.g. cgap-supertest).
+    :param config_file: Full path to the JSON config file (used to detect SRCE deployments).
     :return: RDS secret name as gotten from the main 4dn-cloud-infra code.
     """
     if not rds_secret_name:
         try:
-            rds_secret_name = Names.rds_secret_logical_id(aws_credentials_name)
+            # SRCE deployments use a different datastore stack prefix (srce-datastore vs datastore),
+            # which changes the RDS secret logical ID. Detect via 'vpc.id' in config.
+            is_srce = bool(get_json_config_file_value(Settings.VPC_ID, config_file, None)) if config_file else False
+            if is_srce:
+                c4name = Names.srce_datastore_stack_name_object(aws_credentials_name)
+                rds_secret_name = Names.rds_secret_logical_id(aws_credentials_name, c4name)
+            else:
+                rds_secret_name = Names.rds_secret_logical_id(aws_credentials_name)
         except Exception:
             rds_secret_name = None
         if not rds_secret_name:
@@ -262,7 +271,8 @@ def gather_secrets_to_update(
 
     # Get the relevant AWS secret names.
     gac_secret_name = validate_and_get_gac_secret_name(gac_secret_name, aws.credentials_name)
-    rds_secret_name = validate_and_get_rds_secret_name(rds_secret_name, aws.credentials_name)
+    rds_secret_name = validate_and_get_rds_secret_name(rds_secret_name, aws.credentials_name,
+                                                        config_file=aws.custom_config_file)
 
     # Print the relevant AWS secret names we are dealing with.
     PRINT(f"AWS global application config secret to update: {gac_secret_name}")
