@@ -148,6 +148,7 @@ class Settings:
     CODEBUILD_GITHUB_REPOSITORY_URL = 'codebuild.repo_url'  # url to github source repository
     CODEBUILD_DEPLOY_BRANCH = 'codebuild.build_branch'
     CODEBUILD_REPO_NAME = 'codebuild.repo_name'  # name of ECR repo
+    CODEBUILD_LOG_RETENTION_DAYS = 'codebuild.log_retention_days'  # CloudWatch retention for build logs
 
 
 # dmichaels/2022-06-06: Factored out from base.py.

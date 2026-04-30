@@ -33,6 +33,7 @@ class C4AppConfigExports(C4Exports):
 
     # Standalone, blue/green version is inlined
     EXPORT_APPLICATION_CONFIG = 'ExportApplicationConfig'
+    EXPORT_FOURSIGHT_APPLICATION_CONFIG = 'ExportFoursightApplicationConfig'
     _ENV_BUCKET_EXPORT_PATTERN = re.compile(".*AppConfig.*Env.*Bucket")
 
     # RDS Exports
@@ -116,7 +117,9 @@ class C4AppConfig(C4AppConfigBase, C4Part):
     }
 
     def build_template(self, template: Template) -> Template:
-        """ Builds the appconfig template - builds GACs for blue/green if APP_DEPLOYMENT == blue/green """
+        """ Builds the appconfig template - builds GACs for blue/green if APP_DEPLOYMENT == blue/green.
+            Always builds a single Foursight configuration secret with identical key/value structure
+            (foursight is not blue/green'd; only ECS is). """
         if APP_DEPLOYMENT == DeploymentParadigm.BLUE_GREEN:
             gac_blue = self.application_configuration_secret(postfix='Blue')
             template.add_resource(gac_blue)
@@ -128,6 +131,11 @@ class C4AppConfig(C4AppConfigBase, C4Part):
             application_configuration_secret = self.application_configuration_secret()
             template.add_resource(application_configuration_secret)
             template.add_output(self.output_configuration_secret(application_configuration_secret))
+
+        # Single foursight secret regardless of deployment paradigm.
+        foursight_configuration_secret = self.foursight_configuration_secret()
+        template.add_resource(foursight_configuration_secret)
+        template.add_output(self.output_foursight_configuration_secret(foursight_configuration_secret))
         return template
 
     def output_configuration_secret(self, application_configuration_secret, deployment_type='standalone'):
@@ -154,4 +162,31 @@ class C4AppConfig(C4AppConfigBase, C4Part):
             Description='This secret defines the application configuration for the orchestrated environment.',
             SecretString=json.dumps(ApplicationConfigurationSecrets.build_initial_values(), indent=2),
             Tags=self.tags.cost_tag_array()
+        )
+
+    def foursight_configuration_secret(self, postfix=None) -> Secret:
+        """ Returns a Foursight configuration secret with the same key/value structure as the
+            application configuration secret. Foursight reads/owns this independently from the
+            portal so it can be filled in without touching the portal's GAC.
+        """
+        suffix = 'Foursight' + (postfix or '')
+        logical_id = dehyphenate(self.name.logical_id(suffix)).replace('_', '')
+        return Secret(
+            logical_id,
+            Name=logical_id,
+            Description='This secret defines the foursight configuration for the orchestrated environment.',
+            SecretString=json.dumps(ApplicationConfigurationSecrets.build_initial_values(), indent=2),
+            Tags=self.tags.cost_tag_array()
+        )
+
+    def output_foursight_configuration_secret(self, foursight_configuration_secret, deployment_type='standalone'):
+        """ Outputs the foursight configuration secret reference (mirrors output_configuration_secret). """
+        base = C4AppConfigExports.EXPORT_FOURSIGHT_APPLICATION_CONFIG + (deployment_type if deployment_type else '')
+        logical_id = self.name.logical_id(base)
+        export = self.EXPORTS.export(base)
+        return Output(
+            logical_id,
+            Description='Foursight Application Configuration Secret',
+            Value=Ref(foursight_configuration_secret),
+            Export=export
         )

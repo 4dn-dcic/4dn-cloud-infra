@@ -1,8 +1,10 @@
 from troposphere import Template, Parameter, AccountId, Join, Region, Ref, Output
 from troposphere.codebuild import (
-    Artifacts, Environment, Project, Source, SourceAuth, VpcConfig, SourceCredential, GitSubmodulesConfig
+    Artifacts, Environment, Project, Source, SourceAuth, VpcConfig, SourceCredential, GitSubmodulesConfig,
+    LogsConfig, CloudWatchLogs
 )
 from troposphere.iam import Role, Policy
+from troposphere.logs import LogGroup
 from tibanna._version import __version__ as tibanna_version
 from dcicutils.cloudformation_utils import camelize
 from dcicutils.common import REGION  # note to deploy outside us-east-1 you will need to change this
@@ -49,6 +51,7 @@ class C4CodeBuild(C4Part):
     DEFAULT_DEPLOY_BRANCH = 'master'
     DEFAULT_PIPELINE_DEPLOY_BRANCH = 'v1.0.0'  # version release tag for cgap-pipeline-main
     DEFAULT_EXTERNAL_GITHUB_PIPELINE_BRANCH = 'v1.0.0'  # TODO: this should be verified
+    DEFAULT_LOG_RETENTION_DAYS = 30  # CloudWatch retention for CodeBuild logs (override via codebuild.log_retention_days)
     NETWORK_EXPORTS = C4NetworkExports()
     EXPORTS = C4CodeBuildExports()
 
@@ -90,6 +93,7 @@ class C4CodeBuild(C4Part):
                 f'-{DeploymentParadigm.GREEN}': C4CodeBuildExports.GREEN_CB_URL
             }.items():
                 env_name = ConfigManager.get_config_setting(Settings.ENV_NAME) + env
+                template.add_resource(self.cb_log_group(project_name=env_name))
                 build_project = self.cb_project(
                     project_name=env_name,
                     github_repo_url=ConfigManager.get_config_setting(Settings.CODEBUILD_GITHUB_REPOSITORY_URL,
@@ -105,6 +109,7 @@ class C4CodeBuild(C4Part):
                                                           project_name=env_name
                                                       )))
         else:  # standalone
+            template.add_resource(self.cb_log_group(project_name=portal_env_name))
             build_project = self.cb_project(
                 project_name=portal_env_name,
                 github_repo_url=ConfigManager.get_config_setting(Settings.CODEBUILD_GITHUB_REPOSITORY_URL,
@@ -133,6 +138,7 @@ class C4CodeBuild(C4Part):
                                                       project_name=external_pipeline_project_name
                                                   )))
             # Build project for pipeline images
+            template.add_resource(self.cb_log_group(project_name=pipeline_project_name))
             pipeline_build_project = self.cb_project(
                 project_name=pipeline_project_name,
                 github_repo_url=self.DEFAULT_GITHUB_PIPELINE_REPOSITORY,
@@ -146,6 +152,7 @@ class C4CodeBuild(C4Part):
                                                   )))
 
             # Build project for external pipeline images
+            template.add_resource(self.cb_log_group(project_name=external_pipeline_project_name))
             external_pipeline_build_project = self.cb_project(
                 project_name=external_pipeline_project_name,
                 github_repo_url=self.DEFAULT_EXTERNAL_GITHUB_PIPELINE_REPOSITORY,
@@ -166,6 +173,7 @@ class C4CodeBuild(C4Part):
                                                       project_name=pipeline_project_name
                                                   )))
             # Build project for pipeline images
+            template.add_resource(self.cb_log_group(project_name=pipeline_project_name))
             pipeline_build_project = self.cb_project(
                 project_name=pipeline_project_name,
                 github_repo_url=self.SMAHT_GITHUB_REPOSITORY,
@@ -179,6 +187,7 @@ class C4CodeBuild(C4Part):
                                                   )))
 
         # Build project for Tibanna AWSF
+        template.add_resource(self.cb_log_group(project_name=tibanna_project_name))
         tibanna_build_project = self.cb_project(
             project_name=tibanna_project_name,
             github_repo_url=self.DEFAULT_TIBANNA_REPOSITORY,
@@ -360,12 +369,36 @@ class C4CodeBuild(C4Part):
             Artifacts=self.cb_artifacts(),
             Description=f'Build project for {project_name}',
             Environment=environment,
+            LogsConfig=self.cb_logs_config(project_name=project_name),
             Name=project_name,
             ServiceRole=Ref(self.cb_iam_role(project_name=ConfigManager.get_config_setting(Settings.ENV_NAME))),
             Source=self.cb_source(github_repo_url=github_repo_url),
             SourceVersion=branch,
             VpcConfig=self.cb_vpc_config(),
             Tags=self.tags.cost_tag_obj()
+        )
+
+    def cb_log_group(self, *, project_name) -> LogGroup:
+        """ Managed CloudWatch log group for a CodeBuild project so retention is enforced.
+            Uses the same `/aws/codebuild/<project>` path that CodeBuild auto-creates by default —
+            on first deploy of this stack against an account where these projects already ran,
+            the auto-created log groups must be deleted (or imported) to avoid CFN AlreadyExists. """
+        retention = ConfigManager.get_config_setting(
+            Settings.CODEBUILD_LOG_RETENTION_DAYS, default=self.DEFAULT_LOG_RETENTION_DAYS)
+        return LogGroup(
+            f'CodeBuildLogGroupFor{camelize(project_name)}',
+            LogGroupName=f'/aws/codebuild/{project_name}',
+            RetentionInDays=int(retention),
+        )
+
+    @staticmethod
+    def cb_logs_config(*, project_name) -> LogsConfig:
+        """ Pin CodeBuild stdout/stderr to a known CloudWatch log group. """
+        return LogsConfig(
+            CloudWatchLogs=CloudWatchLogs(
+                Status='ENABLED',
+                GroupName=f'/aws/codebuild/{project_name}',
+            )
         )
 
     def output_value(self, resource, export_name) -> Output:
