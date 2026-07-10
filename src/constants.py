@@ -56,6 +56,13 @@ class Settings:
     # Network options
     SUBNET_PAIR_COUNT = 'subnet.pair_count'
 
+    # Optional bastion host in the standard network stack. Disabled unless bastion.enabled is
+    # truthy AND both an AMI and SSH key are configured; a missing key skips the resource rather
+    # than raising (see SEC-3).
+    BASTION_ENABLED = 'network.bastion.enabled'
+    BASTION_AMI = 'network.bastion.ami'
+    BASTION_SSH_KEY = 'network.bastion.ssh_key'
+
     # Application VPC (ECS portal + foursight) — used in SRCE deployments
     VPC_ID = 'vpc.id'
     VPC_CIDR = 'vpc.cidr'

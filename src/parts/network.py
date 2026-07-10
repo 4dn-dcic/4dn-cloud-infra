@@ -165,8 +165,12 @@ class C4Network(C4NetworkBase, C4Part):
         for i in self.application_security_rules():
             template.add_resource(i)
 
-        # Add Bastion Host
-        template.add_resource(self.bastion_host())
+        # Add Bastion Host (opt-in). Only created when network.bastion.enabled is set and the
+        # required AMI + SSH key are configured; otherwise skipped so a missing key does not break
+        # template generation (SEC-3).
+        bastion = self.bastion_host()
+        if bastion is not None:
+            template.add_resource(bastion)
         # Add VPC Interface Endpoints for AWS Services (to reduce NAT Gateway charges)
         # NOTE: the service names vary by region, so this may need to be configurable
         # See: aws ec2 describe-vpc-endpoint-services
@@ -651,16 +655,29 @@ class C4Network(C4NetworkBase, C4Part):
         ]
 
     def bastion_host(self):
-        """ Defines a bastion host in public subnet a of the vpc. Ref:
+        """ Defines an optional bastion host in public subnet a of the vpc. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_EC2.html
+
+            Opt-in and fully config-driven: returns None (skipping the resource) unless
+            network.bastion.enabled is truthy and both an AMI (network.bastion.ami) and an SSH
+            key (network.bastion.ssh_key) are configured. This avoids the previous hard crash when
+            no key was set, and avoids hard-coding a stale AMI / the Sentieon key (SEC-3).
         """
+        if not ConfigManager.get_config_setting(Settings.BASTION_ENABLED, default=False):
+            return None
+        ami = ConfigManager.get_config_setting(Settings.BASTION_AMI, default=None)
+        ssh_key = ConfigManager.get_config_setting(Settings.BASTION_SSH_KEY, default=None)
+        if not ami or not ssh_key:
+            logging.warning("network.bastion.enabled is set but network.bastion.ami and/or "
+                            "network.bastion.ssh_key are missing; skipping bastion host.")
+            return None
         logical_id = self.name.logical_id('BastionHost')
         network_interface_logical_id = self.name.logical_id('BastionHostNetworkInterface', context='bastion_host')
         instance_name = self.name.instance_name('bastion-host')
         return Instance(
             logical_id,
             Tags=self.tags.cost_tag_array(name=instance_name),
-            ImageId='ami-0742b4e673072066f',
+            ImageId=ami,
             InstanceType='t2.nano',
             NetworkInterfaces=[NetworkInterfaceProperty(
                 network_interface_logical_id,
@@ -669,7 +686,7 @@ class C4Network(C4NetworkBase, C4Part):
                 GroupSet=[Ref(self.application_security_group())],
                 SubnetId=Ref(self.public_subnets()[0]),
             )],
-            KeyName=ConfigManager.get_config_setting(Settings.SENTIEON_SSH_KEY),  # use sentieon key for now
+            KeyName=ssh_key,
         )
 
     def create_vpc_interface_endpoint(self, identifier, service_name, dns=True) -> VPCEndpoint:
