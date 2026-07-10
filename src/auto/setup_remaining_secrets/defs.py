@@ -14,9 +14,11 @@ class RdsSecretKeyName:
     RDS_PASSWORD = "password"
 
 
-# Auxiliary secrets owned by the appconfig stack and populated post-deploy alongside the GAC.
+# Auxiliary secrets populated post-deploy. DockerHub credentials are owned by the
+# ecosystem-scoped shared-secrets stack (C4SharedSecrets); the Falcon secrets are owned by the
+# per-env appconfig stack.
 class DockerHubSecretKeyName:
-    """Keys inside the appconfig-owned DockerHub credentials JSON secret."""
+    """Keys inside the DockerHub credentials JSON secret (owned by C4SharedSecrets)."""
     USERNAME = "username"
     TOKEN = "token"
 
@@ -30,10 +32,9 @@ class LocalSecretsKey:
     FALCON_CLIENT_SECRET = "FalconClientSecret"
 
 
-# Logical-id suffixes used by appconfig.C4AppConfig — repeated here so this script can
-# compute the AWS secret names without importing the troposphere-heavy appconfig module.
-# Falcon secrets are env-suffixed off the appconfig stack name; DockerHub credentials
-# use a fixed account-wide name (matches C4AppConfig.DOCKERHUB_SECRET_NAME).
+# Logical-id suffixes for the Falcon secrets owned by appconfig.C4AppConfig — repeated here so
+# this script can compute the AWS secret names without importing the troposphere-heavy appconfig
+# module. Falcon secrets are env-suffixed off the appconfig stack name.
 class AuxSecretSuffix:
     FALCON_CID = "FalconCID"
     FALCON_CLIENT_ID = "FalconClientID"
@@ -41,5 +42,5 @@ class AuxSecretSuffix:
 
 
 # Fixed AWS Secrets Manager name for DockerHub credentials. Must match
-# C4AppConfig.DOCKERHUB_SECRET_NAME in src/parts/appconfig.py.
+# C4SharedSecrets.DOCKERHUB_SECRET_NAME in src/parts/shared_secrets.py.
 DOCKERHUB_SECRET_NAME = "dhi-registry-credentials"

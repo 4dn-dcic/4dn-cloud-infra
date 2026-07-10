@@ -2,7 +2,7 @@ import json
 import re
 
 from troposphere import Template, Output, Parameter as CFNParameter, Ref
-from troposphere.ec2 import SecurityGroupIngress, SecurityGroupEgress
+from troposphere.ec2 import SecurityGroupIngress, SecurityGroupEgress, SecurityGroup, SecurityGroupRule
 
 from .network import C4Network, C4NetworkExports
 from ..constants import Settings
@@ -35,6 +35,17 @@ def _parse_subnet_ids(value):
     return []
 
 
+def _read_subnet_ids(setting_key):
+    """ Shared helper for the SRCE *NetworkExports.get_subnet_ids() classmethods: read the
+        IT-provided subnet IDs for the given config key, raising a clear error if unset. """
+    subnet_ids = _parse_subnet_ids(ConfigManager.get_config_setting(setting_key, default=None))
+    if not subnet_ids:
+        raise RuntimeError(
+            f"get_subnet_ids() requires {setting_key!r} to be set in config.json for SRCE deployments."
+        )
+    return subnet_ids
+
+
 class C4SRCENetworkExports(C4Exports):
     """
     Exports for the SRCE Application VPC (ECS portal + foursight).
@@ -51,14 +62,19 @@ class C4SRCENetworkExports(C4Exports):
     DB_SECURITY_GROUP = exportify('DBSecurityGroup')
     HTTPS_SECURITY_GROUP = exportify('HTTPSSecurityGroup')
 
-    # Subnet export names, limited to the number of IT-provided subnets in config.
-    # Uses the same PrivateSubnetA/B/... naming as C4NetworkExports.
-    PRIVATE_SUBNETS = C4NetworkExports.PRIVATE_SUBNETS[:len(
-        _parse_subnet_ids(ConfigManager.get_config_setting(Settings.PRIVATE_SUBNETS, default=[]))
-    )]
-    PUBLIC_SUBNETS = C4NetworkExports.PUBLIC_SUBNETS[:len(
-        _parse_subnet_ids(ConfigManager.get_config_setting(Settings.PUBLIC_SUBNETS, default=[]))
-    )]
+    # Subnet export names, limited to the number of IT-provided subnets in config, using the same
+    # PrivateSubnetA/B/... naming as C4NetworkExports. Exposed as lazy properties (not class
+    # attributes) so the config read happens at access time rather than at module-import time —
+    # alpha_stacks imports this unconditionally on every CLI invocation (CLN-9).
+    @property
+    def PRIVATE_SUBNETS(self):
+        n = len(_parse_subnet_ids(ConfigManager.get_config_setting(Settings.PRIVATE_SUBNETS, default=[])))
+        return C4NetworkExports.PRIVATE_SUBNETS[:n]
+
+    @property
+    def PUBLIC_SUBNETS(self):
+        n = len(_parse_subnet_ids(ConfigManager.get_config_setting(Settings.PUBLIC_SUBNETS, default=[])))
+        return C4NetworkExports.PUBLIC_SUBNETS[:n]
 
     _APPLICATION_SECURITY_GROUP_EXPORT_PATTERN = re.compile('.*Network.*ApplicationSecurityGroup.*')
 
@@ -73,12 +89,7 @@ class C4SRCENetworkExports(C4Exports):
     @classmethod
     def get_subnet_ids(cls):
         """Read IT-provided Application VPC private subnet IDs from config."""
-        subnet_ids = _parse_subnet_ids(ConfigManager.get_config_setting(Settings.PRIVATE_SUBNETS, default=None))
-        if not subnet_ids:
-            raise RuntimeError(
-                "get_subnet_ids() requires 'private.subnets' to be set in config.json for SRCE deployments."
-            )
-        return subnet_ids
+        return _read_subnet_ids(Settings.PRIVATE_SUBNETS)
 
     def __init__(self):
         super().__init__('NetworkStackNameParameter')
@@ -98,17 +109,17 @@ class C4SRCEDBNetworkExports(C4Exports):
     DB_SECURITY_GROUP = C4NetworkExports.DB_SECURITY_GROUP
     HTTPS_SECURITY_GROUP = C4NetworkExports.HTTPS_SECURITY_GROUP
     APPLICATION_SECURITY_GROUP = C4NetworkExports.APPLICATION_SECURITY_GROUP
+    # NOTE: unlike C4SRCENetworkExports, this is NOT truncated to the configured subnet count.
+    # C4Datastore instead truncates by subnet.pair_count (default 2) when building the RDS subnet
+    # group, so an SRCE DB VPC must either have exactly 2 private subnets or set subnet.pair_count
+    # to match db.private.subnets, otherwise the RDS subnet group would ImportValue exports that do
+    # not exist (CLN-9).
     PRIVATE_SUBNETS = C4NetworkExports.PRIVATE_SUBNETS
 
     @classmethod
     def get_subnet_ids(cls):
         """Read IT-provided Database VPC private subnet IDs from config."""
-        subnet_ids = _parse_subnet_ids(ConfigManager.get_config_setting(Settings.DB_PRIVATE_SUBNETS, default=None))
-        if not subnet_ids:
-            raise RuntimeError(
-                "get_subnet_ids() requires 'db.private.subnets' to be set in config.json for SRCE deployments."
-            )
-        return subnet_ids
+        return _read_subnet_ids(Settings.DB_PRIVATE_SUBNETS)
 
     def __init__(self):
         super().__init__('DBNetworkStackNameParameter')
@@ -129,15 +140,40 @@ class C4SRCEComputeNetworkExports(C4Exports):
     @classmethod
     def get_subnet_ids(cls):
         """Read IT-provided Compute VPC private subnet IDs from config."""
-        subnet_ids = _parse_subnet_ids(ConfigManager.get_config_setting(Settings.COMPUTE_PRIVATE_SUBNETS, default=None))
-        if not subnet_ids:
-            raise RuntimeError(
-                "get_subnet_ids() requires 'compute.private.subnets' to be set in config.json for SRCE deployments."
-            )
-        return subnet_ids
+        return _read_subnet_ids(Settings.COMPUTE_PRIVATE_SUBNETS)
 
     def __init__(self):
         super().__init__('ComputeNetworkStackNameParameter')
+
+
+class SRCENetworkMixin:
+    """
+    Shared SRCE wiring for ECS parts (RED-2). Routes VPC/subnet cross-stack references to the SRCE
+    Application network stack and overrides the container security group to use the config-driven
+    VPC CIDR (vpc.cidr) instead of the hardcoded C4Network.CIDR_BLOCK. Inherited (first, so it
+    wins the MRO) by both C4SRCEECSApplication and SRCEECSBlueGreen, which previously carried
+    byte-identical copies of NETWORK_EXPORTS and ecs_container_security_group().
+    """
+    NETWORK_EXPORTS = C4SRCENetworkExports()
+
+    def ecs_container_security_group(self) -> SecurityGroup:
+        """Security group for the container runtime, using config-provided VPC CIDR."""
+        cidr = ConfigManager.get_config_setting(Settings.VPC_CIDR, default=C4Network.CIDR_BLOCK)
+        logical_id = self.name.logical_id('ContainerSecurityGroup')
+        return SecurityGroup(
+            logical_id,
+            GroupDescription='Container Security Group.',
+            VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
+            SecurityGroupIngress=[
+                SecurityGroupRule(
+                    IpProtocol='tcp',
+                    FromPort=Ref(self.ecs_web_worker_port()),
+                    ToPort=Ref(self.ecs_web_worker_port()),
+                    CidrIp=cidr,
+                )
+            ],
+            Tags=self.tags.cost_tag_array()
+        )
 
 
 class C4SRCENetwork(C4Network, C4Part):
@@ -190,39 +226,31 @@ class C4SRCENetwork(C4Network, C4Part):
             Export=self.EXPORTS.export(export_name),
         )
 
-    def _subnet_outputs(self) -> list:
+    def _subnet_outputs_for(self, setting_key, export_names) -> list:
         """
-        Export IT-provided subnet IDs as CloudFormation outputs using the same export
-        names as a normal Network stack (PrivateSubnetA, PublicSubnetA, etc.).
-        Downstream stacks import these via ImportValue without any modification.
+        Shared helper: export IT-provided subnet IDs (read from the given config key) as
+        CloudFormation outputs using the given standard export names (PrivateSubnetA/B/...,
+        PublicSubnetA/B/...). Downstream stacks import these via ImportValue unchanged. Used by
+        all three SRCE network classes (App/DB/Compute), which differ only in the config key and
+        export-name family (RED-3).
         """
         outputs = []
-
-        private_subnet_ids = _parse_subnet_ids(ConfigManager.get_config_setting(Settings.PRIVATE_SUBNETS, default=[]))
-        for i, subnet_id in enumerate(private_subnet_ids):
-            if i >= len(C4NetworkExports.PRIVATE_SUBNETS):
+        subnet_ids = _parse_subnet_ids(ConfigManager.get_config_setting(setting_key, default=[]))
+        for i, subnet_id in enumerate(subnet_ids):
+            if i >= len(export_names):
                 break
-            export_name = C4NetworkExports.PRIVATE_SUBNETS[i]
-            logical_id = self.name.logical_id(export_name)
+            export_name = export_names[i]
             outputs.append(Output(
-                logical_id,
+                self.name.logical_id(export_name),
                 Value=subnet_id,
                 Export=self.EXPORTS.export(export_name),
             ))
-
-        public_subnet_ids = _parse_subnet_ids(ConfigManager.get_config_setting(Settings.PUBLIC_SUBNETS, default=[]))
-        for i, subnet_id in enumerate(public_subnet_ids):
-            if i >= len(C4NetworkExports.PUBLIC_SUBNETS):
-                break
-            export_name = C4NetworkExports.PUBLIC_SUBNETS[i]
-            logical_id = self.name.logical_id(export_name)
-            outputs.append(Output(
-                logical_id,
-                Value=subnet_id,
-                Export=self.EXPORTS.export(export_name),
-            ))
-
         return outputs
+
+    def _subnet_outputs(self) -> list:
+        """ Application VPC exports both private and public subnets. """
+        return (self._subnet_outputs_for(Settings.PRIVATE_SUBNETS, C4NetworkExports.PRIVATE_SUBNETS) +
+                self._subnet_outputs_for(Settings.PUBLIC_SUBNETS, C4NetworkExports.PUBLIC_SUBNETS))
 
     def cross_vpc_security_rules(self):
         """
@@ -459,19 +487,7 @@ class C4SRCEDBNetwork(C4SRCENetwork):
 
     def _subnet_outputs(self) -> list:
         """Export Database VPC private subnet IDs using standard PrivateSubnetA/B/... export names."""
-        outputs = []
-        subnet_ids = _parse_subnet_ids(ConfigManager.get_config_setting(Settings.DB_PRIVATE_SUBNETS, default=[]))
-        for i, subnet_id in enumerate(subnet_ids):
-            if i >= len(C4NetworkExports.PRIVATE_SUBNETS):
-                break
-            export_name = C4NetworkExports.PRIVATE_SUBNETS[i]
-            logical_id = self.name.logical_id(export_name)
-            outputs.append(Output(
-                logical_id,
-                Value=subnet_id,
-                Export=self.EXPORTS.export(export_name),
-            ))
-        return outputs
+        return self._subnet_outputs_for(Settings.DB_PRIVATE_SUBNETS, C4NetworkExports.PRIVATE_SUBNETS)
 
 
 class C4SRCEComputeNetwork(C4SRCENetwork):
@@ -564,16 +580,4 @@ class C4SRCEComputeNetwork(C4SRCENetwork):
 
     def _subnet_outputs(self) -> list:
         """Export Compute VPC private subnet IDs using standard export names."""
-        outputs = []
-        private_ids = _parse_subnet_ids(ConfigManager.get_config_setting(Settings.COMPUTE_PRIVATE_SUBNETS, default=[]))
-        for i, subnet_id in enumerate(private_ids):
-            if i >= len(C4NetworkExports.PRIVATE_SUBNETS):
-                break
-            export_name = C4NetworkExports.PRIVATE_SUBNETS[i]
-            logical_id = self.name.logical_id(export_name)
-            outputs.append(Output(
-                logical_id,
-                Value=subnet_id,
-                Export=self.EXPORTS.export(export_name),
-            ))
-        return outputs
+        return self._subnet_outputs_for(Settings.COMPUTE_PRIVATE_SUBNETS, C4NetworkExports.PRIVATE_SUBNETS)

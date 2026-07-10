@@ -252,11 +252,14 @@ def c4_alpha_stack_foursight_smaht(account: C4Account):
     return create_c4_alpha_foursight_stack(name='foursight-smaht', account=account)
 
 
-@register_stack_creator(name='foursight-smaht-srce', kind='alpha', implementation_class=C4FoursightSMAHTSRCEStack)
-def c4_alpha_stack_foursight_smaht_srce(account: C4Account):
+# Registration name matches the stack's STACK_NAME_TOKEN ('foursight-srce') so the CLI command,
+# the registered name, and the CloudFormation stack name (c4-foursight-srce-<env>-stack) all agree
+# (CLN-2).
+@register_stack_creator(name='foursight-srce', kind='alpha', implementation_class=C4FoursightSMAHTSRCEStack)
+def c4_alpha_stack_foursight_srce(account: C4Account):
     """ Foursight stack for smaht SRCE deployments — uses the SRCE App VPC like SRCE ECS does.
         Runs alongside the existing 'foursight-smaht' stack. """
-    return create_c4_alpha_foursight_stack(name='foursight-smaht-srce', account=account)
+    return create_c4_alpha_foursight_stack(name='foursight-srce', account=account)
 
 
 @register_stack_creator(name='foursight-production', kind='4dn', implementation_class=C4FoursightFourfrontStack)

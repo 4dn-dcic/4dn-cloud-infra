@@ -40,8 +40,10 @@ class C4Client:
     SRCE_ECR_STACK_NAME = 'c4-ecr-main-stack'
     SRCE_LOGGING_STACK_NAME = 'c4-logging-main-stack'
     # these stacks require CAPABILITY_IAM, just IAM for now
+    # NB: matched as substrings of the full stack name, so 'foursight' already covers every
+    # foursight variant (including the SRCE foursight stack c4-foursight-srce-<env>-stack).
     REQUIRES_CAPABILITY_IAM = ['iam', 'foursight', 'foursight-development', 'foursight-production', 'codebuild',
-                               'foursight-smaht', 'foursight-smaht-srce']
+                               'foursight-smaht']
 
     @classmethod
     def _out_templates_mapping_for_mount(cls) -> str:
