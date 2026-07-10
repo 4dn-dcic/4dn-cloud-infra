@@ -269,14 +269,87 @@ class C4CodeBuild(C4Part):
             Policies=[
                 self.cb_vpc_policy(),
                 self.cb_external_secrets_policy(),
-            ],
-            ManagedPolicyArns=[
-                'arn:aws:iam::aws:policy/AmazonS3FullAccess',
-                'arn:aws:iam::aws:policy/CloudWatchFullAccess',
-                'arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess',
-                'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser',
-            ],
+            ] + self.cb_least_privilege_policies(),
         )
+
+    def cb_least_privilege_policies(self) -> list:
+        """ Inline least-privilege policies replacing the four account-wide FullAccess/Admin
+            managed policies (AmazonS3FullAccess, CloudWatchFullAccess, AWSCodeBuildAdminAccess,
+            AmazonEC2ContainerRegistryPowerUser) previously attached to the CodeBuild role (SEC-8).
+            Scoped to the resources a docker build/push in this ecosystem actually touches. """
+        # Lazy import avoids any import-cycle risk with the ECR part.
+        from .ecr import ECR_REPO_NAMES
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        repo_arns = [Join(':', ['arn', 'aws', 'ecr', Region, AccountId, f'repository/{name}'])
+                     for name in [env_name] + ECR_REPO_NAMES]
+        s3_bucket_arn = f'arn:aws:s3:::{env_name}-*'
+        log_group_arn = Join(':', ['arn', 'aws', 'logs', Region, AccountId, 'log-group:/aws/codebuild/*'])
+        log_stream_arn = Join(':', ['arn', 'aws', 'logs', Region, AccountId,
+                                    'log-group:/aws/codebuild/*:log-stream:*'])
+        report_group_arn = Join(':', ['arn', 'aws', 'codebuild', Region, AccountId, 'report-group/*'])
+        return [
+            Policy(  # S3: this env's buckets (e.g. the application-version bucket)
+                PolicyName='CBS3Access',
+                PolicyDocument={
+                    'Version': '2012-10-17',
+                    'Statement': [{
+                        'Effect': 'Allow',
+                        'Action': ['s3:ListBucket', 's3:GetObject', 's3:PutObject', 's3:GetBucketLocation'],
+                        'Resource': [s3_bucket_arn, f'{s3_bucket_arn}/*'],
+                    }],
+                },
+            ),
+            Policy(  # CloudWatch Logs: only CodeBuild's own log groups
+                PolicyName='CBLogsAccess',
+                PolicyDocument={
+                    'Version': '2012-10-17',
+                    'Statement': [{
+                        'Effect': 'Allow',
+                        'Action': ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
+                        'Resource': [log_group_arn, log_stream_arn],
+                    }],
+                },
+            ),
+            Policy(  # ECR: auth token (account-level) + push/pull on the repos being built
+                PolicyName='CBECRAccess',
+                PolicyDocument={
+                    'Version': '2012-10-17',
+                    'Statement': [
+                        {'Effect': 'Allow', 'Action': ['ecr:GetAuthorizationToken'], 'Resource': ['*']},
+                        {
+                            'Effect': 'Allow',
+                            'Action': [
+                                'ecr:BatchCheckLayerAvailability',
+                                'ecr:GetDownloadUrlForLayer',
+                                'ecr:BatchGetImage',
+                                'ecr:PutImage',
+                                'ecr:InitiateLayerUpload',
+                                'ecr:UploadLayerPart',
+                                'ecr:CompleteLayerUpload',
+                            ],
+                            'Resource': repo_arns,
+                        },
+                    ],
+                },
+            ),
+            Policy(  # CodeBuild test/coverage reports for this account's report groups
+                PolicyName='CBReportAccess',
+                PolicyDocument={
+                    'Version': '2012-10-17',
+                    'Statement': [{
+                        'Effect': 'Allow',
+                        'Action': [
+                            'codebuild:CreateReportGroup',
+                            'codebuild:CreateReport',
+                            'codebuild:UpdateReport',
+                            'codebuild:BatchPutTestCases',
+                            'codebuild:BatchPutCodeCoverages',
+                        ],
+                        'Resource': [report_group_arn],
+                    }],
+                },
+            ),
+        ]
 
     # Falcon secret ARNs (env-scoped, owned by appconfig).
     _FALCON_EXPORTS = (
