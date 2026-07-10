@@ -73,6 +73,11 @@ class Settings:
     ALB_ACCESS_LOGS_BUCKET = 'alb.access_logs_bucket'
     ALB_ACCESS_LOGS_PREFIX = 'alb.access_logs_prefix'
 
+    # ACM certificate ARN for the portal load balancer (SEC-5). When set, the ALB gets an HTTPS:443
+    # listener (with a modern SslPolicy) and HTTP:80 redirects to it; the portal URL is emitted as
+    # https://. When unset, the ALB keeps the plain HTTP:80 listener (unchanged behavior).
+    ECS_LB_CERTIFICATE_ARN = 'ecs.lb_certificate_arn'
+
     # Application VPC (ECS portal + foursight) — used in SRCE deployments
     VPC_ID = 'vpc.id'
     VPC_CIDR = 'vpc.cidr'

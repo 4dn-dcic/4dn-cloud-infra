@@ -176,7 +176,10 @@ class C4EC2Common(C4Part):
 
     def lbv2_target_group(self, *, identifier, health_path='/health?format=json') -> elbv2.TargetGroup:
         """ Creates LBv2 target group for the app.
-            Like the portal, terminates HTTPS at the load balancer.
+            NOTE: this load balancer currently serves plain HTTP on port 80 (it does NOT terminate
+            HTTPS, despite what this docstring previously claimed). See SEC-5: HTTPS termination is
+            wired up for the primary portal ALB (src/parts/ecs.py) via ecs.lb_certificate_arn; the
+            JupyterHub/Higlass load balancers here would need the same treatment to serve HTTPS.
             Note that unlike the ECS services, these apps will NOT automatically associate with the target group!
             Navigate to the console to do so manually once ready.
         """

@@ -144,7 +144,8 @@ class C4ECSApplication(C4Part):
         template.add_resource(self.ecs_container_security_group())
         target_group = self.ecs_lbv2_target_group(name=self.TARGET_GROUP_NAME)
         template.add_resource(target_group)
-        template.add_resource(self.ecs_application_load_balancer_listener(target_group))
+        for listener in self.ecs_lb_listeners(target_group):
+            template.add_resource(listener)
         template.add_resource(self.ecs_application_load_balancer())
 
         # Add indexing Cloudwatch Alarms
@@ -239,18 +240,52 @@ class C4ECSApplication(C4Part):
             Tags=self.tags.cost_tag_array()
         )
 
-    def ecs_application_load_balancer_listener(self, target_group: elbv2.TargetGroup) -> elbv2.Listener:
-        """ Listener for the application load balancer, forwards traffic to the target group (containing portal). """
-        logical_id = self.name.logical_id('LBListener')
-        return elbv2.Listener(
-            logical_id,
-            Port=80,
-            Protocol='HTTP',
-            LoadBalancerArn=Ref(self.ecs_application_load_balancer()),
-            DefaultActions=[
-                elbv2.Action(Type='forward', TargetGroupArn=Ref(target_group))
-            ]
+    # Modern TLS policy (TLS 1.2/1.3) for the HTTPS listener.
+    LB_SSL_POLICY = 'ELBSecurityPolicy-TLS13-1-2-2021-06'
+
+    def lb_certificate_arn(self):
+        """ ACM certificate ARN for the portal ALB, from config (ecs.lb_certificate_arn). When
+            present, HTTPS is enabled on the ALB (SEC-5). """
+        return ConfigManager.get_config_setting(Settings.ECS_LB_CERTIFICATE_ARN, default=None)
+
+    def ecs_lb_listeners(self, target_group: elbv2.TargetGroup) -> list:
+        """ Listeners for the portal ALB.
+
+            When an ACM certificate is configured (ecs.lb_certificate_arn), serve HTTPS on 443
+            (forwarding to the portal target group with a modern SslPolicy) and redirect HTTP:80 to
+            HTTPS:443. When no certificate is configured, fall back to a plain HTTP:80 forward
+            listener (unchanged legacy behavior). (SEC-5)
+        """
+        cert_arn = self.lb_certificate_arn()
+        lb_arn = Ref(self.ecs_application_load_balancer())
+        forward = [elbv2.Action(Type='forward', TargetGroupArn=Ref(target_group))]
+        if not cert_arn:
+            return [elbv2.Listener(
+                self.name.logical_id('LBListener'),
+                Port=80, Protocol='HTTP',
+                LoadBalancerArn=lb_arn,
+                DefaultActions=forward,
+            )]
+        https_listener = elbv2.Listener(
+            self.name.logical_id('LBHTTPSListener'),
+            Port=443, Protocol='HTTPS',
+            LoadBalancerArn=lb_arn,
+            SslPolicy=self.LB_SSL_POLICY,
+            Certificates=[elbv2.Certificate(CertificateArn=cert_arn)],
+            DefaultActions=forward,
         )
+        http_redirect = elbv2.Listener(
+            self.name.logical_id('LBListener'),
+            Port=80, Protocol='HTTP',
+            LoadBalancerArn=lb_arn,
+            DefaultActions=[elbv2.Action(
+                Type='redirect',
+                RedirectConfig=elbv2.RedirectConfig(
+                    Protocol='HTTPS', Port='443', StatusCode='HTTP_301',
+                ),
+            )],
+        )
+        return [https_listener, http_redirect]
 
     @staticmethod
     def ecs_target_group_stickiness_options():
@@ -304,12 +339,13 @@ class C4ECSApplication(C4Part):
         return attrs
 
     def output_application_url(self, env=None) -> Output:
-        """ Outputs URL to access portal. """
+        """ Outputs URL to access portal. Emits https:// when an ACM cert is configured (SEC-5). """
         env = env or ConfigManager.get_config_setting(Settings.ENV_NAME)
+        scheme = 'https://' if self.lb_certificate_arn() else 'http://'
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
             Description=f'URL of {ConfigManager.get_config_setting(Settings.APP_KIND)}-Portal.',
-            Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer(), 'DNSName')])
+            Value=Join('', [scheme, GetAtt(self.ecs_application_load_balancer(), 'DNSName')])
         )
 
     def _lbv2_target_group(self, name):
