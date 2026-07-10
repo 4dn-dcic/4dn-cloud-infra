@@ -8,7 +8,7 @@ from awacs.ecr import (
 from troposphere import Region, AccountId, Template, Ref, Output, Join
 from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey
 from ..base import ConfigManager
-from ..constants import C4IAMBase
+from ..constants import C4IAMBase, Settings
 from ..part import C4Part
 from ..exports import C4Exports, exportify
 from ..names import Names
@@ -111,61 +111,86 @@ class C4IAM(C4IAMBase, C4Part):
             ':', ['arn', 'aws', 'logs', Region, AccountId, 'log-group', log_group_name]
         )
 
-    def ecs_sqs_policy(self, prefix='c4-*') -> Policy:
+    def ecs_sqs_policy(self, prefix=None) -> Policy:
         """ Grants ECS access to SQS queues. Scoped to the minimum actions needed for
-            portal indexing/ingestion and to queues with the 'c4-' naming prefix.
+            portal indexing/ingestion and to the env's queues, which are named
+            '{env_name}-<suffix>' (see datastore.build_sqs_instance). 'sqs:ListQueues' is an
+            account-level action that does not support resource-level restriction, so it lives
+            in its own statement scoped to '*'.
         """
+        if prefix is None:
+            env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+            prefix = f'{env_name}-*'
         return Policy(
             PolicyName='ECSSQSAccessPolicy',
             PolicyDocument=dict(
                 Version='2012-10-17',
-                Statement=dict(
-                    Effect='Allow',
-                    Action=[
-                        'sqs:SendMessage',
-                        'sqs:ReceiveMessage',
-                        'sqs:DeleteMessage',
-                        'sqs:GetQueueAttributes',
-                        'sqs:GetQueueUrl',
-                        'sqs:ChangeMessageVisibility',
-                        'sqs:ListQueues',
-                    ],
-                    Resource=[self.build_sqs_arn(prefix)],
-                )
+                Statement=[
+                    dict(
+                        Effect='Allow',
+                        Action=[
+                            'sqs:SendMessage',
+                            'sqs:ReceiveMessage',
+                            'sqs:DeleteMessage',
+                            'sqs:GetQueueAttributes',
+                            'sqs:GetQueueUrl',
+                            'sqs:ChangeMessageVisibility',
+                        ],
+                        Resource=[self.build_sqs_arn(prefix)],
+                    ),
+                    dict(
+                        Effect='Allow',
+                        Action=['sqs:ListQueues'],
+                        Resource=['*'],
+                    ),
+                ]
             )
         )
 
     def ecs_es_policy(self, domain_name=None) -> Policy:
-        """ Grants ECS access to OpenSearch/Elasticsearch. Scoped to the HTTP actions
-            needed by the portal and to domains with the 'c4' naming prefix.
+        """ Grants ECS access to OpenSearch/Elasticsearch. HTTP data-plane actions are scoped to
+            the env's domain, which is named 'os-{env_name}' (see datastore.opensearch_instance).
+            The Describe*/ListDomainNames actions are account-level and do not support
+            resource-level restriction, so they live in their own '*'-scoped statement.
         """
         if domain_name is None:
-            domain_name = 'c4*'
+            env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+            domain_name = f'os-{env_name}*'
         return Policy(
             PolicyName='ECSESAccessPolicy',
             PolicyDocument=dict(
                 Version='2012-10-17',
-                Statement=[dict(
-                    Effect='Allow',
-                    Action=[
-                        'es:ESHttpGet',
-                        'es:ESHttpPost',
-                        'es:ESHttpPut',
-                        'es:ESHttpDelete',
-                        'es:ESHttpHead',
-                        'es:ESHttpPatch',
-                        'es:DescribeElasticsearchDomains',
-                        'es:DescribeDomain',
-                        'es:ListDomainNames',
-                    ],
-                    Resource=[self.build_elasticsearch_arn(domain_name)],
-                )],
+                Statement=[
+                    dict(
+                        Effect='Allow',
+                        Action=[
+                            'es:ESHttpGet',
+                            'es:ESHttpPost',
+                            'es:ESHttpPut',
+                            'es:ESHttpDelete',
+                            'es:ESHttpHead',
+                            'es:ESHttpPatch',
+                        ],
+                        Resource=[self.build_elasticsearch_arn(domain_name)],
+                    ),
+                    dict(
+                        Effect='Allow',
+                        Action=[
+                            'es:DescribeElasticsearchDomains',
+                            'es:DescribeDomain',
+                            'es:ListDomainNames',
+                        ],
+                        Resource=['*'],
+                    ),
+                ],
             )
         )
 
     def ecs_secret_manager_policy(self) -> Policy:
-        """ Provides ECS access to secrets. Scoped to secrets whose names begin with 'c4-',
-            which covers all secrets created by this infrastructure.
+        """ Provides ECS access to secrets. Scoped to the secrets created by this infrastructure:
+            'C4AppConfig*' (the GAC, Foursight config, and Falcon credential stubs from the
+            appconfig stack) and 'C4Datastore*' (the RDS master-credential secret). AWS appends a
+            random 6-char suffix to secret ARNs, which the trailing wildcard also covers.
         """
         return Policy(
             PolicyName='ECSSecretManagerPolicy',
@@ -178,7 +203,10 @@ class C4IAM(C4IAMBase, C4Part):
                         'secretsmanager:DescribeSecret',
                         'secretsmanager:ListSecretVersionIds',
                     ],
-                    Resource=[self.builds_secret_manager_arn('c4-*')],
+                    Resource=[
+                        self.builds_secret_manager_arn('C4AppConfig*'),
+                        self.builds_secret_manager_arn('C4Datastore*'),
+                    ],
                 )],
             )
         )
@@ -265,11 +293,18 @@ class C4IAM(C4IAMBase, C4Part):
             )
         )
 
-    @staticmethod
-    def ecs_ecr_policy() -> Policy:
+    def ecs_ecr_policy(self) -> Policy:
         """ Policy allowing ECS to pull ECR images. GetAuthorizationToken is an account-level
-            call that requires Resource '*'; image pull actions are scoped to 'c4-*' repositories.
+            call that requires Resource '*'; image pull actions are scoped to the exact set of
+            repositories the ECR stack creates: the env portal repo (named after ENV_NAME) plus
+            the fixed pipeline/sidecar repos enumerated in ecr.ECR_REPO_NAMES.
         """
+        # Lazy import avoids a circular dependency: ecr.py imports C4IAMExports from this module.
+        from .ecr import ECR_REPO_NAMES
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        repo_names = [env_name] + ECR_REPO_NAMES
+        repo_arns = [Join(':', ['arn', 'aws', 'ecr', Region, AccountId, f'repository/{name}'])
+                     for name in repo_names]
         return Policy(
             PolicyName='ECSECRPolicy',
             PolicyDocument=dict(
@@ -287,8 +322,7 @@ class C4IAM(C4IAMBase, C4Part):
                             BatchGetImage,
                             BatchCheckLayerAvailability,
                         ],
-                        Resource=[Join(':', ['arn', 'aws', 'ecr', Region, AccountId,
-                                            'repository/c4-*'])],
+                        Resource=repo_arns,
                     ),
                 ],
             ),
