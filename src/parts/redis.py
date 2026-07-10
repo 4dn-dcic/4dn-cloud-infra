@@ -5,13 +5,7 @@ from dcicutils.cloudformation_utils import camelize
 from .network import C4NetworkExports
 from ..base import ConfigManager
 from ..constants import Settings
-from ..exports import C4Exports
 from ..part import C4Part
-
-
-class C4RedisExports(C4Exports):
-    """ Holds Redis layer exports """
-    pass
 
 
 class C4Redis(C4Part):

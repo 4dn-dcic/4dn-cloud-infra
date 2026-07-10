@@ -107,14 +107,12 @@ class Settings:
     RDS_BACKUP_RETENTION = 'rds.backup_retention_days'  # default 7 days
 
     # ES Configuration Options
-    ES_MASTER_COUNT = 'elasticsearch.master_node_count'
-    ES_MASTER_TYPE = 'elasticsearch.master_node_type'
+    # (master-node options removed as dead/unimplemented -- RED-7)
     ES_DATA_COUNT = 'elasticsearch.data_node_count'
     ES_DATA_TYPE = 'elasticsearch.data_node_type'
     ES_VOLUME_SIZE = 'elasticsearch.volume_size'
 
     # Redis Configuration Options
-    REDIS_ENABLED = 'redis.enabled'
     REDIS_ENGINE_VERSION = 'redis.version'
     REDIS_NODE_COUNT = 'redis.node_count'
     REDIS_NODE_TYPE = 'redis.node_type'
@@ -172,7 +170,7 @@ class Settings:
     # CodeBuild options
     CODEBUILD_GITHUB_REPOSITORY_URL = 'codebuild.repo_url'  # url to github source repository
     CODEBUILD_DEPLOY_BRANCH = 'codebuild.build_branch'
-    CODEBUILD_REPO_NAME = 'codebuild.repo_name'  # name of ECR repo
+    # (CODEBUILD_REPO_NAME removed as dead -- unused by code -- RED-7)
     CODEBUILD_LOG_RETENTION_DAYS = 'codebuild.log_retention_days'  # CloudWatch retention for build logs
 
 

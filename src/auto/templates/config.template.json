@@ -31,8 +31,6 @@
 
     "elasticsearch.data_node_count": "1",
     "elasticsearch.data_node_type": "c6g.large.search",
-    "elasticsearch.master_node_count": "3",
-    "elasticsearch.master_node_type": "c6g.large.search",
     "elasticsearch.volume_size": "50",
 
     "rds.az": "us-east-1a",
@@ -42,6 +40,5 @@
     "s3.bucket.encryption": "<s3-bucket-encryption>",
     "s3.bucket.org": "<s3-bucket-org>",
 
-    "codebuild.repo_url": "<github-repo-url>",
-    "codebuild.repo_name": "<ecr-repo-name>"
+    "codebuild.repo_url": "<github-repo-url>"
 }

@@ -153,14 +153,6 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
         super().__init__(description, name, tags, account)
 
     def package_foursight_stack(self, args):
-        # # TODO (C4-691): foursight-core presently picks up the global bucket env as an environment variable.
-        # #       We should fix it to pass the argument lexically instead, as shown below.
-        # #       Meanwhile, too, we're transitioning the name of the variable (from GLOBAL_BUCKET_ENV
-        # #       to GLOBAL_ENV_BUCKET), so we compatibly bind both variables just in case that
-        # #       name change goes into effect first. -kmp 4-Aug-2021
-        # # TODO (C4-692): foursight-core presently wants us to pass an 'args' argument (from 'argparser').
-        # #       It should instead ask for all the various arguments it plans to look at.
-        # with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
         # dmichaels/20220725: Pass in identity to build_config_and_package (C4-826) to identity-ize Foursight.
         if args.foursight_identity:
             identity = args.foursight_identity
@@ -225,14 +217,6 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
         else:
             identity = Names.application_configuration_secret(ConfigManager.get_config_setting(Settings.ENV_NAME))
             PRINT(f"Using IDENTITY for FoursightFourfront deployment: {identity}")
-        # # TODO (C4-691): foursight-core presently picks up the global bucket env as an environment variable.
-        # #       We should fix it to pass the argument lexically instead, as shown below.
-        # #       Meanwhile, too, we're transitioning the name of the variable (from GLOBAL_BUCKET_ENV
-        # #       to GLOBAL_ENV_BUCKET), so we compatibly bind both variables just in case that
-        # #       name change goes into effect first. -kmp 4-Aug-2021
-        # # TODO (C4-692): foursight-core presently wants us to pass an 'args' argument (from 'argparser').
-        # #       It should instead ask for all the various arguments it plans to look at.
-        # with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
         self.PackageDeploy.build_config_and_package(
             args,  # this should not be needed any more, but we didn't quite write the code that way
             # dmichaels/2022-08-15: Added next two lines for C4-826.
@@ -279,14 +263,6 @@ class C4FoursightSMAHTStack(C4FoursightCGAPStack):
         super().__init__(description, name, tags, account)
 
     def package_foursight_stack(self, args):
-        # # TODO (C4-691): foursight-core presently picks up the global bucket env as an environment variable.
-        # #       We should fix it to pass the argument lexically instead, as shown below.
-        # #       Meanwhile, too, we're transitioning the name of the variable (from GLOBAL_BUCKET_ENV
-        # #       to GLOBAL_ENV_BUCKET), so we compatibly bind both variables just in case that
-        # #       name change goes into effect first. -kmp 4-Aug-2021
-        # # TODO (C4-692): foursight-core presently wants us to pass an 'args' argument (from 'argparser').
-        # #       It should instead ask for all the various arguments it plans to look at.
-        # with override_environ(GLOBAL_ENV_BUCKET=self.global_env_bucket, GLOBAL_BUCKET_ENV=self.global_env_bucket):
         # dmichaels/20220725: Pass in identity to build_config_and_package (C4-826) to identity-ize Foursight.
         if args.foursight_identity:
             identity = args.foursight_identity

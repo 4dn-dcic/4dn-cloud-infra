@@ -521,28 +521,6 @@ class C4Datastore(C4DatastoreBase, C4Part):
             Tags=self.tags.cost_tag_array()
         )
 
-    # XXX: This is no longer used, see the appconfig stack - Will 23 June 2023
-    # def application_configuration_secret(self) -> Secret:
-    #     """ Returns the application configuration secret. Note that this pushes up just a
-    #         template - you must fill it out according to the specification in the README.
-    #     """
-    #
-    #     identity = ConfigManager.get_config_setting(Settings.IDENTITY)  # will use setting from config
-    #     if not identity:
-    #         # dmichaels/2022-06-06: Refactored to use Names.application_configuration_secret() in names.py.
-    #         # identity = self.name.logical_id(camelize(
-    #         #                ConfigManager.get_config_setting(Settings.ENV_NAME)) +
-    #         #                    self.APPLICATION_CONFIGURATION_SECRET_NAME_SUFFIX)
-    #         identity = Names.application_configuration_secret(
-    #             ConfigManager.get_config_setting(Settings.ENV_NAME), self.name)
-    #     return Secret(
-    #         identity,
-    #         Name=identity,
-    #         Description='This secret defines the application configuration for the orchestrated environment.',
-    #         SecretString=json.dumps(ApplicationConfigurationSecrets.build_initial_values(), indent=2),
-    #         Tags=self.tags.cost_tag_array()
-    #     )
-
     def rds_subnet_group(self) -> DBSubnetGroup:
         """ Returns a subnet group for the single RDS instance in the infrastructure stack """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
