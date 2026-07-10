@@ -8,6 +8,7 @@ import tempfile
 
 # from contextlib import contextmanager
 from dcicutils.misc_utils import ignored, PRINT  # , file_contents, override_environ
+from dcicutils.common import REGION  # repo-wide deploy region; change here to deploy elsewhere
 from .constants import Settings
 from .info.aws_util import AWSUtil
 from .base import lookup_stack_creator, ConfigManager
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 # TODO constants
 SUPPORTED_ECS_STACKS = ['c4-ecs-network-trial', 'c4-ecs-datastore-trial', 'c4-ecs-cluster-trial']
-AWS_REGION = 'us-east-1'
+AWS_REGION = REGION  # single source of truth for the deploy region (CLN-11)
 
 
 class C4Client:
@@ -33,11 +34,7 @@ class C4Client:
                    'srce-sentieon', 'srce-redis']  # stacks that import from SRCE network stacks
     CAPABILITY_IAM = 'CAPABILITY_IAM'
     FOURFRONT_NETWORK_STACK = 'c4-network-main-stack'  # this stack name is shared by all fourfront envs
-    # IAM/ECR/Logging stacks use SHARING='ecosystem' and are shared across all envs in an account.
-    # The ecosystem qualifier defaults to 'main', giving these fixed stack names.
-    SRCE_IAM_STACK_NAME = 'c4-iam-main-stack'
-    SRCE_ECR_STACK_NAME = 'c4-ecr-main-stack'
-    SRCE_LOGGING_STACK_NAME = 'c4-logging-main-stack'
+    # IAM/ECR/Logging stack names are derived at upload time via c4_alpha_stack_metadata (CLN-11).
     # these stacks require CAPABILITY_IAM, just IAM for now
     # NB: matched as substrings of the full stack name, so 'foursight' already covers every
     # foursight variant (including the SRCE foursight stack c4-foursight-srce-<env>-stack).
@@ -158,7 +155,7 @@ class C4Client:
             cls.build_capability_param(stack),  # defaults to IAM
             '--no-execute-changeset',  # creates a changeset, does not execute template
             '--region',
-            'us-east-1'
+            AWS_REGION
         ])
         if s3_key:  # if an s3 key is set, pass to enable server side encryption
             deploy_flags += f' --kms-key-id {s3_key}'
@@ -206,14 +203,15 @@ class C4Client:
                                              value=srce_network_db_stack_name.stack_name),
                 cls.build_parameter_override(param_name='ComputeNetworkStackNameParameter',
                                              value=srce_network_compute_stack_name.stack_name),
-                # IAM/ECR/Logging are ecosystem-scoped shared stacks (c4-iam-main-stack, etc.)
-                # Use hardcoded names to avoid relying on ecosystem config resolution.
+                # IAM/ECR/Logging are ecosystem-scoped shared stacks; derive their names from the
+                # same c4_alpha_stack_metadata helper as everything else rather than hardcoding
+                # literals (CLN-11). These are resolved here at upload time (config is loaded).
                 cls.build_parameter_override(param_name='ECRStackNameParameter',
-                                             value=cls.SRCE_ECR_STACK_NAME),
+                                             value=ecr_stack_name.stack_name),
                 cls.build_parameter_override(param_name='IAMStackNameParameter',
-                                             value=cls.SRCE_IAM_STACK_NAME),
+                                             value=iam_stack_name.stack_name),
                 cls.build_parameter_override(param_name='LoggingStackNameParameter',
-                                             value=cls.SRCE_LOGGING_STACK_NAME),
+                                             value=logging_stack_name.stack_name),
                 cls.build_parameter_override(param_name='AppConfigStackNameParameter',
                                              value=appconfig_stack_name.stack_name),
                 cls.build_parameter_override(param_name='SharedSecretsStackNameParameter',
