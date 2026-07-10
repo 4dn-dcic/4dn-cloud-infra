@@ -148,6 +148,14 @@ class C4SRCENetwork(C4Network, C4Part):
     reference pattern — identical to a normal network stack from the consumer's perspective.
     """
 
+    # Override the network tokens inherited from C4NetworkBase ('network'/'Network') so this
+    # stack does NOT collide with the standard network stack's CloudFormation name
+    # (c4-network-main-stack). Without this, deploying srce-network would target the same stack
+    # as the standard network stack and replace its real VPC/subnet/NAT resources (SEC-2). The
+    # DB and Compute siblings already set their own tokens; the App VPC stack was missing them.
+    STACK_NAME_TOKEN = 'srce-network'
+    STACK_TITLE_TOKEN = 'SRCENetwork'
+
     DB_PORT_LOW = 5400
     DB_PORT_HIGH = 5499
     EXPORTS = C4SRCENetworkExports()
