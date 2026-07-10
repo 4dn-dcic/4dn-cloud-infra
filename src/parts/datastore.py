@@ -21,7 +21,7 @@ from troposphere.rds import DBInstance, DBParameterGroup, DBSubnetGroup
 from troposphere.s3 import (
     Bucket, BucketEncryption, BucketPolicy, ServerSideEncryptionRule, ServerSideEncryptionByDefault,
     Private, LifecycleConfiguration, LifecycleRule, LifecycleRuleTransition, TagFilter, VersioningConfiguration,
-    NoncurrentVersionExpiration, NoncurrentVersionTransition
+    NoncurrentVersionExpiration, NoncurrentVersionTransition, PublicAccessBlockConfiguration
 )
 from troposphere.secretsmanager import Secret, GenerateSecretString, SecretTargetAttachment
 from troposphere.sqs import Queue
@@ -240,8 +240,14 @@ class C4Datastore(C4DatastoreBase, C4Part):
                                               s3_encrypt_key_ref=Ref(s3_encrypt_key))
                 template.add_resource(bucket)  # must be added before policy
                 template.add_resource(self.force_encryption_bucket_policy(bucket_name, bucket))
-            else:  # do not set the policy if encryption is not enabled OR we are the system bucket
-                bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy)
+            else:
+                # The system bucket is intentionally excluded from the KMS-encrypt scheme + the
+                # force-encryption policy (processes write to it without KMS key access). Give it
+                # transparent SSE-S3 (AES256) as a minimum at-rest protection (SEC-6). When
+                # encryption is globally disabled, leave buckets unencrypted as before.
+                use_sse_s3 = (export_name == C4DatastoreExports.APPLICATION_SYSTEM_BUCKET)
+                bucket = self.build_s3_bucket(bucket_name, include_lifecycle=use_lifecycle_policy,
+                                              sse_s3=use_sse_s3)
                 template.add_resource(bucket)
             template.add_output(self.output_s3_bucket(export_name, bucket_name))
 
@@ -378,22 +384,48 @@ class C4Datastore(C4DatastoreBase, C4Part):
             }
         )
 
+    @staticmethod
+    def build_sse_s3_encryption() -> BucketEncryption:
+        """ Transparent S3-managed (AES256) default encryption — needs no KMS key permissions, so
+            it is safe for buckets excluded from the KMS-encrypt scheme (e.g. the system bucket). """
+        return BucketEncryption(
+            ServerSideEncryptionConfiguration=[
+                ServerSideEncryptionRule(
+                    ServerSideEncryptionByDefault=ServerSideEncryptionByDefault(SSEAlgorithm='AES256')
+                )
+            ]
+        )
+
     def build_s3_bucket(self, bucket_name, access_control=Private, include_lifecycle=True,
-                        s3_encrypt_key_ref=None, versioning=True) -> Bucket:
+                        s3_encrypt_key_ref=None, versioning=True, sse_s3=False) -> Bucket:
         """ Creates an S3 bucket under the given name/access control permissions.
             See troposphere.s3 for access control options.
 
             Pass a ref to the created KMS key in order to enable KMS encryption on this bucket.
             Note that this change may require changes to our upload/download URLs.
+            Pass sse_s3=True to enable transparent SSE-S3 (AES256) when KMS encryption is not used.
         """
+        if s3_encrypt_key_ref is not None:
+            bucket_encryption = self.build_s3_bucket_encryption(s3_encrypt_key_ref)
+        elif sse_s3:
+            bucket_encryption = self.build_sse_s3_encryption()
+        else:
+            bucket_encryption = None
         # bucket_name_parts = bucket_name.split('-')
         bucket_kwargs = {
             "BucketName": bucket_name,
             "AccessControl": access_control,
             "LifecycleConfiguration": self.build_s3_lifecycle_policy() if include_lifecycle else None,
-            "BucketEncryption":
-                self.build_s3_bucket_encryption(s3_encrypt_key_ref) if s3_encrypt_key_ref is not None else None,
+            "BucketEncryption": bucket_encryption,
             "VersioningConfiguration": VersioningConfiguration(Status='Enabled') if versioning else None,
+            # Block all public access on every bucket this infra creates (SEC-6). None of these
+            # buckets are ever meant to be public; this is defense-in-depth on top of AccessControl.
+            "PublicAccessBlockConfiguration": PublicAccessBlockConfiguration(
+                BlockPublicAcls=True,
+                IgnorePublicAcls=True,
+                BlockPublicPolicy=True,
+                RestrictPublicBuckets=True,
+            ),
         }
         return Bucket(
             self.build_s3_bucket_resource_name(bucket_name),
@@ -690,6 +722,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
             MessageRetentionPeriod=as_seconds(days=14),
             DelaySeconds=1,
             ReceiveMessageWaitTimeSeconds=2,
+            SqsManagedSseEnabled=True,  # free SSE-SQS encryption at rest (SEC-6)
             Tags=Tags(*self.tags.cost_tag_array(name=queue_name)),  # special case
         )
 
