@@ -255,6 +255,7 @@ class C4Network(C4NetworkBase, C4Part):
             self.name.logical_id('VPCFlowLogGroup', context='vpc_flow_log_group'),
             RetentionInDays=retention,
             DeletionPolicy='Retain',
+            UpdateReplacePolicy='Retain',
             Tags=self.tags.cost_tag_obj(),
         )
 
