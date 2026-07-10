@@ -19,10 +19,6 @@ To deploy from scratch, see `docs/deploy_new_account.rst`.
 To deploy into IT-provided VPCs (a Secure Research Collaborative Environment / secure enclave),
 see `docs/deploy_srce.rst`.
 
-Validate Legacy Configuration:
-    
-    make legacy
-
 Validate Alpha Configuration:
 
     make alpha
@@ -57,7 +53,7 @@ current test setup:
 Instructions for testing:  (TODO: May need some updating)
 
     # First load required knowledge base data
-    make load-knowledge-base
+    make provision-knowledge-base
 
     # Then perform metadata bundle submission
     make submission

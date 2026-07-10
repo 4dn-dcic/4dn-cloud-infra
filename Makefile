@@ -1,6 +1,6 @@
 default: info
 
-.PHONY: alpha legacy deploy-alpha-p1 deploy-alpha-p2 info
+.PHONY: alpha deploy-alpha-p1 deploy-alpha-p2 info
 
 configure:
 	pip install --upgrade wheel
