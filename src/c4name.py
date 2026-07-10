@@ -58,7 +58,9 @@ class C4Name:
             current date, and the template text's md5sum. Defaults to a yml file type.
             Returns a tuple of (path, version name). """
         stack_name = self.stack_name
-        today = str(datetime.now().date()) + datetime.now().strftime('%H:%M:%S')
+        # Single strftime: a date/time separator and no ':' characters (which break on some
+        # filesystems/tools) -- was '2026-07-0920:40:22' with no separator (CLN-13).
+        today = datetime.now().strftime('%Y-%m-%d-%H%M%S')
         md5sum = hashlib.new('md5', bytes(template_text, 'utf-8')).hexdigest()
         # path = 'out/templates/'
         filename = f'{stack_name}-{today}-{md5sum}.{file_type}'

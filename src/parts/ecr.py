@@ -130,7 +130,9 @@ class C4ContainerRegistry(C4Part):
         for rname, export in repo_export_pairs:
             if (ConfigManager.get_config_setting(Settings.APP_KIND) in ['ff', 'smaht'] and
                     rname not in [env_name, 'tibanna-awsf', 'falcon-sensor']):
-                break  # do not add pipeline repos if building a fourfront/smaht env
+                # skip pipeline repos when building a fourfront/smaht env. Use `continue`, not
+                # `break`, so it is not order-dependent on the allowlisted repos coming first (CLN-14).
+                continue
             repo = self.repository(repo_name=rname)
             template.add_resource(repo)
             template.add_output(self.output_repo_url(repo, export))
