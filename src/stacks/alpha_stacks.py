@@ -269,7 +269,7 @@ def c4_alpha_stack_foursight_fourfront(account: C4Account):
 
 
 @register_stack_creator(name='foursight-development', kind='4dn', implementation_class=C4FoursightFourfrontStack)
-def c4_alpha_stack_foursight_fourfront(account: C4Account):
+def c4_alpha_stack_foursight_fourfront_dev(account: C4Account):
     """ Foursight (dev) stack for fourfront """
     return create_c4_4dn_foursight_stack(name='foursight-development', account=account)
 
