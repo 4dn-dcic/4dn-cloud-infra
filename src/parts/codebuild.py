@@ -305,13 +305,12 @@ class C4CodeBuild(C4Part):
             },
         )
 
-    def cb_external_secret_env_vars(self) -> list:
-        """ SECRETS_MANAGER-typed environment variables CodeBuild expands at build start.
-            Buildspec can reference $DOCKERHUB_USERNAME / $DOCKERHUB_TOKEN /
-            $FALCON_CID / $FALCON_CLIENT_ID / $FALCON_CLIENT_SECRET directly, e.g.:
+    def cb_dockerhub_env_vars(self) -> list:
+        """ SECRETS_MANAGER-typed DockerHub env vars CodeBuild expands at build start, used for
+            `docker login` to avoid DockerHub pull rate limits. The DockerHub secret is JSON-shaped
+            so the env var Value is `<arn>:<json-key>`:
               echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-            The DockerHub secret is JSON-shaped so the env var Value is `<arn>:<json-key>`;
-            the Falcon secrets are plain strings so the Value is just `<arn>`. """
+        """
         dockerhub_arn = self.SHARED_SECRETS_EXPORTS.import_value(
             C4SharedSecretsExports.EXPORT_DOCKERHUB_CREDENTIALS)
         return [
@@ -319,6 +318,15 @@ class C4CodeBuild(C4Part):
              'Value': Join(':', [dockerhub_arn, self.DOCKERHUB_SECRET_USERNAME_KEY])},
             {'Name': 'DOCKERHUB_TOKEN', 'Type': 'SECRETS_MANAGER',
              'Value': Join(':', [dockerhub_arn, self.DOCKERHUB_SECRET_TOKEN_KEY])},
+        ]
+
+    def cb_falcon_env_vars(self) -> list:
+        """ SECRETS_MANAGER-typed Crowdstrike Falcon env vars, needed ONLY by the build that
+            produces the falcon-sensor image. The Falcon secrets are plain strings so the Value is
+            just `<arn>`. These are the sensitive API client credentials, so they must not be
+            handed to unrelated builds (e.g. the third-party xTea external-pipeline build) — see
+            SEC-12. """
+        return [
             {'Name': 'FALCON_CID', 'Type': 'SECRETS_MANAGER',
              'Value': self.APPCONFIG_EXPORTS.import_value(C4AppConfigExports.EXPORT_FALCON_CID)},
             {'Name': 'FALCON_CLIENT_ID', 'Type': 'SECRETS_MANAGER',
@@ -326,6 +334,16 @@ class C4CodeBuild(C4Part):
             {'Name': 'FALCON_CLIENT_SECRET', 'Type': 'SECRETS_MANAGER',
              'Value': self.APPCONFIG_EXPORTS.import_value(C4AppConfigExports.EXPORT_FALCON_CLIENT_SECRET)},
         ]
+
+    def cb_env(self, *, include_dockerhub: bool = False, include_falcon: bool = False) -> list:
+        """ Assemble the external-secret env vars a project should receive. Projects opt in to
+            exactly the secrets they need rather than every project getting all five (SEC-12). """
+        env = []
+        if include_dockerhub:
+            env += self.cb_dockerhub_env_vars()
+        if include_falcon:
+            env += self.cb_falcon_env_vars()
+        return env
 
     @staticmethod
     def cb_artifacts() -> Artifacts:
@@ -348,7 +366,7 @@ class C4CodeBuild(C4Part):
                  'Value': image_tag if image_tag else ConfigManager.get_config_setting(
                      Settings.ECS_IMAGE_TAG, default='latest'
                  )},
-            ] + self.cb_external_secret_env_vars(),
+            ] + self.cb_env(include_dockerhub=True),  # portal build pulls base images from DockerHub
             Type=self.BUILD_TYPE,
             PrivilegedMode=True
         )
@@ -365,7 +383,8 @@ class C4CodeBuild(C4Part):
                 {'Name': 'IMAGE_TAG',  # Use standard default version as of now, no locked version to resolve
                  'Value': self.DEFAULT_PIPELINE_DEPLOY_BRANCH},
                 {'Name': 'BUILD_PATH', 'Value': 'cgap-pipeline-base/dockerfiles/base'}  # default to base, override by caller
-            ] + self.cb_external_secret_env_vars(),
+            # First-party pipeline build produces the falcon-sensor image, so it gets Falcon creds.
+            ] + self.cb_env(include_dockerhub=True, include_falcon=True),
             Type=self.BUILD_TYPE,
             PrivilegedMode=True
         )
@@ -382,7 +401,8 @@ class C4CodeBuild(C4Part):
                 {'Name': 'IMAGE_TAG',  # Use standard default version as of now, no locked version to resolve
                  'Value': self.DEFAULT_EXTERNAL_GITHUB_PIPELINE_BRANCH},
                 {'Name': 'BUILD_PATH', 'Value': 'xTea-germline/dockerfiles/xtea_germline'}
-            ] + self.cb_external_secret_env_vars(),
+            # Third-party (xTea) build: DockerHub pull creds only, NEVER the Falcon creds (SEC-12).
+            ] + self.cb_env(include_dockerhub=True),
             Type=self.BUILD_TYPE,
             PrivilegedMode=True
         )
@@ -396,7 +416,8 @@ class C4CodeBuild(C4Part):
                 {'Name': 'AWS_DEFAULT_REGION', 'Value': REGION},
                 {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
                 {'Name': 'IMAGE_TAG', 'Value': tibanna_version}  # default to locked version
-            ] + self.cb_external_secret_env_vars(),
+            # Tibanna build pulls base images from DockerHub but does not build falcon-sensor.
+            ] + self.cb_env(include_dockerhub=True),
             Type=self.BUILD_TYPE,
             PrivilegedMode=True
         )
