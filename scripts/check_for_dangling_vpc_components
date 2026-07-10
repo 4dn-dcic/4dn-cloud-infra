@@ -1,4 +1,13 @@
-echo "Set $vpc to find dangling resources in need of deletion"
+#!/usr/bin/env bash
+# Lists dangling resources still attached to a VPC. Pass the VPC id as the first argument
+# (or set $vpc in the environment); previously $vpc was never set so every query ran with an
+# empty filter value (CLN-7).
+vpc="${1:-$vpc}"
+if [ -z "$vpc" ]; then
+    echo "Usage: $0 <vpc-id>   (or set the 'vpc' environment variable)" >&2
+    exit 1
+fi
+echo "Finding dangling resources in VPC ${vpc} in need of deletion"
 aws ec2 describe-internet-gateways --filters 'Name=attachment.vpc-id,Values='$vpc | grep InternetGatewayId
 aws ec2 describe-subnets --filters 'Name=vpc-id,Values='$vpc | grep SubnetId
 aws ec2 describe-route-tables --filters 'Name=vpc-id,Values='$vpc | grep RouteTableId
