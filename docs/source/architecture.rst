@@ -65,10 +65,9 @@ This difference translates to additional command-line configuration:
 Notes Towards Continued Development
 -----------------------------------
 
-1. Stack policies are described here_. Implementing these will be necessary to prevent stack replace operations on
+1. Stack policies are described `here <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/protect-stack-resources.html>`_.
+   Implementing these will be necessary to prevent stack replace operations on
    data stores, which would result in data loss.
-
-.. _policies: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/protect-stack-resources.html
 
 2. You will need to understand stack references and cross-stack references. Stack references are implemented with
    `Ref`, via `from troposphere import Ref`. Ref takes as instantiation argument any troposphere object, and acts as
