@@ -15,8 +15,12 @@ def _parse_subnet_ids(value):
     """
     Parse subnet IDs from a config value that may be:
     - already a list: ["subnet-abc", "subnet-def"]
-    - a JSON array string: "['subnet-abc', 'subnet-def']" (from str(list) via _load_config)
-    - a comma-separated string: "subnet-abc, subnet-def"
+    - a Python-repr / JSON array string: "['subnet-abc', 'subnet-def']"
+    - a comma-separated string: "subnet-abc, subnet-def"  (the documented, preferred form)
+
+    The Python-repr string case exists because ConfigManager._load_config stringifies all config
+    values so they can be sourced into os.environ (which only holds strings); a JSON list in
+    config.json therefore arrives here as its Python repr. See the CLN-10 note in src/base.py.
     Returns a list of clean subnet ID strings.
     """
     if isinstance(value, list):

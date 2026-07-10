@@ -191,6 +191,14 @@ class ConfigManager:
         """
         with io.open(filename) as fp:
             config = json.load(fp)
+            # NOTE (CLN-10): values MUST be stringified here because the config is later sourced
+            # into the process environment via override_environ() (see validate_and_source_
+            # configuration), and os.environ values can only be strings. A consequence is that a
+            # JSON *list* value (e.g. "private.subnets": ["subnet-a", "subnet-b"]) becomes its
+            # Python repr string "['subnet-a', 'subnet-b']". Consumers of list-valued settings must
+            # therefore parse the string back into a list -- see _parse_subnet_ids in
+            # src/parts/srce_network.py, which accepts a JSON array, a Python-repr string, or a
+            # comma-separated string. Comma-separated is the documented, least-surprising form.
             # config = {k: v and str(v) for k, v in config.items()}
             config = {k: str(v) if v is not None else None for k, v in config.items()}
             return config
