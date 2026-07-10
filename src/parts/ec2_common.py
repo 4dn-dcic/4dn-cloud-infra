@@ -1,5 +1,5 @@
 from troposphere import (
-    Ref, Parameter, Join,
+    Ref, Parameter, Join, Template,
     elasticloadbalancingv2 as elbv2,
     Base64
 )
@@ -24,6 +24,60 @@ class C4EC2Common(C4Part):
     """
     NETWORK_EXPORTS = C4NetworkExports()
     DEFAULT_INSTANCE_SIZE = 'c5.large'
+
+    # Subclass-driven attributes for the shared build_template (RED-5). Higlass/JupyterHub differ
+    # only in these plus generate_user_data(); everything else in build_template is identical.
+    IDENTIFIER = None            # e.g. 'Higlass' / 'JupyterHub'
+    SSH_KEY_SETTING = None       # Settings key for the SSH key (e.g. Settings.HIGLASS_SSH_KEY)
+    INSTANCE_SIZE_SETTING = None  # Settings key for the instance size
+    HEALTH_CHECK_PATH = None     # None -> use lbv2_target_group's default health path
+
+    def generate_user_data(self) -> list:
+        """ EC2 user-data (cloud-init) lines for this app. Subclasses must override. """
+        raise NotImplementedError('generate_user_data must be overridden by the subclass')
+
+    def build_template(self, template: Template) -> Template:
+        """ Shared LB + EC2-instance template for the EC2-backed apps (Higlass, JupyterHub).
+            The varying pieces are driven by the class attributes above and generate_user_data()
+            (RED-5). """
+        # Network Stack Parameter
+        template.add_parameter(Parameter(
+            self.NETWORK_EXPORTS.reference_param_key,
+            Description='Name of network stack for network import value references',
+            Type='String',
+        ))
+
+        # SSH Key for access
+        key_default = ConfigManager.get_config_setting(self.SSH_KEY_SETTING)
+        ssh_key = self.ssh_key(identifier=self.IDENTIFIER, default=key_default)
+        template.add_parameter(ssh_key)
+
+        # TODO: ACM certificate parameter?
+
+        # Security Group + rules
+        template.add_resource(self.application_security_group(identifier=self.IDENTIFIER))
+        for rule in self.application_security_rules(identifier=self.IDENTIFIER):
+            template.add_resource(rule)
+
+        # EC2 instance
+        template.add_resource(self.ec2_instance(
+            identifier=self.IDENTIFIER,
+            instance_size=ConfigManager.get_config_setting(
+                self.INSTANCE_SIZE_SETTING, default=self.DEFAULT_INSTANCE_SIZE),
+            default_key=Ref(ssh_key),
+            user_data=self.generate_user_data()))
+
+        # Load balancer
+        template.add_resource(self.lb_security_group(identifier=self.IDENTIFIER))
+        if self.HEALTH_CHECK_PATH:
+            target_group = self.lbv2_target_group(identifier=self.IDENTIFIER, health_path=self.HEALTH_CHECK_PATH)
+        else:
+            target_group = self.lbv2_target_group(identifier=self.IDENTIFIER)
+        template.add_resource(target_group)
+        template.add_resource(self.application_load_balancer_listener(identifier=self.IDENTIFIER,
+                                                                      target_group=target_group))
+        template.add_resource(self.application_load_balancer(identifier=self.IDENTIFIER))
+        return template
 
     @staticmethod
     def ssh_key(*, identifier, default) -> Parameter:
