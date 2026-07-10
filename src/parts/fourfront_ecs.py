@@ -4,7 +4,7 @@ from troposphere import (
     elasticloadbalancingv2 as elbv2,
 )
 from troposphere.ecs import (
-    Cluster, TaskDefinition, ContainerDefinition, LogConfiguration,
+    Cluster, TaskDefinition, ContainerDefinition,
     PortMapping, Service, LoadBalancer, AwsvpcConfiguration, NetworkConfiguration,
     Environment, CapacityProviderStrategyItem, SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
@@ -158,15 +158,7 @@ class FourfrontECSApplication(C4ECSApplication):
                     PortMappings=[PortMapping(
                         ContainerPort=Ref(self.ecs_web_worker_port()),
                     )],
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': 'fourfront-portal'
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config('fourfront-portal'),
                     Environment=[
                         Environment(
                             Name='IDENTITY',
@@ -262,15 +254,7 @@ class FourfrontECSApplication(C4ECSApplication):
                         ':',
                         self.IMAGE_TAG,
                     ]),
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': 'fourfront-indexer'
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config('fourfront-indexer'),
                     Environment=[
                         Environment(
                             Name='IDENTITY',
@@ -374,15 +358,8 @@ class FourfrontECSApplication(C4ECSApplication):
                         ':',
                         self.IMAGE_TAG,
                     ]),
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': 'fourfront-initial-deployment' if initial else 'cgap-deployment',
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(
+                        'fourfront-initial-deployment' if initial else 'cgap-deployment'),
                     Environment=[
                         Environment(
                             Name='IDENTITY',

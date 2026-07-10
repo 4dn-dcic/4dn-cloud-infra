@@ -163,6 +163,20 @@ class C4ECSApplication(C4Part):
         template.add_output(self.output_application_url())
         return template
 
+    def _awslogs_config(self, stream_prefix, log_group_export=None) -> LogConfiguration:
+        """ Shared awslogs LogConfiguration for ECS container definitions (RED-4). All ECS/task
+            variants used a byte-identical block differing only in the stream prefix and (for
+            blue/green) the log-group export; this factors that out. """
+        return LogConfiguration(
+            LogDriver='awslogs',
+            Options={
+                'awslogs-group':
+                    self.LOGGING_EXPORTS.import_value(log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP),
+                'awslogs-region': Ref(AWS_REGION),
+                'awslogs-stream-prefix': stream_prefix,
+            }
+        )
+
     def ecs_cluster(self) -> Cluster:
         """ Creates an ECS cluster for use with this portal deployment. """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
@@ -400,15 +414,8 @@ class C4ECSApplication(C4Part):
                     PortMappings=[PortMapping(
                         ContainerPort=Ref(self.ecs_web_worker_port()),
                     )],
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-portal'
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(
+                        f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-portal'),
                     Environment=[
                         # VERY IMPORTANT - this environment variable determines which identity in the secrets manager
                         # to use. If this secret does not exist, things will not start up correctly - this is ok in
@@ -510,15 +517,8 @@ class C4ECSApplication(C4Part):
                         ':',
                         self.IMAGE_TAG,
                     ]),
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-indexer'
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(
+                        f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-indexer'),
                     Environment=[
                         Environment(
                             Name='IDENTITY',
@@ -661,15 +661,8 @@ class C4ECSApplication(C4Part):
                         ':',
                         self.IMAGE_TAG
                     ]),
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-ingester'
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(
+                        f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-ingester'),
                     Environment=[
                         Environment(
                             Name='IDENTITY',
@@ -812,15 +805,9 @@ class C4ECSApplication(C4Part):
                         ':',
                         self.IMAGE_TAG,
                     ]),
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-initial-deployment' if initial else f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-deployment',
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(
+                        f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-initial-deployment' if initial
+                        else f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-deployment'),
                     Environment=[
                         Environment(
                             Name='IDENTITY',

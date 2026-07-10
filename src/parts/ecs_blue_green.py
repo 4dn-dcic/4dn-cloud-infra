@@ -4,7 +4,7 @@ from troposphere import (
     elasticloadbalancingv2 as elbv2,
 )
 from troposphere.ecs import (
-    Cluster, TaskDefinition, ContainerDefinition, LogConfiguration,
+    Cluster, TaskDefinition, ContainerDefinition,
     PortMapping, Service, LoadBalancer, AwsvpcConfiguration, NetworkConfiguration,
     Environment, CapacityProviderStrategyItem, SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
@@ -247,17 +247,7 @@ class ECSBlueGreen(C4ECSApplication):
                     PortMappings=[PortMapping(
                         ContainerPort=Ref(self.ecs_web_worker_port()),
                     )],
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(
-                                    log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP
-                                ),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': f'{APP_KIND}-portal'
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(f'{APP_KIND}-portal', log_group_export),
                     Environment=[
                         Environment(
                             Name='IDENTITY',
@@ -361,17 +351,7 @@ class ECSBlueGreen(C4ECSApplication):
                         ':',
                         image_tag or self.IMAGE_TAG,
                     ]),
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(
-                                    log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP
-                                ),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': f'{APP_KIND}-indexer'
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(f'{APP_KIND}-indexer', log_group_export),
                     Environment=[
                         Environment(
                             Name='IDENTITY',
@@ -464,16 +444,7 @@ class ECSBlueGreen(C4ECSApplication):
                         ':',
                         image_tag or self.IMAGE_TAG
                     ]),
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(
-                                    log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': f'{APP_KIND}-ingester'
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(f'{APP_KIND}-ingester', log_group_export),
                     Environment=[
                         Environment(
                             Name='IDENTITY',
@@ -578,17 +549,9 @@ class ECSBlueGreen(C4ECSApplication):
                         ':',
                         image_tag or self.IMAGE_TAG,
                     ]),
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(
-                                    log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP
-                                ),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': f'{APP_KIND}-initial-deployment' if initial else f'{APP_KIND}-deployment',
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(
+                        f'{APP_KIND}-initial-deployment' if initial else f'{APP_KIND}-deployment',
+                        log_group_export),
                     Environment=[
                         Environment(
                             Name='IDENTITY',
