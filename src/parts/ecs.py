@@ -281,9 +281,27 @@ class C4ECSApplication(C4Part):
             ],
             Subnets=[self.NETWORK_EXPORTS.import_value(subnet_key)
                     for subnet_key in self.NETWORK_EXPORTS.PUBLIC_SUBNETS],
+            LoadBalancerAttributes=self._alb_access_log_attributes(),
             Tags=self.tags.cost_tag_array(name=logical_id),
             Type='application',
         )
+
+    @staticmethod
+    def _alb_access_log_attributes() -> list:
+        """ ALB access-log LoadBalancerAttributes (SEC-9). Off unless alb.access_logs_bucket names
+            a pre-existing, ELB-writable S3 bucket; then access logs are written there (optionally
+            under alb.access_logs_prefix). Returns [] when unset so existing deploys are unchanged. """
+        bucket = ConfigManager.get_config_setting(Settings.ALB_ACCESS_LOGS_BUCKET, default=None)
+        if not bucket:
+            return []
+        attrs = [
+            elbv2.LoadBalancerAttributes(Key='access_logs.s3.enabled', Value='true'),
+            elbv2.LoadBalancerAttributes(Key='access_logs.s3.bucket', Value=bucket),
+        ]
+        prefix = ConfigManager.get_config_setting(Settings.ALB_ACCESS_LOGS_PREFIX, default=None)
+        if prefix:
+            attrs.append(elbv2.LoadBalancerAttributes(Key='access_logs.s3.prefix', Value=prefix))
+        return attrs
 
     def output_application_url(self, env=None) -> Output:
         """ Outputs URL to access portal. """

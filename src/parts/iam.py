@@ -59,7 +59,7 @@ class C4IAM(C4IAMBase, C4Part):
         """
         iam_role = self.ecs_assumed_iam_role()
         template.add_resource(iam_role)
-        flowlog_role = self.vcp_flowlog_role()
+        flowlog_role = self.vpc_flowlog_role()
         template.add_resource(flowlog_role)  # no need to export, only used for logs
         dev_iam_role = self.dev_user_role()
         template.add_resource(dev_iam_role)
@@ -508,7 +508,7 @@ class C4IAM(C4IAMBase, C4Part):
             }
         )
 
-    def vcp_flowlog_role(self) -> Role:
+    def vpc_flowlog_role(self) -> Role:
         """ Creates a role that can be assumed by the VPC flow logs service
             that gives permission to log to Cloudwatch. Needed to enabled VPC
             flow logs.

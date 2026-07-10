@@ -63,6 +63,16 @@ class Settings:
     BASTION_AMI = 'network.bastion.ami'
     BASTION_SSH_KEY = 'network.bastion.ssh_key'
 
+    # VPC flow logs on the standard network stack (SEC-9). Enabled by default; set to a falsy
+    # value to skip creating the flow log + its CloudWatch log group.
+    NETWORK_FLOW_LOGS_ENABLED = 'network.flow_logs.enabled'
+    NETWORK_FLOW_LOGS_RETENTION_DAYS = 'network.flow_logs.retention_days'
+
+    # Optional ALB access logs (SEC-9). When alb.access_logs_bucket names a pre-existing S3 bucket
+    # (with the required ELB log-delivery bucket policy), the portal ALB writes access logs to it.
+    ALB_ACCESS_LOGS_BUCKET = 'alb.access_logs_bucket'
+    ALB_ACCESS_LOGS_PREFIX = 'alb.access_logs_prefix'
+
     # Application VPC (ECS portal + foursight) — used in SRCE deployments
     VPC_ID = 'vpc.id'
     VPC_CIDR = 'vpc.cidr'

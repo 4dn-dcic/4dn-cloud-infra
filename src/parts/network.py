@@ -5,8 +5,11 @@ from troposphere import Ref, GetAtt, Output, Template
 from troposphere.ec2 import (
     InternetGateway, Route, RouteTable, SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
     Subnet, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment, NatGateway, EIP, Instance, NetworkInterfaceProperty,
-    VPCEndpoint,
+    VPCEndpoint, FlowLog,
 )
+from troposphere.iam import Role, Policy
+from troposphere.logs import LogGroup
+from awacs.aws import PolicyDocument, Statement, Action, Principal
 from ..base import ConfigManager, Settings
 from typing import List
 from ..constants import C4NetworkBase
@@ -118,6 +121,11 @@ class C4Network(C4NetworkBase, C4Part):
             template.add_resource(i)
         # Add VPC output
         template.add_output(self.output_virtual_private_cloud())
+
+        # Add VPC flow logs (publishes to a dedicated CloudWatch log group). Enabled by default;
+        # skipped when network.flow_logs.enabled is explicitly falsy (SEC-9).
+        for i in self.vpc_flow_log_resources():
+            template.add_resource(i)
 
         # Add route tables
         for i in [self.main_route_table(), self.private_route_table(), self.public_route_table()]:
@@ -237,6 +245,69 @@ class C4Network(C4NetworkBase, C4Part):
             Export=self.EXPORTS.export(export_name),
         )
         return output
+
+    def vpc_flow_log_group(self) -> LogGroup:
+        """ Dedicated CloudWatch log group for VPC flow logs (SEC-9). Retention is configurable
+            via network.flow_logs.retention_days (default 365). """
+        retention = int(ConfigManager.get_config_setting(
+            Settings.NETWORK_FLOW_LOGS_RETENTION_DAYS, default=365))
+        return LogGroup(
+            self.name.logical_id('VPCFlowLogGroup', context='vpc_flow_log_group'),
+            RetentionInDays=retention,
+            DeletionPolicy='Retain',
+            Tags=self.tags.cost_tag_obj(),
+        )
+
+    def vpc_flow_log_delivery_role(self) -> Role:
+        """ Role assumed by the VPC flow logs service to write to the flow-log group. Created inline
+            here so the network stack is self-contained (no cross-stack import needed). """
+        return Role(
+            self.name.logical_id('VPCFlowLogDeliveryRole', context='vpc_flow_log_delivery_role'),
+            AssumeRolePolicyDocument=PolicyDocument(
+                Version='2012-10-17',
+                Statement=[Statement(
+                    Effect='Allow',
+                    Action=[Action('sts', 'AssumeRole')],
+                    Principal=Principal('Service', 'vpc-flow-logs.amazonaws.com'),
+                )],
+            ),
+            Policies=[Policy(
+                PolicyName='VPCFlowLogDelivery',
+                PolicyDocument={
+                    'Version': '2012-10-17',
+                    'Statement': [{
+                        'Effect': 'Allow',
+                        'Action': [
+                            'logs:CreateLogGroup',
+                            'logs:CreateLogStream',
+                            'logs:PutLogEvents',
+                            'logs:DescribeLogGroups',
+                            'logs:DescribeLogStreams',
+                        ],
+                        'Resource': '*',
+                    }],
+                },
+            )],
+        )
+
+    def vpc_flow_log_resources(self) -> list:
+        """ Build the VPC flow log, its log group, and its delivery role, unless disabled via
+            network.flow_logs.enabled (default enabled). Returns [] when disabled (SEC-9). """
+        if not ConfigManager.get_config_setting(Settings.NETWORK_FLOW_LOGS_ENABLED, default=True):
+            return []
+        log_group = self.vpc_flow_log_group()
+        role = self.vpc_flow_log_delivery_role()
+        flow_log = FlowLog(
+            self.name.logical_id('VPCFlowLog', context='vpc_flow_log'),
+            ResourceId=Ref(self.virtual_private_cloud()),
+            ResourceType='VPC',
+            TrafficType='ALL',
+            LogDestinationType='cloud-watch-logs',
+            LogGroupName=Ref(log_group),
+            DeliverLogsPermissionArn=GetAtt(role, 'Arn'),
+            Tags=self.tags.cost_tag_obj(),
+        )
+        return [log_group, role, flow_log]
 
     def internet_gateway_attachment(self) -> VPCGatewayAttachment:
         """ Define attaching the internet gateway to the VPC. Ref:
