@@ -330,7 +330,13 @@ class C4IAM(C4IAMBase, C4Part):
 
     @staticmethod
     def ecs_web_service_policy() -> Policy:
-        """ Policy needed by load balancer to allow target group registration. """
+        """ Policy needed by load balancer to allow target group registration.
+
+            NOTE: ec2:AuthorizeSecurityGroupIngress was intentionally dropped (SEC-7). Nothing in
+            the portal should mutate security groups at runtime; leaving it granted let any portal
+            task open any security group in the account. The remaining Describe* actions do not
+            support resource-level restriction, so they stay scoped to '*'.
+        """
         return Policy(
             PolicyName='ECSWebServicePolicy',
             PolicyDocument=dict(
@@ -342,9 +348,8 @@ class C4IAM(C4IAMBase, C4Part):
                         'elasticloadbalancing:DeregisterInstancesFromLoadBalancer',
                         'elasticloadbalancing:RegisterInstancesWithLoadBalancer',
                         'ec2:Describe*',
-                        'ec2:AuthorizeSecurityGroupIngress',
                     ],
-                    Resource=['*'],  # XXX: constrain further?
+                    Resource=['*'],
                 )],
             ),
         )
@@ -376,23 +381,31 @@ class C4IAM(C4IAMBase, C4Part):
             ),
         )
 
-    @staticmethod
-    def ecs_s3_policy() -> Policy:
-        """ Gives s3 read/write access. """
+    def ecs_s3_policy(self) -> Policy:
+        """ Gives s3 read/write access, scoped to this env's buckets. All buckets this
+            infrastructure creates (application + foursight + the global env bucket) are named
+            '{env_name}-<suffix>' (see datastore.build_s3_bucket), so scope to 'arn:aws:s3:::
+            {env_name}-*' for ListBucket and '.../*' for the object actions rather than '*' (SEC-7).
+        """
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+        bucket_arn = f'arn:aws:s3:::{env_name}-*'
+        object_arn = f'arn:aws:s3:::{env_name}-*/*'
         return Policy(
             PolicyName='ECSS3Policy',
             PolicyDocument=dict(
                 Version='2012-10-17',
-                Statement=[dict(
-                    Effect='Allow',
-                    Action=[
-                        's3:ListBucket',
-                        's3:PutObject',
-                        's3:GetObject',
-                        's3:DeleteObject',
-                    ],
-                    Resource=['*'],  # XXX: constrain further?
-                )],
+                Statement=[
+                    dict(
+                        Effect='Allow',
+                        Action=['s3:ListBucket'],
+                        Resource=[bucket_arn],
+                    ),
+                    dict(
+                        Effect='Allow',
+                        Action=['s3:PutObject', 's3:GetObject', 's3:DeleteObject'],
+                        Resource=[object_arn],
+                    ),
+                ],
             ),
         )
 
@@ -436,10 +449,20 @@ class C4IAM(C4IAMBase, C4Part):
             }
         )
 
-    @staticmethod
-    def kms_policy() -> Policy:
+    def kms_policy(self) -> Policy:
         """ Defines a policy that gives permission access to a subset of actions on KMS.
-            Needed for the S3Federator to generate URLs that enable server side encryption. """
+            Needed for the S3Federator to generate URLs that enable server side encryption.
+
+            Scoped to the S3-encrypt KMS key when its id is known via the s3.encrypt_key_id config
+            setting (SEC-7). Falls back to '*' when the key id is not configured — this is the
+            bootstrap case, since the IAM stack is deployed before the datastore stack that creates
+            the key. Set s3.encrypt_key_id once the key exists to tighten this on the next update.
+        """
+        key_id = ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
+        if key_id:
+            resource = [Join(':', ['arn', 'aws', 'kms', Region, AccountId, f'key/{key_id}'])]
+        else:
+            resource = ['*']
         return Policy(
             PolicyName='ECSKMSPolicy',
             PolicyDocument={
@@ -454,9 +477,7 @@ class C4IAM(C4IAMBase, C4Part):
                             'kms:GenerateDataKey*',
                             'kms:DescribeKey'
                         ],
-                        'Resource': [
-                            '*'
-                        ]
+                        'Resource': resource
                     }
                 ]
             }
