@@ -136,6 +136,9 @@ class Settings:
 
     # Sentieon Options
     SENTIEON_SSH_KEY = 'sentieon.ssh_key'
+    # CIDR allowed to SSH into the Sentieon license server (institutional VPN/admin range).
+    # Defaults to the VPC CIDR (never 0.0.0.0/0) if unset (see SEC-4).
+    SENTIEON_ADMIN_CIDR = 'sentieon.admin_cidr'
 
     # JH Options
     JH_SSH_KEY = 'jupyterhub.ssh_key'

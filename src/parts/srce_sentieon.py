@@ -27,12 +27,16 @@ class C4SRCESentieonSupport(C4SentieonSupport):
         """Security rules for the Sentieon license server in the App VPC."""
         app_cidr = ConfigManager.get_config_setting(Settings.VPC_CIDR, default=C4Network.CIDR_BLOCK)
         compute_cidr = ConfigManager.get_config_setting(Settings.COMPUTE_VPC_CIDR, default=None)
+        # SSH is restricted to the admin/VPN CIDR (config-driven, defaults to the App VPC CIDR),
+        # never 0.0.0.0/0 — a world-open SSH port will not survive an IT security review for a
+        # "secure enclave" (SEC-4).
+        admin_cidr = ConfigManager.get_config_setting(Settings.SENTIEON_ADMIN_CIDR, default=app_cidr)
         rules = [
-            # SSH Access
+            # SSH Access — restricted to the admin/VPN CIDR (SEC-4).
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationSSHInboundAllAccess'),
-                CidrIp='0.0.0.0/0',
-                Description='allows inbound traffic on tcp port 22',
+                CidrIp=admin_cidr,
+                Description='allows inbound SSH (tcp/22) from the admin/VPN CIDR',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
                 FromPort=22,
@@ -40,8 +44,8 @@ class C4SRCESentieonSupport(C4SentieonSupport):
             ),
             SecurityGroupEgress(
                 self.name.logical_id('ApplicationSSHOutboundAllAccess'),
-                CidrIp='0.0.0.0/0',
-                Description='allows outbound traffic on tcp port 22',
+                CidrIp=admin_cidr,
+                Description='allows outbound SSH (tcp/22) to the admin/VPN CIDR',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
                 FromPort=22,
@@ -70,31 +74,22 @@ class C4SRCESentieonSupport(C4SentieonSupport):
                 ToPort=443,
             ),
 
-            # Various ICMP for server
+            # ICMP for server diagnostics — restricted to the App VPC CIDR, not world-open (SEC-4).
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationICMPInboundAllAccess'),
-                CidrIp='0.0.0.0/0',
+                CidrIp=app_cidr,
                 FromPort=-1,
                 ToPort=-1,
-                Description='allows ICMP',
+                Description='allows ICMP from within the App VPC',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='icmp',
             ),
-            SecurityGroupIngress(
-                self.name.logical_id('ApplicationICMPv6InboundAllAccess'),
-                CidrIp='0.0.0.0/0',
-                FromPort=-1,
-                ToPort=-1,
-                Description='allows ICMP',
-                GroupId=Ref(self.application_security_group()),
-                IpProtocol='icmpv6',
-            ),
             SecurityGroupEgress(
                 self.name.logical_id('ApplicationICMPOutboundAllAccess'),
-                CidrIp='0.0.0.0/0',
+                CidrIp=app_cidr,
                 FromPort=-1,
                 ToPort=-1,
-                Description='allows ICMP',
+                Description='allows ICMP within the App VPC',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='icmp',
             ),

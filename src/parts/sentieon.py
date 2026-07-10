@@ -85,15 +85,21 @@ class C4SentieonSupport(C4SentieonSupportBase, C4Part):
             Tags=self.tags.cost_tag_array(name=logical_id),
         )
 
+    def admin_cidr(self) -> str:
+        """ CIDR allowed to SSH into the Sentieon server. Config-driven (sentieon.admin_cidr);
+            defaults to the VPC CIDR so SSH is never open to 0.0.0.0/0 (SEC-4). """
+        return ConfigManager.get_config_setting(Settings.SENTIEON_ADMIN_CIDR, default=C4Network.CIDR_BLOCK)
+
     def application_security_rules(self) -> [SecurityGroupIngress, SecurityGroupEgress]:
         """ Builds the actual rules associated with the above SG. """
+        admin_cidr = self.admin_cidr()
+        vpc_cidr = C4Network.CIDR_BLOCK
         return [
-            # SSH Access
-            # TODO: maybe only manually add this, so "my IP" restriction can be used? - Will Oct 27 2021
+            # SSH Access — restricted to the admin/VPN CIDR, never world-open (SEC-4).
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationSSHInboundAllAccess'),
-                CidrIp='0.0.0.0/0',
-                Description='allows inbound traffic on tcp port 22',
+                CidrIp=admin_cidr,
+                Description='allows inbound SSH (tcp/22) from the admin/VPN CIDR',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
                 FromPort=22,
@@ -101,8 +107,8 @@ class C4SentieonSupport(C4SentieonSupportBase, C4Part):
             ),
             SecurityGroupEgress(
                 self.name.logical_id('ApplicationSSHOutboundAllAccess'),
-                CidrIp='0.0.0.0/0',
-                Description='allows outbound traffic on tcp port 22',
+                CidrIp=admin_cidr,
+                Description='allows outbound SSH (tcp/22) to the admin/VPN CIDR',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
                 FromPort=22,
@@ -112,7 +118,7 @@ class C4SentieonSupport(C4SentieonSupportBase, C4Part):
             # License Server
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationSentieonServer'),
-                CidrIp=C4Network.CIDR_BLOCK,
+                CidrIp=vpc_cidr,
                 Description='allows inbound traffic on tcp port 8990 (license server port)',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
@@ -131,31 +137,22 @@ class C4SentieonSupport(C4SentieonSupportBase, C4Part):
                 ToPort=443,
             ),
 
-            # Various ICMP for server
+            # ICMP for server diagnostics — restricted to the VPC CIDR, not world-open (SEC-4).
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationICMPInboundAllAccess'),
-                CidrIp='0.0.0.0/0',
+                CidrIp=vpc_cidr,
                 FromPort=-1,
                 ToPort=-1,
-                Description='allows ICMP',
+                Description='allows ICMP from within the VPC',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='icmp',
             ),
-            SecurityGroupIngress(
-                self.name.logical_id('ApplicationICMPv6InboundAllAccess'),
-                CidrIp='0.0.0.0/0',
-                FromPort=-1,
-                ToPort=-1,
-                Description='allows ICMP',
-                GroupId=Ref(self.application_security_group()),
-                IpProtocol='icmpv6',
-            ),
             SecurityGroupEgress(
                 self.name.logical_id('ApplicationICMPOutboundAllAccess'),
-                CidrIp='0.0.0.0/0',
+                CidrIp=vpc_cidr,
                 FromPort=-1,
                 ToPort=-1,
-                Description='allows ICMP',
+                Description='allows ICMP within the VPC',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='icmp',
             ),
