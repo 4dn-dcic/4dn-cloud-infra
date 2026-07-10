@@ -3,11 +3,12 @@ from ..parts import (
     network, datastore, ecr, iam, logging, ecs, fourfront_ecs,
     appconfig, datastore_slim, sentieon, jupyterhub, higlass, ecs_blue_green,
     codebuild, redis, srce_network, srce_datastore, srce_ecs,
-    srce_ecs_blue_green, srce_sentieon, srce_redis
+    srce_ecs_blue_green, srce_sentieon, srce_redis, shared_secrets
 )
 from ..stack import (
     C4Stack, C4Tags, C4Account, C4Part, BaseC4FoursightStack,
-    C4FoursightCGAPStack, C4FoursightFourfrontStack, C4FoursightSMAHTStack
+    C4FoursightCGAPStack, C4FoursightFourfrontStack, C4FoursightSMAHTStack,
+    C4FoursightSMAHTSRCEStack
 )
 
 
@@ -140,6 +141,13 @@ def c4_4dn_stack_trial_appconfig(account: C4Account):
     return create_c4_4dn_stack(name='appconfig', account=account)
 
 
+@register_stack_creator(name='shared-secrets', kind='alpha',
+                        implementation_class=shared_secrets.C4SharedSecrets)
+def c4_alpha_stack_shared_secrets(account: C4Account):
+    """ Ecosystem-scoped secrets shared across all envs in the account (DockerHub creds, etc.). """
+    return create_c4_alpha_stack(name='shared-secrets', account=account)
+
+
 @register_stack_creator(name='network', kind='alpha', implementation_class=network.C4Network)
 def c4_alpha_stack_network(account: C4Account):
     """ Network stack for the ECS version of CGAP """
@@ -242,6 +250,13 @@ def c4_alpha_stack_foursight_cgap(account: C4Account):
 def c4_alpha_stack_foursight_smaht(account: C4Account):
     """ Foursight (prod) stack for smaht - note that either stage can be deployed """
     return create_c4_alpha_foursight_stack(name='foursight-smaht', account=account)
+
+
+@register_stack_creator(name='foursight-smaht-srce', kind='alpha', implementation_class=C4FoursightSMAHTSRCEStack)
+def c4_alpha_stack_foursight_smaht_srce(account: C4Account):
+    """ Foursight stack for smaht SRCE deployments — uses the SRCE App VPC like SRCE ECS does.
+        Runs alongside the existing 'foursight-smaht' stack. """
+    return create_c4_alpha_foursight_stack(name='foursight-smaht-srce', account=account)
 
 
 @register_stack_creator(name='foursight-production', kind='4dn', implementation_class=C4FoursightFourfrontStack)

@@ -73,7 +73,7 @@ from ...constants import Settings
 from ...names import Names
 from ..utils.args_utils import add_aws_credentials_args, validate_aws_credentials_args
 from ..utils.aws import Aws
-from ..utils.paths import (InfraDirectories)
+from ..utils.paths import (InfraDirectories, InfraFiles)
 from ..utils.misc_utils import (get_json_config_file_value,
                                 exit_with_no_action,
                                 obfuscate,
@@ -82,7 +82,9 @@ from ..utils.misc_utils import (get_json_config_file_value,
                                 should_obfuscate)
 from ..utils.validate_utils import (validate_and_get_aws_credentials,
                                     validate_and_get_s3_encrypt_key_id)
-from .defs import (GacSecretKeyName, RdsSecretKeyName)
+from .defs import (GacSecretKeyName, RdsSecretKeyName,
+                   DockerHubSecretKeyName, LocalSecretsKey, AuxSecretSuffix,
+                   DOCKERHUB_SECRET_NAME)
 
 
 def validate_and_get_gac_secret_name(gac_secret_name: str, aws_credentials_name: str) -> str:
@@ -361,6 +363,100 @@ def update_secrets(gac_secret_name: str, secrets_to_update: dict, aws: Aws, show
         aws.update_secret_key_value(gac_secret_name, secret_key_name, secret_key_value, show)
 
 
+def _aux_secret_name(aws_credentials_name: str, suffix: str) -> str:
+    """ Build the AWS Secrets Manager name for one of the appconfig-owned aux secrets
+        (DockerHub credentials, FALCON_CID, FALCON_CLIENT_ID, FALCON_CLIENT_SECRET).
+        Mirrors the logical-id construction in C4AppConfig: <appconfig-stack-prefix> + suffix. """
+    return Names.application_configuration_secret(aws_credentials_name) + suffix
+
+
+def gather_aux_secrets_to_update(aws: Aws) -> dict:
+    """
+    Reads optional aux credentials from the local custom/secrets.json and builds a plan
+    keyed by AWS secret name. The plan covers:
+      - DockerHub credentials (JSON secret with `username` + `token` keys)
+      - Falcon CID / Client ID / Client Secret (plain-string secrets, one value each)
+    Any keys missing from secrets.json are skipped silently so the script can still be
+    used by deployments that have populated only some of them.
+
+    Returns a dict shaped like:
+        {
+          "<dockerhub-secret-name>": {
+              "kind": "json",
+              "values": {"username": "...", "token": "..."}
+          },
+          "<falcon-cid-secret-name>": {"kind": "plain", "value": "..."},
+          ...
+        }
+    """
+    secrets_file = InfraFiles.get_secrets_file(aws.custom_dir)
+    aws_credentials_name = aws.credentials_name
+
+    # DockerHub credentials use a fixed account-wide AWS secret name (dhi-registry-credentials);
+    # Falcon secrets are scoped to the appconfig stack (env-suffixed).
+    dockerhub_name = DOCKERHUB_SECRET_NAME
+    falcon_cid_name = _aux_secret_name(aws_credentials_name, AuxSecretSuffix.FALCON_CID)
+    falcon_client_id_name = _aux_secret_name(aws_credentials_name, AuxSecretSuffix.FALCON_CLIENT_ID)
+    falcon_client_secret_name = _aux_secret_name(aws_credentials_name, AuxSecretSuffix.FALCON_CLIENT_SECRET)
+
+    dh_user = get_json_config_file_value(LocalSecretsKey.DOCKERHUB_USERNAME, secrets_file, None)
+    dh_token = get_json_config_file_value(LocalSecretsKey.DOCKERHUB_TOKEN, secrets_file, None)
+    falcon_cid = get_json_config_file_value(LocalSecretsKey.FALCON_CID, secrets_file, None)
+    falcon_client_id = get_json_config_file_value(LocalSecretsKey.FALCON_CLIENT_ID, secrets_file, None)
+    falcon_client_secret = get_json_config_file_value(LocalSecretsKey.FALCON_CLIENT_SECRET, secrets_file, None)
+
+    plan = {}
+    # Only enroll the DockerHub secret if at least one of its keys is set; partial updates
+    # are fine because update_secret_key_value works key-at-a-time.
+    if dh_user or dh_token:
+        dh_values = {}
+        if dh_user:
+            dh_values[DockerHubSecretKeyName.USERNAME] = dh_user
+        if dh_token:
+            dh_values[DockerHubSecretKeyName.TOKEN] = dh_token
+        plan[dockerhub_name] = {"kind": "json", "values": dh_values}
+    if falcon_cid:
+        plan[falcon_cid_name] = {"kind": "plain", "value": falcon_cid}
+    if falcon_client_id:
+        plan[falcon_client_id_name] = {"kind": "plain", "value": falcon_client_id}
+    if falcon_client_secret:
+        plan[falcon_client_secret_name] = {"kind": "plain", "value": falcon_client_secret}
+    return plan
+
+
+def summarize_aux_secrets_to_update(aux_plan: dict, show: bool = False) -> None:
+    """ Print a per-secret summary table of the aux secrets we plan to write. """
+    if not aux_plan:
+        PRINT()
+        PRINT("No auxiliary secrets to update (none of DockerHub*/Falcon* found in secrets.json).")
+        return
+    for secret_name, spec in aux_plan.items():
+        PRINT()
+        PRINT(f"Auxiliary secret keys/values to be set in AWS secrets manager for secret: {secret_name}")
+        if spec["kind"] == "json":
+            entries = spec["values"]
+        else:
+            entries = {"<entire SecretString>": spec["value"]}
+
+        def secret_key_display_value(key, value):
+            if value is None:
+                return "<no value>"
+            return value if not should_obfuscate(key) or show else obfuscate(value, show)
+        print_dictionary_as_table("Secret Key Name", "Secret Key Value", entries, secret_key_display_value)
+
+
+def update_aux_secrets(aux_plan: dict, aws: Aws, show: bool = False) -> None:
+    """ Walk the gather_aux_secrets_to_update() plan and write each secret in AWS. """
+    if not aux_plan:
+        return
+    for secret_name, spec in aux_plan.items():
+        if spec["kind"] == "json":
+            for key, value in spec["values"].items():
+                aws.update_secret_key_value(secret_name, key, value, show)
+        else:
+            aws.update_plain_secret_value(secret_name, spec["value"], show)
+
+
 def setup_remaining_secrets(
         aws_access_key_id: str,
         aws_account_number: str,
@@ -407,10 +503,15 @@ def setup_remaining_secrets(
                                                                            s3_encrypt_key_id,
                                                                            s3_secret_access_key,
                                                                            show)
+        # Bundle the appconfig-owned aux secrets (DockerHub + Falcon) into the same flow —
+        # values are sourced from custom/secrets.json so they aren't typed at the terminal.
+        aux_plan = gather_aux_secrets_to_update(aws)
         setup_and_action_state.note_action_start()
 
         # Summarize secrets to update, confirm with user, and actually update the secrets.
+        summarize_aux_secrets_to_update(aux_plan, show)
         update_secrets(gac_secret_name, secrets_to_update, aws, show)
+        update_aux_secrets(aux_plan, aws, show)
 
 
 def main(override_argv: Optional[list] = None) -> None:

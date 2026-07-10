@@ -34,6 +34,14 @@ class C4AppConfigExports(C4Exports):
     # Standalone, blue/green version is inlined
     EXPORT_APPLICATION_CONFIG = 'ExportApplicationConfig'
     EXPORT_FOURSIGHT_APPLICATION_CONFIG = 'ExportFoursightApplicationConfig'
+    # Build-time / runtime secrets — values stubbed by the appconfig stack, filled in post-deploy.
+    # Each Output exports the secret's ARN so downstream stacks (e.g. codebuild) can grant
+    # GetSecretValue and reference SECRETS_MANAGER-typed env vars without hardcoding ARNs.
+    # (DockerHub credentials live in the ecosystem-scoped shared_secrets stack instead — see
+    #  C4SharedSecretsExports — so multiple env-scoped appconfig stacks share one secret.)
+    EXPORT_FALCON_CID = 'ExportFalconCID'
+    EXPORT_FALCON_CLIENT_ID = 'ExportFalconClientID'
+    EXPORT_FALCON_CLIENT_SECRET = 'ExportFalconClientSecret'
     _ENV_BUCKET_EXPORT_PATTERN = re.compile(".*AppConfig.*Env.*Bucket")
 
     # RDS Exports
@@ -76,6 +84,11 @@ class C4AppConfig(C4AppConfigBase, C4Part):
     RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names
     EXPORTS = C4AppConfigExports()
     NETWORK_EXPORTS = C4NetworkExports()
+
+    # Falcon credentials are env-scoped — each appconfig deployment gets its own set.
+    FALCON_CID_LOGICAL_SUFFIX = 'FalconCID'
+    FALCON_CLIENT_ID_LOGICAL_SUFFIX = 'FalconClientID'
+    FALCON_CLIENT_SECRET_LOGICAL_SUFFIX = 'FalconClientSecret'
     # TODO only use configuration placeholder for orchestration time values; otherwise, use src.constants values
     CONFIGURATION_PLACEHOLDER = 'XXX: ENTER VALUE'
 
@@ -136,6 +149,30 @@ class C4AppConfig(C4AppConfigBase, C4Part):
         foursight_configuration_secret = self.foursight_configuration_secret()
         template.add_resource(foursight_configuration_secret)
         template.add_output(self.output_foursight_configuration_secret(foursight_configuration_secret))
+
+        # Build-time / runtime credentials — stubbed here, populated post-deploy via
+        # `aws secretsmanager put-secret-value ...`.  ARNs exported so downstream stacks
+        # (e.g. codebuild) can attach IAM policies and reference SECRETS_MANAGER env vars.
+        # (DockerHub credentials are owned by the ecosystem-scoped shared_secrets stack;
+        #  see C4SharedSecrets in src/parts/shared_secrets.py.)
+        falcon_cid = self.falcon_cid_secret()
+        template.add_resource(falcon_cid)
+        template.add_output(self.output_simple_secret_arn(
+            falcon_cid, C4AppConfigExports.EXPORT_FALCON_CID,
+            'Crowdstrike Falcon Customer ID (CID)'))
+
+        falcon_client_id = self.falcon_client_id_secret()
+        template.add_resource(falcon_client_id)
+        template.add_output(self.output_simple_secret_arn(
+            falcon_client_id, C4AppConfigExports.EXPORT_FALCON_CLIENT_ID,
+            'Crowdstrike Falcon API Client ID'))
+
+        falcon_client_secret = self.falcon_client_secret_secret()
+        template.add_resource(falcon_client_secret)
+        template.add_output(self.output_simple_secret_arn(
+            falcon_client_secret, C4AppConfigExports.EXPORT_FALCON_CLIENT_SECRET,
+            'Crowdstrike Falcon API Client Secret'))
+
         return template
 
     def output_configuration_secret(self, application_configuration_secret, deployment_type='standalone'):
@@ -189,4 +226,46 @@ class C4AppConfig(C4AppConfigBase, C4Part):
             Description='Foursight Application Configuration Secret',
             Value=Ref(foursight_configuration_secret),
             Export=export
+        )
+
+    def _falcon_stub_secret(self, suffix: str, description: str) -> Secret:
+        """ Single-string Falcon secret stub (no JSON wrapper). Plain string makes the
+            CodeBuild SECRETS_MANAGER env-var reference one-liner — no `:key` suffix needed. """
+        logical_id = dehyphenate(self.name.logical_id(suffix)).replace('_', '')
+        return Secret(
+            logical_id,
+            Name=logical_id,
+            Description=description,
+            SecretString='PLACEHOLDER',  # populate post-deploy via aws secretsmanager put-secret-value
+            Tags=self.tags.cost_tag_array()
+        )
+
+    def falcon_cid_secret(self) -> Secret:
+        return self._falcon_stub_secret(
+            self.FALCON_CID_LOGICAL_SUFFIX,
+            'Crowdstrike Falcon Customer ID (CID). Used by the falcon sensor sidecar at runtime.'
+        )
+
+    def falcon_client_id_secret(self) -> Secret:
+        return self._falcon_stub_secret(
+            self.FALCON_CLIENT_ID_LOGICAL_SUFFIX,
+            'Crowdstrike Falcon API Client ID. Used when calling the Falcon API to download '
+            'the sensor or register hosts.'
+        )
+
+    def falcon_client_secret_secret(self) -> Secret:
+        return self._falcon_stub_secret(
+            self.FALCON_CLIENT_SECRET_LOGICAL_SUFFIX,
+            'Crowdstrike Falcon API Client Secret (paired with FALCON_CLIENT_ID).'
+        )
+
+    def output_simple_secret_arn(self, secret: Secret, export_name: str, description: str) -> Output:
+        """ Output a Secrets Manager secret's ARN under EXPORTS so other stacks can ImportValue it.
+            Ref(secret) returns the secret's ARN for AWS::SecretsManager::Secret. """
+        logical_id = self.name.logical_id(export_name)
+        return Output(
+            logical_id,
+            Description=description,
+            Value=Ref(secret),
+            Export=self.EXPORTS.export(export_name)
         )

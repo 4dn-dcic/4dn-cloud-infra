@@ -48,6 +48,8 @@ class C4ECRExports(C4Exports):
     SV_GERMLINE_VEP_URL = 'SVGermlineVEPURL'
     ASCAT_URL = 'AscatURL'
     SOMATIC_SENTION_URL = 'SomaticSentieonURL'
+    # Crowdstrike Falcon sensor sidecar image (built into ECR for ECS task sidecar use).
+    FALCON_SENSOR_URL = 'FalconSensorURL'
 
     def __init__(self):
         parameter = 'ECRStackNameParameter'
@@ -83,6 +85,9 @@ class C4ContainerRegistry(C4Part):
             # Main application portal image
             (env_name or ECOSYSTEM, self.EXPORTS.PORTAL_REPO_URL),
 
+            # Crowdstrike Falcon sensor sidecar image
+            ('falcon-sensor', self.EXPORTS.FALCON_SENSOR_URL),
+
             # Tibanna executor image
             ('tibanna-awsf', self.EXPORTS.TIBANNA_REPO_URL),
 
@@ -117,8 +122,8 @@ class C4ContainerRegistry(C4Part):
         ]
         for rname, export in repo_export_pairs:
             if (ConfigManager.get_config_setting(Settings.APP_KIND) in ['ff', 'smaht'] and
-                    rname not in [env_name, 'tibanna-awsf']):
-                break  # do not add tibanna repos if building a fourfront/smaht env
+                    rname not in [env_name, 'tibanna-awsf', 'falcon-sensor']):
+                break  # do not add pipeline repos if building a fourfront/smaht env
             repo = self.repository(repo_name=rname)
             template.add_resource(repo)
             template.add_output(self.output_repo_url(repo, export))

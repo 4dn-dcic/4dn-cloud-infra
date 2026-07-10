@@ -17,6 +17,7 @@ from .part import C4Name, C4Tags, C4Account, C4Part, StackNameMixin
 from .parts.datastore import C4DatastoreExports
 from .parts.network import C4NetworkExports
 from .parts.appconfig import C4AppConfigExports
+from .parts.srce_network import C4SRCENetworkExports
 
 # Version string identifies template capabilities. Ref:
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/format-version-structure.html
@@ -189,8 +190,9 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
 
     class PackageDeploy(PackageDeploy_from_core):
 
-        CONFIG_BASE = PackageDeploy_from_core.CONFIG_BASE
-        CONFIG_BASE['app_name'] = 'foursight-cgap'
+        # Per-subclass copy so 'app_name' doesn't bleed between foursight variants
+        # (the parent CONFIG_BASE is a shared mutable dict).
+        CONFIG_BASE = dict(PackageDeploy_from_core.CONFIG_BASE, app_name='foursight-cgap')
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")
@@ -252,8 +254,7 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
 
     class PackageDeploy(PackageDeploy_from_core):
 
-        CONFIG_BASE = PackageDeploy_from_core.CONFIG_BASE
-        CONFIG_BASE['app_name'] = 'foursight-fourfront'
+        CONFIG_BASE = dict(PackageDeploy_from_core.CONFIG_BASE, app_name='foursight-fourfront')
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")
@@ -308,8 +309,64 @@ class C4FoursightSMAHTStack(C4FoursightCGAPStack):
 
     class PackageDeploy(PackageDeploy_from_core):
 
-        CONFIG_BASE = PackageDeploy_from_core.CONFIG_BASE
-        CONFIG_BASE['app_name'] = 'foursight-smaht'
+        CONFIG_BASE = dict(PackageDeploy_from_core.CONFIG_BASE, app_name='foursight-smaht')
+
+        config_dir = dirname(dirname(__file__))
+        PRINT(f"Config dir: {config_dir}")
+
+
+class C4FoursightSMAHTSRCEStack(C4FoursightSMAHTStack):
+    """ Foursight-SMaHT variant for SRCE deployments. Uses the SRCE Application VPC stack
+        (C4SRCENetworkExports) for VPC/subnet/security-group lookups, mirroring how
+        C4SRCEECSApplication swaps its NETWORK_EXPORTS.
+
+        Runs alongside the existing 'foursight-smaht' stack: a different STACK_NAME_TOKEN
+        gives it a distinct CFN stack name (`c4-foursight-srce-<env>-stack`), and it
+        defaults to the parallel foursight configuration secret produced by the appconfig
+        stack so its identity does not collide with the portal's GAC.
+    """
+    STACK_NAME_TOKEN = "foursight-srce"
+    STACK_TITLE_TOKEN = "FoursightSRCE"
+    SHARING = 'env'
+
+    NETWORK_EXPORTS = C4SRCENetworkExports()
+
+    def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account):
+        with ConfigManager.validate_and_source_configuration():
+            self.security_ids = C4SRCENetworkExports.get_security_ids()
+            self.subnet_ids = C4SRCENetworkExports.get_subnet_ids()
+            self.global_env_bucket = C4AppConfigExports.get_env_bucket()
+            env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+            self.trial_creds = get_trial_creds(env_name)
+        # Skip C4FoursightSMAHTStack.__init__ (which re-runs the regular network lookup);
+        # call the grandparent (BaseC4Stack) directly with the values we just resolved.
+        BaseC4Stack.__init__(self, description=description, name=name, tags=tags, account=account)
+
+    def package_foursight_stack(self, args):
+        if args.foursight_identity:
+            identity = args.foursight_identity
+            PRINT(f"Using custom IDENTITY (via --foursight-identity) for FoursightSRCE deployment: {identity}")
+        else:
+            env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+            identity = Names.foursight_application_configuration_secret(env_name)
+            PRINT(f"Using default Foursight IDENTITY for FoursightSRCE deployment: {identity}")
+        self.PackageDeploy.build_config_and_package(
+            args,
+            identity=identity,
+            stack_name=self.name.stack_name,
+            merge_template=args.merge_template,
+            output_file=args.output_file,
+            stage=args.stage,
+            trial=args.trial,
+            global_env_bucket=self.global_env_bucket,
+            security_ids=self.security_ids,
+            subnet_ids=self.subnet_ids,
+            trial_creds=self.trial_creds
+        )
+
+    class PackageDeploy(PackageDeploy_from_core):
+
+        CONFIG_BASE = dict(PackageDeploy_from_core.CONFIG_BASE, app_name='foursight-smaht')
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")

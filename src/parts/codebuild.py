@@ -9,6 +9,8 @@ from tibanna._version import __version__ as tibanna_version
 from dcicutils.cloudformation_utils import camelize
 from dcicutils.common import REGION  # note to deploy outside us-east-1 you will need to change this
 from .network import C4NetworkExports
+from .appconfig import C4AppConfigExports
+from .shared_secrets import C4SharedSecretsExports
 from ..part import C4Part
 from ..exports import C4Exports, exportify
 from ..base import ConfigManager, Settings, Secrets, APP_DEPLOYMENT, DeploymentParadigm, APP_KIND
@@ -52,7 +54,14 @@ class C4CodeBuild(C4Part):
     DEFAULT_PIPELINE_DEPLOY_BRANCH = 'v1.0.0'  # version release tag for cgap-pipeline-main
     DEFAULT_EXTERNAL_GITHUB_PIPELINE_BRANCH = 'v1.0.0'  # TODO: this should be verified
     DEFAULT_LOG_RETENTION_DAYS = 30  # CloudWatch retention for CodeBuild logs (override via codebuild.log_retention_days)
+    # DockerHub credentials (username + PAT) and Crowdstrike Falcon credentials now live in
+    # the appconfig stack and are imported here via cross-stack ImportValue. Keys below
+    # mirror the JSON shape of the appconfig-owned DockerHub secret.
+    DOCKERHUB_SECRET_USERNAME_KEY = 'username'
+    DOCKERHUB_SECRET_TOKEN_KEY = 'token'
     NETWORK_EXPORTS = C4NetworkExports()
+    APPCONFIG_EXPORTS = C4AppConfigExports()
+    SHARED_SECRETS_EXPORTS = C4SharedSecretsExports()
     EXPORTS = C4CodeBuildExports()
 
     def build_template(self, template: Template) -> Template:
@@ -60,6 +69,18 @@ class C4CodeBuild(C4Part):
         template.add_parameter(Parameter(
             self.NETWORK_EXPORTS.reference_param_key,
             Description='Name of network stack for network import value references',
+            Type='String',
+        ))
+        # AppConfig Stack Parameter — needed to ImportValue the Falcon secret ARNs.
+        template.add_parameter(Parameter(
+            self.APPCONFIG_EXPORTS.reference_param_key,
+            Description='Name of appconfig stack for Falcon secret ARN ImportValue references',
+            Type='String',
+        ))
+        # SharedSecrets Stack Parameter — ecosystem-scoped stack that owns DockerHub credentials.
+        template.add_parameter(Parameter(
+            self.SHARED_SECRETS_EXPORTS.reference_param_key,
+            Description='Name of shared-secrets stack for DockerHub credentials ImportValue reference',
             Type='String',
         ))
 
@@ -246,7 +267,8 @@ class C4CodeBuild(C4Part):
                 )],
             ),
             Policies=[
-                self.cb_vpc_policy()
+                self.cb_vpc_policy(),
+                self.cb_external_secrets_policy(),
             ],
             ManagedPolicyArns=[
                 'arn:aws:iam::aws:policy/AmazonS3FullAccess',
@@ -255,6 +277,55 @@ class C4CodeBuild(C4Part):
                 'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser',
             ],
         )
+
+    # Falcon secret ARNs (env-scoped, owned by appconfig).
+    _FALCON_EXPORTS = (
+        C4AppConfigExports.EXPORT_FALCON_CID,
+        C4AppConfigExports.EXPORT_FALCON_CLIENT_ID,
+        C4AppConfigExports.EXPORT_FALCON_CLIENT_SECRET,
+    )
+
+    def cb_external_secrets_policy(self) -> Policy:
+        """ Grants the CodeBuild role read access (GetSecretValue, DescribeSecret) on the
+            DockerHub secret (owned by the ecosystem-scoped shared_secrets stack) and the
+            Falcon secrets (owned by the per-env appconfig stack). Importing the ARNs via
+            cross-stack ImportValue keeps this stack from owning sensitive material. """
+        dockerhub_arn = self.SHARED_SECRETS_EXPORTS.import_value(
+            C4SharedSecretsExports.EXPORT_DOCKERHUB_CREDENTIALS)
+        falcon_arns = [self.APPCONFIG_EXPORTS.import_value(export) for export in self._FALCON_EXPORTS]
+        return Policy(
+            PolicyName='CBExternalSecretsAccess',
+            PolicyDocument={
+                'Version': '2012-10-17',
+                'Statement': [{
+                    'Effect': 'Allow',
+                    'Action': ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'],
+                    'Resource': [dockerhub_arn] + falcon_arns,
+                }],
+            },
+        )
+
+    def cb_external_secret_env_vars(self) -> list:
+        """ SECRETS_MANAGER-typed environment variables CodeBuild expands at build start.
+            Buildspec can reference $DOCKERHUB_USERNAME / $DOCKERHUB_TOKEN /
+            $FALCON_CID / $FALCON_CLIENT_ID / $FALCON_CLIENT_SECRET directly, e.g.:
+              echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+            The DockerHub secret is JSON-shaped so the env var Value is `<arn>:<json-key>`;
+            the Falcon secrets are plain strings so the Value is just `<arn>`. """
+        dockerhub_arn = self.SHARED_SECRETS_EXPORTS.import_value(
+            C4SharedSecretsExports.EXPORT_DOCKERHUB_CREDENTIALS)
+        return [
+            {'Name': 'DOCKERHUB_USERNAME', 'Type': 'SECRETS_MANAGER',
+             'Value': Join(':', [dockerhub_arn, self.DOCKERHUB_SECRET_USERNAME_KEY])},
+            {'Name': 'DOCKERHUB_TOKEN', 'Type': 'SECRETS_MANAGER',
+             'Value': Join(':', [dockerhub_arn, self.DOCKERHUB_SECRET_TOKEN_KEY])},
+            {'Name': 'FALCON_CID', 'Type': 'SECRETS_MANAGER',
+             'Value': self.APPCONFIG_EXPORTS.import_value(C4AppConfigExports.EXPORT_FALCON_CID)},
+            {'Name': 'FALCON_CLIENT_ID', 'Type': 'SECRETS_MANAGER',
+             'Value': self.APPCONFIG_EXPORTS.import_value(C4AppConfigExports.EXPORT_FALCON_CLIENT_ID)},
+            {'Name': 'FALCON_CLIENT_SECRET', 'Type': 'SECRETS_MANAGER',
+             'Value': self.APPCONFIG_EXPORTS.import_value(C4AppConfigExports.EXPORT_FALCON_CLIENT_SECRET)},
+        ]
 
     @staticmethod
     def cb_artifacts() -> Artifacts:
@@ -277,7 +348,7 @@ class C4CodeBuild(C4Part):
                  'Value': image_tag if image_tag else ConfigManager.get_config_setting(
                      Settings.ECS_IMAGE_TAG, default='latest'
                  )},
-            ],
+            ] + self.cb_external_secret_env_vars(),
             Type=self.BUILD_TYPE,
             PrivilegedMode=True
         )
@@ -294,7 +365,7 @@ class C4CodeBuild(C4Part):
                 {'Name': 'IMAGE_TAG',  # Use standard default version as of now, no locked version to resolve
                  'Value': self.DEFAULT_PIPELINE_DEPLOY_BRANCH},
                 {'Name': 'BUILD_PATH', 'Value': 'cgap-pipeline-base/dockerfiles/base'}  # default to base, override by caller
-            ],
+            ] + self.cb_external_secret_env_vars(),
             Type=self.BUILD_TYPE,
             PrivilegedMode=True
         )
@@ -311,7 +382,7 @@ class C4CodeBuild(C4Part):
                 {'Name': 'IMAGE_TAG',  # Use standard default version as of now, no locked version to resolve
                  'Value': self.DEFAULT_EXTERNAL_GITHUB_PIPELINE_BRANCH},
                 {'Name': 'BUILD_PATH', 'Value': 'xTea-germline/dockerfiles/xtea_germline'}
-            ],
+            ] + self.cb_external_secret_env_vars(),
             Type=self.BUILD_TYPE,
             PrivilegedMode=True
         )
@@ -325,7 +396,7 @@ class C4CodeBuild(C4Part):
                 {'Name': 'AWS_DEFAULT_REGION', 'Value': REGION},
                 {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
                 {'Name': 'IMAGE_TAG', 'Value': tibanna_version}  # default to locked version
-            ],
+            ] + self.cb_external_secret_env_vars(),
             Type=self.BUILD_TYPE,
             PrivilegedMode=True
         )

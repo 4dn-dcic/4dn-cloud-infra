@@ -71,6 +71,13 @@ class Names(StackNameBaseMixin):
             c4name = cls.appconfig_stack_name_object(env_name)
         return c4name.logical_id(camelize(env_name))
 
+    @classmethod
+    def foursight_application_configuration_secret(cls, env_name: str, c4name: C4Name = None) -> str:
+        """ Name of the parallel Foursight configuration secret produced by the appconfig stack
+            (see C4AppConfig.foursight_configuration_secret). Used as the IDENTITY for the
+            SRCE foursight deployment. """
+        return cls.application_configuration_secret(env_name, c4name=c4name) + 'Foursight'
+
     # dmichaels/2022-06-20: Factored out from C4Datastore.rds_secret_logical_id() in datastore.py.
     @classmethod
     def rds_secret_logical_id(cls, env_name: str, c4name: C4Name = None) -> str:

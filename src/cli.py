@@ -28,7 +28,7 @@ AWS_REGION = 'us-east-1'
 
 class C4Client:
     """ Client class for interacting with and provisioning CGAP Infrastructure as Code. """
-    ALPHA_LEAF_STACKS = ['iam', 'logging', 'network', 'appconfig',
+    ALPHA_LEAF_STACKS = ['iam', 'logging', 'network', 'appconfig', 'shared-secrets',
                          'srce-network', 'srce-network-db', 'srce-network-compute']  # stacks that only export values
     SRCE_STACKS = ['srce-datastore', 'srce-ecs', 'srce-ecs-blue-green',
                    'srce-sentieon', 'srce-redis']  # stacks that import from SRCE network stacks
@@ -41,7 +41,7 @@ class C4Client:
     SRCE_LOGGING_STACK_NAME = 'c4-logging-main-stack'
     # these stacks require CAPABILITY_IAM, just IAM for now
     REQUIRES_CAPABILITY_IAM = ['iam', 'foursight', 'foursight-development', 'foursight-production', 'codebuild',
-                               'foursight-smaht']
+                               'foursight-smaht', 'foursight-smaht-srce']
 
     @classmethod
     def _out_templates_mapping_for_mount(cls) -> str:
@@ -183,6 +183,8 @@ class C4Client:
         iam_stack_name, _ = c4_alpha_stack_metadata(name='iam')
         ecr_stack_name, _ = c4_alpha_stack_metadata(name='ecr')
         logging_stack_name, _ = c4_alpha_stack_metadata(name='logging')
+        appconfig_stack_name, _ = c4_alpha_stack_metadata(name='appconfig')
+        shared_secrets_stack_name, _ = c4_alpha_stack_metadata(name='shared-secrets')
         # TODO incorporate datastore output to ECS stack
         datastore_stack_name, _ = c4_alpha_stack_metadata(name='datastore')
         srce_network_stack_name, _ = c4_alpha_stack_metadata(name='srce-network')
@@ -211,6 +213,10 @@ class C4Client:
                                              value=cls.SRCE_IAM_STACK_NAME),
                 cls.build_parameter_override(param_name='LoggingStackNameParameter',
                                              value=cls.SRCE_LOGGING_STACK_NAME),
+                cls.build_parameter_override(param_name='AppConfigStackNameParameter',
+                                             value=appconfig_stack_name.stack_name),
+                cls.build_parameter_override(param_name='SharedSecretsStackNameParameter',
+                                             value=shared_secrets_stack_name.stack_name),
             ]
         else:
             parameter_flags = [
@@ -225,6 +231,10 @@ class C4Client:
                                              value=iam_stack_name.stack_name),
                 cls.build_parameter_override(param_name='LoggingStackNameParameter',
                                              value=logging_stack_name.stack_name),
+                cls.build_parameter_override(param_name='AppConfigStackNameParameter',
+                                             value=appconfig_stack_name.stack_name),
+                cls.build_parameter_override(param_name='SharedSecretsStackNameParameter',
+                                             value=shared_secrets_stack_name.stack_name),
                 # TODO: integrate so auto-populates into GAC
                 # cls.build_parameter_override(param_name='DatastoreStackNameParameter',
                 #                              value=datastore_stack_name.stack_name)
