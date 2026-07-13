@@ -1,0 +1,73 @@
+# Terraform static validation (plan §9). SEPARATE from the Python CI (main.yml) so it never blocks
+# it. NO `terraform plan/apply` runs here — it requires AWS credentials, and the repo's
+# no-auto-deploy posture (plan §0) keeps plan/apply human-run. Everything below is OFFLINE:
+# `terraform init -backend=false`, validate, fmt -check, tflint, checkov.
+name: Terraform
+
+on:
+  push:
+    branches: [master, wrr_scre]
+  pull_request:
+    paths:
+      - "terraform/**"
+      - ".github/workflows/terraform.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fmt-validate:
+    name: fmt + validate (offline)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: terraform fmt -check
+        run: terraform fmt -check -recursive terraform/
+
+      - name: terraform validate (every root AND every module, -backend=false)
+        run: |
+          set -e
+          fail=0
+          # Account roots + every module dir with a main.tf. Validating modules directly catches
+          # schema errors in modules not (yet) instantiated by any root (e.g. bootstrap, srce-network).
+          while IFS= read -r main; do
+            dir=$(dirname "$main")
+            echo "::group::validate $dir"
+            ( cd "$dir" && terraform init -backend=false -input=false >/dev/null && terraform validate -no-color ) || fail=1
+            echo "::endgroup::"
+          done < <(find terraform/accounts terraform/modules -name main.tf)
+          exit $fail
+
+  tflint:
+    name: tflint (non-blocking)
+    runs-on: ubuntu-22.04
+    continue-on-error: true # advisory only — do not block (plan §9)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.53.0
+      - name: tflint (recursive over modules)
+        run: |
+          for m in terraform/modules/*/; do
+            [ -f "$m/main.tf" ] || continue
+            echo "::group::tflint $m"; ( cd "$m" && tflint --no-color ) || true; echo "::endgroup::"
+          done
+
+  checkov:
+    name: checkov (non-blocking)
+    runs-on: ubuntu-22.04
+    continue-on-error: true # findings against the like-for-like port are EXPECTED (plan §8.1, §10.4)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install checkov
+      - name: checkov (soft-fail; triage HIGH/CRITICAL per plan §10.4)
+        run: checkov -d terraform/modules --framework terraform --compact --soft-fail

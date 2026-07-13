@@ -35,3 +35,25 @@ Foursight stacks are described here. These stacks use the chalice serverless web
 Chalice generates Cloudformation, uploads build artifacts to S3, and updates the AWS Cloudformation service with new
 lambda information, including the location of the new build artifact.
 
+
+--------------------------------------------------
+Terraform migration coexistence freeze (IMPORTANT)
+--------------------------------------------------
+
+A Troposphere -> Terraform migration is in progress (see ``terraform/README.md`` and
+``terraform/OWNERSHIP.md``). Two standing rules apply the moment migration begins (plan section 7.2):
+
+1. **Do not** ``--upload-change-set`` for any Part marked ``TF-owned`` or ``TF-importing`` in
+   ``terraform/OWNERSHIP.md``. Once ``terraform import`` has begun on a scope instance, a
+   CloudFormation change set applied against it silently invalidates Terraform's cached state.
+   Check the ownership ledger **before** touching either system.
+
+2. **No new Troposphere Parts.** From Phase 1 onward, new infrastructure lands as Terraform modules
+   under ``terraform/modules/``, not as new ``src/parts/*.py`` C4Parts. Without this rule the
+   migration chases a moving target. (PR #97's SRCE work is the last in-flight Troposphere addition;
+   it is reconciled with the migration before Phase 1 — its network parts are a natural candidate to
+   be born as Terraform ``network-data``-style modules.)
+
+The CloudFormation instructions above remain valid ONLY for Parts still marked CFN-owned in the
+ledger. Retire the ``cli provision`` path for a Part when its last CloudFormation stack is
+decommissioned (plan Phase 7), gated on the runtime-consumer checklist in ``terraform/README.md``.

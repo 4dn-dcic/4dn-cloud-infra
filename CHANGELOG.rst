@@ -6,6 +6,36 @@
 Change Log
 ----------
 
+4.6.0
+=====
+
+Troposphere → Terraform migration: initial Terraform codebase + tooling
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Delivers the reviewable Terraform layer for the Troposphere → Terraform migration (plan
+``tf-plan-rev-p8``), stacked on the SRCE work. **No AWS access** — everything validates offline
+(``terraform validate``/``fmt``, ``tflint``, ``checkov``). This is additive; the Troposphere
+codebase and ``cli provision`` path are unchanged and remain the operational owner.
+
+* New ``terraform/`` tree, scope-matched to the repo's ``SHARING`` mechanism (plan §1.1): scope-
+  agnostic ``modules/`` and per-account ``accounts/<account>/{shared,envs/<env>}`` roots for the
+  three real accounts, so no physical resource can be owned by two Terraform states.
+* Faithful modules ported from ``src/parts/*.py``: ``bootstrap``, ``network``, ``network-data``
+  (data sources over the 4dn legacy VPC), ``iam``, ``ecr``, ``logging``, ``shared-secrets``,
+  ``appconfig``, ``datastore`` (full env exemplar), ``redis``, and ``srce-network`` (PR #97's
+  externally-provided-IDs pattern, born in Terraform). ``ecs-app``, ``datastore-slim``,
+  ``codebuild``, and ``ec2-service`` are explicitly deferred (documented, no ``.tf``).
+* Safety gates preserved in code: ``prevent_destroy`` on log groups (logging + network flow-log),
+  ``ignore_changes = [secret_string]`` on the GAC/DockerHub secrets, RDS ``deletion_protection``,
+  and state-bucket hardening (SSE-KMS/versioning/TLS-only) in ``bootstrap``.
+* Offline import tooling (``terraform/tools/import_from_cfn.py`` + fixtures) mapping CFN logical IDs
+  to Terraform addresses; ownership ledger (``terraform/OWNERSHIP.md``); per-account
+  ``DISCOVERY.md`` scaffolds; ``terraform/README.md`` runbook + safety-gate reference.
+* CI: new non-blocking ``Terraform`` GitHub Actions workflow (fmt/validate/tflint/checkov),
+  separate from the Python CI. New ``src/tests/test_terraform_structure.py`` enforces the SHARING
+  invariant and safety gates under ``make test``.
+* Coexistence freeze note added to ``docs/source/making_stack_changes.rst`` (plan §7.2).
+
 4.5.0
 =====
 
