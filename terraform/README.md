@@ -70,9 +70,19 @@ documented deferral" — we did the former for the network IDs, the latter for t
   group in `modules/network` (faithful to `DeletionPolicy=Retain`; plan §6.2). `prevent_destroy`
   errors out of any destroying plan — a workflow change vs CFN's "orphan and keep alive"; flagged
   to ops.
-- **GAC secret**: `lifecycle { ignore_changes = [secret_string] }` in `modules/appconfig` and
-  `modules/shared-secrets` — Terraform owns the secret's existence, never its live content
-  (plan §5.3). The ES value is a placeholder at creation, filled by `setup-remaining-secrets`.
+- **Secret content — container vs. version (HIGH)**: `lifecycle { ignore_changes = [secret_string] }`
+  in `modules/appconfig`, `modules/shared-secrets`, and the RDS master secret in `modules/datastore`
+  — Terraform owns each secret's *existence*, never its live content (plan §5.3). **This only
+  protects updates, not creates.** `aws_secretsmanager_secret_version` is a separate Terraform
+  resource with no CFN LogicalResourceId of its own, so `import_from_cfn.py` cannot discover it from
+  a stack-resources JSON — it instead always emits an `# ACTION-REQUIRED` block after every secret
+  container import telling you to adopt the `*_version` resource too (metadata-only version-id
+  lookup + the import command). **Skipping that adoption means the first `terraform apply` after
+  import creates a fresh version and overwrites the live secret** (the GAC content, the DockerHub
+  PAT, or the RDS master password). Verify with `terraform plan -detailed-exitcode` per step 3 below
+  — for `datastore`, `+ random_password.rds` (a local-only value with no AWS resource, inert once the
+  secret version is adopted and ignored) is the *only* permitted line; any secret/RDS diff beyond
+  that is a stop-and-fix signal, not something to apply through.
 - **RDS**: `deletion_protection = true`, `storage_encrypted = true` (faithful to datastore.py).
   Any plan that would **replace** the RDS instance or an OpenSearch domain is an auto-abort — the
   migration's true point of no return (plan §7.4).
@@ -107,10 +117,46 @@ the Python CI).
    Physical stack/resource names come from discovery, **never** derived from config (plan §1.1).
 2. **Import (scripted, imperative)**: `terraform/tools/import_from_cfn.py` reads a saved
    `describe-stack-resources` JSON and emits `terraform import` commands mapping CFN logical IDs to
-   the Terraform addresses used in these modules. Runs **offline**:
+   the Terraform addresses used in these modules. Covers every implemented module that requires an
+   import — `network`, `iam`, `logging`, `ecr`, `shared-secrets`, `appconfig`, `datastore`, `redis`
+   (`--list` prints the full set); `bootstrap` is fresh local state and `network-data`/
+   `srce-network` are data-source-only wrappers, so none of the three are ever imported. Runs
+   **offline**:
    ```bash
    python3 terraform/tools/import_from_cfn.py --module network \
        --module-address module.network --stack-file terraform/tools/fixtures/network.json
+   ```
+   Any module whose CFN resources include a `AWS::SecretsManager::Secret` (`datastore`,
+   `shared-secrets`, `appconfig`) prints an `# ACTION-REQUIRED` secret-version adoption block after
+   each container import — see the safety-gate bullet above; do not apply before following it.
+
+   **Importing IAM inline policies**: `iam.py`'s inline role/user `Policies=[...]` are embedded in
+   the CFN Role/User resource, not separate LogicalResourceIds, so the tool has nothing to read them
+   from. Their Terraform import ID is always `<role-or-user-name>:<policy-name>` (no AWS lookup
+   needed — the role/user name comes from the import above, the policy name is a literal in
+   `modules/iam/main.tf`):
+   ```
+   terraform import 'module.iam.aws_iam_role_policy.ecs_secret_manager' '<ecs-role-name>:ECSSecretManagerPolicy'
+   terraform import 'module.iam.aws_iam_role_policy.ecs_management'     '<ecs-role-name>:ECSManagementPolicy'
+   terraform import 'module.iam.aws_iam_role_policy.ecs_es'             '<ecs-role-name>:ECSESAccessPolicy'
+   terraform import 'module.iam.aws_iam_role_policy.ecs_sqs'            '<ecs-role-name>:ECSSQSAccessPolicy'
+   terraform import 'module.iam.aws_iam_role_policy.ecs_logging'        '<ecs-role-name>:ECSLoggingPolicy'
+   terraform import 'module.iam.aws_iam_role_policy.ecs_ecr'            '<ecs-role-name>:ECSECRPolicy'
+   terraform import 'module.iam.aws_iam_role_policy.ecs_cfn'            '<ecs-role-name>:ECSCfnPolicy'
+   terraform import 'module.iam.aws_iam_role_policy.ecs_s3'             '<ecs-role-name>:ECSS3Policy'
+   terraform import 'module.iam.aws_iam_role_policy.ecs_web_service'    '<ecs-role-name>:ECSWebServicePolicy'
+   terraform import 'module.iam.aws_iam_role_policy.ecs_kms'            '<ecs-role-name>:ECSKMSPolicy'
+   terraform import 'module.iam.aws_iam_role_policy.autoscaling'        '<autoscaling-role-name>:ECSPortalAutoscalingPolicy'
+   terraform import 'module.iam.aws_iam_role_policy.flowlog'            '<flowlog-role-name>:ECSCWLoggingAccess'
+   terraform import 'module.iam.aws_iam_role_policy.dev_management'    '<dev-role-name>:ECSManagementPolicy'
+   terraform import 'module.iam.aws_iam_role_policy.dev_es'            '<dev-role-name>:ECSESAccessPolicy'
+   terraform import 'module.iam.aws_iam_role_policy.dev_s3'            '<dev-role-name>:ECSS3Policy'
+   terraform import 'module.iam.aws_iam_role_policy.dev_kms'           '<dev-role-name>:ECSKMSPolicy'
+   terraform import 'module.iam.aws_iam_role_policy_attachment.dev_managed["cloudwatch_ro"]' '<dev-role-name>/arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess'
+   # ...repeat dev_managed for the other 9 AWS-managed policy ARNs in modules/iam/main.tf
+   terraform import 'module.iam.aws_iam_user_policy.s3_federator_s3'  '<s3-federator-user-name>:ECSS3Policy'
+   terraform import 'module.iam.aws_iam_user_policy.s3_federator_sts' '<s3-federator-user-name>:ECSSTSPolicyforS3Access'
+   terraform import 'module.iam.aws_iam_user_policy.s3_federator_kms' '<s3-federator-user-name>:ECSKMSPolicy'
    ```
 3. **No-op-plan verification** (plan §4.4) — after every import, before proceeding:
    ```bash

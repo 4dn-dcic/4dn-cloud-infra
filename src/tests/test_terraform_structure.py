@@ -6,6 +6,7 @@ Troposphere codebase, so they add no dependencies and run under `make test` unch
 the SHARING invariant (plan §1.1): a module's Terraform root must match its SHARING scope, so no
 physical resource can ever be owned by two Terraform states.
 """
+import importlib.util
 import os
 import re
 
@@ -14,6 +15,23 @@ import pytest
 HERE = os.path.dirname(__file__)
 REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 TF_ROOT = os.path.join(REPO_ROOT, "terraform")
+
+# Modules whose CFN inventory includes a secretsmanager secret (container + *_version pair) and
+# so must carry the *_version import-safety adoption (see import_from_cfn.py's SAFETY docstring).
+SECRET_BEARING_MODULES = {"datastore", "shared-secrets", "appconfig"}
+
+# Implemented modules that are NEVER imported from CFN: bootstrap is fresh local state;
+# network-data/srce-network are data-source-only wrappers over externally-owned VPCs.
+NEVER_IMPORTED_MODULES = {"bootstrap", "network-data", "srce-network"}
+
+
+def _load_import_tool():
+    """Load terraform/tools/import_from_cfn.py as a module (it's a standalone script, not a package)."""
+    path = os.path.join(TF_ROOT, "tools", "import_from_cfn.py")
+    spec = importlib.util.spec_from_file_location("import_from_cfn", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 # SHARING scope of each module (from src/parts/*.py; see plan §1.1 / §2.1).
 ECOSYSTEM_MODULES = {"network", "network-data", "iam", "ecr", "logging", "shared-secrets", "srce-network"}
@@ -151,3 +169,78 @@ def test_state_bucket_hardening():
     assert "aws_s3_bucket_public_access_block" in text
     assert "aws:kms" in text
     assert "aws:SecureTransport" in text
+
+
+def test_every_secret_version_has_ignore_changes():
+    """HIGH safety gate: every aws_secretsmanager_secret_version in every secret-bearing module
+    must carry ignore_changes = [secret_string] — Terraform must never manage live secret content,
+    including the RDS master password in modules/datastore (plan §5.3, §7.4, §8.3)."""
+    for mod in sorted(SECRET_BEARING_MODULES):
+        with open(os.path.join(TF_ROOT, "modules", mod, "main.tf")) as f:
+            code_lines = [line for line in f if not line.lstrip().startswith("#")]
+        text = "".join(code_lines)
+        version_count = text.count('resource "aws_secretsmanager_secret_version"')
+        ignore_count = text.count("ignore_changes = [secret_string]")
+        assert version_count > 0, f"{mod} was expected to manage a secretsmanager secret version"
+        assert ignore_count == version_count, (
+            f"{mod}: {version_count} aws_secretsmanager_secret_version resource(s) but only "
+            f"{ignore_count} carry ignore_changes = [secret_string] — every one must, or Terraform "
+            f"can overwrite live secret content on the next apply"
+        )
+
+
+def test_import_tool_covers_every_module_requiring_import():
+    """MEDIUM safety gate: import_from_cfn.py must cover every implemented module that will
+    require a CFN import, not just the original network/datastore examples."""
+    tool = _load_import_tool()
+    requires_import = IMPLEMENTED_MODULES - NEVER_IMPORTED_MODULES
+    missing = requires_import - set(tool.SUPPORTED)
+    assert not missing, (
+        f"import_from_cfn.py has no coverage for implemented, import-requiring module(s): "
+        f"{sorted(missing)} — add a rule function and register it in SUPPORTED/build_commands"
+    )
+    # And nothing in SUPPORTED claims coverage for a module that's actually never imported.
+    stale = set(tool.SUPPORTED) & NEVER_IMPORTED_MODULES
+    assert not stale, f"import_from_cfn.py lists never-imported module(s) as supported: {sorted(stale)}"
+
+
+def test_import_tool_emits_secret_version_adoption_warning():
+    """HIGH safety gate, exercised end-to-end: for every secret-bearing module, running the import
+    tool against a AWS::SecretsManager::Secret resource must ALWAYS emit the ACTION-REQUIRED
+    *_version adoption block — silently importing only the container is the exact gap that lets
+    `terraform apply` overwrite a live secret (including the RDS password) right after import."""
+    tool = _load_import_tool()
+    fixture_logical_ids = {
+        "datastore": "C4DatastoreSmahtWolfRDSSecret",
+        "shared-secrets": "DockerHubSecret",
+        "appconfig": "C4AppConfigSmahtWolf",
+    }
+    for mod in sorted(SECRET_BEARING_MODULES):
+        resources = [{
+            "LogicalResourceId": fixture_logical_ids[mod],
+            "PhysicalResourceId": "arn:aws:secretsmanager:us-east-1:111111111111:secret:test-abc123",
+            "ResourceType": "AWS::SecretsManager::Secret",
+        }]
+        lines = tool.build_commands(mod, f"module.{mod.replace('-', '_')}", resources)
+        output = "\n".join(lines)
+        assert "aws_secretsmanager_secret_version" in output, (
+            f"{mod}: import tool did not resolve the secret container for its own fixture"
+        )
+        assert "ACTION-REQUIRED" in output, (
+            f"{mod}: import tool did not emit the mandatory *_version adoption warning"
+        )
+        assert "list-secret-version-ids" in output
+
+
+def test_datastore_import_fixture_still_triggers_secret_version_warning():
+    """Regression pin: the shipped datastore.json fixture (used in README examples) must keep
+    surfacing the RDS secret-version adoption warning."""
+    tool = _load_import_tool()
+    fixture = os.path.join(TF_ROOT, "tools", "fixtures", "datastore.json")
+    import json
+    with open(fixture) as f:
+        resources = json.load(f)["StackResources"]
+    lines = tool.build_commands("datastore", "module.datastore", resources)
+    output = "\n".join(lines)
+    assert "aws_secretsmanager_secret_version.rds" in output
+    assert "ACTION-REQUIRED" in output

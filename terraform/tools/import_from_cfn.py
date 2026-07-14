@@ -28,9 +28,25 @@ Usage:
     # list supported modules and their mapping rules:
     python3 import_from_cfn.py --list
 
-Supported modules ship faithful mappings for the modules implemented in this PR. Resources with no
-rule are emitted as commented "# TODO(no-rule)" lines with their type — never silently dropped
-(plan "no silent caps").
+Supported modules ship faithful mappings for every implemented module that requires an import
+(all except `bootstrap` — fresh local state, never imported from CFN — and `network-data` /
+`srce-network`, which are data-source-only wrappers over externally-owned VPCs and are never
+imported either). Resources with no rule are emitted as commented "# TODO(no-rule)" lines with
+their type — never silently dropped (plan "no silent caps").
+
+SAFETY (HIGH — plan §5.3/§7.4/§8.3): a `AWS::SecretsManager::Secret` CFN resource maps to TWO
+Terraform resources — the container (`aws_secretsmanager_secret`, imported here as normal) and its
+`aws_secretsmanager_secret_version`, which is NOT a separate CFN resource and so is NEVER present in
+a `describe-stack-resources` JSON. `lifecycle { ignore_changes = [secret_string] }` on that version
+resource only suppresses diffs on an *update* — it does nothing on a *create*. If the version
+resource is not also adopted into state before the first `terraform apply`, that apply CREATES the
+version resource fresh, which calls `PutSecretValue` against the already-existing secret and
+OVERWRITES the live secret content (including the RDS master password in `modules/datastore`) with
+whatever placeholder/generated value is in the Terraform config. This tool therefore always emits an
+`# ACTION-REQUIRED` adoption block immediately after every secret-container import line, with the
+exact (metadata-only, never reads the secret value) CLI lookup for the current version id and the
+`terraform import` command to adopt it. Do not skip it, and do not remove/weaken it without also
+fixing the underlying create-vs-update gap it documents.
 """
 import argparse
 import json
@@ -154,6 +170,117 @@ def datastore_rule(prefix, logical_id, res_type):
     return _datastore_address(prefix, logical_id, res_type)
 
 
+def _iam_address(prefix, logical_id, res_type):
+    """Faithful port of src/parts/iam.py. Role/InstanceProfile/User are separate CFN resources.
+
+    NOTE: the inline Policies attached to each Role/User (iam.py's Policies=[...] kwarg) are NOT
+    separate CFN LogicalResourceIds — CFN embeds them inside the Role/User resource, so they never
+    appear in a describe-stack-resources JSON and this tool cannot emit import lines for them from
+    that input. Their Terraform import IDs are fully static (role-or-user-name:policy-name) — see
+    terraform/README.md "Importing IAM inline policies" for the literal command list.
+    """
+    lid = logical_id.lower()
+    if res_type == "AWS::IAM::Role":
+        if "ecsrole" in lid:
+            return f"{prefix}.aws_iam_role.ecs"
+        if "devrole" in lid:
+            return f"{prefix}.aws_iam_role.dev"
+        if "autoscalingrole" in lid:
+            return f"{prefix}.aws_iam_role.autoscaling"
+        if "flowlogrole" in lid:
+            return f"{prefix}.aws_iam_role.flowlog"
+        return None
+    if res_type == "AWS::IAM::InstanceProfile":
+        return f"{prefix}.aws_iam_instance_profile.ecs"
+    if res_type == "AWS::IAM::User":
+        return f"{prefix}.aws_iam_user.s3_federator"
+    return None
+
+
+def _logging_address(prefix, logical_id, res_type):
+    if res_type != "AWS::Logs::LogGroup":
+        return None
+    lid = logical_id.lower()
+    blue = "blue" in lid
+    green = "green" in lid
+    if "docker" in lid:
+        key = "docker_blue" if blue else "docker_green" if green else "docker"
+    elif "flowlog" in lid or "vpcflow" in lid:
+        key = "vpc_flow_blue" if blue else "vpc_flow_green" if green else "vpc_flow"
+    else:
+        return None
+    return f'{prefix}.aws_cloudwatch_log_group.this["{key}"]'
+
+
+def _ecr_address(prefix, res_type, physical):
+    # The repository NAME is both the CFN PhysicalResourceId and the module's for_each key
+    # (terraform/modules/ecr/main.tf) — no logical-id parsing needed.
+    if res_type != "AWS::ECR::Repository":
+        return None
+    return f'{prefix}.aws_ecr_repository.this["{physical}"]' if physical else None
+
+
+def _redis_address(prefix, res_type):
+    if res_type == "AWS::ElastiCache::SubnetGroup":
+        return f"{prefix}.aws_elasticache_subnet_group.this"
+    if res_type == "AWS::ElastiCache::ReplicationGroup":
+        return f"{prefix}.aws_elasticache_replication_group.this"
+    return None
+
+
+def _shared_secrets_address(res_type, prefix):
+    if res_type == "AWS::SecretsManager::Secret":
+        return f"{prefix}.aws_secretsmanager_secret.dockerhub"
+    return None
+
+
+def _appconfig_address(prefix, logical_id, res_type):
+    if res_type != "AWS::SecretsManager::Secret":
+        return None
+    lid = logical_id.lower()
+    if "foursight" in lid:
+        return f"{prefix}.aws_secretsmanager_secret.foursight"
+    if "falconclientsecret" in lid:
+        return f'{prefix}.aws_secretsmanager_secret.falcon["client_secret"]'
+    if "falconclientid" in lid:
+        return f'{prefix}.aws_secretsmanager_secret.falcon["client_id"]'
+    if "falconcid" in lid:
+        return f'{prefix}.aws_secretsmanager_secret.falcon["cid"]'
+    if "blue" in lid:
+        return f'{prefix}.aws_secretsmanager_secret.gac["Blue"]'
+    if "green" in lid:
+        return f'{prefix}.aws_secretsmanager_secret.gac["Green"]'
+    return f'{prefix}.aws_secretsmanager_secret.gac["standalone"]'
+
+
+def _secret_version_action_required(secret_address, secret_physical_id):
+    """The mandatory adoption block for a secret container's *_version sibling (see module
+    docstring SAFETY note — create-vs-update ignore_changes gap)."""
+    version_address = secret_address.replace(
+        "aws_secretsmanager_secret.", "aws_secretsmanager_secret_version.", 1
+    )
+    return [
+        f"# ACTION-REQUIRED ({version_address}): importing the container above is NOT enough.",
+        "#   ignore_changes = [secret_string] only suppresses UPDATE diffs; if this *_version",
+        "#   resource is missing from state, the next `terraform apply` CREATES it fresh and",
+        "#   OVERWRITES the live secret content. Look up the current version id first (metadata",
+        "#   only — this does NOT read/print the secret value):",
+        f"#     aws secretsmanager list-secret-version-ids --secret-id '{secret_physical_id}' \\",
+        "#       --query \"Versions[?contains(VersionStages, 'AWSCURRENT')].VersionId\" --output text",
+        f"#   Then adopt it: terraform import '{version_address}' '{secret_physical_id}|<VERSION_ID>'",
+    ]
+
+
+def _extra_lines(rtype, addr, physical):
+    """Follow-up lines for a resolved primary import (safety adoptions, sibling resources)."""
+    if rtype == "AWS::SecretsManager::Secret":
+        return _secret_version_action_required(addr, physical)
+    if rtype == "AWS::ECR::Repository":
+        policy_addr = addr.replace("aws_ecr_repository.", "aws_ecr_repository_policy.", 1)
+        return [f"terraform import '{policy_addr}' '{physical}'"]
+    return []
+
+
 def build_commands(module, prefix, resources):
     lines = []
     for r in resources:
@@ -167,10 +294,23 @@ def build_commands(module, prefix, resources):
                 addr = fn(prefix, logical)
         elif module == "datastore":
             addr = datastore_rule(prefix, logical, rtype)
+        elif module == "iam":
+            addr = _iam_address(prefix, logical, rtype)
+        elif module == "logging":
+            addr = _logging_address(prefix, logical, rtype)
+        elif module == "ecr":
+            addr = _ecr_address(prefix, rtype, physical)
+        elif module == "redis":
+            addr = _redis_address(prefix, rtype)
+        elif module == "shared-secrets":
+            addr = _shared_secrets_address(rtype, prefix)
+        elif module == "appconfig":
+            addr = _appconfig_address(prefix, logical, rtype)
         else:
             addr = None
         if addr and physical:
             lines.append(f"terraform import '{addr}' '{physical}'")
+            lines.extend(_extra_lines(rtype, addr, physical))
         else:
             reason = "no-rule" if not addr else "no-physical-id"
             lines.append(f"# TODO({reason}): {rtype}  logical={logical}  physical={physical!r}")
@@ -180,6 +320,13 @@ def build_commands(module, prefix, resources):
 SUPPORTED = {
     "network": "VPC/IGW/NAT/EIP/subnets/route-tables/SGs/endpoints/flow-log group+role",
     "datastore": "RDS/param-group/subnet-group/secret/KMS/OpenSearch/SQS/S3 buckets+policies",
+    "iam": "ECS/dev/autoscaling/flowlog roles + instance profile + S3-federator user "
+           "(inline policies: static import, see README)",
+    "logging": "docker + vpc-flow log groups (standalone and blue/green)",
+    "ecr": "repositories + repository policies",
+    "redis": "elasticache subnet group + replication group",
+    "shared-secrets": "dockerhub secret container (+ mandatory *_version adoption)",
+    "appconfig": "gac/foursight/falcon secret containers (+ mandatory *_version adoption)",
 }
 
 
