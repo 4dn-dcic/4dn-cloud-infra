@@ -22,6 +22,7 @@ from src.parts.ecs import C4ECSApplication
 from src.parts.fourfront_ecs import FourfrontECSApplication
 from src.parts.ecs_blue_green import ECSBlueGreen
 from src.parts.srce_ecs import C4SRCEECSApplication
+from src.parts.srce_ecs_blue_green import SRCEECSBlueGreen
 from src.parts.logging import C4LoggingExports
 from src.constants import Settings
 from src.c4name import C4Name
@@ -182,10 +183,13 @@ def test_entrypoint_accepts_comma_separated_string():
     assert app['EntryPoint'] == ['/a/loader', '--flag', '/entrypoint.sh']
 
 
-def test_blue_green_sidecar_uses_per_color_log_group_and_prefix():
+@pytest.mark.parametrize('cls', [ECSBlueGreen, SRCEECSBlueGreen],
+                         ids=['blue-green', 'srce-blue-green'])
+def test_blue_green_sidecar_uses_per_color_log_group_and_prefix(cls):
     """ Blue/green tasks must route their falcon sidecar to the SAME per-color log group as the app
-        container, with a color-distinct stream prefix, so blue and green streams do not collide. """
-    part = _make_part(ECSBlueGreen)
+        container, with a color-distinct stream prefix, so blue and green streams do not collide.
+        Covers both the standard and SRCE blue/green variants (SRCE is the branch this work targets). """
+    part = _make_part(cls)
     with mock.patch.object(ecs_mod.ConfigManager, 'get_config_setting', side_effect=_config(True)):
         blue = part.ecs_portal_task(image_tag='blue', log_group_export=C4LoggingExports.APPLICATION_LOG_GROUP_BLUE,
                                     identity='C4AppConfigBlue')
