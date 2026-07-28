@@ -1,3 +1,4 @@
+import json
 from dcicutils.cloudformation_utils import make_required_key_for_ecs_application_url, camelize
 from troposphere import (
     Parameter,
@@ -24,6 +25,13 @@ from troposphere.ecs import (
     Environment,
     CapacityProviderStrategyItem,
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
+    # CrowdStrike Falcon sidecar support (see _crowdstrike_task_kwargs). NOTE: troposphere.ecs.Secret
+    # is distinct from troposphere.secretsmanager.Secret used elsewhere -- kept unaliased here.
+    Volume,
+    Host,
+    MountPoint,
+    ContainerDependency,
+    Secret,
 )
 from ..base import ConfigManager
 from ..constants import Settings
@@ -33,6 +41,7 @@ from .network import C4NetworkExports, C4Network
 from .ecr import C4ECRExports
 from .iam import C4IAMExports
 from .logging import C4LoggingExports
+from .appconfig import C4AppConfigExports
 
 
 class C4ECSApplicationTypes:
@@ -84,6 +93,25 @@ class C4ECSApplication(C4Part):
     ECR_EXPORTS = C4ECRExports()
     IAM_EXPORTS = C4IAMExports()
     LOGGING_EXPORTS = C4LoggingExports()
+    APPCONFIG_EXPORTS = C4AppConfigExports()  # for the Falcon CID secret ARN (CrowdStrike)
+
+    # --- CrowdStrike Falcon container sensor (sidecar) --------------------------------------------
+    # Physical names/values demonstrated by the vendor task definition; kept as symbols so the
+    # sidecar wiring stays consistent across every task variant (and matches the captain's example).
+    CROWDSTRIKE_VOLUME_NAME = 'crowdstrike-falcon-volume'
+    FALCON_SIDECAR_CONTAINER_NAME = 'falcon-container'
+    # Vendor env var name the falcon sensor reads the CID from; injected from Secrets Manager.
+    FALCON_CID_SECRET_ENV_NAME = 'FALCONCTL_OPT_FALCONCTL_CID'
+    FALCON_BACKEND_ENV_NAME = 'FALCONCTL_OPT_BACKEND'
+    DEFAULT_CROWDSTRIKE_MOUNT_PATH = '/tmp/CrowdStrike'
+    DEFAULT_CROWDSTRIKE_BACKEND = 'bpf'
+    DEFAULT_FALCON_SENSOR_IMAGE_TAG = 'latest'
+    # The application container depends on the sidecar finishing its volume-prep and exiting 0.
+    # SUCCESS is correct for a prepare-and-exit init sidecar (the vendor image is non-essential and
+    # runs to completion). If the sensor image ever runs persistently this must revisit COMPLETE,
+    # else wrapped tasks would deadlock in PENDING -- see docs/source/crowdstrike.rst.
+    FALCON_SIDECAR_DEPENDS_CONDITION = 'SUCCESS'
+
     AMI = 'ami-0be13a99cd970f6a9'  # latest amazon linux 2 ECS optimized
     LB_NAME = 'AppLB'
     IMAGE_TAG = ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, 'latest')
@@ -118,6 +146,14 @@ class C4ECSApplication(C4Part):
         template.add_parameter(Parameter(
             self.LOGGING_EXPORTS.reference_param_key,
             Description='Name of Logging stack for referencing the log group',
+            Type='String',
+        ))
+        # Adds AppConfig Stack Parameter -- used to ImportValue the Falcon CID secret ARN for the
+        # CrowdStrike sidecar (unused when crowdstrike.enabled is false). cli.py already supplies this
+        # override for ECS stacks; declaring it here keeps template and provision inputs in sync.
+        template.add_parameter(Parameter(
+            self.APPCONFIG_EXPORTS.reference_param_key,
+            Description='Name of appconfig stack for the CrowdStrike Falcon CID secret ARN ImportValue',
             Type='String',
         ))
 
@@ -176,6 +212,123 @@ class C4ECSApplication(C4Part):
                 'awslogs-stream-prefix': stream_prefix,
             }
         )
+
+    # --- CrowdStrike Falcon container sensor (sidecar) helpers -----------------------------------
+    #
+    # These are shared by every ECS task variant (portal/indexer/ingester/deployment, single-cluster
+    # and blue/green, CGAP/Fourfront/SMaHT, and -- via inheritance -- the SRCE variants). They are a
+    # no-op unless crowdstrike.enabled is true, so existing deployments are byte-identical.
+    #
+    # The demonstrated contract (from the captain's vendor task definition):
+    #   * a non-essential 'falcon-container' sidecar prepares a shared 'crowdstrike-falcon-volume'
+    #     (task-level Host volume) and receives the Falcon CID as a Secrets-Manager-injected env var;
+    #   * the application container mounts that volume read-only, is wrapped by the CrowdStrike loader
+    #     entrypoint, and dependsOn the sidecar completing successfully before it starts.
+
+    def crowdstrike_enabled(self) -> bool:
+        """ Whether the CrowdStrike Falcon sidecar should be attached to ECS tasks (crowdstrike.enabled). """
+        return bool(ConfigManager.get_config_setting(Settings.CROWDSTRIKE_ENABLED, default=False))
+
+    def crowdstrike_mount_path(self) -> str:
+        return ConfigManager.get_config_setting(Settings.CROWDSTRIKE_MOUNT_PATH,
+                                                self.DEFAULT_CROWDSTRIKE_MOUNT_PATH)
+
+    @staticmethod
+    def _parse_crowdstrike_entrypoint(value):
+        """ Parse the loader entrypoint from a config value that may be a real list, a JSON/py-repr
+            array string, or a comma-separated string (config values are stringified for the
+            os.environ round-trip -- see the CLN-10 note in src/base.py). Returns a list of args. """
+        if isinstance(value, list):
+            return [str(s).strip() for s in value if str(s).strip()]
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped.startswith('['):
+                try:
+                    return [str(s).strip() for s in json.loads(stripped)]
+                except json.JSONDecodeError:
+                    inner = stripped[1:-1]
+                    return [s.strip().strip("'\"") for s in inner.split(',') if s.strip()]
+            return [s.strip() for s in stripped.split(',') if s.strip()]
+        return []
+
+    def crowdstrike_entrypoint(self) -> list:
+        """ The CrowdStrike loader entrypoint the application container is wrapped with. Required when
+            crowdstrike.enabled is true (no default): a wrong/empty entrypoint would emit a task
+            definition that validates but never runs the application, so we fail loudly at build time. """
+        entrypoint = self._parse_crowdstrike_entrypoint(
+            ConfigManager.get_config_setting(Settings.CROWDSTRIKE_ENTRYPOINT, default=None))
+        if not entrypoint:
+            raise RuntimeError(
+                f"crowdstrike.enabled is true but {Settings.CROWDSTRIKE_ENTRYPOINT!r} is not set. Supply the "
+                f"CrowdStrike loader entrypoint (JSON list or comma-separated) that wraps the application "
+                f"container -- this is a vendor/image-specific value; see docs/source/crowdstrike.rst.")
+        return entrypoint
+
+    def _crowdstrike_volume(self) -> Volume:
+        """ Task-level shared volume the sidecar populates and the app mounts read-only. Host volume
+            with an empty host (ephemeral, task-scoped) exactly as in the vendor example. """
+        return Volume(Name=self.CROWDSTRIKE_VOLUME_NAME, Host=Host())
+
+    def _falcon_sidecar_container(self, stream_prefix, log_group_export=None) -> ContainerDefinition:
+        """ The non-essential Falcon sensor sidecar. Pulls the falcon-sensor image from ECR, mounts
+            the shared volume read-write to prepare it, gets the Falcon CID injected from Secrets
+            Manager (via the appconfig-owned export ARN), and logs like every other container. """
+        sensor_tag = ConfigManager.get_config_setting(
+            Settings.CROWDSTRIKE_SENSOR_IMAGE_TAG, self.DEFAULT_FALCON_SENSOR_IMAGE_TAG)
+        backend = ConfigManager.get_config_setting(Settings.CROWDSTRIKE_BACKEND, self.DEFAULT_CROWDSTRIKE_BACKEND)
+        return ContainerDefinition(
+            Name=self.FALCON_SIDECAR_CONTAINER_NAME,
+            Essential=False,
+            Image=Join('', [
+                self.ECR_EXPORTS.import_value(C4ECRExports.FALCON_SENSOR_URL),
+                ':',
+                sensor_tag,
+            ]),
+            Environment=[Environment(Name=self.FALCON_BACKEND_ENV_NAME, Value=backend)],
+            Secrets=[Secret(
+                Name=self.FALCON_CID_SECRET_ENV_NAME,
+                ValueFrom=self.APPCONFIG_EXPORTS.import_value(C4AppConfigExports.EXPORT_FALCON_CID),
+            )],
+            MountPoints=[MountPoint(
+                SourceVolume=self.CROWDSTRIKE_VOLUME_NAME,
+                ContainerPath=self.crowdstrike_mount_path(),
+                ReadOnly=False,  # the sidecar writes the sensor rootfs here
+            )],
+            LogConfiguration=self._awslogs_config(stream_prefix, log_group_export),
+        )
+
+    def _crowdstrike_task_kwargs(self, app_container: ContainerDefinition,
+                                 sidecar_stream_prefix, log_group_export=None) -> dict:
+        """ Return the TaskDefinition ContainerDefinitions/Volumes kwargs for an application task,
+            wrapping it with the CrowdStrike sidecar when enabled and otherwise leaving it exactly
+            as before (single container, no Volumes key). Mutates app_container in place to add the
+            read-only mount, loader entrypoint, and dependsOn ordering.
+
+            :param app_container: the primary application ContainerDefinition (already built)
+            :param sidecar_stream_prefix: awslogs stream prefix for the sidecar's own log stream
+            :param log_group_export: log-group export to use (threaded through for blue/green)
+        """
+        if not self.crowdstrike_enabled():
+            return {'ContainerDefinitions': [app_container]}
+        mount_path = self.crowdstrike_mount_path()
+        existing_mounts = getattr(app_container, 'MountPoints', None) or []
+        app_container.MountPoints = existing_mounts + [MountPoint(
+            SourceVolume=self.CROWDSTRIKE_VOLUME_NAME,
+            ContainerPath=mount_path,
+            ReadOnly=True,  # the application only reads the sensor rootfs
+        )]
+        app_container.EntryPoint = self.crowdstrike_entrypoint()
+        app_container.DependsOn = [ContainerDependency(
+            ContainerName=self.FALCON_SIDECAR_CONTAINER_NAME,
+            Condition=self.FALCON_SIDECAR_DEPENDS_CONDITION,
+        )]
+        return {
+            'ContainerDefinitions': [
+                app_container,
+                self._falcon_sidecar_container(sidecar_stream_prefix, log_group_export),
+            ],
+            'Volumes': [self._crowdstrike_volume()],
+        }
 
     def ecs_cluster(self) -> Cluster:
         """ Creates an ECS cluster for use with this portal deployment. """
@@ -402,7 +555,7 @@ class C4ECSApplication(C4Part):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name='portal',
                     Essential=True,
@@ -435,8 +588,9 @@ class C4ECSApplication(C4Part):
                             Value=C4ECSApplicationTypes.PORTAL
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix=f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-portal-falcon',
+            ),
             Tags=self.tags.cost_tag_obj(),
         )
 
@@ -508,7 +662,7 @@ class C4ECSApplication(C4Part):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name='Indexer',
                     Essential=True,
@@ -532,8 +686,9 @@ class C4ECSApplication(C4Part):
                             Value=C4ECSApplicationTypes.INDEXER
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix=f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-indexer-falcon',
+            ),
             Tags=self.tags.cost_tag_obj()
         )
 
@@ -652,7 +807,7 @@ class C4ECSApplication(C4Part):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name='Ingester',
                     Essential=True,
@@ -675,8 +830,9 @@ class C4ECSApplication(C4Part):
                             Value=C4ECSApplicationTypes.INGESTER
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix=f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-ingester-falcon',
+            ),
             Tags=self.tags.cost_tag_obj()
         )
 
@@ -796,7 +952,7 @@ class C4ECSApplication(C4Part):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name='DeploymentAction',
                     Essential=True,
@@ -823,8 +979,11 @@ class C4ECSApplication(C4Part):
                             Value=C4ECSApplicationTypes.DEPLOYMENT
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix=(
+                    f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-initial-deployment-falcon' if initial
+                    else f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-deployment-falcon'),
+            ),
             Tags=self.tags.cost_tag_obj()
         )
 

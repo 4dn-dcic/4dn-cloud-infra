@@ -133,6 +133,23 @@ class Settings:
     ECS_INITIAL_DEPLOYMENT_CPU = 'ecs.initial_deployment.cpu'
     ECS_INITIAL_DEPLOYMENT_MEMORY = 'ecs.initial_deployment.memory'
 
+    # Crowdstrike Falcon container sensor (sidecar) support for ECS tasks. Off by default so
+    # existing deployments are unchanged (see docs/source/crowdstrike.rst). When enabled, every
+    # ECS task definition gains a non-essential 'falcon-container' sidecar that prepares a shared
+    # 'crowdstrike-falcon-volume'; the application container mounts that volume read-only, depends
+    # on the sidecar completing successfully, has the Falcon CID injected from Secrets Manager, and
+    # is wrapped by the CrowdStrike loader entrypoint.
+    CROWDSTRIKE_ENABLED = 'crowdstrike.enabled'                    # bool, default false
+    # REQUIRED when crowdstrike.enabled is true: the CrowdStrike loader entrypoint the application
+    # container must run, as a JSON list or comma-separated string. This is a vendor/image-specific
+    # contract (from the falcon-sensor image config / CrowdStrike PDF) and MUST be supplied by the
+    # operator -- there is deliberately no default, because setting the wrong entrypoint yields a
+    # task definition that validates but never runs the application. See docs/source/crowdstrike.rst.
+    CROWDSTRIKE_ENTRYPOINT = 'crowdstrike.entrypoint'
+    CROWDSTRIKE_MOUNT_PATH = 'crowdstrike.mount_path'             # default /tmp/CrowdStrike
+    CROWDSTRIKE_SENSOR_IMAGE_TAG = 'crowdstrike.sensor_image_tag'  # default latest
+    CROWDSTRIKE_BACKEND = 'crowdstrike.backend'                    # FALCONCTL_OPT_BACKEND, default bpf
+
     # Fourfront Specific Options
     FOURFRONT_VPC = 'fourfront.vpc'
     FOURFRONT_VPC_CIDR = 'fourfront.vpc.cidr'

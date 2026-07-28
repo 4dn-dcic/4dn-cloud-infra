@@ -67,6 +67,14 @@ class ECSBlueGreen(C4ECSApplication):
             Description='Name of Logging stack for referencing the log group',
             Type='String',
         ))
+        # Adds AppConfig Stack Parameter -- used to ImportValue the Falcon CID secret ARN for the
+        # CrowdStrike sidecar (unused when crowdstrike.enabled is false). cli.py already supplies
+        # this override for ECS stacks; declaring it here keeps template and provision inputs in sync.
+        template.add_parameter(Parameter(
+            self.APPCONFIG_EXPORTS.reference_param_key,
+            Description='Name of appconfig stack for the CrowdStrike Falcon CID secret ARN ImportValue',
+            Type='String',
+        ))
 
         # Standard params
         template.add_parameter(self.ecs_web_worker_port())
@@ -235,7 +243,7 @@ class ECSBlueGreen(C4ECSApplication):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name=self.PORTAL_CONTAINER_DEFINITION,
                     Essential=True,
@@ -264,8 +272,11 @@ class ECSBlueGreen(C4ECSApplication):
                             Value=self.VPC_SQS_URL
                         ),
                     ]
-                )
-            ],
+                ),
+                # color-distinct sidecar stream + same blue/green log group as the app container
+                sidecar_stream_prefix=f'{APP_KIND}-portal{image_tag}-falcon',
+                log_group_export=log_group_export,
+            ),
             Tags=self.tags.cost_tag_obj(),
         )
 
@@ -342,7 +353,7 @@ class ECSBlueGreen(C4ECSApplication):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name=self.INDEXER_CONTAINER_DEFINITION,
                     Essential=True,
@@ -369,8 +380,10 @@ class ECSBlueGreen(C4ECSApplication):
                             Value=self.VPC_SQS_URL
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix=f'{APP_KIND}-indexer{image_tag}-falcon',
+                log_group_export=log_group_export,
+            ),
             Tags=self.tags.cost_tag_obj()
         )
 
@@ -435,7 +448,7 @@ class ECSBlueGreen(C4ECSApplication):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name='Ingester',
                     Essential=True,
@@ -461,8 +474,10 @@ class ECSBlueGreen(C4ECSApplication):
                             Value=self.VPC_SQS_URL
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix=f'{APP_KIND}-ingester{image_tag}-falcon',
+                log_group_export=log_group_export,
+            ),
             Tags=self.tags.cost_tag_obj()
         )
 
@@ -540,7 +555,7 @@ class ECSBlueGreen(C4ECSApplication):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name=self.DEPLOYMENT_CONTAINER_DEFINITION,
                     Essential=True,
@@ -571,7 +586,11 @@ class ECSBlueGreen(C4ECSApplication):
                             Value=self.VPC_SQS_URL
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix=(
+                    f'{APP_KIND}-initial-deployment{image_tag}-falcon' if initial
+                    else f'{APP_KIND}-deployment{image_tag}-falcon'),
+                log_group_export=log_group_export,
+            ),
             Tags=self.tags.cost_tag_obj()
         )
