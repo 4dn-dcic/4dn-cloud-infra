@@ -132,6 +132,54 @@ class Settings:
     CODEBUILD_DEPLOY_BRANCH = 'codebuild.build_branch'
     CODEBUILD_REPO_NAME = 'codebuild.repo_name'  # name of ECR repo
 
+    # Human direct-AWS-access role options (see C4IAM.human_diagnose_role/human_remediate_role).
+    #
+    # Every setting in this block is off or empty by default: with none of them present in
+    # template.config.json the IAM stack is byte-for-byte what it was before, so enabling any of
+    # this is always a deliberate act. Two independent roles can be turned on:
+    #
+    #   diagnose  - read-only inspection of the running system
+    #   remediate - a small set of named, reversible operational writes
+    #
+    # A role is only emitted when its enable flag is on AND its trusted-principal list is
+    # non-empty; there is deliberately no account-root trust fallback. Likewise every *mutating*
+    # statement in the remediate role is driven by an explicitly supplied resource ARN and is
+    # omitted when that ARN list is empty - nothing falls back to a derived name, to ENV_NAME, or
+    # to a wildcard. That is what keeps a live (e.g. green) environment out of scope unless it is
+    # named on purpose.
+
+    # Enablement (both default false)
+    HUMAN_ACCESS_DIAGNOSE_ENABLED = 'human_access.diagnose.enabled'
+    HUMAN_ACCESS_REMEDIATE_ENABLED = 'human_access.remediate.enabled'
+
+    # Trust: comma-separated IAM principal ARNs approved to assume each role. No default.
+    HUMAN_ACCESS_DIAGNOSE_PRINCIPALS = 'human_access.diagnose.trusted_principals'
+    HUMAN_ACCESS_REMEDIATE_PRINCIPALS = 'human_access.remediate.trusted_principals'
+
+    # Trust conditions. require_mfa defaults true; set it false only for IAM Identity Center
+    # (SSO) accounts, where aws:MultiFactorAuthPresent is asserted upstream and unreliable.
+    HUMAN_ACCESS_REQUIRE_MFA = 'human_access.require_mfa'
+    # Optional StringLike pattern for sts:SourceIdentity, e.g. '*@hms.harvard.edu'.
+    HUMAN_ACCESS_SOURCE_IDENTITY_PATTERN = 'human_access.source_identity_pattern'
+
+    # Diagnostic reads. Buckets default to this deployment's derived application/foursight
+    # buckets; supply an explicit comma-separated list for environments whose bucket names are
+    # legacy (they do not all follow the derived pattern).
+    HUMAN_ACCESS_DIAGNOSE_BUCKETS = 'human_access.diagnose.buckets'
+    # kms:Decrypt on the single configured s3.encrypt_key_id, needed to read objects in an
+    # SSE-KMS bucket. Off by default, and inert until the key policy also names the role.
+    HUMAN_ACCESS_DIAGNOSE_ALLOW_KMS_DECRYPT = 'human_access.diagnose.allow_kms_decrypt'
+
+    # Remediation targets - explicit ARNs, one comma-separated list per capability.
+    HUMAN_ACCESS_REMEDIATE_SERVICE_ARNS = 'human_access.remediate.service_arns'
+    HUMAN_ACCESS_REMEDIATE_CLUSTER_ARNS = 'human_access.remediate.cluster_arns'
+    HUMAN_ACCESS_REMEDIATE_QUEUE_ARNS = 'human_access.remediate.queue_arns'
+    HUMAN_ACCESS_REMEDIATE_STATE_MACHINE_ARNS = 'human_access.remediate.state_machine_arns'
+    HUMAN_ACCESS_REMEDIATE_CODEBUILD_ARNS = 'human_access.remediate.codebuild_project_arns'
+    # sqs:PurgeQueue is irreversible, so it is its own explicit, default-off choice on top of
+    # having supplied queue ARNs at all.
+    HUMAN_ACCESS_REMEDIATE_ALLOW_QUEUE_PURGE = 'human_access.remediate.allow_queue_purge'
+
 
 # dmichaels/2022-06-06: Factored out from base.py.
 COMMON_STACK_PREFIX = "c4-"
@@ -172,6 +220,11 @@ class C4IAMBase:
     STACK_NAME_TOKEN = "iam"
     STACK_TITLE_TOKEN = "IAM"
     SHARING = 'ecosystem'
+
+    # Session length for the opt-in human direct-access roles. Diagnosis is a working session;
+    # remediation is meant to be a short, deliberate act.
+    HUMAN_ACCESS_DIAGNOSE_SESSION_DURATION = 3600   # 1 hour
+    HUMAN_ACCESS_REMEDIATE_SESSION_DURATION = 1800  # 30 minutes
 
 
 # dmichaels/2022-07-05: Factored out from sentieon.py.
