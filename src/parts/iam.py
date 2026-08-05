@@ -577,18 +577,30 @@ class C4IAM(C4IAMBase, C4Part):
         )
 
     # -------------------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------------------
     # Human direct-AWS-access roles (opt-in; nothing below is built unless config enables it)
     #
-    #   human_diagnose_role()  - read-only inspection of the running system. Keeps resource-scoped
-    #       Secrets Manager and S3 object reads, so a developer can gather evidence, plus the
-    #       observability reads needed to answer "is it up, why did it die, is it backed up".
-    #   human_remediate_role() - a small set of named, reversible operational writes, each one on
-    #       an explicitly supplied resource ARN.
+    #   human_diagnose_role()  - read-only inspection of the running system.
+    #   human_remediate_role() - the operational actions needed to remediate those same services.
     #
-    # These are defined independently of the ecs_*_policy() helpers above on purpose. Sharing
-    # those helpers is exactly what makes dev_user_role() a superset of the ECS runtime role, and
-    # reusing them here would reintroduce that coupling. dev_user_role() itself is untouched.
+    # Scoping model. This account holds only our own resources, so these policies do not enumerate
+    # resource identifiers. Where an action supports resource-level authorization it is scoped to
+    # the *service* - every ECS service, every queue, every bucket in this account and region - and
+    # the real constraint is the action list, which is deliberately short and enumerated. Where an
+    # action has no resource-level authorization at all (see UNSCOPABLE_READ_SIDS) the resource is
+    # '*' and the statement is region-pinned instead. Neither role ever grants Action '*'.
+    #
+    # These are defined independently of the ecs_*_policy() helpers above on purpose. Sharing those
+    # helpers is exactly what makes dev_user_role() a superset of the ECS runtime role, and reusing
+    # them here would reintroduce that coupling. dev_user_role() itself is untouched.
     # -------------------------------------------------------------------------------------------
+
+    # The only statements permitted to use Resource '*': their actions have no resource-level
+    # authorization in AWS, so there is no ARN to scope them to. Every one is read-only.
+    UNSCOPABLE_READ_SIDS = (
+        'InspectServiceStateAcrossSupportedServices',
+        'ReadsNeededToTargetARemediation',
+    )
 
     @staticmethod
     def _human_access_flag(setting: str) -> bool:
@@ -612,11 +624,6 @@ class C4IAM(C4IAMBase, C4Part):
         return [item.strip() for item in items if str(item).strip()]
 
     @staticmethod
-    def _region_pin() -> dict:
-        """ Condition restricting a statement to the region this stack is deployed in. """
-        return {'StringEquals': {'aws:RequestedRegion': Region}}
-
-    @staticmethod
     def _human_access_require_mfa() -> bool:
         """ Whether to assert aws:MultiFactorAuthPresent. Defaults to True; set
             human_access.require_mfa to false only for IAM Identity Center (SSO) accounts, where
@@ -629,6 +636,11 @@ class C4IAM(C4IAMBase, C4Part):
             return value
         return ConfigManager.str_to_bool(str(value)) is not False
 
+    @staticmethod
+    def _region_pin() -> dict:
+        """ Condition restricting a statement to the region this stack is deployed in. """
+        return {'StringEquals': {'aws:RequestedRegion': Region}}
+
     @classmethod
     def _human_access_mutation_condition(cls) -> dict:
         """ Conditions attached to every remediation write: this region, and normally a live MFA
@@ -640,88 +652,20 @@ class C4IAM(C4IAMBase, C4Part):
         return condition
 
     @staticmethod
-    def _build_log_group_arns(prefix: str) -> list:
-        """ Log groups created by this repo have no LogGroupName, so CloudFormation generates
-            '<stack-name>-<LogicalId>-<random>' and the ARN can only be matched by prefix.
-        """
-        return [
-            Join(':', ['arn', 'aws', 'logs', Region, AccountId, 'log-group', f'{prefix}*']),
-            Join(':', ['arn', 'aws', 'logs', Region, AccountId, 'log-group', f'{prefix}*', 'log-stream', '*']),
-        ]
+    def _service_arn(service: str, suffix: str):
+        """ Builds a service-level ARN in this account and region, e.g. 'ecs' + 'service/*'. """
+        return Join(':', ['arn', 'aws', service, Region, AccountId, suffix])
 
     @staticmethod
-    def _build_kms_key_arn(key_id: str):
-        return Join(':', ['arn', 'aws', 'kms', Region, AccountId, f'key/{key_id}'])
-
-    @staticmethod
-    def _build_iam_role_arn(name_pattern: str):
-        return Join(':', ['arn', 'aws', 'iam', '', AccountId, f'role/{name_pattern}'])
-
-    @classmethod
-    def human_access_log_group_prefix(cls) -> str:
-        """ The logging stack's name, which every application log group's physical name starts
-            with. The logging part is ecosystem-shared (see C4Logging.SHARING).
+    def _log_group_arns():
+        """ Every log group in this account and region, plus their streams. Log groups here are
+            created without an explicit LogGroupName (see C4Logging.build_log_group), so their
+            physical names are CloudFormation-generated and could not be enumerated anyway.
         """
-        from .logging import C4Logging  # deferred: avoids an import cycle between IAM and logging
-        return f'{C4Logging.suggest_stack_name().stack_name}-'
-
-    @classmethod
-    def human_access_rds_log_group_arns(cls) -> list:
-        """ RDS publishes to /aws/rds/instance/<DBInstanceIdentifier>/..., where the identifier is
-            rds.name if configured, else rds-{env_name} (see C4Datastore.rds_instance).
-        """
-        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        rds_name = ConfigManager.get_config_setting(Settings.RDS_NAME, default=None) or f'rds-{env_name}'
-        return cls._build_log_group_arns(f'/aws/rds/instance/{rds_name}/')
-
-    @classmethod
-    def human_access_secret_arns(cls) -> list:
-        """ The two secrets a developer needs to read to explain application behaviour: the
-            application configuration (GAC) and the RDS master secret. Names come from names.py,
-            so these are the real identifiers rather than a guessed prefix.
-        """
-        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         return [
-            cls.builds_secret_manager_arn(Names.application_configuration_secret(env_name)),
-            cls.builds_secret_manager_arn(Names.rds_secret_logical_id(env_name)),
+            Join(':', ['arn', 'aws', 'logs', Region, AccountId, 'log-group', '*']),
+            Join(':', ['arn', 'aws', 'logs', Region, AccountId, 'log-group', '*', 'log-stream', '*']),
         ]
-
-    @classmethod
-    def human_access_bucket_names(cls) -> list:
-        """ Buckets the diagnostic role may read objects from. Defaults to this deployment's own
-            derived application and foursight buckets; override with an explicit list where the
-            bucket names are legacy and do not follow the derived pattern (some do not).
-        """
-        configured = cls._human_access_list(Settings.HUMAN_ACCESS_DIAGNOSE_BUCKETS)
-        if configured:
-            return configured
-        templates = [
-            ConfigManager.AppBucketTemplate.BLOBS,
-            ConfigManager.AppBucketTemplate.FILES,
-            ConfigManager.AppBucketTemplate.WFOUT,
-            ConfigManager.AppBucketTemplate.SYSTEM,
-            ConfigManager.AppBucketTemplate.METADATA_BUNDLES,
-            ConfigManager.AppBucketTemplate.TIBANNA_OUTPUT,
-            ConfigManager.AppBucketTemplate.TIBANNA_CWL,
-            ConfigManager.FSBucketTemplate.ENVS,
-            ConfigManager.FSBucketTemplate.RESULTS,
-            ConfigManager.FSBucketTemplate.APPLICATION_VERSIONS,
-        ]
-        return [ConfigManager.resolve_bucket_name(template) for template in templates]
-
-    @classmethod
-    def human_access_bucket_arns(cls) -> list:
-        return [f'arn:aws:s3:::{name}' for name in cls.human_access_bucket_names()]
-
-    @classmethod
-    def human_access_object_arns(cls) -> list:
-        return [f'arn:aws:s3:::{name}/*' for name in cls.human_access_bucket_names()]
-
-    @classmethod
-    def human_access_kms_key_arns(cls) -> list:
-        """ The single configured S3 server-side-encryption key, or nothing. Never a wildcard. """
-        key_id = ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
-        return [cls._build_kms_key_arn(key_id)] if key_id else []
 
     def human_access_trust_policy(self, principal_arns: list) -> dict:
         """ Trust policy for a human-access role: only the enumerated principal ARNs, only with an
@@ -729,7 +673,8 @@ class C4IAM(C4IAMBase, C4Part):
 
             Deliberately NOT AWSPrincipal(AccountId): account-root trust in a role's trust policy
             means any identity in the account holding sts:AssumeRole can assume it, which is how
-            dev_user_role() is reachable today.
+            dev_user_role() is reachable today. This is the one place identifiers are still
+            enumerated, because a trust policy is about people rather than resources.
 
             Note on session length: MaxSessionDuration on the role is the control, not a condition
             key. There is no sts:DurationSeconds condition key, and asserting a non-existent key
@@ -783,177 +728,173 @@ class C4IAM(C4IAMBase, C4Part):
     def human_access_boundary_policy(self) -> ManagedPolicy:
         """ Permission boundary shared by both human-access roles.
 
-            This is the backstop that keeps a future additive edit to either role from quietly
-            granting identity administration, supply-chain writes, or data-plane writes. It is not
-            a substitute for the Deny statements on the roles themselves: a boundary caps the
-            role's own effective permissions and is neither inherited nor applied to
-            resource-based policies.
+            A boundary is a ceiling, not a grant: effective permissions are the intersection of the
+            role's own policies and this one, so it must open with an Allow or the roles would be
+            able to do nothing at all. That Allow does not widen either role - each role's own
+            policies enumerate a short action list and never use Action '*'.
 
-            Where the roles are meant to have a narrow read (S3 objects, the two application
-            secrets, the one encryption key), the boundary denies the action everywhere *except*
-            those resources via NotResource, rather than dropping the deny altogether.
+            What this adds is a backstop: a future additive edit to either role still cannot reach
+            identity administration, CloudFormation mutation, the network perimeter, the image
+            supply chain, or data-plane writes.
         """
-        statements = [
-            {'Sid': 'AllowWhatIsNotExplicitlyForbidden', 'Effect': 'Allow',
-             'Action': '*', 'Resource': '*'},
-            {
-                'Sid': 'NeverIdentityOrgOrBillingAdministration',
-                'Effect': 'Deny',
-                'Action': [
-                    'iam:Create*', 'iam:Delete*', 'iam:Update*', 'iam:Put*', 'iam:Attach*',
-                    'iam:Detach*', 'iam:Add*', 'iam:Remove*', 'iam:Set*', 'iam:Tag*',
-                    'iam:Untag*', 'iam:ChangePassword', 'iam:PassRole',
-                    'sso:*', 'sso-admin:*', 'sso-directory:*', 'identitystore:*',
-                    'organizations:*', 'account:*', 'aws-portal:*', 'billing:*', 'ce:*',
-                    'budgets:*', 'cur:*', 'sts:GetFederationToken',
-                ],
-                'Resource': '*',
-            },
-            {
-                'Sid': 'NeverCodeSupplyChainOrArbitraryExecution',
-                'Effect': 'Deny',
-                'Action': [
-                    'ecr:PutImage', 'ecr:InitiateLayerUpload', 'ecr:UploadLayerPart',
-                    'ecr:CompleteLayerUpload', 'ecr:BatchDeleteImage', 'ecr:DeleteRepository',
-                    'ecr:SetRepositoryPolicy', 'ecr:PutImageTagMutability',
-                    'ecs:RegisterTaskDefinition', 'ecs:DeregisterTaskDefinition',
-                    'ecs:CreateService', 'ecs:DeleteService', 'ecs:CreateCluster',
-                    'ecs:DeleteCluster', 'ecs:RunTask', 'ecs:StartTask', 'ecs:ExecuteCommand',
-                    'lambda:CreateFunction', 'lambda:DeleteFunction', 'lambda:UpdateFunctionCode',
-                    'lambda:UpdateFunctionConfiguration', 'lambda:InvokeFunction',
-                    'lambda:AddPermission', 'lambda:AddLayerVersionPermission',
-                    'codebuild:CreateProject', 'codebuild:UpdateProject',
-                    'codebuild:DeleteProject', 'codebuild:UpdateProjectVisibility',
-                    'states:CreateStateMachine', 'states:UpdateStateMachine',
-                    'states:DeleteStateMachine',
-                    'ssm:SendCommand', 'ssm:StartSession',
-                ],
-                'Resource': '*',
-            },
-            {
-                'Sid': 'NeverInfrastructureOrPerimeterMutation',
-                'Effect': 'Deny',
-                'Action': [
-                    'cloudformation:CreateStack', 'cloudformation:UpdateStack',
-                    'cloudformation:DeleteStack', 'cloudformation:CreateChangeSet',
-                    'cloudformation:ExecuteChangeSet', 'cloudformation:SetStackPolicy',
-                    'cloudformation:UpdateTerminationProtection', 'cloudformation:CreateStackSet',
-                    'cloudformation:UpdateStackSet', 'cloudformation:CreateStackInstances',
-                    'ec2:AuthorizeSecurityGroup*', 'ec2:RevokeSecurityGroup*',
-                    'ec2:CreateSecurityGroup', 'ec2:DeleteSecurityGroup',
-                    'ec2:ModifySecurityGroupRules', 'ec2:*Vpc*', 'ec2:*Subnet*', 'ec2:*Route*',
-                    'ec2:*InternetGateway*', 'ec2:*NatGateway*', 'ec2:*NetworkAcl*',
-                    'ec2:RunInstances', 'ec2:TerminateInstances',
-                    'elasticloadbalancing:Create*', 'elasticloadbalancing:Delete*',
-                    'elasticloadbalancing:Modify*', 'elasticloadbalancing:Set*',
-                    'es:Create*', 'es:Delete*', 'es:Update*',
-                    'rds:Create*', 'rds:Delete*', 'rds:Modify*', 'rds:Restore*', 'rds:Reboot*',
-                    'rds:Stop*', 'rds:Start*', 'rds:Promote*', 'rds:Copy*',
-                    'elasticache:Delete*', 'elasticache:Modify*',
-                    'cloudtrail:StopLogging', 'cloudtrail:DeleteTrail', 'cloudtrail:UpdateTrail',
-                    'cloudtrail:PutEventSelectors', 'config:DeleteConfigRule',
-                    'config:StopConfigurationRecorder', 'guardduty:DeleteDetector',
-                    'guardduty:UpdateDetector',
-                    'logs:DeleteLogGroup', 'logs:DeleteLogStream',
-                ],
-                'Resource': '*',
-            },
-            {
-                'Sid': 'NeverDataPlaneWrites',
-                'Effect': 'Deny',
-                'Action': [
-                    's3:PutObject*', 's3:DeleteObject*', 's3:DeleteBucket', 's3:PutBucket*',
-                    's3:PutEncryptionConfiguration', 's3:PutLifecycleConfiguration',
-                    's3:PutReplicationConfiguration',
-                    'secretsmanager:PutSecretValue', 'secretsmanager:UpdateSecret',
-                    'secretsmanager:DeleteSecret', 'secretsmanager:RotateSecret',
-                    'secretsmanager:PutResourcePolicy', 'secretsmanager:DeleteResourcePolicy',
-                    'kms:PutKeyPolicy', 'kms:ScheduleKeyDeletion', 'kms:DisableKey',
-                    'kms:CreateGrant', 'kms:RetireGrant', 'kms:RevokeGrant',
-                    'ssm:PutParameter', 'ssm:DeleteParameter',
-                    'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:DeleteItem',
-                    'es:ESHttpPost', 'es:ESHttpPut', 'es:ESHttpDelete', 'es:ESHttpPatch',
-                ],
-                'Resource': '*',
-            },
-        ]
-        # Reads the roles are meant to have, denied everywhere but on those exact resources.
-        statements.append(self._boundary_scoped_read_deny(
-            'BoundS3ObjectReadsToApplicationBuckets',
-            ['s3:GetObject', 's3:GetObjectVersion', 's3:GetObjectTagging', 's3:GetObjectTorrent'],
-            self.human_access_object_arns()))
-        statements.append(self._boundary_scoped_read_deny(
-            'BoundSecretReadsToApplicationSecrets',
-            ['secretsmanager:GetSecretValue'],
-            self.human_access_secret_arns()))
-        statements.append(self._boundary_scoped_read_deny(
-            'BoundKmsUseToConfiguredEncryptionKey',
-            ['kms:Decrypt', 'kms:GenerateDataKey', 'kms:GenerateDataKeyWithoutPlaintext',
-             'kms:ReEncryptFrom'],
-            self.human_access_kms_key_arns()))
-        statements.append(self.human_access_region_deny_statement())
         return ManagedPolicy(
             self.name.logical_id('HumanAccessBoundary'),
-            Description='Permission boundary for the opt-in human direct-access roles.',
-            PolicyDocument={'Version': '2012-10-17', 'Statement': statements},
+            Description='Permission boundary (ceiling, not a grant) for the opt-in human'
+                        ' direct-access roles.',
+            PolicyDocument={
+                'Version': '2012-10-17',
+                'Statement': [
+                    {'Sid': 'CeilingOnly', 'Effect': 'Allow', 'Action': '*', 'Resource': '*'},
+                    {
+                        'Sid': 'NeverIdentityOrgOrBillingAdministration',
+                        'Effect': 'Deny',
+                        'Action': [
+                            'iam:Create*', 'iam:Delete*', 'iam:Update*', 'iam:Put*', 'iam:Attach*',
+                            'iam:Detach*', 'iam:Add*', 'iam:Remove*', 'iam:Set*', 'iam:Tag*',
+                            'iam:Untag*', 'iam:ChangePassword', 'iam:PassRole',
+                            'sso:*', 'sso-admin:*', 'sso-directory:*', 'identitystore:*',
+                            'organizations:*', 'account:*', 'aws-portal:*', 'billing:*', 'ce:*',
+                            'budgets:*', 'cur:*', 'sts:GetFederationToken',
+                        ],
+                        'Resource': '*',
+                    },
+                    {
+                        'Sid': 'NeverCodeSupplyChainOrArbitraryExecution',
+                        'Effect': 'Deny',
+                        'Action': [
+                            'ecr:PutImage', 'ecr:InitiateLayerUpload', 'ecr:UploadLayerPart',
+                            'ecr:CompleteLayerUpload', 'ecr:BatchDeleteImage',
+                            'ecr:DeleteRepository', 'ecr:SetRepositoryPolicy',
+                            'ecr:PutImageTagMutability',
+                            'ecs:RegisterTaskDefinition', 'ecs:DeregisterTaskDefinition',
+                            'ecs:CreateService', 'ecs:DeleteService', 'ecs:CreateCluster',
+                            'ecs:DeleteCluster', 'ecs:RunTask', 'ecs:StartTask',
+                            'ecs:ExecuteCommand',
+                            'lambda:CreateFunction', 'lambda:DeleteFunction',
+                            'lambda:UpdateFunctionCode', 'lambda:UpdateFunctionConfiguration',
+                            'lambda:InvokeFunction', 'lambda:AddPermission',
+                            'lambda:AddLayerVersionPermission',
+                            'codebuild:CreateProject', 'codebuild:UpdateProject',
+                            'codebuild:DeleteProject', 'codebuild:UpdateProjectVisibility',
+                            'states:CreateStateMachine', 'states:UpdateStateMachine',
+                            'states:DeleteStateMachine',
+                            'ssm:SendCommand', 'ssm:StartSession',
+                        ],
+                        'Resource': '*',
+                    },
+                    {
+                        'Sid': 'NeverInfrastructureOrPerimeterMutation',
+                        'Effect': 'Deny',
+                        'Action': [
+                            'cloudformation:CreateStack', 'cloudformation:UpdateStack',
+                            'cloudformation:DeleteStack', 'cloudformation:CreateChangeSet',
+                            'cloudformation:ExecuteChangeSet', 'cloudformation:SetStackPolicy',
+                            'cloudformation:UpdateTerminationProtection',
+                            'cloudformation:CreateStackSet', 'cloudformation:UpdateStackSet',
+                            'cloudformation:CreateStackInstances',
+                            'ec2:AuthorizeSecurityGroup*', 'ec2:RevokeSecurityGroup*',
+                            'ec2:CreateSecurityGroup', 'ec2:DeleteSecurityGroup',
+                            'ec2:ModifySecurityGroupRules', 'ec2:*Vpc*', 'ec2:*Subnet*',
+                            'ec2:*Route*', 'ec2:*InternetGateway*', 'ec2:*NatGateway*',
+                            'ec2:*NetworkAcl*', 'ec2:RunInstances', 'ec2:TerminateInstances',
+                            'elasticloadbalancing:Create*', 'elasticloadbalancing:Delete*',
+                            'elasticloadbalancing:Modify*', 'elasticloadbalancing:Set*',
+                            'es:Create*', 'es:Delete*', 'es:Update*',
+                            'rds:Create*', 'rds:Delete*', 'rds:Modify*', 'rds:Restore*',
+                            'rds:Reboot*', 'rds:Stop*', 'rds:Start*', 'rds:Promote*', 'rds:Copy*',
+                            'elasticache:Delete*', 'elasticache:Modify*',
+                            'cloudtrail:StopLogging', 'cloudtrail:DeleteTrail',
+                            'cloudtrail:UpdateTrail', 'cloudtrail:PutEventSelectors',
+                            'config:DeleteConfigRule', 'config:StopConfigurationRecorder',
+                            'guardduty:DeleteDetector', 'guardduty:UpdateDetector',
+                            'logs:DeleteLogGroup', 'logs:DeleteLogStream',
+                        ],
+                        'Resource': '*',
+                    },
+                    {
+                        'Sid': 'NeverDataPlaneWritesOrIrreversibleOperations',
+                        'Effect': 'Deny',
+                        'Action': [
+                            's3:PutObject*', 's3:DeleteObject*', 's3:DeleteBucket',
+                            's3:PutBucket*', 's3:PutEncryptionConfiguration',
+                            's3:PutLifecycleConfiguration', 's3:PutReplicationConfiguration',
+                            'secretsmanager:PutSecretValue', 'secretsmanager:UpdateSecret',
+                            'secretsmanager:DeleteSecret', 'secretsmanager:RotateSecret',
+                            'secretsmanager:PutResourcePolicy',
+                            'secretsmanager:DeleteResourcePolicy',
+                            'kms:PutKeyPolicy', 'kms:ScheduleKeyDeletion', 'kms:DisableKey',
+                            'kms:CreateGrant', 'kms:RetireGrant', 'kms:RevokeGrant',
+                            'ssm:PutParameter', 'ssm:DeleteParameter',
+                            'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:DeleteItem',
+                            'es:ESHttpPost', 'es:ESHttpPut', 'es:ESHttpDelete', 'es:ESHttpPatch',
+                            # Irreversible, and therefore excluded from remediation entirely.
+                            'sqs:PurgeQueue', 'sqs:DeleteQueue',
+                        ],
+                        'Resource': '*',
+                    },
+                    self.human_access_region_deny_statement(),
+                ],
+            },
         )
-
-    @staticmethod
-    def _boundary_scoped_read_deny(sid: str, actions: list, allowed_resources: list) -> dict:
-        """ Deny these actions everywhere except on allowed_resources; if there is nothing to
-            carve out, deny them outright.
-        """
-        statement = {'Sid': sid, 'Effect': 'Deny', 'Action': actions}
-        if allowed_resources:
-            statement['NotResource'] = allowed_resources
-        else:
-            statement['Resource'] = '*'
-        return statement
 
     @classmethod
     def human_diagnose_observability_policy(cls) -> Policy:
-        """ The service-specific read APIs needed to inspect a running deployment. Almost all of
-            these Describe/List/Get APIs have no resource-level authorization at all, so they are
-            on '*' and constrained by region instead.
+        """ The read/inspection actions for the supported services whose Describe/List APIs have no
+            resource-level authorization at all. These cannot be scoped to an ARN, so they are
+            region-pinned on '*' instead. Every action here is a read.
 
             cloudformation:Detect* is deliberately absent: drift detection starts a job, which is
-            not a read, and it is not needed to inspect a service.
+            not a read.
         """
         return Policy(
             PolicyName='HumanDiagnoseObservabilityPolicy',
             PolicyDocument={
                 'Version': '2012-10-17',
                 'Statement': [{
-                    'Sid': 'RegionPinnedServiceStateReads',
+                    'Sid': 'InspectServiceStateAcrossSupportedServices',
                     'Effect': 'Allow',
                     'Action': [
                         'sts:GetCallerIdentity',
-                        'ecs:Describe*', 'ecs:List*',
-                        'elasticloadbalancing:Describe*',
-                        'application-autoscaling:Describe*',
-                        'cloudwatch:Describe*', 'cloudwatch:Get*', 'cloudwatch:List*',
-                        'logs:Describe*', 'logs:List*',
-                        'rds:Describe*', 'rds:ListTagsForResource',
-                        'es:Describe*', 'es:List*', 'es:Get*',
-                        'sqs:GetQueueAttributes', 'sqs:GetQueueUrl', 'sqs:ListQueues',
-                        'elasticache:Describe*', 'elasticache:List*',
-                        'cloudformation:Describe*', 'cloudformation:List*', 'cloudformation:Get*',
-                        'ecr:Describe*', 'ecr:List*', 'ecr:GetLifecyclePolicy',
-                        'ecr:GetRepositoryPolicy', 'ecr:BatchGetImage',
+                        # ECS - is the portal up, how many tasks, why did one die
+                        'ecs:DescribeClusters', 'ecs:DescribeServices', 'ecs:DescribeTasks',
+                        'ecs:DescribeTaskDefinition', 'ecs:DescribeContainerInstances',
+                        'ecs:ListClusters', 'ecs:ListServices', 'ecs:ListTasks',
+                        'ecs:ListTaskDefinitions', 'ecs:ListContainerInstances',
+                        # Load balancing - are the target groups healthy
+                        'elasticloadbalancing:DescribeLoadBalancers',
+                        'elasticloadbalancing:DescribeTargetGroups',
+                        'elasticloadbalancing:DescribeTargetHealth',
+                        'elasticloadbalancing:DescribeListeners',
+                        'elasticloadbalancing:DescribeRules',
+                        'application-autoscaling:DescribeScalableTargets',
+                        'application-autoscaling:DescribeScalingPolicies',
+                        # Metrics and alarms - saturation, cluster health
+                        'cloudwatch:DescribeAlarms', 'cloudwatch:GetMetricData',
+                        'cloudwatch:GetMetricStatistics', 'cloudwatch:ListMetrics',
+                        # Log group discovery (reading the events themselves is scoped below)
+                        'logs:DescribeLogGroups', 'logs:DescribeLogStreams',
+                        'logs:DescribeQueries',
+                        # Datastores
+                        'rds:DescribeDBInstances', 'rds:DescribeDBParameters',
+                        'rds:DescribeDBSnapshots', 'rds:DescribeEvents',
+                        'es:DescribeDomain', 'es:DescribeDomains', 'es:ListDomainNames',
+                        'elasticache:DescribeCacheClusters',
+                        'sqs:ListQueues',
+                        # Deployment provenance - which image is running, did the deploy work
+                        'cloudformation:DescribeStacks', 'cloudformation:DescribeStackEvents',
+                        'cloudformation:DescribeStackResources', 'cloudformation:ListStacks',
+                        'cloudformation:GetTemplate', 'cloudformation:GetStackPolicy',
                         'ecr:GetAuthorizationToken',
-                        'codebuild:BatchGet*', 'codebuild:List*',
-                        'states:Describe*', 'states:List*', 'states:GetExecutionHistory',
-                        'lambda:GetPolicy', 'lambda:GetAlias', 'lambda:List*',
-                        'ec2:Describe*',
-                        'servicequotas:Get*', 'servicequotas:List*',
-                        'tag:GetResources', 'tag:GetTagKeys', 'tag:GetTagValues',
+                        'codebuild:ListProjects', 'codebuild:ListBuilds',
+                        'states:ListStateMachines', 'states:ListExecutions',
+                        'lambda:ListFunctions',
+                        'ec2:DescribeSecurityGroups', 'ec2:DescribeSubnets', 'ec2:DescribeVpcs',
+                        'ec2:DescribeNetworkInterfaces', 'ec2:DescribeAvailabilityZones',
+                        'servicequotas:GetServiceQuota', 'servicequotas:ListServiceQuotas',
+                        'tag:GetResources',
                         'secretsmanager:ListSecrets',
-                        # Key metadata only - no key material and no ciphertext access. Needed to
-                        # answer "is this bucket encrypted, and with which key": the key ARN comes
-                        # from s3:GetEncryptionConfiguration, so it cannot be scoped in advance,
-                        # and buckets may use AWS-managed keys that no config setting names. The
-                        # more revealing kms:GetKeyPolicy stays scoped to the configured key below.
-                        'kms:DescribeKey', 'kms:GetKeyRotationStatus', 'kms:ListAliases',
+                        # Key metadata only - no key material, no ciphertext, no key policy.
+                        'kms:ListAliases',
                     ],
                     'Resource': '*',
                     'Condition': cls._region_pin(),
@@ -962,27 +903,26 @@ class C4IAM(C4IAMBase, C4Part):
         )
 
     def human_diagnose_resource_read_policy(self) -> Policy:
-        """ The resource-scoped half of diagnosis: application logs, the application buckets, the
-            two application secrets, encryption-key metadata, and this role's own definition.
+        """ The read/inspection actions that DO support resource-level authorization, scoped to the
+            service rather than to enumerated identifiers.
 
-            Secrets Manager and S3 object reads are retained here on purpose - a developer is
-            expected to inspect the system and bring evidence - but only on the specific secrets
-            and buckets this deployment owns, never on '*'.
+            Secrets Manager and S3 object reads are retained on purpose - a developer is expected
+            to inspect the system and bring evidence - and are scoped to this account's secrets and
+            buckets. The action lists stay short: reads only, no writes anywhere.
         """
         statements = [
             {
-                'Sid': 'ReadApplicationAndDatabaseLogs',
+                'Sid': 'ReadApplicationLogs',
                 'Effect': 'Allow',
                 'Action': [
                     'logs:FilterLogEvents', 'logs:GetLogEvents', 'logs:GetLogGroupFields',
                     'logs:GetLogRecord', 'logs:StartQuery', 'logs:StopQuery',
                     'logs:GetQueryResults',
                 ],
-                'Resource': (self._build_log_group_arns(self.human_access_log_group_prefix())
-                             + self.human_access_rds_log_group_arns()),
+                'Resource': self._log_group_arns(),
             },
             {
-                'Sid': 'InspectApplicationBucketConfiguration',
+                'Sid': 'InspectBucketConfiguration',
                 'Effect': 'Allow',
                 'Action': [
                     's3:ListBucket', 's3:GetBucketLocation', 's3:GetBucketVersioning',
@@ -990,47 +930,78 @@ class C4IAM(C4IAMBase, C4Part):
                     's3:GetEncryptionConfiguration', 's3:GetLifecycleConfiguration',
                     's3:GetBucketPublicAccessBlock', 's3:GetBucketTagging', 's3:GetBucketCORS',
                 ],
-                'Resource': self.human_access_bucket_arns(),
+                'Resource': 'arn:aws:s3:::*',
             },
             {
-                'Sid': 'ReadObjectsInApplicationBucketsOnly',
+                'Sid': 'ReadObjects',
                 'Effect': 'Allow',
                 'Action': ['s3:GetObject', 's3:GetObjectVersion', 's3:GetObjectTagging'],
-                'Resource': self.human_access_object_arns(),
+                'Resource': 'arn:aws:s3:::*/*',
             },
             {
-                'Sid': 'ReadApplicationSecretsOnly',
+                'Sid': 'ReadSecrets',
                 'Effect': 'Allow',
                 'Action': [
                     'secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret',
                     'secretsmanager:ListSecretVersionIds', 'secretsmanager:GetResourcePolicy',
                 ],
-                'Resource': self.human_access_secret_arns(),
+                'Resource': self._service_arn('secretsmanager', 'secret:*'),
+            },
+            {
+                'Sid': 'InspectQueueDepth',
+                'Effect': 'Allow',
+                # Depth and age only. Message bodies are application data - ReceiveMessage is
+                # denied in the guardrail policy below.
+                'Action': ['sqs:GetQueueAttributes', 'sqs:GetQueueUrl'],
+                'Resource': self._service_arn('sqs', '*'),
+            },
+            {
+                'Sid': 'InspectContainerImages',
+                'Effect': 'Allow',
+                'Action': [
+                    'ecr:DescribeRepositories', 'ecr:DescribeImages', 'ecr:ListImages',
+                    'ecr:BatchGetImage', 'ecr:GetRepositoryPolicy', 'ecr:GetLifecyclePolicy',
+                ],
+                'Resource': self._service_arn('ecr', 'repository/*'),
+            },
+            {
+                'Sid': 'InspectBuildsAndWorkflows',
+                'Effect': 'Allow',
+                'Action': ['codebuild:BatchGetBuilds', 'codebuild:BatchGetProjects'],
+                'Resource': self._service_arn('codebuild', 'project/*'),
+            },
+            {
+                'Sid': 'InspectWorkflowExecutions',
+                'Effect': 'Allow',
+                'Action': ['states:DescribeStateMachine', 'states:DescribeExecution',
+                           'states:GetExecutionHistory'],
+                'Resource': self._service_arn('states', '*'),
+            },
+            {
+                'Sid': 'InspectKeyMetadata',
+                'Effect': 'Allow',
+                # Metadata only: no key material, no ciphertext, no key policy.
+                'Action': ['kms:DescribeKey', 'kms:GetKeyRotationStatus'],
+                'Resource': self._service_arn('kms', 'key/*'),
             },
             {
                 'Sid': 'InspectOwnRoleDefinition',
                 'Effect': 'Allow',
                 'Action': ['iam:GetRole', 'iam:GetRolePolicy', 'iam:ListRolePolicies',
                            'iam:ListAttachedRolePolicies'],
-                'Resource': self._build_iam_role_arn(f'{self.name.stack_name}-*'),
+                'Resource': Join(':', ['arn', 'aws', 'iam', '', AccountId, 'role/*']),
             },
         ]
-        kms_key_arns = self.human_access_kms_key_arns()
-        if kms_key_arns:
-            # Key-policy reads (and optionally Decrypt) on the one configured key. Plain key
-            # metadata is granted region-pinned in the observability policy instead, so that
-            # "which key encrypts this bucket" is still answerable when no key is configured here.
-            kms_actions = ['kms:GetKeyPolicy']
-            if self._human_access_flag(Settings.HUMAN_ACCESS_DIAGNOSE_ALLOW_KMS_DECRYPT):
-                # Needed to read objects in an SSE-KMS bucket. KMS requires dual authorization, so
-                # this grant is inert until the key policy also names this role - which is a
-                # separate, out-of-band change, not something this template can make.
-                kms_actions.append('kms:Decrypt')
+        if self._human_access_flag(Settings.HUMAN_ACCESS_DIAGNOSE_ALLOW_KMS_DECRYPT):
+            # Off by default. Needed to read objects in an SSE-KMS bucket, and at service scope
+            # that means any key in the account - hence its own explicit switch. KMS also requires
+            # dual authorization, so this grant stays inert until the key policy names the role,
+            # which is a separate out-of-band change this template cannot make.
             statements.append({
-                'Sid': 'ConfiguredEncryptionKeyOnly',
+                'Sid': 'DecryptWithApplicationKeys',
                 'Effect': 'Allow',
-                'Action': kms_actions,
-                'Resource': kms_key_arns,
+                'Action': ['kms:Decrypt', 'kms:GetKeyPolicy'],
+                'Resource': self._service_arn('kms', 'key/*'),
             })
         return Policy(
             PolicyName='HumanDiagnoseResourceReadPolicy',
@@ -1054,11 +1025,14 @@ class C4IAM(C4IAMBase, C4Part):
             # Postgres logs can carry query text, and therefore data.
             'rds:DownloadDBLogFilePortion', 'rds:DownloadCompleteDBLogFile',
             'dynamodb:GetItem', 'dynamodb:Query', 'dynamodb:Scan',
-            # Queue depth comes from GetQueueAttributes; message bodies are application data.
+            # Queue depth comes from GetQueueAttributes; message bodies are application data, and
+            # ChangeMessageVisibility is a remediation action rather than a read.
             'sqs:ReceiveMessage', 'sqs:SendMessage', 'sqs:DeleteMessage', 'sqs:PurgeQueue',
+            'sqs:ChangeMessageVisibility',
             # GetFunctionConfiguration returns environment variables and GetFunction returns a
             # presigned code download URL; both are configuration exfiltration paths.
             'lambda:GetFunction', 'lambda:GetFunctionConfiguration', 'lambda:InvokeFunction',
+            'lambda:UpdateFunctionCode', 'lambda:UpdateFunctionConfiguration',
             'es:ESHttp*',
             'ecs:UpdateService', 'ecs:StopTask', 'ecs:RunTask', 'ecs:StartTask',
             'ecs:RegisterTaskDefinition', 'ecs:CreateService', 'ecs:DeleteService',
@@ -1075,8 +1049,8 @@ class C4IAM(C4IAMBase, C4Part):
             'sts:GetFederationToken',
         ]
         if not cls._human_access_flag(Settings.HUMAN_ACCESS_DIAGNOSE_ALLOW_KMS_DECRYPT):
-            actions += ['kms:Decrypt', 'kms:GenerateDataKey', 'kms:GenerateDataKeyWithoutPlaintext',
-                        'kms:ReEncryptFrom']
+            actions += ['kms:Decrypt', 'kms:GenerateDataKey',
+                        'kms:GenerateDataKeyWithoutPlaintext', 'kms:ReEncryptFrom']
         return Policy(
             PolicyName='HumanDiagnoseGuardrailPolicy',
             PolicyDocument={
@@ -1111,7 +1085,8 @@ class C4IAM(C4IAMBase, C4Part):
     @classmethod
     def human_remediate_read_policy(cls) -> Policy:
         """ The reads a power user needs to target a remediation safely - you cannot restart a
-            service you cannot find, or purge a queue without first confirming its backlog.
+            service you cannot find, or release in-flight messages without first seeing the
+            backlog. Same '*'-with-region-pin rationale as the diagnostic observability policy.
 
             Deliberately narrower than the diagnostic role's reads: no secrets, no S3, no KMS, no
             service quotas, no tag inventory. That keeps CloudTrail cleanly separable into
@@ -1126,18 +1101,19 @@ class C4IAM(C4IAMBase, C4Part):
                     'Effect': 'Allow',
                     'Action': [
                         'sts:GetCallerIdentity',
-                        'ecs:Describe*', 'ecs:List*',
+                        'ecs:DescribeClusters', 'ecs:DescribeServices', 'ecs:DescribeTasks',
+                        'ecs:DescribeTaskDefinition', 'ecs:ListClusters', 'ecs:ListServices',
+                        'ecs:ListTasks',
                         'elasticloadbalancing:DescribeLoadBalancers',
                         'elasticloadbalancing:DescribeTargetGroups',
                         'elasticloadbalancing:DescribeTargetHealth',
-                        'sqs:GetQueueAttributes', 'sqs:GetQueueUrl', 'sqs:ListQueues',
-                        'cloudwatch:Describe*', 'cloudwatch:Get*', 'cloudwatch:List*',
-                        'logs:Describe*', 'logs:List*',
-                        'ecr:Describe*', 'ecr:List*', 'ecr:BatchGetImage',
-                        'codebuild:BatchGet*', 'codebuild:List*',
-                        'states:Describe*', 'states:List*', 'states:GetExecutionHistory',
-                        'cloudformation:Describe*', 'cloudformation:List*',
-                        'rds:Describe*', 'es:Describe*', 'es:List*', 'ec2:Describe*',
+                        'cloudwatch:DescribeAlarms', 'cloudwatch:GetMetricData',
+                        'logs:DescribeLogGroups', 'logs:DescribeLogStreams',
+                        'sqs:ListQueues',
+                        'codebuild:ListProjects', 'codebuild:ListBuilds',
+                        'states:ListStateMachines', 'states:ListExecutions',
+                        'cloudformation:DescribeStacks', 'cloudformation:ListStacks',
+                        'rds:DescribeDBInstances', 'es:DescribeDomain', 'es:ListDomainNames',
                     ],
                     'Resource': '*',
                     'Condition': cls._region_pin(),
@@ -1146,93 +1122,81 @@ class C4IAM(C4IAMBase, C4Part):
         )
 
     @classmethod
-    def human_remediate_action_statements(cls) -> list:
-        """ One statement per remediation capability, each built only from explicitly supplied
-            resource ARNs. An empty ARN list means the capability is simply absent - there is no
-            derived-name or wildcard fallback anywhere in here, which is what keeps an
-            unnamed (e.g. live green) environment out of reach.
+    def human_remediate_action_policy(cls) -> Policy:
+        """ The exact operational actions needed to remediate the supported services, each scoped
+            to the service and gated on region plus (normally) a live MFA session.
+
+            Every one is reversible. Excluded on purpose: sqs:PurgeQueue and sqs:DeleteQueue
+            (irreversible - messages are gone), anything that authors or runs new code
+            (ecr:PutImage, ecs:RegisterTaskDefinition, ecs:RunTask, ecs:ExecuteCommand,
+            lambda:UpdateFunctionCode), IAM administration, and any unrelated data-plane or
+            network mutation.
         """
-        statements = []
         condition = cls._human_access_mutation_condition()
-
-        service_arns = cls._human_access_list(Settings.HUMAN_ACCESS_REMEDIATE_SERVICE_ARNS)
-        if service_arns:
-            # Note: IAM has no condition key for the task-definition argument of UpdateService, so
-            # this also permits repointing a named service at another already-registered revision.
-            # Bounded by ecr:PutImage being denied in the boundary, and by CloudTrail attribution.
-            statements.append({
-                'Sid': 'RestartOrRescaleNamedServices', 'Effect': 'Allow',
-                'Action': ['ecs:UpdateService'], 'Resource': service_arns,
-                'Condition': condition,
-            })
-
-        cluster_arns = cls._human_access_list(Settings.HUMAN_ACCESS_REMEDIATE_CLUSTER_ARNS)
-        if cluster_arns:
-            task_condition = dict(condition, ArnEquals={'ecs:cluster': cluster_arns})
-            statements.append({
-                'Sid': 'StopIndividualStuckTasks', 'Effect': 'Allow',
-                'Action': ['ecs:StopTask'],
-                'Resource': [cls._task_arn_for_cluster(arn) for arn in cluster_arns],
-                'Condition': task_condition,
-            })
-
-        queue_arns = cls._human_access_list(Settings.HUMAN_ACCESS_REMEDIATE_QUEUE_ARNS)
-        if queue_arns:
-            statements.append({
-                'Sid': 'ReleaseInFlightQueueMessages', 'Effect': 'Allow',
-                'Action': ['sqs:ChangeMessageVisibility'], 'Resource': queue_arns,
-                'Condition': condition,
-            })
-            if cls._human_access_flag(Settings.HUMAN_ACCESS_REMEDIATE_ALLOW_QUEUE_PURGE):
-                # Irreversible: purged messages are gone. Its own explicit, default-off switch.
-                statements.append({
-                    'Sid': 'PurgeNamedQueues', 'Effect': 'Allow',
-                    'Action': ['sqs:PurgeQueue'], 'Resource': queue_arns,
-                    'Condition': condition,
-                })
-
-        state_machine_arns = cls._human_access_list(Settings.HUMAN_ACCESS_REMEDIATE_STATE_MACHINE_ARNS)
-        if state_machine_arns:
-            statements.append({
-                'Sid': 'StartNamedStateMachines', 'Effect': 'Allow',
-                'Action': ['states:StartExecution'], 'Resource': state_machine_arns,
-                'Condition': condition,
-            })
-            statements.append({
-                'Sid': 'StopExecutionsOfNamedStateMachines', 'Effect': 'Allow',
-                'Action': ['states:StopExecution'],
-                'Resource': [cls._execution_arn_for_state_machine(arn) for arn in state_machine_arns],
-                'Condition': condition,
-            })
-
-        codebuild_arns = cls._human_access_list(Settings.HUMAN_ACCESS_REMEDIATE_CODEBUILD_ARNS)
-        if codebuild_arns:
-            # Rebuilding through CI is the only sanctioned way to change what runs: the build runs
-            # under CodeBuild's own role from the pinned repo/branch, and the human never pushes
-            # an image (ecr:PutImage is denied).
-            statements.append({
-                'Sid': 'RebuildApplicationImageViaCiOnly', 'Effect': 'Allow',
-                'Action': ['codebuild:StartBuild', 'codebuild:StopBuild', 'codebuild:RetryBuild'],
-                'Resource': codebuild_arns, 'Condition': condition,
-            })
-        return statements
-
-    @staticmethod
-    def _task_arn_for_cluster(cluster_arn: str) -> str:
-        """ arn:aws:ecs:<region>:<acct>:cluster/<name> -> arn:aws:ecs:<region>:<acct>:task/<name>/*
-        """
-        return cluster_arn.replace(':cluster/', ':task/', 1) + '/*'
-
-    @staticmethod
-    def _execution_arn_for_state_machine(state_machine_arn: str) -> str:
-        """ ...:stateMachine:<name> -> ...:execution:<name>:* (the resource StopExecution takes).
-        """
-        return state_machine_arn.replace(':stateMachine:', ':execution:', 1) + ':*'
+        return Policy(
+            PolicyName='HumanRemediateActionPolicy',
+            PolicyDocument={
+                'Version': '2012-10-17',
+                'Statement': [
+                    {
+                        # Restart (force-new-deployment) or rescale (desired-count) a service.
+                        'Sid': 'RestartOrRescaleServices',
+                        'Effect': 'Allow',
+                        'Action': ['ecs:UpdateService'],
+                        'Resource': cls._service_arn('ecs', 'service/*'),
+                        'Condition': condition,
+                    },
+                    {
+                        # Kill one stuck task; the service replaces it.
+                        'Sid': 'StopStuckTasks',
+                        'Effect': 'Allow',
+                        'Action': ['ecs:StopTask'],
+                        'Resource': cls._service_arn('ecs', 'task/*'),
+                        'Condition': condition,
+                    },
+                    {
+                        # Release in-flight messages back to the queue. Reversible: nothing is
+                        # destroyed, the messages simply become visible again.
+                        'Sid': 'ReleaseInFlightQueueMessages',
+                        'Effect': 'Allow',
+                        'Action': ['sqs:ChangeMessageVisibility'],
+                        'Resource': cls._service_arn('sqs', '*'),
+                        'Condition': condition,
+                    },
+                    {
+                        # Rerun a stuck workflow.
+                        'Sid': 'StartWorkflowExecutions',
+                        'Effect': 'Allow',
+                        'Action': ['states:StartExecution'],
+                        'Resource': cls._service_arn('states', 'stateMachine:*'),
+                        'Condition': condition,
+                    },
+                    {
+                        'Sid': 'StopWorkflowExecutions',
+                        'Effect': 'Allow',
+                        'Action': ['states:StopExecution'],
+                        'Resource': cls._service_arn('states', 'execution:*'),
+                        'Condition': condition,
+                    },
+                    {
+                        # Rebuild through CI - the only sanctioned way to change what runs. The
+                        # build runs under CodeBuild's own role from the pinned repo and branch,
+                        # and the human never pushes an image (ecr:PutImage is denied).
+                        'Sid': 'RebuildApplicationImageViaCiOnly',
+                        'Effect': 'Allow',
+                        'Action': ['codebuild:StartBuild', 'codebuild:StopBuild',
+                                   'codebuild:RetryBuild'],
+                        'Resource': cls._service_arn('codebuild', 'project/*'),
+                        'Condition': condition,
+                    },
+                ],
+            },
+        )
 
     @classmethod
     def human_remediate_guardrail_policy(cls) -> Policy:
         """ Denies that hold whether or not the boundary is attached: no way to author or run new
-            code, no data or secret reads, and no chaining to another role.
+            code, no irreversible queue operation, no data or secret reads, no chaining.
         """
         return Policy(
             PolicyName='HumanRemediateGuardrailPolicy',
@@ -1240,7 +1204,7 @@ class C4IAM(C4IAMBase, C4Part):
                 'Version': '2012-10-17',
                 'Statement': [
                     {
-                        'Sid': 'RemediationCannotSupplyCodeOrReadData',
+                        'Sid': 'RemediationCannotSupplyCodeDestroyDataOrReadIt',
                         'Effect': 'Deny',
                         'Action': [
                             'ecs:RegisterTaskDefinition', 'ecs:DeregisterTaskDefinition',
@@ -1253,13 +1217,15 @@ class C4IAM(C4IAMBase, C4Part):
                             'lambda:UpdateFunctionCode', 'lambda:UpdateFunctionConfiguration',
                             'lambda:InvokeFunction', 'lambda:GetFunction',
                             'lambda:GetFunctionConfiguration',
+                            # Irreversible queue operations are excluded from remediation.
+                            'sqs:PurgeQueue', 'sqs:DeleteQueue',
+                            'sqs:ReceiveMessage', 'sqs:SendMessage', 'sqs:DeleteMessage',
                             's3:GetObject', 's3:GetObjectVersion', 's3:PutObject',
                             's3:DeleteObject',
                             'secretsmanager:GetSecretValue',
                             'kms:Decrypt', 'kms:GenerateDataKey',
                             'kms:GenerateDataKeyWithoutPlaintext', 'kms:ReEncryptFrom',
                             'ssm:GetParameter', 'ssm:GetParameters', 'ssm:GetParametersByPath',
-                            'sqs:ReceiveMessage', 'sqs:SendMessage', 'sqs:DeleteMessage',
                             'rds:DownloadDBLogFilePortion', 'rds:DownloadCompleteDBLogFile',
                             'es:ESHttp*',
                             'iam:PassRole',
@@ -1277,17 +1243,6 @@ class C4IAM(C4IAMBase, C4Part):
         """ Scoped remediation role. Like the diagnostic role it attaches no managed policies and
             shares nothing with the ECS runtime role's helpers.
         """
-        policies = [self.human_remediate_read_policy()]
-        action_statements = self.human_remediate_action_statements()
-        if action_statements:
-            policies.append(Policy(
-                PolicyName='HumanRemediateActionPolicy',
-                PolicyDocument={'Version': '2012-10-17', 'Statement': action_statements},
-            ))
-        else:
-            logger.warning(f'{Settings.HUMAN_ACCESS_REMEDIATE_ENABLED} is on but no remediation'
-                           f' target ARNs were supplied; {self.REMEDIATE_ROLE} will be read-only.')
-        policies.append(self.human_remediate_guardrail_policy())
         return Role(
             self.REMEDIATE_ROLE,
             Description='Scoped remediation access for power users. Opt-in; see'
@@ -1295,7 +1250,11 @@ class C4IAM(C4IAMBase, C4Part):
             AssumeRolePolicyDocument=self.human_access_trust_policy(principal_arns),
             MaxSessionDuration=self.HUMAN_ACCESS_REMEDIATE_SESSION_DURATION,
             PermissionsBoundary=Ref(boundary),
-            Policies=policies,
+            Policies=[
+                self.human_remediate_read_policy(),
+                self.human_remediate_action_policy(),
+                self.human_remediate_guardrail_policy(),
+            ],
         )
 
     def output_human_access_role(self, role: Role) -> Output:
