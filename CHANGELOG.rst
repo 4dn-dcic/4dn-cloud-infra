@@ -61,6 +61,38 @@ SRCE (Secure Research Collaborative Environment) support
 * Update ``setup-remaining-secrets`` to detect SRCE deployments (via ``vpc.id`` in config)
   and compute the correct RDS secret logical ID using the SRCE datastore prefix.
 
+Foursight networking in SRCE (Application-VPC Lambda contract)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* Fix ``C4SRCENetworkExports.get_security_ids()``, which inherited the loose
+  ``.*Network.*ApplicationSecurityGroup.*`` output-key pattern from ``C4NetworkExports``.
+  All three SRCE network stacks create an ``ApplicationSecurityGroup`` in their own
+  IT-provided VPC, so the pattern resolved three security groups from three different
+  VPCs while the subnets came from the Application VPC alone -- CloudFormation rejected
+  every Foursight Lambda with ``Security Groups are required to be in the same VPC``.
+  Resolution is now anchored to the Application network stack's exact output key
+  (derived from ``C4SRCENetwork``'s own ``C4Name``), which also excludes any standard
+  ``c4-network-main-stack`` present in the same account.
+
+* ``get_security_ids()`` now raises instead of returning an empty list. Previously an
+  empty resolution was silently swallowed by ``foursight_core``'s
+  ``if security_group_ids:`` gate, leaving whatever stale ``security_group_ids`` were
+  already in the chalice config in place. ``cli provision foursight-srce`` therefore now
+  requires ``c4-srce-network-main-stack`` to be deployed first.
+
+* ``C4SRCENetworkExports.get_subnet_ids()`` rejects Application-VPC subnets that also
+  appear under ``db.private.subnets`` or ``compute.private.subnets``.
+
+* Give each Foursight variant a *deep* copy of the vendored chalice ``CONFIG_BASE``.
+  ``dict(CONFIG_BASE, app_name=...)`` copies only the top level, so all four variants
+  shared one mutable ``stages`` dict that ``build_config()`` writes
+  ``security_group_ids`` / ``subnet_ids`` into -- SRCE networking could leak into the
+  non-SRCE variants packaged in the same process.
+
+* Document the Application-VPC Lambda contract in ``docs/source/deploy_srce.rst``; add
+  regression tests in ``tests/test_srce_foursight_vpc.py``. Non-SRCE behavior
+  (``C4NetworkExports``) is unchanged.
+
 IAM policy hardening
 ~~~~~~~~~~~~~~~~~~~~
 

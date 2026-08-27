@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 import sys
@@ -22,6 +23,21 @@ from .parts.srce_network import C4SRCENetworkExports
 # Version string identifies template capabilities. Ref:
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/format-version-structure.html
 CLOUD_FORMATION_VERSION = '2010-09-09'
+
+
+def foursight_config_base(app_name):
+    """ Per-subclass copy of the vendored chalice CONFIG_BASE for one Foursight variant.
+
+        This must be a DEEP copy. ``dict(PackageDeploy_from_core.CONFIG_BASE, app_name=...)``
+        copies only the top level, so every Foursight variant used to share one
+        ``CONFIG_BASE['stages']`` dict -- and ``foursight_core.deploy.Deploy.build_config()``
+        mutates that dict in place, writing ``security_group_ids`` / ``subnet_ids`` /
+        ``environment_variables`` into it. Sharing it means the SRCE variant's Application-VPC
+        networking would leak into the non-SRCE variants' chalice config (and vice versa) whenever
+        more than one variant is constructed in a single process, which is exactly the cross-VPC
+        divergence the SRCE Foursight stack is supposed to make impossible.
+    """
+    return dict(copy.deepcopy(PackageDeploy_from_core.CONFIG_BASE), app_name=app_name)
 
 
 class BaseC4Stack:
@@ -182,9 +198,7 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
 
     class PackageDeploy(PackageDeploy_from_core):
 
-        # Per-subclass copy so 'app_name' doesn't bleed between foursight variants
-        # (the parent CONFIG_BASE is a shared mutable dict).
-        CONFIG_BASE = dict(PackageDeploy_from_core.CONFIG_BASE, app_name='foursight-cgap')
+        CONFIG_BASE = foursight_config_base('foursight-cgap')
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")
@@ -238,7 +252,7 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
 
     class PackageDeploy(PackageDeploy_from_core):
 
-        CONFIG_BASE = dict(PackageDeploy_from_core.CONFIG_BASE, app_name='foursight-fourfront')
+        CONFIG_BASE = foursight_config_base('foursight-fourfront')
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")
@@ -285,7 +299,7 @@ class C4FoursightSMAHTStack(C4FoursightCGAPStack):
 
     class PackageDeploy(PackageDeploy_from_core):
 
-        CONFIG_BASE = dict(PackageDeploy_from_core.CONFIG_BASE, app_name='foursight-smaht')
+        CONFIG_BASE = foursight_config_base('foursight-smaht')
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")
@@ -342,7 +356,7 @@ class C4FoursightSMAHTSRCEStack(C4FoursightSMAHTStack):
 
     class PackageDeploy(PackageDeploy_from_core):
 
-        CONFIG_BASE = dict(PackageDeploy_from_core.CONFIG_BASE, app_name='foursight-smaht')
+        CONFIG_BASE = foursight_config_base('foursight-smaht')
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")

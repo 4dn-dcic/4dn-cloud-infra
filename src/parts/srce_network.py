@@ -1,5 +1,4 @@
 import json
-import re
 
 from troposphere import Template, Output, Parameter as CFNParameter, Ref
 from troposphere.ec2 import SecurityGroupIngress, SecurityGroupEgress, SecurityGroup, SecurityGroupRule
@@ -50,6 +49,25 @@ def _read_subnet_ids(setting_key):
     return subnet_ids
 
 
+def _assert_no_other_vpc_subnets(subnet_ids):
+    """ Guard for the SRCE three-VPC split: the Application VPC's private subnets must not overlap
+        the Database or Compute VPC's. Anything attached to those subnets (Foursight Lambda ENIs,
+        ECS task ENIs) is required to sit in exactly one VPC, and a subnet ID that appears under
+        two of the three config keys means the VPC boundaries in config.json are wrong. Fail here,
+        at synthesis/package time, rather than at CloudFormation time. """
+    subnet_ids = set(subnet_ids)
+    for setting_key, vpc_label in ((Settings.DB_PRIVATE_SUBNETS, 'Database'),
+                                   (Settings.COMPUTE_PRIVATE_SUBNETS, 'Compute')):
+        other = set(_parse_subnet_ids(ConfigManager.get_config_setting(setting_key, default=[])))
+        overlap = sorted(other & subnet_ids)
+        if overlap:
+            raise RuntimeError(
+                f"{Settings.PRIVATE_SUBNETS!r} (Application VPC) and {setting_key!r}"
+                f" ({vpc_label} VPC) both list {overlap}. Application VPC subnets must be"
+                f" disjoint from the other SRCE VPCs' subnets."
+            )
+
+
 class C4SRCENetworkExports(C4Exports):
     """
     Exports for the SRCE Application VPC (ECS portal + foursight).
@@ -80,20 +98,61 @@ class C4SRCENetworkExports(C4Exports):
         n = len(_parse_subnet_ids(ConfigManager.get_config_setting(Settings.PUBLIC_SUBNETS, default=[])))
         return C4NetworkExports.PUBLIC_SUBNETS[:n]
 
-    _APPLICATION_SECURITY_GROUP_EXPORT_PATTERN = re.compile('.*Network.*ApplicationSecurityGroup.*')
-
     @classmethod
     def get_security_ids(cls):
-        computed_result = ConfigManager.find_stack_outputs(cls._APPLICATION_SECURITY_GROUP_EXPORT_PATTERN.match,
-                                                           value_only=True)
+        """
+        Resolve the Application VPC security group(s) that Foursight Lambdas attach to.
+
+        Foursight is packaged by chalice, which cannot use ImportValue: it needs *literal*
+        security-group IDs written into .chalice/config.json at package time. The inherited
+        C4NetworkExports implementation finds them by scanning every stack in the account for an
+        output key matching '.*Network.*ApplicationSecurityGroup.*'. That is unambiguous in a
+        normal deployment (only c4-network-main-stack matches) but wrong for SRCE: all three SRCE
+        network stacks create an ApplicationSecurityGroup in their *own* VPC and export it under
+        that same loose pattern --
+
+            C4SRCENetworkMainApplicationSecurityGroup         (Application VPC)
+            C4SRCENetworkDBMainApplicationSecurityGroup       (Database VPC)
+            C4SRCENetworkComputeMainApplicationSecurityGroup  (Compute VPC)
+
+        -- so the Lambdas would be handed three security groups from three different VPCs while
+        their subnets (get_subnet_ids() below) come from the Application VPC alone. CloudFormation
+        rejects every Foursight Lambda with "Security Groups are required to be in the same VPC".
+
+        Match the Application network stack's exact output key instead. The key is derived from
+        C4SRCENetwork's own C4Name, so it cannot drift from what C4SRCENetwork.build_template()
+        actually emits, and it also excludes any standard c4-network-main-stack in the account.
+        """
+        wanted_output_key = cls.application_security_group_output_key()
+        computed_result = ConfigManager.find_stack_outputs(wanted_output_key, value_only=True)
+        if not computed_result:
+            raise RuntimeError(
+                f"get_security_ids() found no stack output named {wanted_output_key!r}."
+                f" Deploy the SRCE Application network stack"
+                f" ({C4SRCENetwork.suggest_stack_name().stack_name}) before provisioning Foursight."
+                f" (Previously this returned an empty list, which silently left the Foursight"
+                f" chalice config's stale security_group_ids/subnet_ids in place.)"
+            )
         return computed_result
 
-    _PRIVATE_SUBNET_EXPORT_PATTERN = re.compile('.*Network.*PrivateSubnet.*')
+    @classmethod
+    def application_security_group_output_key(cls):
+        """ The CloudFormation output key under which the SRCE *Application* network stack exports
+            its ApplicationSecurityGroup, e.g. 'C4SRCENetworkMainApplicationSecurityGroup'. """
+        return C4SRCENetwork.suggest_stack_name().logical_id(cls.APPLICATION_SECURITY_GROUP)
 
     @classmethod
     def get_subnet_ids(cls):
-        """Read IT-provided Application VPC private subnet IDs from config."""
-        return _read_subnet_ids(Settings.PRIVATE_SUBNETS)
+        """Read IT-provided Application VPC private subnet IDs from config.
+
+        Also refuses subnets that are shared with the Database or Compute VPC: a Lambda (or ECS
+        task) ENI must land in the Application VPC only, and a subnet listed under two VPCs is the
+        same mixed-VPC mistake as the security-group case above, just via config rather than
+        cross-stack discovery.
+        """
+        subnet_ids = _read_subnet_ids(Settings.PRIVATE_SUBNETS)
+        _assert_no_other_vpc_subnets(subnet_ids)
+        return subnet_ids
 
     def __init__(self):
         super().__init__('NetworkStackNameParameter')

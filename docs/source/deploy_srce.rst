@@ -99,6 +99,46 @@ check the emitted template, then without ``--validate`` to deploy)::
     from the standard ``network`` stack (``c4-network-main-stack``). Deploying ``srce-network`` will
     **not** disturb any standard network stack in the account.
 
+.. note::
+    ``foursight-srce`` reads *literal* subnet and security-group IDs out of the deployed
+    ``c4-srce-network-main-stack`` at package time (chalice cannot use ``ImportValue``), so step 2
+    must be complete before step 6. If that stack is not up, ``cli provision foursight-srce`` now
+    fails with an explicit error instead of silently packaging a Foursight config with no — or a
+    stale — ``VpcConfig``.
+
+Foursight Lambda networking contract
+-------------------------------------
+
+**Every Foursight Lambda in an SRCE deployment runs in the Application VPC, and only there.**
+
+Foursight is packaged by chalice, not troposphere: the subnet and security-group IDs are baked as
+literal strings into ``.chalice/config.json`` and applied by chalice to the ``VpcConfig`` of every
+Lambda function it generates. ``C4FoursightSMAHTSRCEStack`` resolves them through
+``C4SRCENetworkExports``:
+
+* **Subnets** — the Application VPC private subnets from ``private.subnets``. These are rejected at
+  package time if they overlap ``db.private.subnets`` or ``compute.private.subnets``.
+* **Security group** — the ``ApplicationSecurityGroup`` exported by the SRCE *Application* network
+  stack (``c4-srce-network-main-stack``), matched by that stack's exact output key. This is the
+  same canonical export the proven non-SRCE Foursight path uses from ``c4-network-main-stack``.
+
+A Foursight Lambda must **never** be given a second ENI in the Database or Compute VPC, and must
+never fall back to a VPC's default security group. All three SRCE network stacks create an
+``ApplicationSecurityGroup`` in their own VPC, so a loose match on the output-key pattern
+``.*Network.*ApplicationSecurityGroup.*`` returns three groups from three different VPCs and
+CloudFormation rejects every Lambda with ``Security Groups are required to be in the same VPC``.
+Resolution is therefore anchored to the Application network stack's own name — see
+``C4SRCENetworkExports.get_security_ids()`` in ``src/parts/srce_network.py`` and the regression
+tests in ``tests/test_srce_foursight_vpc.py``.
+
+Reaching the other two VPCs stays a *routing and security-group-rule* concern, not an attachment
+concern. Foursight talks to RDS / OpenSearch / Redis over the IT-provided inter-VPC routing (peering
+or transit gateway between the Application and Database VPCs), permitted by the narrowly scoped
+cross-VPC rules that ``C4SRCENetwork`` and ``C4SRCEDBNetwork`` create — RDS ``5400-5499``, Redis
+``6379``, and HTTPS ``443`` for OpenSearch, each scoped to the peer VPC's CIDR rather than to
+``0.0.0.0/0``. If Foursight checks time out against the datastore, the fault is in that routing or
+in those rules; adding a Database-VPC security group to the Lambdas is not the fix.
+
 Post-deploy: populate secrets
 ------------------------------
 
