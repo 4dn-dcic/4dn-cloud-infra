@@ -89,9 +89,23 @@ Foursight networking in SRCE (Application-VPC Lambda contract)
   ``security_group_ids`` / ``subnet_ids`` into -- SRCE networking could leak into the
   non-SRCE variants packaged in the same process.
 
-* Document the Application-VPC Lambda contract in ``docs/source/deploy_srce.rst``; add
-  regression tests in ``tests/test_srce_foursight_vpc.py``. Non-SRCE behavior
-  (``C4NetworkExports``) is unchanged.
+* Anchor the standard ``C4NetworkExports`` resolvers to the standard network stack's own
+  logical-id prefix (``^C4Network...``), so the non-SRCE Foursight stacks
+  (``foursight``/``foursight-smaht``/``foursight-production``/``foursight-development``) no
+  longer match the SRCE network stacks' ``C4SRCENetwork*`` exports. Running
+  ``cli provision foursight-smaht`` against an SRCE account previously resolved security
+  groups **and** private subnets spanning all three SRCE VPCs. Legacy stack names such as
+  ``c4-network-trial-alpha-stack`` still match, since every standard network stack takes its
+  title token from ``C4NetworkBase``.
+
+* Both standard resolvers now refuse a match that spans more than one CloudFormation stack, via
+  the new ``ConfigManager.find_stack_outputs_by_stack()``. ``find_stack_outputs()`` flattens
+  matches from every stack in the account, silently merging values from different VPCs; the
+  resulting error names the offending stacks and points at ``cli provision foursight-srce``.
+
+* Document the Application-VPC Lambda contract and the correct SRCE provision target in
+  ``docs/source/deploy_srce.rst``; add regression tests in
+  ``tests/test_srce_foursight_vpc.py``. Non-SRCE behavior on a non-SRCE account is unchanged.
 
 IAM policy hardening
 ~~~~~~~~~~~~~~~~~~~~

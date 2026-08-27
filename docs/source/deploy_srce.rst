@@ -111,6 +111,21 @@ Foursight Lambda networking contract
 
 **Every Foursight Lambda in an SRCE deployment runs in the Application VPC, and only there.**
 
+.. warning::
+    Deploy Foursight for an SRCE environment with the **``foursight-srce``** target::
+
+        cli provision foursight-srce --upload-change-set [--foursight-identity <GAC name>]
+
+    Not ``foursight-smaht`` (or ``foursight`` / ``foursight-production`` /
+    ``foursight-development``). Those are the non-SRCE stacks: they resolve their networking from
+    the standard ``network`` stack, and ``--foursight-identity`` does **not** change that — it sets
+    only the ``IDENTITY`` environment variable in the chalice config. The network source is bound
+    per stack class (``NETWORK_EXPORTS``), so the *provision target* is what selects SRCE. There is
+    no ``foursight-smaht-srce`` target.
+
+    ``foursight-srce`` produces its own CloudFormation stack
+    (``c4-foursight-srce-<env>-stack``) and runs alongside any existing ``foursight-smaht`` stack.
+
 Foursight is packaged by chalice, not troposphere: the subnet and security-group IDs are baked as
 literal strings into ``.chalice/config.json`` and applied by chalice to the ``VpcConfig`` of every
 Lambda function it generates. ``C4FoursightSMAHTSRCEStack`` resolves them through

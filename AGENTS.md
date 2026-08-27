@@ -24,7 +24,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   export *identical* key names so downstream stacks import unchanged. That makes loose export regexes
   ambiguous. Foursight Lambdas must resolve to the Application VPC only — see
   `docs/source/deploy_srce.rst` ("Foursight Lambda networking contract") and
-  `tests/test_srce_foursight_vpc.py`.
+  `tests/test_srce_foursight_vpc.py`. The SRCE deploy target is `foursight-srce`; `--foursight-identity`
+  sets only the `IDENTITY` env var and never selects SRCE networking.
 - **`foursight_core.deploy.Deploy.build_config()` is vendored and mutates class state.** It gates on
   `if security_group_ids:`, so an empty resolution writes no `VpcConfig` and silently keeps whatever is
   already in `.chalice/config.json`; resolvers feeding it should fail loudly rather than return `[]`.

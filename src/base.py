@@ -354,6 +354,21 @@ class ConfigManager:
             return results
 
     @classmethod
+    def find_stack_outputs_by_stack(cls, key_or_pred):
+        """ Like find_stack_outputs, but keeps the owning stack, as {stack_name: {OutputKey: value}}.
+
+            find_stack_outputs() flattens matches from every stack in the account into one result,
+            which silently merges outputs that belong to different stacks -- and therefore, for
+            network stacks, to different VPCs. Callers that need all matches to come from a single
+            stack use this and refuse a result spanning more than one.
+        """
+        results = {}
+        for stack in cls._cloudformation().stacks.all():
+            for found in find_associations(stack.outputs or [], OutputKey=key_or_pred):
+                results.setdefault(stack.name, {})[found['OutputKey']] = found['OutputValue']
+        return results
+
+    @classmethod
     def find_stack_output(cls, key_or_pred, value_only=False):
         results = cls.find_stack_outputs(key_or_pred, value_only=value_only)
         n = len(results)
