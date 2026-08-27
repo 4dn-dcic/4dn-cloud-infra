@@ -98,11 +98,14 @@ def synthesize(part_class):
     return part.build_template(Template()).to_dict()
 
 
-def stack_outputs_from(template, sg_id_prefix):
-    """ Convert a synthesized template's Outputs into the (OutputKey, OutputValue) shape boto3
-        returns for a deployed stack, resolving Refs the way CloudFormation would: a Ref to a
-        security group becomes that group's physical id, a Ref to the VPC parameter becomes the
-        IT-provided VPC id. """
+def stack_outputs_from(template, sg_id_prefix, stack_name, with_export_names=True):
+    """ Convert a synthesized template's Outputs into the shape boto3 returns for a deployed stack,
+        resolving intrinsics the way CloudFormation would: a Ref to a security group becomes that
+        group's physical id, a Ref to the VPC parameter becomes the IT-provided VPC id, and the
+        Export's `Fn::Sub` of '${AWS::StackName}-<id>' becomes the real export name.
+
+        `with_export_names=False` models a stack whose outputs carry no export (get_security_ids()
+        falls back to the output key there). """
     outputs = []
     for key, spec in template.get('Outputs', {}).items():
         value = spec['Value']
@@ -112,7 +115,11 @@ def stack_outputs_from(template, sg_id_prefix):
                 value = template['Parameters'][ref]['Default']
             else:
                 value = f'sg-{sg_id_prefix}-{ref}'
-        outputs.append({'OutputKey': key, 'OutputValue': value})
+        output = {'OutputKey': key, 'OutputValue': value}
+        export = spec.get('Export', {}).get('Name')
+        if with_export_names and isinstance(export, dict) and 'Fn::Sub' in export:
+            output['ExportName'] = export['Fn::Sub'].replace('${AWS::StackName}', stack_name)
+        outputs.append(output)
     return outputs
 
 
@@ -128,7 +135,8 @@ def security_group_vpcs(template):
     return result
 
 
-def srce_account(include_standard_network=False, omit_application_stack=False):
+def srce_account(include_standard_network=False, omit_application_stack=False,
+                 with_export_names=True):
     """ Synthesize the SRCE network stacks and return what a Foursight resolver would see:
         ({stack name -> [outputs]}, {OutputKey -> VPC id}). Optionally also stand up a standard
         (non-SRCE) network stack, or leave the SRCE Application network stack undeployed. """
@@ -138,7 +146,9 @@ def srce_account(include_standard_network=False, omit_application_stack=False):
     stacks, key_to_vpc = {}, {}
     for part_class, prefix in specs:
         template = synthesize(part_class)
-        stacks[part_class.suggest_stack_name().stack_name] = stack_outputs_from(template, prefix)
+        stack_name = part_class.suggest_stack_name().stack_name
+        stacks[stack_name] = stack_outputs_from(template, prefix, stack_name,
+                                                with_export_names=with_export_names)
         key_to_vpc.update(security_group_vpcs(template))
     if include_standard_network:
         stacks.update(standard_network_account())
@@ -154,12 +164,15 @@ STANDARD_NETWORK_SG_VPCS = {f'{STANDARD_PREFIX}{C4NetworkExports.APPLICATION_SEC
 
 
 def standard_network_account(prefix=STANDARD_PREFIX, stack_name='c4-network-main-stack'):
+    def _output(export_id, value):
+        return {'OutputKey': f'{prefix}{export_id}', 'OutputValue': value,
+                'ExportName': f'{stack_name}-{export_id}'}
+
     return {stack_name: [
-        {'OutputKey': f'{prefix}{C4NetworkExports.APPLICATION_SECURITY_GROUP}',
-         'OutputValue': 'sg-0standardnetwork1'},
-        {'OutputKey': f'{prefix}PrivateSubnetA', 'OutputValue': 'subnet-0standardaaaaaa'},
-        {'OutputKey': f'{prefix}PrivateSubnetB', 'OutputValue': 'subnet-0standardbbbbbb'},
-        {'OutputKey': f'{prefix}VPC', 'OutputValue': STANDARD_VPC},
+        _output(C4NetworkExports.APPLICATION_SECURITY_GROUP, 'sg-0standardnetwork1'),
+        _output('PrivateSubnetA', 'subnet-0standardaaaaaa'),
+        _output('PrivateSubnetB', 'subnet-0standardbbbbbb'),
+        _output('VPC', STANDARD_VPC),
     ]}
 
 
@@ -191,6 +204,21 @@ def fake_find_stack_outputs(stacks):
     return _find
 
 
+def fake_find_stack_exports(stacks):
+    """ Stand-in for ConfigManager.find_stack_exports: matches an output's ExportName (absent on
+        outputs that declare no export) rather than its OutputKey. """
+    def _find(name_or_pred, value_only=False):
+        results = {}
+        for outputs in stacks.values():
+            for output in outputs:
+                export_name = output.get('ExportName')
+                if matches(name_or_pred, export_name):
+                    results[export_name] = output['OutputValue']
+        return list(results.values()) if value_only else results
+
+    return _find
+
+
 def fake_find_stack_outputs_by_stack(stacks):
     """ Stand-in for ConfigManager.find_stack_outputs_by_stack: matches grouped by owning stack. """
     def _find(key_or_pred):
@@ -209,6 +237,7 @@ def patched(stacks):
         code under test uses. """
     return mock.patch.multiple(ConfigManager,
                                find_stack_outputs=fake_find_stack_outputs(stacks),
+                               find_stack_exports=fake_find_stack_exports(stacks),
                                find_stack_outputs_by_stack=fake_find_stack_outputs_by_stack(stacks))
 
 
@@ -291,6 +320,92 @@ def test_get_security_ids_ignores_a_standard_network_stack_in_the_same_account()
     expected = next(o['OutputValue'] for o in all_outputs(stacks) if o['OutputKey'] == wanted_key)
     assert security_ids == [expected]
     assert 'sg-0standardnetwork1' not in security_ids
+
+
+def test_foursight_and_ecs_resolve_the_same_export_name():
+    """ The earliest divergence between the working ECS path and the failing Foursight path was the
+        *identifier*, not the value: ECS resolves the export name via Fn::ImportValue, Foursight
+        used the template's logical id. Both now name the same export.
+
+        The ECS side is `ImportValue(Sub('${NetworkStackNameParameter}-<id>'))`, and cli.py sets
+        NetworkStackNameParameter to C4SRCENetwork's stack name; the network side is
+        `Export(Sub('${AWS::StackName}-<id>'))` on that same stack. """
+    app_stack_name = C4SRCENetwork.suggest_stack_name().stack_name
+
+    ecs_side = C4SRCENetworkExports().import_value(C4NetworkExports.APPLICATION_SECURITY_GROUP)
+    ecs_template = ecs_side.to_dict()['Fn::ImportValue']['Fn::Sub']
+    resolved_by_ecs = ecs_template.replace('${NetworkStackNameParameter}', app_stack_name)
+
+    with mock.patch.object(ConfigManager, 'get_config_setting', srce_config()):
+        network_template = synthesize(C4SRCENetwork)
+    export = network_template['Outputs'][
+        C4SRCENetworkExports.application_security_group_output_key()]['Export']['Name']
+    published_by_network = export['Fn::Sub'].replace('${AWS::StackName}', app_stack_name)
+
+    assert resolved_by_ecs == published_by_network
+    assert C4SRCENetworkExports.application_security_group_export_name() == published_by_network
+
+
+def test_get_security_ids_matches_by_export_name_not_output_key():
+    """ Resolution must survive a stack whose outputs carry export names but whose output keys have
+        been re-tokenized (a renamed/re-qualified stack), which is what the export name is for. """
+    with mock.patch.object(ConfigManager, 'get_config_setting', srce_config()):
+        stacks, key_to_vpc = srce_account()
+        app_stack = C4SRCENetwork.suggest_stack_name().stack_name
+        renamed = {name: ([dict(o, OutputKey=f"Renamed{o['OutputKey']}") for o in outputs]
+                          if name == app_stack else outputs)
+                   for name, outputs in stacks.items()}
+        with patched(renamed):
+            security_ids = C4SRCENetworkExports.get_security_ids()
+
+    assert len(security_ids) == 1
+    assert {security_group_vpc_map(stacks, key_to_vpc)[sg] for sg in security_ids} == {APP_VPC}
+
+
+def test_get_security_ids_falls_back_to_the_output_key_when_no_export_is_published():
+    with mock.patch.object(ConfigManager, 'get_config_setting', srce_config()):
+        stacks, key_to_vpc = srce_account(with_export_names=False)
+        assert all('ExportName' not in o for o in all_outputs(stacks))
+        with patched(stacks):
+            security_ids = C4SRCENetworkExports.get_security_ids()
+    assert {security_group_vpc_map(stacks, key_to_vpc)[sg] for sg in security_ids} == {APP_VPC}
+
+
+def test_get_security_ids_export_lookup_still_excludes_the_db_and_compute_vpcs():
+    """ The DB and Compute stacks export the same suffix under their own stack names, so the export
+        name is as discriminating as the output key was meant to be. """
+    with mock.patch.object(ConfigManager, 'get_config_setting', srce_config()):
+        stacks, _ = srce_account()
+    export_names = sorted(o['ExportName'] for o in all_outputs(stacks)
+                          if o.get('ExportName', '').endswith(
+                              C4NetworkExports.APPLICATION_SECURITY_GROUP))
+    assert len(export_names) == 3
+    assert C4SRCENetworkExports.application_security_group_export_name() in export_names
+    for other in (C4SRCEDBNetwork, C4SRCEComputeNetwork):
+        other_export = (f'{other.suggest_stack_name().stack_name}'
+                        f'-{C4NetworkExports.APPLICATION_SECURITY_GROUP}')
+        assert other_export in export_names
+        assert other_export != C4SRCENetworkExports.application_security_group_export_name()
+
+
+def test_get_security_ids_error_names_both_identifiers_and_lists_what_exists():
+    """ If neither lookup resolves, the message must be enough to diagnose the account without
+        another round trip -- and must never print security-group values. """
+    with mock.patch.object(ConfigManager, 'get_config_setting', srce_config()):
+        stacks, _ = srce_account(omit_application_stack=True)
+        with patched(stacks):
+            with pytest.raises(RuntimeError) as exc:
+                C4SRCENetworkExports.get_security_ids()
+    message = str(exc.value)
+    assert C4SRCENetworkExports.application_security_group_export_name() in message
+    assert C4SRCENetworkExports.application_security_group_output_key() in message
+    # The DB and Compute exports are still present, and get named as what *does* exist.
+    db_export = (f'{C4SRCEDBNetwork.suggest_stack_name().stack_name}'
+                 f'-{C4NetworkExports.APPLICATION_SECURITY_GROUP}')
+    assert db_export in message
+    for output in all_outputs(stacks):
+        if str(output['OutputValue']).startswith('sg-'):
+            assert output['OutputValue'] not in message
 
 
 def test_get_security_ids_raises_instead_of_returning_empty():
@@ -398,8 +513,8 @@ def test_standard_network_resolvers_work_against_the_real_synthesized_network_st
     with mock.patch.object(ConfigManager, 'get_config_setting', srce_config()):
         template = synthesize(C4Network)
     stack_name = C4Network.suggest_stack_name().stack_name
-    outputs = [{'OutputKey': key, 'OutputValue': f'value-for-{key}'}
-               for key in template['Outputs']]
+    outputs = stack_outputs_from(template, 'std', stack_name)
+    outputs = [dict(o, OutputValue=f"value-for-{o['OutputKey']}") for o in outputs]
     with patched({stack_name: outputs}):
         security_ids = C4NetworkExports.get_security_ids()
         subnet_ids = C4NetworkExports.get_subnet_ids()

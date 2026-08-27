@@ -101,45 +101,83 @@ class C4SRCENetworkExports(C4Exports):
     @classmethod
     def get_security_ids(cls):
         """
-        Resolve the Application VPC security group(s) that Foursight Lambdas attach to.
+        Resolve the Application VPC security group that Foursight Lambdas attach to.
 
         Foursight is packaged by chalice, which cannot use ImportValue: it needs *literal*
-        security-group IDs written into .chalice/config.json at package time. The inherited
-        C4NetworkExports implementation finds them by scanning every stack in the account for an
-        output key matching '.*Network.*ApplicationSecurityGroup.*'. That is unambiguous in a
+        security-group IDs written into .chalice/config.json before anything is deployed. It
+        therefore has to look the value up itself, and the identifier it looks it up by is the
+        whole problem.
+
+        The inherited C4NetworkExports implementation scanned every stack in the account for an
+        output *key* matching '.*Network.*ApplicationSecurityGroup.*'. That is unambiguous in a
         normal deployment (only c4-network-main-stack matches) but wrong for SRCE: all three SRCE
         network stacks create an ApplicationSecurityGroup in their *own* VPC and export it under
-        that same loose pattern --
+        that same loose pattern, so the Lambdas were handed three security groups from three
+        different VPCs and CloudFormation rejected each one with
+        "Security Groups are required to be in the same VPC".
 
-            C4SRCENetworkMainApplicationSecurityGroup         (Application VPC)
-            C4SRCENetworkDBMainApplicationSecurityGroup       (Database VPC)
-            C4SRCENetworkComputeMainApplicationSecurityGroup  (Compute VPC)
+        Match the CloudFormation **export name** instead -- the exact identifier the SRCE ECS
+        stacks already resolve with Fn::ImportValue via NetworkStackNameParameter:
 
-        -- so the Lambdas would be handed three security groups from three different VPCs while
-        their subnets (get_subnet_ids() below) come from the Application VPC alone. CloudFormation
-        rejects every Foursight Lambda with "Security Groups are required to be in the same VPC".
+            c4-srce-network-main-stack-ApplicationSecurityGroup
 
-        Match the Application network stack's exact output key instead. The key is derived from
-        C4SRCENetwork's own C4Name, so it cannot drift from what C4SRCENetwork.build_template()
-        actually emits, and it also excludes any standard c4-network-main-stack in the account.
+        That is what C4Exports.export() writes at synthesis time and what C4Exports.import_value()
+        reads, so Foursight and ECS now agree by construction. It also decouples the lookup from
+        the template's logical-id naming (title token + camelized sharing qualifier), which is a
+        second, independent identifier for the same output that a renamed or re-tokenized stack
+        can change without the export name changing.
+
+        A stack whose outputs carry the key but no export name is still accepted, via that exact
+        output key. Both lookups name a single stack, so neither reintroduces the cross-VPC
+        ambiguity that the loose pattern had.
         """
-        wanted_output_key = cls.application_security_group_output_key()
-        computed_result = ConfigManager.find_stack_outputs(wanted_output_key, value_only=True)
-        if not computed_result:
-            raise RuntimeError(
-                f"get_security_ids() found no stack output named {wanted_output_key!r}."
-                f" Deploy the SRCE Application network stack"
-                f" ({C4SRCENetwork.suggest_stack_name().stack_name}) before provisioning Foursight."
-                f" (Previously this returned an empty list, which silently left the Foursight"
-                f" chalice config's stale security_group_ids/subnet_ids in place.)"
-            )
-        return computed_result
+        export_name = cls.application_security_group_export_name()
+        computed_result = ConfigManager.find_stack_exports(export_name, value_only=True)
+        if computed_result:
+            return computed_result
+
+        output_key = cls.application_security_group_output_key()
+        computed_result = ConfigManager.find_stack_outputs(output_key, value_only=True)
+        if computed_result:
+            return computed_result
+
+        raise RuntimeError(
+            f"get_security_ids() could not resolve the SRCE Application VPC security group."
+            f" Looked for CloudFormation export {export_name!r} -- the same identifier"
+            f" `cli provision srce-ecs` resolves with Fn::ImportValue -- and then for stack output"
+            f" key {output_key!r}, and found neither in this account."
+            f"{cls._describe_available_application_security_groups()}"
+            f" Expected owner stack: {C4SRCENetwork.suggest_stack_name().stack_name}."
+        )
+
+    @classmethod
+    def application_security_group_export_name(cls):
+        """ The CloudFormation export name under which the SRCE *Application* network stack
+            publishes its ApplicationSecurityGroup: '<stack name>-ApplicationSecurityGroup'.
+            Built the same way C4Exports.export() builds it, from C4SRCENetwork's own stack name,
+            so it cannot drift from what C4SRCENetwork.build_template() emits. """
+        return f'{C4SRCENetwork.suggest_stack_name().stack_name}-{cls.APPLICATION_SECURITY_GROUP}'
 
     @classmethod
     def application_security_group_output_key(cls):
-        """ The CloudFormation output key under which the SRCE *Application* network stack exports
-            its ApplicationSecurityGroup, e.g. 'C4SRCENetworkMainApplicationSecurityGroup'. """
+        """ The CloudFormation output key (template logical id) for that same output, e.g.
+            'C4SRCENetworkMainApplicationSecurityGroup'. Fallback only -- see get_security_ids(). """
         return C4SRCENetwork.suggest_stack_name().logical_id(cls.APPLICATION_SECURITY_GROUP)
+
+    @classmethod
+    def _describe_available_application_security_groups(cls):
+        """ Diagnostic for the get_security_ids() failure message: which ApplicationSecurityGroup
+            exports *do* exist in this account. Names only -- never values -- so it is safe to
+            print. Best effort: a failure here must not mask the original error. """
+        try:
+            found = ConfigManager.find_stack_exports(
+                lambda name: bool(name) and name.endswith(cls.APPLICATION_SECURITY_GROUP))
+        except Exception:  # pragma: no cover - diagnostics must never raise
+            return ''
+        if not found:
+            return (' No stack in this account exports an ApplicationSecurityGroup at all,'
+                    ' which suggests the SRCE Application network stack is not deployed.')
+        return f' ApplicationSecurityGroup exports that do exist: {sorted(found)}.'
 
     @classmethod
     def get_subnet_ids(cls):

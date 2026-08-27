@@ -133,9 +133,13 @@ Lambda function it generates. ``C4FoursightSMAHTSRCEStack`` resolves them throug
 
 * **Subnets** — the Application VPC private subnets from ``private.subnets``. These are rejected at
   package time if they overlap ``db.private.subnets`` or ``compute.private.subnets``.
-* **Security group** — the ``ApplicationSecurityGroup`` exported by the SRCE *Application* network
-  stack (``c4-srce-network-main-stack``), matched by that stack's exact output key. This is the
-  same canonical export the proven non-SRCE Foursight path uses from ``c4-network-main-stack``.
+* **Security group** — the ``ApplicationSecurityGroup`` published by the SRCE *Application* network
+  stack, resolved by its CloudFormation **export name**
+  (``c4-srce-network-main-stack-ApplicationSecurityGroup``). That is the identical string the
+  ``srce-ecs`` stack resolves with ``Fn::ImportValue`` through ``NetworkStackNameParameter``, so
+  Foursight and ECS agree by construction. A stack that publishes the output without an export name
+  is still accepted, via that output's exact key (the template logical id, e.g.
+  ``C4SRCENetworkMainApplicationSecurityGroup``).
 
 A Foursight Lambda must **never** be given a second ENI in the Database or Compute VPC, and must
 never fall back to a VPC's default security group. All three SRCE network stacks create an
@@ -145,6 +149,18 @@ CloudFormation rejects every Lambda with ``Security Groups are required to be in
 Resolution is therefore anchored to the Application network stack's own name — see
 ``C4SRCENetworkExports.get_security_ids()`` in ``src/parts/srce_network.py`` and the regression
 tests in ``tests/test_srce_foursight_vpc.py``.
+
+Why Foursight cannot simply reuse the ECS mechanism verbatim: ``srce-ecs`` is CloudFormation, so it
+resolves cross-stack values at *deploy* time with ``Fn::ImportValue``. Foursight is a chalice
+application; its Lambda ``VpcConfig`` is written into ``.chalice/config.json`` as literal IDs
+*before* any template exists, so it must look the values up itself. What it can — and now does —
+share with ECS is the *identifier*: the same export name, rather than the template logical id, which
+is a second name for the same output that a renamed or re-tokenized stack can change independently.
+
+If ``cli provision foursight-srce`` reports that it cannot resolve the security group, the error
+names both identifiers it tried and lists the ``ApplicationSecurityGroup`` export names that do
+exist in the account (names only, never values) — normally enough to tell whether the Application
+network stack is absent, differently named, or was deployed from an older revision.
 
 Reaching the other two VPCs stays a *routing and security-group-rule* concern, not an attachment
 concern. Foursight talks to RDS / OpenSearch / Redis over the IT-provided inter-VPC routing (peering

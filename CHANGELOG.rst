@@ -103,6 +103,17 @@ Foursight networking in SRCE (Application-VPC Lambda contract)
   matches from every stack in the account, silently merging values from different VPCs; the
   resulting error names the offending stacks and points at ``cli provision foursight-srce``.
 
+* Resolve the SRCE Foursight security group by CloudFormation **export name**
+  (``c4-srce-network-main-stack-ApplicationSecurityGroup``) rather than by the template's output
+  key. This is the identical string ``srce-ecs`` resolves with ``Fn::ImportValue`` via
+  ``NetworkStackNameParameter``, so the pre-deploy (chalice) and deploy-time (CloudFormation)
+  paths now agree by construction and no longer depend on logical-id naming (title token plus
+  camelized sharing qualifier), which a renamed or re-tokenized stack can change independently.
+  The exact output key remains a fallback for a stack that publishes no export name, and the
+  failure message names both identifiers and lists the ``ApplicationSecurityGroup`` export names
+  that do exist (names only, never values). Adds ``ConfigManager.find_stack_exports()``, which
+  reads the same ``DescribeStacks`` data and needs no additional API surface or IAM permission.
+
 * Document the Application-VPC Lambda contract and the correct SRCE provision target in
   ``docs/source/deploy_srce.rst``; add regression tests in
   ``tests/test_srce_foursight_vpc.py``. Non-SRCE behavior on a non-SRCE account is unchanged.

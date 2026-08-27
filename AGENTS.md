@@ -14,6 +14,14 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 ## Sharp edges
 
+- **An output has two names.** Its *output key* is the template logical id
+  (`C4SRCENetworkMainApplicationSecurityGroup`, = `C4` + title token + camelized sharing qualifier +
+  export id); its *export name* is `<stack name>-<export id>`
+  (`c4-srce-network-main-stack-ApplicationSecurityGroup`), which is what `C4Exports.export()` writes
+  and `Fn::ImportValue` reads. CloudFormation consumers resolve the export name at deploy time;
+  pre-deploy resolvers (Foursight) should match the *same* export name, via
+  `ConfigManager.find_stack_exports`, so both agree. Matching the logical id instead couples the
+  lookup to stack tokens/qualifiers that can change independently.
 - **Cross-stack export discovery is regex over `OutputKey`, account-wide.** `ConfigManager.find_stack_outputs`
   (`src/base.py`) scans *every* CloudFormation stack in the account and matches the output key, so the
   `_*_EXPORT_PATTERN` regexes in `src/parts/*.py` are only as safe as they are specific. Anything that

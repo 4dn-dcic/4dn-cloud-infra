@@ -354,6 +354,34 @@ class ConfigManager:
             return results
 
     @classmethod
+    def find_stack_exports(cls, export_name_or_pred, value_only=False):
+        """ Like find_stack_outputs, but matches an output's CloudFormation *export name* rather
+            than its output key -- i.e. the same string Fn::ImportValue resolves.
+
+            These are two different identifiers for the same output. The output key is the
+            template's logical id ('C4SRCENetworkMainApplicationSecurityGroup'), which depends on
+            the stack's title token and camelized sharing qualifier. The export name is
+            '<stack name>-<export id>' ('c4-srce-network-main-stack-ApplicationSecurityGroup'),
+            which is what C4Exports.export() writes and C4Exports.import_value() reads. Consumers
+            that resolve cross-stack values at deploy time (the ECS stacks) use the export name;
+            anything that must resolve literal IDs *before* deploy (Foursight, via chalice) should
+            match the same export name so both mechanisms agree by construction.
+
+            Outputs with no export carry no 'ExportName', so a predicate must tolerate None.
+
+            Note this reads the same DescribeStacks data as find_stack_outputs -- it needs no
+            additional API surface or IAM permission.
+        """
+        results = {}
+        for stack in cls._cloudformation().stacks.all():
+            for found in find_associations(stack.outputs or [], ExportName=export_name_or_pred):
+                results[found['ExportName']] = found['OutputValue']
+        if value_only:
+            return list(results.values())
+        else:
+            return results
+
+    @classmethod
     def find_stack_outputs_by_stack(cls, key_or_pred):
         """ Like find_stack_outputs, but keeps the owning stack, as {stack_name: {OutputKey: value}}.
 
