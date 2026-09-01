@@ -114,6 +114,17 @@ Foursight networking in SRCE (Application-VPC Lambda contract)
   that do exist (names only, never values). Adds ``ConfigManager.find_stack_exports()``, which
   reads the same ``DescribeStacks`` data and needs no additional API surface or IAM permission.
 
+* Package ``foursight-srce`` with the ``foursight_smaht`` poetry group.
+  ``foursight_core.deploy.Deploy.build_config_and_package()`` picks the application library by
+  matching the caller's ``args.stack`` against a hardcoded list of provision targets that knows
+  only ``foursight-smaht``, so ``foursight-srce`` fell through to the ``foursight_cgap`` group and
+  shipped a SMaHT ``app.py`` (which imports ``chalicelib_smaht``) on top of foursight-cgap's
+  dependencies; the Lambda failed at startup with ``Runtime.ImportModuleError: Unable to import
+  module 'app': No module named 'chalicelib_smaht'``. ``C4FoursightSMAHTSRCEStack.PackageDeploy``
+  now presents ``stack='foursight-smaht'`` to that classifier on a local copy of the arguments,
+  so exactly one application group is exported while the caller's deploy target -- and the
+  CloudFormation stack name, change-set upload and error messages -- stay ``foursight-srce``.
+
 * Document the Application-VPC Lambda contract and the correct SRCE provision target in
   ``docs/source/deploy_srce.rst``; add regression tests in
   ``tests/test_srce_foursight_vpc.py``. Non-SRCE behavior on a non-SRCE account is unchanged.

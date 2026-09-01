@@ -360,3 +360,31 @@ class C4FoursightSMAHTSRCEStack(C4FoursightSMAHTStack):
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")
+
+        #: The provision target whose poetry group this deployment needs. `foursight-srce` packages
+        #: the same application library as `foursight-smaht`, so it must export the same group.
+        PACKAGE_GROUP_TARGET = 'foursight-smaht'
+
+        @classmethod
+        def build_config_and_package(cls, args, **kwargs):
+            """ Present a package-group target `foursight_core` recognizes, and nothing else.
+
+                `foursight_core.deploy.Deploy.build_config_and_package()` picks the poetry group --
+                and so which application library lands in the chalice package -- by matching
+                `args.stack` against a hardcoded list of provision targets that knows only
+                'foursight-smaht'. 'foursight-srce' is not in that list, so it fell through to the
+                foursight_cgap group and shipped a SMaHT `app.py` (which imports `chalicelib_smaht`)
+                on top of foursight-cgap's dependencies; the Lambda then failed at startup with
+                `Runtime.ImportModuleError: No module named 'chalicelib_smaht'`.
+
+                Rather than broaden that default group or pin an unreleased foursight-core, hand
+                core a copy of the arguments whose `stack` it can classify. The copy is local to
+                this call: the caller's `args.stack` -- the real deploy target, used for the
+                CloudFormation stack name, the change-set upload and error messages -- stays
+                'foursight-srce'.
+            """
+            package_args = copy.copy(args)
+            package_args.stack = cls.PACKAGE_GROUP_TARGET
+            # super(), not PackageDeploy_from_core: `cls` must stay bound to this subclass so
+            # CONFIG_BASE / get_config_filepath() / build_config() remain the SRCE ones.
+            return super().build_config_and_package(package_args, **kwargs)

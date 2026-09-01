@@ -31,6 +31,7 @@ The real-world failing command was ``cli provision foursight-smaht --upload-chan
 ``--foursight-identity`` sets only the ``IDENTITY`` environment variable -- it does not select SRCE
 networking. ``test_non_srce_foursight_*`` below covers exactly that path.
 """
+import argparse
 import json
 import os
 import re
@@ -592,3 +593,89 @@ def test_foursight_variants_do_not_share_one_mutable_chalice_stage_config():
         for stage in cls.PackageDeploy.CONFIG_BASE['stages'].values():
             assert 'security_group_ids' not in stage, cls.__name__
             assert 'subnet_ids' not in stage, cls.__name__
+
+
+# ---------------------------------------------------------------------------------------------
+# Which application package the chalice deployment actually carries.
+#
+# The Lambda's VpcConfig being right does not help if the package has no code to import.
+# `foursight_core.deploy.Deploy.build_config_and_package()` picks the poetry group -- and so the
+# application library -- by matching the caller's `args.stack` against a hardcoded list of
+# provision targets that knows only 'foursight-smaht'. A new SMaHT target therefore falls through
+# to the foursight_cgap group, and the SRCE Lambda that ships is a SMaHT `app.py` (importing
+# `chalicelib_smaht`) on top of foursight-cgap's dependencies:
+#
+#   Runtime.ImportModuleError: Unable to import module 'app': No module named 'chalicelib_smaht'
+# ---------------------------------------------------------------------------------------------
+
+#: provision target -> the poetry group in pyproject.toml that must be exported for it.
+FOURSIGHT_PACKAGE_GROUPS = [
+    (C4FoursightCGAPStack, 'foursight', 'foursight_cgap'),
+    (C4FoursightFourfrontStack, 'foursight-production', 'foursight_fourfront'),
+    (C4FoursightFourfrontStack, 'foursight-development', 'foursight_fourfront'),
+    (C4FoursightSMAHTStack, 'foursight-smaht', 'foursight_smaht'),
+    (C4FoursightSMAHTSRCEStack, 'foursight-srce', 'foursight_smaht'),
+]
+
+
+def package_foursight(package_deploy_class, provision_target):
+    """ Run the vendored Deploy.build_config_and_package() for real, with only the subprocess
+        layer and the config path stubbed, and report what it would have run.
+
+        Returns (poetry groups exported, chalice config written, the args object as the caller
+        still sees it after the call). Nothing here touches AWS, poetry, or chalice.
+    """
+    calls = []
+
+    def record(command, verbose=False, **kwargs):
+        calls.append(list(command))
+        return 0
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = os.path.join(tmpdir, 'config.json')
+        output_dir = os.path.join(tmpdir, 'out')
+        os.makedirs(output_dir)
+        # The shape src/cli.py hands to package_foursight_stack(): argparse's namespace, whose
+        # .stack is the provision target the operator typed.
+        args = argparse.Namespace(stack=provision_target, merge_template=None,
+                                  output_file=output_dir, stage='prod', trial=True)
+        with mock.patch('foursight_core.deploy.subprocess_call', record), \
+                mock.patch.object(package_deploy_class, 'get_config_filepath',
+                                  classmethod(lambda cls: config_path)):
+            package_deploy_class.build_config_and_package(
+                args,
+                identity='C4AppConfigSmahtDevSrceFoursight',
+                stack_name='c4-foursight-srce-stack',
+                merge_template=None, output_file=output_dir, stage='prod', trial=True,
+                global_env_bucket='smaht-srce-foursight-envs',
+                security_ids=['sg-0srceapplication1'], subnet_ids=APP_PRIVATE_SUBNETS,
+                trial_creds={'S3_ENCRYPT_KEY': 'x'})
+        with open(config_path) as fp:
+            config = json.load(fp)
+    groups = [command[command.index('--with') + 1] for command in calls if '--with' in command]
+    return groups, config, args
+
+
+@pytest.mark.parametrize('stack_class, provision_target, expected_group', FOURSIGHT_PACKAGE_GROUPS)
+def test_each_foursight_target_packages_exactly_its_own_application_group(
+        stack_class, provision_target, expected_group):
+    """ Exactly one poetry group per target -- never both application packages (the chalice
+        package is already at AWS's size ceiling; see the prune script), and never the wrong one.
+        'foursight-srce' is a SMaHT deployment, so it must export foursight_smaht like
+        'foursight-smaht' does, not fall through to foursight_cgap. """
+    groups, _, _ = package_foursight(stack_class.PackageDeploy, provision_target)
+    assert groups == [expected_group], f"{provision_target} exported {groups}"
+
+
+def test_srce_packaging_does_not_rewrite_the_caller_s_provision_target():
+    """ SRCE presents 'foursight-smaht' only to core's package-group classifier. The deploy target
+        the rest of the CLI sees -- CloudFormation stack name, change-set upload, error messages --
+        stays 'foursight-srce'. """
+    groups, config, args = package_foursight(C4FoursightSMAHTSRCEStack.PackageDeploy,
+                                             'foursight-srce')
+    assert args.stack == 'foursight-srce'
+    assert groups == ['foursight_smaht']
+    # ...and the chalice app_name still comes from the SRCE subclass's own CONFIG_BASE, i.e. the
+    # override delegates with cls bound to the subclass rather than to foursight_core's class.
+    assert config['app_name'] == 'foursight-smaht'
+    assert C4FoursightSMAHTSRCEStack.STACK_NAME_TOKEN == 'foursight-srce'

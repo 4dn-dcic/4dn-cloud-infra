@@ -38,6 +38,14 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `if security_group_ids:`, so an empty resolution writes no `VpcConfig` and silently keeps whatever is
   already in `.chalice/config.json`; resolvers feeding it should fail loudly rather than return `[]`.
   Its `CONFIG_BASE` must be deep-copied per Foursight variant (`foursight_config_base` in `src/stack.py`).
+- **Which application library ships is chosen by the provision target's *name*.**
+  `build_config_and_package()` matches the caller's `args.stack` against target lists hardcoded in
+  `foursight_core` (only `foursight-development`/`foursight-production` → `foursight_fourfront`,
+  only `foursight-smaht` → `foursight_smaht`, everything else → `foursight_cgap`) to pick the poetry
+  group exported into `requirements.txt`. Any *new* Foursight target is therefore silently packaged as
+  CGAP while `app.py` imports whichever `chalicelib_*` its runtime env implies — a `Runtime.ImportModuleError`
+  at Lambda startup, not a packaging error. A new variant must present a name that classifier knows;
+  `C4FoursightSMAHTSRCEStack.PackageDeploy.build_config_and_package` (`src/stack.py`) is the pattern.
 - **Config list values arrive as strings.** `ConfigManager._load_config` stringifies every setting so it
   can be sourced into `os.environ`, so a JSON list in `config.json` reaches consumers as its Python repr —
   see the CLN-10 note in `src/base.py` and `_parse_subnet_ids` in `src/parts/srce_network.py`.
