@@ -59,6 +59,14 @@ Compute VPC (Sentieon compute jobs; JupyterHub/Higlass if introduced):
 
 Other relevant keys:
 
+* ``rds.postgres_version`` — explicit pins drive both engine and parameter-group family
+  in standard, SRCE and Fourfront slim datastores. The default remains ``17.6``. This
+  consistency fix is not an automatic major-version upgrade/migration plan.
+* ``ecs.lb_certificate_arn`` — enables HTTPS with HTTP redirect for standalone,
+  Fourfront and both blue/green ALBs. Each portal service waits for its forwarding
+  listener. Unset retains HTTP-only behavior; verify the certificate covers operator
+  DNS names (the generated ALB DNS name itself is not covered by a custom certificate).
+
 * ``sentieon.admin_cidr`` — CIDR (institutional VPN/admin range) allowed to SSH into the Sentieon
   license server. Defaults to the Application VPC CIDR; **never** ``0.0.0.0/0``.
 * ``subnet.pair_count`` — number of subnet pairs the datastore expects (default 2).
@@ -66,8 +74,11 @@ Other relevant keys:
 Deploy order
 ------------
 
-Provision the stacks in dependency order (using ``cli provision <stack> --validate`` first to sanity
-check the emitted template, then without ``--validate`` to deploy)::
+First complete the shared :doc:`iam_inventory`; do not replace another environment's grants.
+Generate the stacks in dependency order below. Bare ``cli provision`` writes templates only;
+``--validate`` additionally contacts CloudFormation (not an offline check). To create a change
+set, add ``--upload-change-set`` and review/execute it separately before proceeding to consumers.
+Child command failures now stop the CLI instead of reporting success::
 
     # 1. Ecosystem-scoped shared secrets (DockerHub credentials, etc.)
     cli provision shared-secrets
@@ -82,6 +93,7 @@ check the emitted template, then without ``--validate`` to deploy)::
     cli provision ecr
     cli provision logging
     cli provision appconfig
+    cli provision codebuild              # vpc.id selects SRCE Application network imports
 
     # 4. Data stores in the Database VPC
     cli provision srce-datastore

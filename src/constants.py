@@ -49,6 +49,9 @@ class Settings:
     S3_BUCKET_ORG = 's3.bucket.org'  # was 'ENCODED_S3_BUCKET_ORG'
     S3_BUCKET_ECOSYSTEM = 's3.bucket.ecosystem'
     S3_BUCKET_ENCRYPTION = 's3.bucket.encryption'
+    # Complete physical resource inventory for all environments sharing the IAM stack.
+    # Required for IAM synthesis; never inferred from ENCODED_ENV_NAME.
+    IAM_ECOSYSTEM_RESOURCES = 'iam.ecosystem_resources'
 
     APP_KIND = 'app.kind'
     APP_DEPLOYMENT = 'app.deploy'

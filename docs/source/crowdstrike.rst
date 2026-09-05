@@ -65,8 +65,9 @@ flag:
 
 #. **Falcon CID populated.** The AppConfig stack creates a *stub* ``FalconCID`` secret; its value
    must be filled in post-deploy (see ``setup-remaining-secrets`` and
-   :doc:`deploy_new_account`). The ECS execution role already scopes ``secretsmanager:GetSecretValue``
-   to ``C4AppConfig*``.
+   :doc:`deploy_new_account`). Add its exact physical secret name to
+   ``iam.ecosystem_resources.runtime_secrets`` (:doc:`iam_inventory`). The ECS execution role
+   does not get broad ``C4AppConfig*`` access or Falcon API ClientID/ClientSecret access.
 #. **falcon-sensor image present in ECR.** The CodeBuild pipeline builds and pushes it; the tag must
    match ``crowdstrike.sensor_image_tag``.
 #. **Loader entrypoint verified.** ``crowdstrike.entrypoint`` must match the falcon-sensor image's

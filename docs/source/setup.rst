@@ -86,6 +86,9 @@ is retained for informational purposes. Run::
 
 * You'll need to remove the comments because, unlike Python, `.json` dictionary files have no comment syntax.
 * Note that you DO NOT and SHOULD NOT put AWS Keys in this file!
+* Before provisioning IAM, add the complete ecosystem-wide ``iam.ecosystem_resources``
+  inventory described in :doc:`iam_inventory`. The minimal example below is not sufficient
+  for the shared IAM stack; it must not infer permissions from this environment alone.
 * Some of the values it wants won't be known until after deploying ``datastore``, so don't worry about that.
 
 The format is JSON, though remember that JSON files, unlike Python files, cannot have comments and cannot have

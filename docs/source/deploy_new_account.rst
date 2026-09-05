@@ -79,6 +79,9 @@ The minimum arguments needed for `init-custom-dir` is `--credentials` which shou
   only 2 when starting off and increasing the size later on by adding the ``subnet.pair_count`` value
   to ``config.json``.
 
+* Before provisioning IAM, complete :doc:`iam_inventory` for every consumer of the shared
+  role and S3 federator, including existing environments. Missing inventory fails synthesis.
+
 * Upload base templates required for starting the application: note that you must manually execute
   change set from the Cloudformation console for each successive stack before moving onto the next::
 

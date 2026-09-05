@@ -415,7 +415,12 @@ class C4ECSApplication(C4Part):
             present, HTTPS is enabled on the ALB (SEC-5). """
         return ConfigManager.get_config_setting(Settings.ECS_LB_CERTIFICATE_ARN, default=None)
 
-    def ecs_lb_listeners(self, target_group: elbv2.TargetGroup) -> list:
+    def ecs_forwarding_listener_id(self, deployment_type=''):
+        """Wait for the listener that associates the service's target group with the ALB."""
+        prefix = 'LBHTTPSListener' if self.lb_certificate_arn() else 'LBListener'
+        return self.name.logical_id(f'{prefix}{deployment_type}')
+
+    def ecs_lb_listeners(self, target_group: elbv2.TargetGroup, deployment_type='', lb_ref=None) -> list:
         """ Listeners for the portal ALB.
 
             When an ACM certificate is configured (ecs.lb_certificate_arn), serve HTTPS on 443
@@ -424,17 +429,17 @@ class C4ECSApplication(C4Part):
             listener (unchanged legacy behavior). (SEC-5)
         """
         cert_arn = self.lb_certificate_arn()
-        lb_arn = Ref(self.ecs_application_load_balancer())
+        lb_arn = lb_ref if lb_ref is not None else Ref(self.ecs_application_load_balancer())
         forward = [elbv2.Action(Type='forward', TargetGroupArn=Ref(target_group))]
         if not cert_arn:
             return [elbv2.Listener(
-                self.name.logical_id('LBListener'),
+                self.name.logical_id(f'LBListener{deployment_type}'),
                 Port=80, Protocol='HTTP',
                 LoadBalancerArn=lb_arn,
                 DefaultActions=forward,
             )]
         https_listener = elbv2.Listener(
-            self.name.logical_id('LBHTTPSListener'),
+            self.name.logical_id(f'LBHTTPSListener{deployment_type}'),
             Port=443, Protocol='HTTPS',
             LoadBalancerArn=lb_arn,
             SslPolicy=self.LB_SSL_POLICY,
@@ -442,7 +447,7 @@ class C4ECSApplication(C4Part):
             DefaultActions=forward,
         )
         http_redirect = elbv2.Listener(
-            self.name.logical_id('LBListener'),
+            self.name.logical_id(f'LBListener{deployment_type}'),
             Port=80, Protocol='HTTP',
             LoadBalancerArn=lb_arn,
             DefaultActions=[elbv2.Action(
@@ -606,7 +611,7 @@ class C4ECSApplication(C4Part):
         return Service(
             f"{ConfigManager.get_config_setting(Settings.APP_KIND)}portalService",
             Cluster=Ref(self.ecs_cluster()),
-            DependsOn=[self.name.logical_id('LBListener')],
+            DependsOn=[self.ecs_forwarding_listener_id()],
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(

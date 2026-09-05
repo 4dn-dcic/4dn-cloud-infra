@@ -147,16 +147,10 @@ class ECSBlueGreen(C4ECSApplication):
         template.add_resource(blue_lb)
         green_lb = self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.GREEN)
         template.add_resource(green_lb)
-        template.add_resource(
-            self.ecs_application_load_balancer_listener(target_group_blue,
-                                                        logical_id=f'LBListener{DeploymentParadigm.BLUE}',
-                                                        lb_ref=Ref(blue_lb))
-        )
-        template.add_resource(
-            self.ecs_application_load_balancer_listener(target_group_green,
-                                                        logical_id=f'LBListener{DeploymentParadigm.GREEN}',
-                                                        lb_ref=Ref(green_lb))
-        )
+        for color, target_group, lb in [(DeploymentParadigm.BLUE, target_group_blue, blue_lb),
+                                        (DeploymentParadigm.GREEN, target_group_green, green_lb)]:
+            for listener in self.ecs_lb_listeners(target_group, deployment_type=color, lb_ref=Ref(lb)):
+                template.add_resource(listener)
 
         # Add indexing Cloudwatch Alarms
         # These alarms are meant to trigger symmetric scaling actions in response to
@@ -179,7 +173,7 @@ class ECSBlueGreen(C4ECSApplication):
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
             Description=f'URL of {APP_KIND.capitalize()}-Portal-Blue.',
-            Value=Join('', ['http://', GetAtt(
+            Value=Join('', ['https://' if self.lb_certificate_arn() else 'http://', GetAtt(
                 self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.BLUE), 'DNSName')])
         )
 
@@ -189,8 +183,9 @@ class ECSBlueGreen(C4ECSApplication):
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
             Description=f'URL of {APP_KIND.capitalize()}-Portal-Green.',
-            Value=Join('', ['http://',
-                GetAtt(self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.GREEN), 'DNSName')])
+            Value=Join('', ['https://' if self.lb_certificate_arn() else 'http://',
+                            GetAtt(self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.GREEN),
+                                   'DNSName')])
         )
 
     def ecs_cluster(self, deployment_type=None):
@@ -201,19 +196,6 @@ class ECSBlueGreen(C4ECSApplication):
             camelize(env_name + (deployment_type or '')),
             CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
             Tags=self.tags.cost_tag_obj()
-        )
-
-    def ecs_application_load_balancer_listener(self, target_group: elbv2.TargetGroup,
-                                               logical_id=None, lb_ref=None):
-        """ Load balancer listener, forwards traffic to portal tasks """
-        return elbv2.Listener(
-            self.name.logical_id(logical_id) if logical_id else self.name.logical_id('LBListener'),
-            Port=80,
-            Protocol='HTTP',
-            LoadBalancerArn=lb_ref or Ref(self.ecs_application_load_balancer()),
-            DefaultActions=[
-                elbv2.Action(Type='forward', TargetGroupArn=Ref(target_group))
-            ]
         )
 
     def ecs_lbv2_target_group_blue(self) -> elbv2.TargetGroup:
@@ -297,7 +279,7 @@ class ECSBlueGreen(C4ECSApplication):
         return Service(
             f'{APP_KIND.capitalize()}{image_tag}PortalService',
             Cluster=Ref(self.ecs_cluster()) if not cluster_ref else cluster_ref,
-            DependsOn=[self.name.logical_id(f'LBListener{image_tag}')],
+            DependsOn=[self.ecs_forwarding_listener_id(image_tag)],
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(

@@ -108,7 +108,8 @@ class FourfrontECSApplication(C4ECSApplication):
         template.add_resource(target_group)
 
         # Add load balancer for portal
-        template.add_resource(self.ecs_application_load_balancer_listener(target_group))
+        for listener in self.ecs_lb_listeners(target_group):
+            template.add_resource(listener)
         template.add_resource(self.ecs_application_load_balancer())
 
         # Add outputs
@@ -121,7 +122,8 @@ class FourfrontECSApplication(C4ECSApplication):
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
             Description='URL of Fourfront-Portal.',
-            Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer(), 'DNSName')])
+            Value=Join('', ['https://' if self.lb_certificate_arn() else 'http://',
+                            GetAtt(self.ecs_application_load_balancer(), 'DNSName')])
         )
 
     def ecs_cluster(self) -> Cluster:
@@ -201,7 +203,7 @@ class FourfrontECSApplication(C4ECSApplication):
         return Service(
             "FourfrontPortalService",
             Cluster=Ref(self.ecs_cluster()),
-            DependsOn=[self.name.logical_id('LBListener')],
+            DependsOn=[self.ecs_forwarding_listener_id()],
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(
