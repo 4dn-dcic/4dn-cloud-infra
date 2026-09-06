@@ -59,21 +59,68 @@ class C4NetworkExports(C4Exports):
     DB_SECURITY_GROUP = exportify('DBSecurityGroup')
     HTTPS_SECURITY_GROUP = exportify('HTTPSSecurityGroup')
 
-    # e.g., name will be 'C4NetworkTrialAlphaExportApplicationSecurityGroup'
-    #       or might not contain '...Alpha...'
-    _APPLICATION_SECURITY_GROUP_EXPORT_PATTERN = re.compile('.*Network.*ApplicationSecurityGroup.*')
+    # A stack's output keys are '<logical-id-prefix><ExportName>', where the prefix is
+    # 'C4' + STACK_TITLE_TOKEN + camelize(sharing qualifier) -- e.g. 'C4NetworkMain...', or
+    # 'C4NetworkTrialAlpha...' / 'C4NetworkTrialAlphaExport...' for older stack names. Every
+    # standard network stack takes its title token from C4NetworkBase, so anchoring on that prefix
+    # keeps all of those matching while excluding the SRCE network stacks, whose keys begin
+    # 'C4SRCENetwork', 'C4SRCENetworkDB' and 'C4SRCENetworkCompute'.
+    #
+    # That exclusion is the point. The three SRCE network stacks deliberately export the SAME key
+    # suffixes (ApplicationSecurityGroup, PrivateSubnetA/B, ...) from three DIFFERENT IT-provided
+    # VPCs so downstream stacks can ImportValue them unchanged. Foursight cannot use ImportValue --
+    # chalice bakes literal IDs into .chalice/config.json -- so it resolves these patterns instead,
+    # and an unanchored '.*Network.*' match returned security groups AND subnets spanning all three
+    # SRCE VPCs. CloudFormation then rejects every Foursight Lambda with
+    # "Security Groups are required to be in the same VPC".
+    #
+    # An SRCE deployment must use the SRCE Foursight stack (`cli provision foursight-srce`), which
+    # resolves through C4SRCENetworkExports; these patterns intentionally do not see SRCE exports.
+    _STANDARD_NETWORK_LOGICAL_ID_PREFIX = f'C4{C4NetworkBase.STACK_TITLE_TOKEN}'
+
+    _APPLICATION_SECURITY_GROUP_EXPORT_PATTERN = re.compile(
+        f'^{_STANDARD_NETWORK_LOGICAL_ID_PREFIX}.*ApplicationSecurityGroup$')
+
+    _PRIVATE_SUBNET_EXPORT_PATTERN = re.compile(
+        f'^{_STANDARD_NETWORK_LOGICAL_ID_PREFIX}.*PrivateSubnet.*')
+
+    # Guidance appended to both resolvers' errors: these are the two ways a Foursight package run
+    # can fail here, and the SRCE case is by far the likelier one.
+    _RESOLUTION_HELP = (
+        "Deploy the standard network stack first, or -- for an SRCE (three-VPC) deployment --"
+        " provision the SRCE Foursight stack instead: `cli provision foursight-srce`."
+        " The non-SRCE Foursight stacks deliberately ignore the 'C4SRCENetwork*' exports so their"
+        " Lambdas cannot be given security groups and subnets from three different VPCs."
+    )
+
+    @classmethod
+    def _resolve_from_one_network_stack(cls, pattern, what):
+        """ Resolve outputs matching `pattern`, requiring that they all come from ONE stack.
+
+            ConfigManager.find_stack_outputs() scans every stack in the account and flattens the
+            matches, so a pattern that matches more than one network stack silently yields values
+            from more than one VPC. Everything these values feed (a Lambda's VpcConfig, an ECS task's
+            awsvpc configuration) requires a single VPC, so a multi-stack match is never usable --
+            fail here, at package time, with a message that names the stacks, rather than at
+            CloudFormation time with "Security Groups are required to be in the same VPC".
+        """
+        by_stack = ConfigManager.find_stack_outputs_by_stack(pattern.match)
+        if not by_stack:
+            raise RuntimeError(f"{what} found no CloudFormation output matching"
+                               f" {pattern.pattern!r} in this account. {cls._RESOLUTION_HELP}")
+        if len(by_stack) > 1:
+            raise RuntimeError(f"{what} matched outputs in {len(by_stack)} different stacks:"
+                               f" {sorted(by_stack)}. All of these must come from a single network"
+                               f" stack, because they resolve to one VPC. {cls._RESOLUTION_HELP}")
+        [outputs] = by_stack.values()
+        return list(outputs.values())
 
     @classmethod
     def get_security_ids(cls):
         # Typically there will be only one output, but we allow several, so the result is returned as a list.
         # e.g., for the Alpha environment, the orginal value was hardwired as: ['sg-03f5fdd36be96bbf4']
-        computed_result = ConfigManager.find_stack_outputs(cls._APPLICATION_SECURITY_GROUP_EXPORT_PATTERN.match,
-                                                           value_only=True)
-        return computed_result
-
-    # e.g., name will be 'C4NetworkTrialAlphaExportPrivateSubnetA' (or '...B')
-    #       or might not contain '...Alpha...'
-    _PRIVATE_SUBNET_EXPORT_PATTERN = re.compile('.*Network.*PrivateSubnet.*')
+        return cls._resolve_from_one_network_stack(cls._APPLICATION_SECURITY_GROUP_EXPORT_PATTERN,
+                                                   'get_security_ids()')
 
     @classmethod
     def get_subnet_ids(cls):
@@ -81,10 +128,8 @@ class C4NetworkExports(C4Exports):
         # There will be several outputs (currently 2, but maybe more in the future), returned as a list.
         # e.g., for the Alpha environment, the original value was hand-coded as:
         #       ['subnet-09ed0bb672993c7ac', 'subnet-00778b903b357d331']
-        computed_result = ConfigManager.find_stack_outputs(cls._PRIVATE_SUBNET_EXPORT_PATTERN.match, value_only=True)
-        if not computed_result:
-            raise RuntimeError("get_subnet_ids() was expected to return a non-empty list.")
-        return computed_result
+        return cls._resolve_from_one_network_stack(cls._PRIVATE_SUBNET_EXPORT_PATTERN,
+                                                   'get_subnet_ids()')
 
     def __init__(self):
         parameter = 'NetworkStackNameParameter'

@@ -6,9 +6,10 @@ from awacs.ecr import (
     BatchCheckLayerAvailability,
 )
 from troposphere import Region, AccountId, Template, Ref, Output, Join
-from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey
+from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey, ManagedPolicy
 from ..base import ConfigManager
-from ..constants import C4IAMBase, Settings
+from ..constants import C4IAMBase
+from .iam_resources import ecosystem_resources
 from ..part import C4Part
 from ..exports import C4Exports, exportify
 from ..names import Names
@@ -57,6 +58,8 @@ class C4IAM(C4IAMBase, C4Part):
         """ Builds current IAM template, currently just the ECS assumed IAM role
             and instance profile.
         """
+        for policy in self.ecs_data_managed_policies():
+            template.add_resource(policy)
         iam_role = self.ecs_assumed_iam_role()
         template.add_resource(iam_role)
         flowlog_role = self.vpc_flowlog_role()
@@ -93,7 +96,7 @@ class C4IAM(C4IAMBase, C4Part):
     @staticmethod
     def builds_secret_manager_arn(secret_name):
         # Secrets Manager ARN format: arn:aws:secretsmanager:region:account:secret:name-suffix
-        # AWS appends a random 6-char suffix (-xxxxxx); a trailing wildcard on the name covers this.
+        # Callers append -?????? to match only AWS's random six-character ARN suffix.
         return Join(
             ':', ['arn', 'aws', 'secretsmanager', Region, AccountId,
                   Join('', ['secret:', secret_name])]
@@ -111,16 +114,9 @@ class C4IAM(C4IAMBase, C4Part):
             ':', ['arn', 'aws', 'logs', Region, AccountId, 'log-group', log_group_name]
         )
 
-    def ecs_sqs_policy(self, prefix=None) -> Policy:
-        """ Grants ECS access to SQS queues. Scoped to the minimum actions needed for
-            portal indexing/ingestion and to the env's queues, which are named
-            '{env_name}-<suffix>' (see datastore.build_sqs_instance). 'sqs:ListQueues' is an
-            account-level action that does not support resource-level restriction, so it lives
-            in its own statement scoped to '*'.
-        """
-        if prefix is None:
-            env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-            prefix = f'{env_name}-*'
+    def ecs_sqs_policy(self) -> Policy:
+        """Queue data access for every environment sharing this identity; ListQueues is global."""
+        queues = ecosystem_resources()['queues']
         return Policy(
             PolicyName='ECSSQSAccessPolicy',
             PolicyDocument=dict(
@@ -136,7 +132,7 @@ class C4IAM(C4IAMBase, C4Part):
                             'sqs:GetQueueUrl',
                             'sqs:ChangeMessageVisibility',
                         ],
-                        Resource=[self.build_sqs_arn(prefix)],
+                        Resource=[self.build_sqs_arn(queue) for queue in queues],
                     ),
                     dict(
                         Effect='Allow',
@@ -147,15 +143,9 @@ class C4IAM(C4IAMBase, C4Part):
             )
         )
 
-    def ecs_es_policy(self, domain_name=None) -> Policy:
-        """ Grants ECS access to OpenSearch/Elasticsearch. HTTP data-plane actions are scoped to
-            the env's domain, which is named 'os-{env_name}' (see datastore.opensearch_instance).
-            The Describe*/ListDomainNames actions are account-level and do not support
-            resource-level restriction, so they live in their own '*'-scoped statement.
-        """
-        if domain_name is None:
-            env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-            domain_name = f'os-{env_name}*'
+    def ecs_es_policy(self) -> Policy:
+        """Exact domain paths, including legacy es- and blue/green domains in the inventory."""
+        domains = ecosystem_resources()['search_domains']
         return Policy(
             PolicyName='ECSESAccessPolicy',
             PolicyDocument=dict(
@@ -171,26 +161,28 @@ class C4IAM(C4IAMBase, C4Part):
                             'es:ESHttpHead',
                             'es:ESHttpPatch',
                         ],
-                        Resource=[self.build_elasticsearch_arn(domain_name)],
+                        Resource=[self.build_elasticsearch_arn(domain + '/*') for domain in domains],
                     ),
                     dict(
                         Effect='Allow',
                         Action=[
-                            'es:DescribeElasticsearchDomains',
-                            'es:DescribeDomain',
                             'es:ListDomainNames',
                         ],
                         Resource=['*'],
+                    ),
+                    dict(
+                        Effect='Allow',
+                        Action=['es:DescribeElasticsearchDomains', 'es:DescribeDomain'],
+                        Resource=[self.build_elasticsearch_arn(domain) for domain in domains],
                     ),
                 ],
             )
         )
 
     def ecs_secret_manager_policy(self) -> Policy:
-        """ Provides ECS access to secrets. Scoped to the secrets created by this infrastructure:
-            'C4AppConfig*' (the GAC, Foursight config, and Falcon credential stubs from the
-            appconfig stack) and 'C4Datastore*' (the RDS master-credential secret). AWS appends a
-            random 6-char suffix to secret ARNs, which the trailing wildcard also covers.
+        """Exact runtime secret names, including legacy identities and explicitly needed RDS
+            secrets. The six '?' characters match only AWS's generated ARN suffix, not Falcon
+            API credentials or another environment whose name shares the same prefix.
         """
         return Policy(
             PolicyName='ECSSecretManagerPolicy',
@@ -204,8 +196,8 @@ class C4IAM(C4IAMBase, C4Part):
                         'secretsmanager:ListSecretVersionIds',
                     ],
                     Resource=[
-                        self.builds_secret_manager_arn('C4AppConfig*'),
-                        self.builds_secret_manager_arn('C4Datastore*'),
+                        self.builds_secret_manager_arn(name + '-??????')
+                        for name in ecosystem_resources()['runtime_secrets']
                     ],
                 )],
             )
@@ -294,15 +286,8 @@ class C4IAM(C4IAMBase, C4Part):
         )
 
     def ecs_ecr_policy(self) -> Policy:
-        """ Policy allowing ECS to pull ECR images. GetAuthorizationToken is an account-level
-            call that requires Resource '*'; image pull actions are scoped to the exact set of
-            repositories the ECR stack creates: the env portal repo (named after ENV_NAME) plus
-            the fixed pipeline/sidecar repos enumerated in ecr.ECR_REPO_NAMES.
-        """
-        # Lazy import avoids a circular dependency: ecr.py imports C4IAMExports from this module.
-        from .ecr import ECR_REPO_NAMES
-        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        repo_names = [env_name] + ECR_REPO_NAMES
+        """Image pulls on the shared inventory; GetAuthorizationToken requires Resource '*'."""
+        repo_names = ecosystem_resources()['repositories']
         repo_arns = [Join(':', ['arn', 'aws', 'ecr', Region, AccountId, f'repository/{name}'])
                      for name in repo_names]
         return Policy(
@@ -382,14 +367,8 @@ class C4IAM(C4IAMBase, C4Part):
         )
 
     def ecs_s3_policy(self) -> Policy:
-        """ Gives s3 read/write access, scoped to this env's buckets. All buckets this
-            infrastructure creates (application + foursight + the global env bucket) are named
-            '{env_name}-<suffix>' (see datastore.build_s3_bucket), so scope to 'arn:aws:s3:::
-            {env_name}-*' for ListBucket and '.../*' for the object actions rather than '*' (SEC-7).
-        """
-        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        bucket_arn = f'arn:aws:s3:::{env_name}-*'
-        object_arn = f'arn:aws:s3:::{env_name}-*/*'
+        """Exact application/shared/legacy buckets for all consumers of this IAM identity."""
+        bucket_arns = [f'arn:aws:s3:::{name}' for name in ecosystem_resources()['buckets']]
         return Policy(
             PolicyName='ECSS3Policy',
             PolicyDocument=dict(
@@ -398,12 +377,12 @@ class C4IAM(C4IAMBase, C4Part):
                     dict(
                         Effect='Allow',
                         Action=['s3:ListBucket'],
-                        Resource=[bucket_arn],
+                        Resource=bucket_arns,
                     ),
                     dict(
                         Effect='Allow',
                         Action=['s3:PutObject', 's3:GetObject', 's3:DeleteObject'],
-                        Resource=[object_arn],
+                        Resource=[arn + '/*' for arn in bucket_arns],
                     ),
                 ],
             ),
@@ -450,19 +429,15 @@ class C4IAM(C4IAMBase, C4Part):
         )
 
     def kms_policy(self) -> Policy:
-        """ Defines a policy that gives permission access to a subset of actions on KMS.
-            Needed for the S3Federator to generate URLs that enable server side encryption.
+        """Exact ecosystem key IDs; no environment-specific overwrite or global fallback.
 
-            Scoped to the S3-encrypt KMS key when its id is known via the s3.encrypt_key_id config
-            setting (SEC-7). Falls back to '*' when the key id is not configured — this is the
-            bootstrap case, since the IAM stack is deployed before the datastore stack that creates
-            the key. Set s3.encrypt_key_id once the key exists to tighten this on the next update.
+            With an empty bootstrap inventory, datastore key policies grant same-account
+            principals directly. Existing external keys must be inventoried before updating IAM.
         """
-        key_id = ConfigManager.get_config_setting(Settings.S3_ENCRYPT_KEY_ID, default=None)
-        if key_id:
-            resource = [Join(':', ['arn', 'aws', 'kms', Region, AccountId, f'key/{key_id}'])]
-        else:
-            resource = ['*']
+        key_ids = ecosystem_resources()['kms_keys']
+        if not key_ids:
+            return None
+        resource = [Join(':', ['arn', 'aws', 'kms', Region, AccountId, f'key/{key_id}']) for key_id in key_ids]
         return Policy(
             PolicyName='ECSKMSPolicy',
             PolicyDocument={
@@ -530,22 +505,28 @@ class C4IAM(C4IAMBase, C4Part):
             ]
         )
 
+    def managed_data_policy(self, policy):
+        return ManagedPolicy(self.name.logical_id(policy.PolicyName), PolicyDocument=policy.PolicyDocument)
+
+    def ecs_data_managed_policies(self):
+        """Separate resource inventories from the role/user inline-size quotas without
+            changing their identities. At most six attachments, shared with the S3 user.
+        """
+        return [self.managed_data_policy(policy) for policy in [
+            self.ecs_secret_manager_policy(), self.ecs_es_policy(), self.ecs_sqs_policy(),
+            self.ecs_ecr_policy(), self.ecs_s3_policy(), self.kms_policy(),
+        ] if policy is not None]
+
     def ecs_assumed_iam_role(self) -> Role:
         """ Builds a general purpose IAM role for use with ECS.
             TODO: split into several roles?
             TODO: add STS GetFederationToken perm
         """
         policies = [
-            self.ecs_secret_manager_policy(),  # to get env configuration
             self.ecs_access_policy(),  # to manage ECS
-            self.ecs_es_policy(),  # to access ES
-            self.ecs_sqs_policy(),  # to access SQS
             self.ecs_log_policy(),  # to log things
-            self.ecs_ecr_policy(),  # to pull down container images
             self.ecs_cfn_policy(),  # to pull ECS Service URL from Cloudformation
-            self.ecs_s3_policy(),  # for handling raw files
-            self.ecs_web_service_policy(),  # permissions for service,
-            self.kms_policy(),  # permission to use KMS keys to decrypt
+            self.ecs_web_service_policy(),  # permissions for service
         ]
         return Role(
             self.ROLE_NAME,
@@ -570,7 +551,8 @@ class C4IAM(C4IAMBase, C4Part):
                             Action('sts', 'AssumeRole')
                         ],
                         Principal=Principal('Service', 'ecs-tasks.amazonaws.com'))]),
-            Policies=policies
+            Policies=policies,
+            ManagedPolicyArns=[Ref(policy) for policy in self.ecs_data_managed_policies()]
         )
 
     def ecs_autoscaling_role(self) -> Role:
@@ -630,7 +612,7 @@ class C4IAM(C4IAMBase, C4Part):
                 'arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess',  # full perms to codebuild (app version build)
                 'arn:aws:iam::aws:policy/AmazonEC2FullAccess'  # full access to EC2 (tibanna)
             ],
-            Policies=policies
+            Policies=[policy for policy in policies if policy is not None]
         )
 
     def ecs_instance_profile(self) -> InstanceProfile:
@@ -647,11 +629,9 @@ class C4IAM(C4IAMBase, C4Part):
         logical_id = Names.ecs_s3_iam_user_logical_id(self.name)
         return User(
             logical_id,
-            Policies=[
-                self.ecs_s3_policy(),
-                self.ecs_s3_user_sts_policy(),
-                self.kms_policy(),
-            ],
+            Policies=[self.ecs_s3_user_sts_policy()],
+            ManagedPolicyArns=[Ref(self.managed_data_policy(policy))
+                               for policy in [self.ecs_s3_policy(), self.kms_policy()] if policy is not None],
             Tags=self.tags.cost_tag_obj(logical_id)
         )
 

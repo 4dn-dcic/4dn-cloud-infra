@@ -37,11 +37,8 @@ jobs:
           mkdir custom/aws_creds
           echo {\"deploying_iam_user\": \"test\", \"ENCODED_ENV_NAME\": \"cgap-build\", \"account_number\": 123, \"app.kind\": \"cgap\"} > custom/config.json
           echo {\"Auth0Client\": \"test\", \"Auth0Secret\": \"test\", \"ENCODED_SECRET\": \"test\", \"S3_ENCRYPT_KEY\": \"test\"} > custom/secrets.json
-      - name: Unit
+      - name: Unit and offline full-stack synthesis
         run: |
+          # Includes the ECS/TLS, datastore-version, IAM, CodeBuild and CLI failure matrices.
+          # No Docker TTY, ambient AWS credentials or live CloudFormation validation in CI.
           make test
-
-      - name: Validate
-        run: |
-          # Build (validate) the core alpha stacks with the mock config written above.
-          make alpha

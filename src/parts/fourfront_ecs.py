@@ -72,6 +72,14 @@ class FourfrontECSApplication(C4ECSApplication):
             Description='Name of Logging stack for referencing the log group',
             Type='String',
         ))
+        # Adds AppConfig Stack Parameter -- used to ImportValue the Falcon CID secret ARN for the
+        # CrowdStrike sidecar (unused when crowdstrike.enabled is false). cli.py already supplies
+        # this override for ECS stacks; declaring it here keeps template and provision inputs in sync.
+        template.add_parameter(Parameter(
+            self.APPCONFIG_EXPORTS.reference_param_key,
+            Description='Name of appconfig stack for the CrowdStrike Falcon CID secret ARN ImportValue',
+            Type='String',
+        ))
 
         # Standard params
         template.add_parameter(self.ecs_web_worker_port())
@@ -100,7 +108,8 @@ class FourfrontECSApplication(C4ECSApplication):
         template.add_resource(target_group)
 
         # Add load balancer for portal
-        template.add_resource(self.ecs_application_load_balancer_listener(target_group))
+        for listener in self.ecs_lb_listeners(target_group):
+            template.add_resource(listener)
         template.add_resource(self.ecs_application_load_balancer())
 
         # Add outputs
@@ -113,7 +122,8 @@ class FourfrontECSApplication(C4ECSApplication):
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
             Description='URL of Fourfront-Portal.',
-            Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer(), 'DNSName')])
+            Value=Join('', ['https://' if self.lb_certificate_arn() else 'http://',
+                            GetAtt(self.ecs_application_load_balancer(), 'DNSName')])
         )
 
     def ecs_cluster(self) -> Cluster:
@@ -146,7 +156,7 @@ class FourfrontECSApplication(C4ECSApplication):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name='portal',
                     Essential=True,
@@ -175,8 +185,9 @@ class FourfrontECSApplication(C4ECSApplication):
                             Value=self.VPC_SQS_URL
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix='fourfront-portal-falcon',
+            ),
             Tags=self.tags.cost_tag_obj(),
         )
 
@@ -192,7 +203,7 @@ class FourfrontECSApplication(C4ECSApplication):
         return Service(
             "FourfrontPortalService",
             Cluster=Ref(self.ecs_cluster()),
-            DependsOn=[self.name.logical_id('LBListener')],
+            DependsOn=[self.ecs_forwarding_listener_id()],
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(
@@ -245,7 +256,7 @@ class FourfrontECSApplication(C4ECSApplication):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name='Indexer',
                     Essential=True,
@@ -272,8 +283,9 @@ class FourfrontECSApplication(C4ECSApplication):
                             Value=self.VPC_SQS_URL
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix='fourfront-indexer-falcon',
+            ),
             Tags=self.tags.cost_tag_obj()
         )
 
@@ -349,7 +361,7 @@ class FourfrontECSApplication(C4ECSApplication):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name='DeploymentAction',
                     Essential=True,
@@ -379,7 +391,9 @@ class FourfrontECSApplication(C4ECSApplication):
                             Value=self.VPC_SQS_URL
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix=(
+                    'fourfront-initial-deployment-falcon' if initial else 'fourfront-deployment-falcon'),
+            ),
             Tags=self.tags.cost_tag_obj()
         )

@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 import sys
@@ -22,6 +23,21 @@ from .parts.srce_network import C4SRCENetworkExports
 # Version string identifies template capabilities. Ref:
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/format-version-structure.html
 CLOUD_FORMATION_VERSION = '2010-09-09'
+
+
+def foursight_config_base(app_name):
+    """ Per-subclass copy of the vendored chalice CONFIG_BASE for one Foursight variant.
+
+        This must be a DEEP copy. ``dict(PackageDeploy_from_core.CONFIG_BASE, app_name=...)``
+        copies only the top level, so every Foursight variant used to share one
+        ``CONFIG_BASE['stages']`` dict -- and ``foursight_core.deploy.Deploy.build_config()``
+        mutates that dict in place, writing ``security_group_ids`` / ``subnet_ids`` /
+        ``environment_variables`` into it. Sharing it means the SRCE variant's Application-VPC
+        networking would leak into the non-SRCE variants' chalice config (and vice versa) whenever
+        more than one variant is constructed in a single process, which is exactly the cross-VPC
+        divergence the SRCE Foursight stack is supposed to make impossible.
+    """
+    return dict(copy.deepcopy(PackageDeploy_from_core.CONFIG_BASE), app_name=app_name)
 
 
 class BaseC4Stack:
@@ -182,9 +198,7 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
 
     class PackageDeploy(PackageDeploy_from_core):
 
-        # Per-subclass copy so 'app_name' doesn't bleed between foursight variants
-        # (the parent CONFIG_BASE is a shared mutable dict).
-        CONFIG_BASE = dict(PackageDeploy_from_core.CONFIG_BASE, app_name='foursight-cgap')
+        CONFIG_BASE = foursight_config_base('foursight-cgap')
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")
@@ -238,7 +252,7 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
 
     class PackageDeploy(PackageDeploy_from_core):
 
-        CONFIG_BASE = dict(PackageDeploy_from_core.CONFIG_BASE, app_name='foursight-fourfront')
+        CONFIG_BASE = foursight_config_base('foursight-fourfront')
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")
@@ -285,7 +299,7 @@ class C4FoursightSMAHTStack(C4FoursightCGAPStack):
 
     class PackageDeploy(PackageDeploy_from_core):
 
-        CONFIG_BASE = dict(PackageDeploy_from_core.CONFIG_BASE, app_name='foursight-smaht')
+        CONFIG_BASE = foursight_config_base('foursight-smaht')
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")
@@ -342,7 +356,35 @@ class C4FoursightSMAHTSRCEStack(C4FoursightSMAHTStack):
 
     class PackageDeploy(PackageDeploy_from_core):
 
-        CONFIG_BASE = dict(PackageDeploy_from_core.CONFIG_BASE, app_name='foursight-smaht')
+        CONFIG_BASE = foursight_config_base('foursight-smaht')
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")
+
+        #: The provision target whose poetry group this deployment needs. `foursight-srce` packages
+        #: the same application library as `foursight-smaht`, so it must export the same group.
+        PACKAGE_GROUP_TARGET = 'foursight-smaht'
+
+        @classmethod
+        def build_config_and_package(cls, args, **kwargs):
+            """ Present a package-group target `foursight_core` recognizes, and nothing else.
+
+                `foursight_core.deploy.Deploy.build_config_and_package()` picks the poetry group --
+                and so which application library lands in the chalice package -- by matching
+                `args.stack` against a hardcoded list of provision targets that knows only
+                'foursight-smaht'. 'foursight-srce' is not in that list, so it fell through to the
+                foursight_cgap group and shipped a SMaHT `app.py` (which imports `chalicelib_smaht`)
+                on top of foursight-cgap's dependencies; the Lambda then failed at startup with
+                `Runtime.ImportModuleError: No module named 'chalicelib_smaht'`.
+
+                Rather than broaden that default group or pin an unreleased foursight-core, hand
+                core a copy of the arguments whose `stack` it can classify. The copy is local to
+                this call: the caller's `args.stack` -- the real deploy target, used for the
+                CloudFormation stack name, the change-set upload and error messages -- stays
+                'foursight-srce'.
+            """
+            package_args = copy.copy(args)
+            package_args.stack = cls.PACKAGE_GROUP_TARGET
+            # super(), not PackageDeploy_from_core: `cls` must stay bound to this subclass so
+            # CONFIG_BASE / get_config_filepath() / build_config() remain the SRCE ones.
+            return super().build_config_and_package(package_args, **kwargs)

@@ -40,6 +40,8 @@ Contents
    deploy_fourfront
    deploy_foursight_fourfront
    deploy_srce
+   iam_inventory
+   crowdstrike
    destroying_an_account
    encryption
    migration

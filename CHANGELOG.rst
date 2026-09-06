@@ -91,6 +91,74 @@ SRCE (Secure Research Collaborative Environment) support
 * Update ``setup-remaining-secrets`` to detect SRCE deployments (via ``vpc.id`` in config)
   and compute the correct RDS secret logical ID using the SRCE datastore prefix.
 
+Foursight networking in SRCE (Application-VPC Lambda contract)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* Fix ``C4SRCENetworkExports.get_security_ids()``, which inherited the loose
+  ``.*Network.*ApplicationSecurityGroup.*`` output-key pattern from ``C4NetworkExports``.
+  All three SRCE network stacks create an ``ApplicationSecurityGroup`` in their own
+  IT-provided VPC, so the pattern resolved three security groups from three different
+  VPCs while the subnets came from the Application VPC alone -- CloudFormation rejected
+  every Foursight Lambda with ``Security Groups are required to be in the same VPC``.
+  Resolution is now anchored to the Application network stack's exact output key
+  (derived from ``C4SRCENetwork``'s own ``C4Name``), which also excludes any standard
+  ``c4-network-main-stack`` present in the same account.
+
+* ``get_security_ids()`` now raises instead of returning an empty list. Previously an
+  empty resolution was silently swallowed by ``foursight_core``'s
+  ``if security_group_ids:`` gate, leaving whatever stale ``security_group_ids`` were
+  already in the chalice config in place. ``cli provision foursight-srce`` therefore now
+  requires ``c4-srce-network-main-stack`` to be deployed first.
+
+* ``C4SRCENetworkExports.get_subnet_ids()`` rejects Application-VPC subnets that also
+  appear under ``db.private.subnets`` or ``compute.private.subnets``.
+
+* Give each Foursight variant a *deep* copy of the vendored chalice ``CONFIG_BASE``.
+  ``dict(CONFIG_BASE, app_name=...)`` copies only the top level, so all four variants
+  shared one mutable ``stages`` dict that ``build_config()`` writes
+  ``security_group_ids`` / ``subnet_ids`` into -- SRCE networking could leak into the
+  non-SRCE variants packaged in the same process.
+
+* Anchor the standard ``C4NetworkExports`` resolvers to the standard network stack's own
+  logical-id prefix (``^C4Network...``), so the non-SRCE Foursight stacks
+  (``foursight``/``foursight-smaht``/``foursight-production``/``foursight-development``) no
+  longer match the SRCE network stacks' ``C4SRCENetwork*`` exports. Running
+  ``cli provision foursight-smaht`` against an SRCE account previously resolved security
+  groups **and** private subnets spanning all three SRCE VPCs. Legacy stack names such as
+  ``c4-network-trial-alpha-stack`` still match, since every standard network stack takes its
+  title token from ``C4NetworkBase``.
+
+* Both standard resolvers now refuse a match that spans more than one CloudFormation stack, via
+  the new ``ConfigManager.find_stack_outputs_by_stack()``. ``find_stack_outputs()`` flattens
+  matches from every stack in the account, silently merging values from different VPCs; the
+  resulting error names the offending stacks and points at ``cli provision foursight-srce``.
+
+* Resolve the SRCE Foursight security group by CloudFormation **export name**
+  (``c4-srce-network-main-stack-ApplicationSecurityGroup``) rather than by the template's output
+  key. This is the identical string ``srce-ecs`` resolves with ``Fn::ImportValue`` via
+  ``NetworkStackNameParameter``, so the pre-deploy (chalice) and deploy-time (CloudFormation)
+  paths now agree by construction and no longer depend on logical-id naming (title token plus
+  camelized sharing qualifier), which a renamed or re-tokenized stack can change independently.
+  The exact output key remains a fallback for a stack that publishes no export name, and the
+  failure message names both identifiers and lists the ``ApplicationSecurityGroup`` export names
+  that do exist (names only, never values). Adds ``ConfigManager.find_stack_exports()``, which
+  reads the same ``DescribeStacks`` data and needs no additional API surface or IAM permission.
+
+* Package ``foursight-srce`` with the ``foursight_smaht`` poetry group.
+  ``foursight_core.deploy.Deploy.build_config_and_package()`` picks the application library by
+  matching the caller's ``args.stack`` against a hardcoded list of provision targets that knows
+  only ``foursight-smaht``, so ``foursight-srce`` fell through to the ``foursight_cgap`` group and
+  shipped a SMaHT ``app.py`` (which imports ``chalicelib_smaht``) on top of foursight-cgap's
+  dependencies; the Lambda failed at startup with ``Runtime.ImportModuleError: Unable to import
+  module 'app': No module named 'chalicelib_smaht'``. ``C4FoursightSMAHTSRCEStack.PackageDeploy``
+  now presents ``stack='foursight-smaht'`` to that classifier on a local copy of the arguments,
+  so exactly one application group is exported while the caller's deploy target -- and the
+  CloudFormation stack name, change-set upload and error messages -- stay ``foursight-srce``.
+
+* Document the Application-VPC Lambda contract and the correct SRCE provision target in
+  ``docs/source/deploy_srce.rst``; add regression tests in
+  ``tests/test_srce_foursight_vpc.py``. Non-SRCE behavior on a non-SRCE account is unchanged.
+
 IAM policy hardening
 ~~~~~~~~~~~~~~~~~~~~
 

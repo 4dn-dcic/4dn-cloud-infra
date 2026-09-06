@@ -1,4 +1,4 @@
-from troposphere import Template, Parameter, AccountId, Join, Region, Ref, Output
+from troposphere import Template, Parameter, AccountId, Join, Region, Ref, Output, GetAtt
 from troposphere.codebuild import (
     Artifacts, Environment, Project, Source, SourceAuth, VpcConfig, SourceCredential, GitSubmodulesConfig,
     LogsConfig, CloudWatchLogs
@@ -9,6 +9,7 @@ from tibanna._version import __version__ as tibanna_version
 from dcicutils.cloudformation_utils import camelize
 from dcicutils.common import REGION  # note to deploy outside us-east-1 you will need to change this
 from .network import C4NetworkExports
+from .srce_network import C4SRCENetworkExports
 from .appconfig import C4AppConfigExports
 from .shared_secrets import C4SharedSecretsExports
 from ..part import C4Part
@@ -117,6 +118,7 @@ class C4CodeBuild(C4Part):
                 template.add_resource(self.cb_log_group(project_name=env_name))
                 build_project = self.cb_project(
                     project_name=env_name,
+                    iam_role=iam_role,
                     github_repo_url=ConfigManager.get_config_setting(Settings.CODEBUILD_GITHUB_REPOSITORY_URL,
                                                                      default=self.DEFAULT_GITHUB_REPOSITORY),
                     branch=ConfigManager.get_config_setting(Settings.CODEBUILD_DEPLOY_BRANCH,
@@ -133,6 +135,7 @@ class C4CodeBuild(C4Part):
             template.add_resource(self.cb_log_group(project_name=portal_env_name))
             build_project = self.cb_project(
                 project_name=portal_env_name,
+                iam_role=iam_role,
                 github_repo_url=ConfigManager.get_config_setting(Settings.CODEBUILD_GITHUB_REPOSITORY_URL,
                                                                  default=self.DEFAULT_GITHUB_REPOSITORY),
                 branch=ConfigManager.get_config_setting(Settings.CODEBUILD_DEPLOY_BRANCH,
@@ -146,7 +149,7 @@ class C4CodeBuild(C4Part):
                                                       project_name=portal_env_name
                                                   )))
         if APP_KIND == 'cgap':
-            pipeline_iam_role = self.cb_iam_role(project_name=pipeline_project_name)
+            pipeline_iam_role = self.cb_iam_role(project_name=pipeline_project_name, include_falcon=True)
             template.add_resource(pipeline_iam_role)
             external_pipeline_iam_role = self.cb_iam_role(project_name=external_pipeline_project_name)
             template.add_resource(external_pipeline_iam_role)
@@ -162,6 +165,7 @@ class C4CodeBuild(C4Part):
             template.add_resource(self.cb_log_group(project_name=pipeline_project_name))
             pipeline_build_project = self.cb_project(
                 project_name=pipeline_project_name,
+                iam_role=pipeline_iam_role,
                 github_repo_url=self.DEFAULT_GITHUB_PIPELINE_REPOSITORY,
                 branch=self.DEFAULT_PIPELINE_DEPLOY_BRANCH,
                 environment=self.cb_pipeline_environment_vars()
@@ -176,6 +180,7 @@ class C4CodeBuild(C4Part):
             template.add_resource(self.cb_log_group(project_name=external_pipeline_project_name))
             external_pipeline_build_project = self.cb_project(
                 project_name=external_pipeline_project_name,
+                iam_role=external_pipeline_iam_role,
                 github_repo_url=self.DEFAULT_EXTERNAL_GITHUB_PIPELINE_REPOSITORY,
                 branch=self.DEFAULT_EXTERNAL_GITHUB_PIPELINE_BRANCH,
                 environment=self.cb_external_pipeline_environment_vars()
@@ -187,7 +192,7 @@ class C4CodeBuild(C4Part):
                                                   )))
 
         elif APP_KIND == 'smaht':
-            pipeline_iam_role = self.cb_iam_role(project_name=pipeline_project_name)
+            pipeline_iam_role = self.cb_iam_role(project_name=pipeline_project_name, include_falcon=True)
             template.add_resource(pipeline_iam_role)
             template.add_output(self.output_value(resource=pipeline_iam_role,
                                                   export_name=C4CodeBuildExports.output_project_iam_role(
@@ -197,6 +202,7 @@ class C4CodeBuild(C4Part):
             template.add_resource(self.cb_log_group(project_name=pipeline_project_name))
             pipeline_build_project = self.cb_project(
                 project_name=pipeline_project_name,
+                iam_role=pipeline_iam_role,
                 github_repo_url=self.SMAHT_GITHUB_REPOSITORY,
                 branch='main',
                 environment=self.cb_pipeline_environment_vars()
@@ -211,6 +217,7 @@ class C4CodeBuild(C4Part):
         template.add_resource(self.cb_log_group(project_name=tibanna_project_name))
         tibanna_build_project = self.cb_project(
             project_name=tibanna_project_name,
+            iam_role=tibanna_iam_role,
             github_repo_url=self.DEFAULT_TIBANNA_REPOSITORY,
             branch=tibanna_version,  # default branch to version
             environment=self.cb_tibanna_environment_vars()
@@ -253,7 +260,7 @@ class C4CodeBuild(C4Part):
             }
         )
 
-    def cb_iam_role(self, *, project_name) -> Role:
+    def cb_iam_role(self, *, project_name, include_dockerhub=True, include_falcon=False) -> Role:
         return Role(
             f'CodeBuildRoleFor{camelize(project_name)}',
             AssumeRolePolicyDocument=dict(
@@ -268,8 +275,9 @@ class C4CodeBuild(C4Part):
             ),
             Policies=[
                 self.cb_vpc_policy(),
-                self.cb_external_secrets_policy(),
-            ] + self.cb_least_privilege_policies(),
+            ] + ([self.cb_external_secrets_policy(include_dockerhub=include_dockerhub,
+                                                  include_falcon=include_falcon)]
+                 if include_dockerhub or include_falcon else []) + self.cb_least_privilege_policies(),
         )
 
     def cb_least_privilege_policies(self) -> list:
@@ -358,14 +366,16 @@ class C4CodeBuild(C4Part):
         C4AppConfigExports.EXPORT_FALCON_CLIENT_SECRET,
     )
 
-    def cb_external_secrets_policy(self) -> Policy:
+    def cb_external_secrets_policy(self, *, include_dockerhub=True, include_falcon=False) -> Policy:
         """ Grants the CodeBuild role read access (GetSecretValue, DescribeSecret) on the
             DockerHub secret (owned by the ecosystem-scoped shared_secrets stack) and the
             Falcon secrets (owned by the per-env appconfig stack). Importing the ARNs via
             cross-stack ImportValue keeps this stack from owning sensitive material. """
         dockerhub_arn = self.SHARED_SECRETS_EXPORTS.import_value(
             C4SharedSecretsExports.EXPORT_DOCKERHUB_CREDENTIALS)
-        falcon_arns = [self.APPCONFIG_EXPORTS.import_value(export) for export in self._FALCON_EXPORTS]
+        resources = [dockerhub_arn] if include_dockerhub else []
+        if include_falcon:
+            resources += [self.APPCONFIG_EXPORTS.import_value(export) for export in self._FALCON_EXPORTS]
         return Policy(
             PolicyName='CBExternalSecretsAccess',
             PolicyDocument={
@@ -373,7 +383,7 @@ class C4CodeBuild(C4Part):
                 'Statement': [{
                     'Effect': 'Allow',
                     'Action': ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'],
-                    'Resource': [dockerhub_arn] + falcon_arns,
+                    'Resource': resources,
                 }],
             },
         )
@@ -519,15 +529,24 @@ class C4CodeBuild(C4Part):
             )
         )
 
+    @staticmethod
+    def uses_srce_network():
+        """CodeBuild keeps its stack identity; IT-provided Application VPC selects its network."""
+        return bool(ConfigManager.get_config_setting(Settings.VPC_ID, default=None))
+
     def cb_vpc_config(self) -> VpcConfig:
-        """ Configures CB jobs to run in the VPC """
+        """Use exports from exactly one Application VPC, never the DB/Compute VPCs."""
+        exports = self.NETWORK_EXPORTS
+        if self.uses_srce_network():
+            exports = C4SRCENetworkExports()
+            exports.get_subnet_ids()  # offline validation of required/disjoint Application subnets
         return VpcConfig(
-            SecurityGroupIds=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.APPLICATION_SECURITY_GROUP)],
-            Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNETS[0])],
-            VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC)
+            SecurityGroupIds=[exports.import_value(exports.APPLICATION_SECURITY_GROUP)],
+            Subnets=[exports.import_value(exports.PRIVATE_SUBNETS[0])],
+            VpcId=exports.import_value(exports.VPC)
         )
 
-    def cb_project(self, *, project_name, github_repo_url, branch, environment) -> Project:
+    def cb_project(self, *, project_name, github_repo_url, branch, environment, iam_role) -> Project:
         """ Builds a CodeBuild project for project_name """
         return Project(
             camelize(project_name),
@@ -536,7 +555,7 @@ class C4CodeBuild(C4Part):
             Environment=environment,
             LogsConfig=self.cb_logs_config(project_name=project_name),
             Name=project_name,
-            ServiceRole=Ref(self.cb_iam_role(project_name=ConfigManager.get_config_setting(Settings.ENV_NAME))),
+            ServiceRole=GetAtt(iam_role, 'Arn'),
             Source=self.cb_source(github_repo_url=github_repo_url),
             SourceVersion=branch,
             VpcConfig=self.cb_vpc_config(),

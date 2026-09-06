@@ -1,10 +1,15 @@
 import pytest
 
 from dcicutils.exceptions import InvalidParameterError
-from ..base import REGISTERED_STACKS, register_stack_creator, lookup_stack_creator
+from .. import base
+from ..base import register_stack_creator, lookup_stack_creator
 
 
-def test_register_stack_creator_and_lookup_stack_creator():
+def test_register_stack_creator_and_lookup_stack_creator(monkeypatch):
+    # CLI/full-stack tests import the real creators during collection. Isolate this unit test
+    # rather than assuming an empty process-global registry or leaking foo/bar into other tests.
+    monkeypatch.setattr(base, 'REGISTERED_STACKS', {})
+    monkeypatch.setattr(base, 'REGISTERED_STACK_CLASSES', {})
 
     class DummyFooImplementationClass:
         pass
@@ -32,7 +37,7 @@ def test_register_stack_creator_and_lookup_stack_creator():
         def create_legacy_bar_stack():
             return 'legacy-bar'
 
-    assert REGISTERED_STACKS == {
+    assert base.REGISTERED_STACKS == {
         'alpha': {
             'foo': create_alpha_foo_stack,
             'bar': create_alpha_bar_stack,
