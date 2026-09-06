@@ -1,16 +1,10 @@
-# `codebuild` — DEFERRED in this PR
+# codebuild
 
-CI/build module from `src/parts/codebuild.py`. Not yet implemented; env roots reference it only as
-commented `# module "codebuild"` TODOs.
+Native environment-scoped projects, per-role policies and retained log groups.
+Explicit `srce_application_network` wins over `standard_network`, including mixed accounts.
+Only the first-party pipeline role receives Falcon API secret ARNs; the portal, external and
+Tibanna roles receive DockerHub credentials only. Terraform never retrieves their values.
 
-## When implemented, faithful to codebuild.py
-
-- 2–5 per-project `IAM::Role` (a second IAM-authoring location, distinct from iam.py), up to 5
-  `CodeBuild::Project` (portal/blue-green, cgap-pipeline, external-pipeline, tibanna-awsf — gated by
-  `app_kind`/`app_deployment`), and a `CodeBuild::SourceCredential`.
-- **State-exposure gate (why extra care):** the GitHub PAT is embedded in the source credential
-  (`codebuild.py:325-332`) → `aws_codebuild_source_credential.token` lands in Terraform STATE. The
-  Phase-0 state-bucket hardening (`modules/bootstrap`; SSE-KMS/versioning/TLS-only) must be
-  **re-verified** before this module is applied/imported (plan §8.3, §3 Phase 6). Prefer sourcing
-  the PAT from Secrets Manager via a `data` source over a tfvars literal.
-- Consumes network via `data.terraform_remote_state`; DockerHub creds via `modules/shared-secrets`.
+Consume an existing account GitHub SourceCredential ARN from the shared `codebuild-credentials`
+module. Preserve/import existing `/aws/codebuild/<project>` groups and role names before adoption.
+See `terraform/PARITY.md`, `examples/srce/main.tf`, and `tests/test_terraform_parity.py`.

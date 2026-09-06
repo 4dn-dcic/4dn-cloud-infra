@@ -78,42 +78,21 @@ resource "aws_cloudwatch_log_group" "flow_log" {
   }
 }
 
-data "aws_iam_policy_document" "flow_log_assume" {
-  count = var.flow_logs_enabled ? 1 : 0
-  statement {
-    effect  = "Allow"
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["vpc-flow-logs.amazonaws.com"]
-    }
-  }
-}
-
-data "aws_iam_policy_document" "flow_log_delivery" {
-  count = var.flow_logs_enabled ? 1 : 0
-  statement {
-    effect = "Allow"
-    actions = [
-      "logs:CreateLogGroup",
-      "logs:CreateLogStream",
-      "logs:PutLogEvents",
-      "logs:DescribeLogGroups",
-      "logs:DescribeLogStreams",
-    ]
-    resources = ["*"]
-  }
-}
-
 resource "aws_iam_role" "flow_log" {
-  count              = var.flow_logs_enabled ? 1 : 0
-  name               = "${var.name_prefix}-vpc-flow-log-delivery"
-  assume_role_policy = data.aws_iam_policy_document.flow_log_assume[0].json
-  tags               = var.tags
+  count = var.flow_logs_enabled ? 1 : 0
+  name  = coalesce(var.flow_log_role_name, "${var.name_prefix}-vpc-flow-log-delivery")
+  assume_role_policy = jsonencode({ Version = "2012-10-17", Statement = [{
+    Effect = "Allow", Action = ["sts:AssumeRole"], Principal = { Service = ["vpc-flow-logs.amazonaws.com"] }
+  }] })
+  tags = var.tags
 
   inline_policy {
-    name   = "VPCFlowLogDelivery"
-    policy = data.aws_iam_policy_document.flow_log_delivery[0].json
+    name = "VPCFlowLogDelivery"
+    policy = jsonencode({ Version = "2012-10-17", Statement = [{
+      Effect   = "Allow"
+      Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogGroups", "logs:DescribeLogStreams"]
+      Resource = ["*"]
+    }] })
   }
 }
 

@@ -35,30 +35,31 @@ locals {
     ENCODED_REDIS_SERVER              = local.placeholder
     ENCODED_FOURSIGHT_BUCKET_PREFIX   = "${var.env_name}-foursight-"
     ENCODED_IDENTITY                  = local.placeholder
-    ENCODED_FILE_UPLOAD_BUCKET        = ""
-    ENCODED_FILE_WFOUT_BUCKET         = ""
-    ENCODED_BLOB_BUCKET               = ""
-    ENCODED_SYSTEM_BUCKET             = ""
-    ENCODED_METADATA_BUNDLES_BUCKET   = ""
-    ENCODED_S3_BUCKET_ORG             = var.s3_bucket_org == null ? local.placeholder : var.s3_bucket_org
-    ENCODED_TIBANNA_OUTPUT_BUCKET     = ""
-    LANG                              = "en_US.UTF-8"
-    LC_ALL                            = "en_US.UTF-8"
-    RDS_HOSTNAME                      = local.placeholder
-    RDS_DB_NAME                       = var.rds_db_name
-    RDS_NAME                          = var.rds_name == null ? "rds-${var.env_name}" : var.rds_name
-    RDS_PORT                          = var.rds_port
-    RDS_USERNAME                      = var.rds_username
-    RDS_PASSWORD                      = local.placeholder
-    GLOBAL_ENV_BUCKET                 = var.global_env_bucket == null ? "${var.env_name}-foursight-envs" : var.global_env_bucket
-    S3_ENCRYPT_KEY                    = local.placeholder
-    ENCODED_S3_ENCRYPT_KEY_ID         = var.s3_encrypt_key_id == null ? local.placeholder : var.s3_encrypt_key_id
-    ENCODED_SENTRY_DSN                = ""
-    ENCODED_URL                       = ""
-    ENCODED_ADMIN_USERS               = var.admin_users
-    reCaptchaKey                      = local.placeholder
-    reCaptchaSecret                   = local.placeholder
-    GA4_API_SECRET                    = ""
+    # PR100: concrete names prevent dcicutils inserting ENV_NAME twice.
+    ENCODED_FILE_UPLOAD_BUCKET      = lookup(var.bucket_names, "files", "${var.env_name}-application-files")
+    ENCODED_FILE_WFOUT_BUCKET       = lookup(var.bucket_names, "wfout", "${var.env_name}-application-wfoutput")
+    ENCODED_BLOB_BUCKET             = lookup(var.bucket_names, "blobs", "${var.env_name}-application-blobs")
+    ENCODED_SYSTEM_BUCKET           = lookup(var.bucket_names, "system", "${var.env_name}-application-system")
+    ENCODED_METADATA_BUNDLES_BUCKET = lookup(var.bucket_names, "metadata_bundles", "${var.env_name}-application-metadata-bundles")
+    ENCODED_S3_BUCKET_ORG           = var.s3_bucket_org == null ? local.placeholder : var.s3_bucket_org
+    ENCODED_TIBANNA_OUTPUT_BUCKET   = ""
+    LANG                            = "en_US.UTF-8"
+    LC_ALL                          = "en_US.UTF-8"
+    RDS_HOSTNAME                    = local.placeholder
+    RDS_DB_NAME                     = var.rds_db_name
+    RDS_NAME                        = var.rds_name == null ? "rds-${var.env_name}" : var.rds_name
+    RDS_PORT                        = var.rds_port
+    RDS_USERNAME                    = var.rds_username
+    RDS_PASSWORD                    = local.placeholder
+    GLOBAL_ENV_BUCKET               = var.global_env_bucket == null ? "${var.env_name}-foursight-envs" : var.global_env_bucket
+    S3_ENCRYPT_KEY                  = local.placeholder
+    ENCODED_S3_ENCRYPT_KEY_ID       = var.s3_encrypt_key_id == null ? local.placeholder : var.s3_encrypt_key_id
+    ENCODED_SENTRY_DSN              = ""
+    ENCODED_URL                     = ""
+    ENCODED_ADMIN_USERS             = var.admin_users
+    reCaptchaKey                    = local.placeholder
+    reCaptchaSecret                 = local.placeholder
+    GA4_API_SECRET                  = ""
   }
   gac_json = jsonencode(merge(local.gac_defaults, var.initial_secret_overrides))
 

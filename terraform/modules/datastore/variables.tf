@@ -57,8 +57,14 @@ variable "rds_storage_type" {
   default = "gp3"
 }
 variable "rds_postgres_version" {
-  type    = string
-  default = "17.6"
+  description = "One resolved version drives engine and parameter family; default 17.6, explicit older pins honored."
+  type        = string
+  default     = "17.6"
+  nullable    = false
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+$", var.rds_postgres_version))
+    error_message = "Use a PostgreSQL major.minor version, e.g. 17.6 or 14.4."
+  }
 }
 variable "rds_db_name" {
   type    = string
@@ -93,7 +99,7 @@ variable "es_data_node_type" {
 }
 variable "es_volume_size" {
   type    = number
-  default = 30
+  default = null # standard/SRCE 30 GiB, legacy slim 10 GiB
 }
 variable "opensearch_engine_version" {
   type    = string

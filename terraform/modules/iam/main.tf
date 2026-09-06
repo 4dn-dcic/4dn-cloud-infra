@@ -3,11 +3,11 @@
 # Scope: ECOSYSTEM-shared -> account shared/ root ONLY. Roles/user/instance-profile are per-account.
 #
 # Fidelity notes:
-#  * Inline CFN Policies on each Role become discrete aws_iam_role_policy resources (import each).
+#  * Data inventories use customer-managed policies shared by ECS and the federator (B2).
 #  * The federator IAM AccessKey is intentionally NOT created here — it is created imperatively by
 #    setup-remaining-secrets (iam.py:72-73 comment; plan §6.9).
-#  * Broad Resource:['*'] policies are ported AS-IS (like-for-like). Tightening is a separate,
-#    reviewed follow-on (plan §8.1). Expect checkov to flag these — that is intended.
+#  * Exact ecosystem inventory is required; env_name NEVER selects permissions.
+#    Global-only management/list actions retain the current CFN contract.
 
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
@@ -30,80 +30,42 @@ locals {
   flowlog_role_name     = lookup(var.role_name_overrides, "flowlog", "VPCFlowLogRole")
   s3_user_name          = lookup(var.role_name_overrides, "s3_user", "${var.env_name}-s3-federator")
 
-  # ECS image-pull scope: [env portal repo] + fixed repos (iam.ecs_ecr_policy).
-  ecr_repo_names = concat([var.env_name], var.ecr_repo_names)
-  ecr_repo_arns  = [for r in local.ecr_repo_names : "arn:aws:ecr:${local.region}:${local.account_id}:repository/${r}"]
-
-  kms_resource = var.s3_encrypt_key_id == null ? ["*"] : ["arn:aws:kms:${local.region}:${local.account_id}:key/${var.s3_encrypt_key_id}"]
-
-  s3_bucket_arn = "arn:aws:s3:::${var.env_name}-*"
-  s3_object_arn = "arn:aws:s3:::${var.env_name}-*/*"
+  ecr_repo_arns  = [for r in sort(var.ecosystem_resources.repositories) : "arn:aws:ecr:${local.region}:${local.account_id}:repository/${r}"]
+  kms_resource   = [for k in sort(var.ecosystem_resources.kms_keys) : "arn:aws:kms:${local.region}:${local.account_id}:key/${k}"]
+  s3_bucket_arns = [for b in sort(var.ecosystem_resources.buckets) : "arn:aws:s3:::${b}"]
+  s3_object_arns = [for b in local.s3_bucket_arns : "${b}/*"]
 }
 
-# ---------------- assume-role policies ----------------
-data "aws_iam_policy_document" "ecs_assume" {
-  statement {
-    effect  = "Allow"
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["ecs.amazonaws.com", "ec2.amazonaws.com", "ecs-tasks.amazonaws.com"]
-    }
+# Pure expressions keep the trust contract evaluable even with mocked AWS providers.
+locals {
+  assume_principals = {
+    ecs         = { Service = ["ecs.amazonaws.com", "ec2.amazonaws.com", "ecs-tasks.amazonaws.com"] }
+    autoscaling = { Service = ["application-autoscaling.amazonaws.com"] }
+    flowlog     = { Service = ["vpc-flow-logs.amazonaws.com"] }
+    dev         = { AWS = [local.account_id] }
   }
+  assume_policies = { for name, principal in local.assume_principals : name => jsonencode({
+    Version   = "2012-10-17"
+    Statement = [{ Effect = "Allow", Action = ["sts:AssumeRole"], Principal = principal }]
+  }) }
 }
 
-data "aws_iam_policy_document" "autoscaling_assume" {
-  statement {
-    effect  = "Allow"
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["application-autoscaling.amazonaws.com"]
-    }
-  }
-}
-
-data "aws_iam_policy_document" "flowlog_assume" {
-  statement {
-    effect  = "Allow"
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["vpc-flow-logs.amazonaws.com"]
-    }
-  }
-}
-
-data "aws_iam_policy_document" "dev_assume" {
-  statement {
-    effect  = "Allow"
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "AWS"
-      identifiers = [local.account_id]
-    }
-  }
-}
-
-# ---------------- ECS assumed role + its 10 inline policies ----------------
+# ---------------- ECS assumed role + shared data / inline management policies ----------------
 resource "aws_iam_role" "ecs" {
   name               = local.ecs_role_name
-  assume_role_policy = data.aws_iam_policy_document.ecs_assume.json
+  assume_role_policy = local.assume_policies.ecs
   tags               = var.tags
 }
 
-resource "aws_iam_role_policy" "ecs_secret_manager" {
-  name = "ECSSecretManagerPolicy"
-  role = aws_iam_role.ecs.id
+resource "aws_iam_policy" "ecs_secret_manager" {
+  name        = lookup(var.policy_name_overrides, "ecs_secret_manager", null)
+  name_prefix = contains(keys(var.policy_name_overrides), "ecs_secret_manager") ? null : "ECSSecretManagerPolicy-"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect = "Allow"
-      Action = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret", "secretsmanager:ListSecretVersionIds"]
-      Resource = [
-        "arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:C4AppConfig*",
-        "arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:C4Datastore*",
-      ]
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret", "secretsmanager:ListSecretVersionIds"]
+      Resource = [for s in sort(var.ecosystem_resources.runtime_secrets) : "arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:${s}-??????"]
     }]
   })
 }
@@ -130,36 +92,41 @@ resource "aws_iam_role_policy" "ecs_management" {
   })
 }
 
-resource "aws_iam_role_policy" "ecs_es" {
-  name = "ECSESAccessPolicy"
-  role = aws_iam_role.ecs.id
+resource "aws_iam_policy" "ecs_es" {
+  name        = lookup(var.policy_name_overrides, "ecs_es", null)
+  name_prefix = contains(keys(var.policy_name_overrides), "ecs_es") ? null : "ECSESAccessPolicy-"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Effect   = "Allow"
         Action   = ["es:ESHttpGet", "es:ESHttpPost", "es:ESHttpPut", "es:ESHttpDelete", "es:ESHttpHead", "es:ESHttpPatch"]
-        Resource = ["arn:aws:es:${local.region}:${local.account_id}:domain/os-${var.env_name}*"]
+        Resource = [for d in sort(var.ecosystem_resources.search_domains) : "arn:aws:es:${local.region}:${local.account_id}:domain/${d}/*"]
       },
       {
         Effect   = "Allow"
-        Action   = ["es:DescribeElasticsearchDomains", "es:DescribeDomain", "es:ListDomainNames"]
+        Action   = ["es:ListDomainNames"]
         Resource = ["*"]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["es:DescribeElasticsearchDomains", "es:DescribeDomain"]
+        Resource = [for d in sort(var.ecosystem_resources.search_domains) : "arn:aws:es:${local.region}:${local.account_id}:domain/${d}"]
       },
     ]
   })
 }
 
-resource "aws_iam_role_policy" "ecs_sqs" {
-  name = "ECSSQSAccessPolicy"
-  role = aws_iam_role.ecs.id
+resource "aws_iam_policy" "ecs_sqs" {
+  name        = lookup(var.policy_name_overrides, "ecs_sqs", null)
+  name_prefix = contains(keys(var.policy_name_overrides), "ecs_sqs") ? null : "ECSSQSAccessPolicy-"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Effect   = "Allow"
         Action   = ["sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes", "sqs:GetQueueUrl", "sqs:ChangeMessageVisibility"]
-        Resource = ["arn:aws:sqs:${local.region}:${local.account_id}:${var.env_name}-*"]
+        Resource = [for q in sort(var.ecosystem_resources.queues) : "arn:aws:sqs:${local.region}:${local.account_id}:${q}"]
       },
       {
         Effect   = "Allow"
@@ -186,9 +153,9 @@ resource "aws_iam_role_policy" "ecs_logging" {
   })
 }
 
-resource "aws_iam_role_policy" "ecs_ecr" {
-  name = "ECSECRPolicy"
-  role = aws_iam_role.ecs.id
+resource "aws_iam_policy" "ecs_ecr" {
+  name        = lookup(var.policy_name_overrides, "ecs_ecr", null)
+  name_prefix = contains(keys(var.policy_name_overrides), "ecs_ecr") ? null : "ECSECRPolicy-"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -226,21 +193,21 @@ resource "aws_iam_role_policy" "ecs_cfn" {
   })
 }
 
-resource "aws_iam_role_policy" "ecs_s3" {
-  name = "ECSS3Policy"
-  role = aws_iam_role.ecs.id
+resource "aws_iam_policy" "ecs_s3" {
+  name        = lookup(var.policy_name_overrides, "ecs_s3", null)
+  name_prefix = contains(keys(var.policy_name_overrides), "ecs_s3") ? null : "ECSS3Policy-"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Effect   = "Allow"
         Action   = ["s3:ListBucket"]
-        Resource = [local.s3_bucket_arn]
+        Resource = local.s3_bucket_arns
       },
       {
         Effect   = "Allow"
         Action   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
-        Resource = [local.s3_object_arn]
+        Resource = local.s3_object_arns
       },
     ]
   })
@@ -262,9 +229,10 @@ resource "aws_iam_role_policy" "ecs_web_service" {
   })
 }
 
-resource "aws_iam_role_policy" "ecs_kms" {
-  name = "ECSKMSPolicy"
-  role = aws_iam_role.ecs.id
+resource "aws_iam_policy" "ecs_kms" {
+  count       = length(var.ecosystem_resources.kms_keys) > 0 ? 1 : 0
+  name        = lookup(var.policy_name_overrides, "ecs_kms", null)
+  name_prefix = contains(keys(var.policy_name_overrides), "ecs_kms") ? null : "ECSKMSPolicy-"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -284,7 +252,7 @@ resource "aws_iam_instance_profile" "ecs" {
 # ---------------- autoscaling role ----------------
 resource "aws_iam_role" "autoscaling" {
   name               = local.autoscaling_role_name
-  assume_role_policy = data.aws_iam_policy_document.autoscaling_assume.json
+  assume_role_policy = local.assume_policies.autoscaling
   tags               = var.tags
 }
 
@@ -304,7 +272,7 @@ resource "aws_iam_role_policy" "autoscaling" {
 # ---------------- VPC flow-log role ----------------
 resource "aws_iam_role" "flowlog" {
   name               = local.flowlog_role_name
-  assume_role_policy = data.aws_iam_policy_document.flowlog_assume.json
+  assume_role_policy = local.assume_policies.flowlog
   tags               = var.tags
 }
 
@@ -324,7 +292,7 @@ resource "aws_iam_role_policy" "flowlog" {
 # ---------------- dev user role (10 managed policies + 4 inline) ----------------
 resource "aws_iam_role" "dev" {
   name               = local.dev_role_name
-  assume_role_policy = data.aws_iam_policy_document.dev_assume.json
+  assume_role_policy = local.assume_policies.dev
   tags               = var.tags
 }
 
@@ -360,19 +328,20 @@ resource "aws_iam_role_policy" "dev_management" {
 resource "aws_iam_role_policy" "dev_es" {
   name   = "ECSESAccessPolicy"
   role   = aws_iam_role.dev.id
-  policy = aws_iam_role_policy.ecs_es.policy
+  policy = aws_iam_policy.ecs_es.policy
 }
 
 resource "aws_iam_role_policy" "dev_s3" {
   name   = "ECSS3Policy"
   role   = aws_iam_role.dev.id
-  policy = aws_iam_role_policy.ecs_s3.policy
+  policy = aws_iam_policy.ecs_s3.policy
 }
 
 resource "aws_iam_role_policy" "dev_kms" {
+  count  = length(var.ecosystem_resources.kms_keys) > 0 ? 1 : 0
   name   = "ECSKMSPolicy"
   role   = aws_iam_role.dev.id
-  policy = aws_iam_role_policy.ecs_kms.policy
+  policy = aws_iam_policy.ecs_kms[0].policy
 }
 
 # ---------------- S3 federator IAM user (no AccessKey — created by setup-remaining-secrets) ----------------
@@ -381,10 +350,9 @@ resource "aws_iam_user" "s3_federator" {
   tags = var.tags
 }
 
-resource "aws_iam_user_policy" "s3_federator_s3" {
-  name   = "ECSS3Policy"
-  user   = aws_iam_user.s3_federator.name
-  policy = aws_iam_role_policy.ecs_s3.policy
+resource "aws_iam_user_policy_attachment" "s3_federator_s3" {
+  user       = aws_iam_user.s3_federator.name
+  policy_arn = aws_iam_policy.ecs_s3.arn
 }
 
 resource "aws_iam_user_policy" "s3_federator_sts" {
@@ -400,8 +368,20 @@ resource "aws_iam_user_policy" "s3_federator_sts" {
   })
 }
 
-resource "aws_iam_user_policy" "s3_federator_kms" {
-  name   = "ECSKMSPolicy"
-  user   = aws_iam_user.s3_federator.name
-  policy = aws_iam_role_policy.ecs_kms.policy
+resource "aws_iam_user_policy_attachment" "s3_federator_kms" {
+  count      = length(var.ecosystem_resources.kms_keys) > 0 ? 1 : 0
+  user       = aws_iam_user.s3_federator.name
+  policy_arn = aws_iam_policy.ecs_kms[0].arn
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_data" {
+  for_each = merge({
+    secrets = aws_iam_policy.ecs_secret_manager.arn
+    es      = aws_iam_policy.ecs_es.arn
+    sqs     = aws_iam_policy.ecs_sqs.arn
+    ecr     = aws_iam_policy.ecs_ecr.arn
+    s3      = aws_iam_policy.ecs_s3.arn
+  }, length(var.ecosystem_resources.kms_keys) > 0 ? { kms = aws_iam_policy.ecs_kms[0].arn } : {})
+  role       = aws_iam_role.ecs.name
+  policy_arn = each.value
 }

@@ -16,7 +16,7 @@ smaht-prod profile before any import manifest. Names from AWS, never from config
 | datastore (production) | | | env; blocks §2.3 consumers |
 | ecs (production) | | | variant? sizing from config: wsgi 4096/8192, indexer 256/512 |
 | redis (production) | | | |
-| sentieon (production) | | | ec2-service (deferred); sentieon.ssh_key set |
+| sentieon (production) | | | ec2-service implemented; wiring/adoption pending; sentieon.ssh_key set |
 
 - [ ] ECS variant recorded
 - [ ] `datastore_slim` live anywhere? (expected: no)

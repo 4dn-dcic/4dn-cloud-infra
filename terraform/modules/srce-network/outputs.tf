@@ -1,43 +1,31 @@
-# SAME output names as modules/network for the Application VPC, so SRCE env-scoped modules could
-# consume it interchangeably. DB/Compute VPC ids are exposed additively.
-
-output "vpc_id" {
-  value       = data.aws_vpc.application.id
-  description = "SRCE Application VPC id."
+output "vpc_id" { value = var.application_vpc_id }
+output "vpc_cidr" { value = var.application_cidr }
+output "private_subnet_ids" { value = var.application_private_subnet_ids }
+output "public_subnet_ids" { value = var.application_public_subnet_ids }
+output "db_vpc_id" { value = var.db_vpc_id }
+output "db_vpc_cidr" { value = var.db_cidr }
+output "db_subnet_ids" { value = var.db_subnet_ids }
+output "compute_vpc_id" { value = var.compute_vpc_id }
+output "compute_vpc_cidr" { value = var.compute_cidr }
+output "compute_subnet_ids" { value = var.compute_subnet_ids }
+output "application_security_group_id" { value = aws_security_group.this["app_application"].id }
+output "db_security_group_id" { value = aws_security_group.this["app_db"].id }
+output "https_security_group_id" { value = aws_security_group.this["app_https"].id }
+output "application_network" {
+  value = {
+    vpc_id                        = var.application_vpc_id, cidr_block = var.application_cidr
+    private_subnet_ids            = var.application_private_subnet_ids, public_subnet_ids = var.application_public_subnet_ids
+    application_security_group_id = aws_security_group.this["app_application"].id
+  }
 }
-output "vpc_cidr" {
-  value       = data.aws_vpc.application.cidr_block
-  description = "SRCE Application VPC CIDR."
+output "database_network" {
+  value = {
+    vpc_id                        = var.db_vpc_id, private_subnet_ids = var.db_subnet_ids
+    db_security_group_id          = aws_security_group.this["db_db"].id
+    https_security_group_id       = aws_security_group.this["db_https"].id
+    application_security_group_id = aws_security_group.this["db_application"].id
+  }
 }
-output "private_subnet_ids" {
-  value       = [for id in var.application_private_subnet_ids : data.aws_subnet.application_private[id].id]
-  description = "Application VPC private subnet ids, in the order supplied."
-}
-output "public_subnet_ids" {
-  value       = [for id in var.application_public_subnet_ids : data.aws_subnet.application_public[id].id]
-  description = "Application VPC public subnet ids, in the order supplied."
-}
-output "db_vpc_id" {
-  value       = length(data.aws_vpc.db) > 0 ? data.aws_vpc.db[0].id : null
-  description = "SRCE Database VPC id."
-}
-output "db_vpc_cidr" {
-  value       = length(data.aws_vpc.db) > 0 ? data.aws_vpc.db[0].cidr_block : null
-  description = "SRCE Database VPC CIDR."
-}
-output "db_subnet_ids" {
-  value       = var.db_subnet_ids
-  description = "SRCE Database VPC subnet ids (pass-through)."
-}
-output "compute_vpc_id" {
-  value       = length(data.aws_vpc.compute) > 0 ? data.aws_vpc.compute[0].id : null
-  description = "SRCE Compute VPC id."
-}
-output "compute_vpc_cidr" {
-  value       = length(data.aws_vpc.compute) > 0 ? data.aws_vpc.compute[0].cidr_block : null
-  description = "SRCE Compute VPC CIDR."
-}
-output "compute_subnet_ids" {
-  value       = var.compute_subnet_ids
-  description = "SRCE Compute VPC subnet ids (pass-through)."
+output "compute_network" {
+  value = { vpc_id = var.compute_vpc_id, private_subnet_ids = var.compute_subnet_ids, application_security_group_id = aws_security_group.this["compute_application"].id }
 }

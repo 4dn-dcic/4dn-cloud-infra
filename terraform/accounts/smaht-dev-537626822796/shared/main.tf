@@ -35,12 +35,17 @@ module "network" {
   tags              = local.common_tags
 }
 
+# Required operator inventory, not a guessed subset from smaht-wolf.
+variable "iam_ecosystem_resources" {
+  type = object({ buckets = set(string), queues = set(string), search_domains = set(string), repositories = set(string), runtime_secrets = set(string), kms_keys = set(string) })
+}
+
 module "iam" {
-  source            = "../../../modules/iam"
-  env_name          = "smaht-wolf"
-  app_kind          = "smaht"
-  s3_encrypt_key_id = "27d040a3-ead1-4f5a-94ce-0fa6e7f84a95" # smaht-wolf config: s3.encrypt_key_id
-  tags              = local.common_tags
+  source              = "../../../modules/iam"
+  env_name            = "smaht-wolf"
+  app_kind            = "smaht"
+  ecosystem_resources = var.iam_ecosystem_resources
+  tags                = local.common_tags
 }
 
 module "logging" {

@@ -1,51 +1,47 @@
 variable "env_name" {
-  description = "ENCODED_ENV_NAME — scopes SQS/ES/S3 policy ARNs (iam.py env-derived prefixes)."
+  description = "Legacy federator default name only; NEVER selects permissions. Override with discovered name."
   type        = string
 }
-
 variable "app_kind" {
-  description = "cgap | ff | smaht — drives role/profile names via ConfigManager.app_case (iam.py:40-51)."
-  type        = string
+  type = string
   validation {
     condition     = contains(["cgap", "ff", "smaht"], var.app_kind)
-    error_message = "app_kind must be one of: cgap, ff, smaht."
+    error_message = "app_kind must be cgap, ff or smaht."
   }
 }
-
-variable "s3_encrypt_key_id" {
-  description = <<-EOT
-    Optional KMS key id for the S3-encrypt key (Settings.S3_ENCRYPT_KEY_ID). When set, the KMS
-    policy is scoped to that key; when null it falls back to '*' (the bootstrap case, since IAM is
-    deployed before the datastore stack that creates the key — iam.py kms_policy, SEC-7).
-  EOT
-  type        = string
-  default     = null
+variable "ecosystem_resources" {
+  description = "Complete shared inventory from iam.ecosystem_resources. See docs/source/iam_inventory.rst. No env-derived defaults."
+  type = object({
+    buckets         = set(string)
+    queues          = set(string)
+    search_domains  = set(string)
+    repositories    = set(string)
+    runtime_secrets = set(string)
+    kms_keys        = set(string)
+  })
+  nullable = false
+  validation {
+    condition = alltrue(flatten([for key, pattern in {
+      buckets         = "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"
+      queues          = "^[a-zA-Z0-9_-]{1,80}(\\.fifo)?$"
+      search_domains  = "^[a-z][a-z0-9-]{2,27}$"
+      repositories    = "^[a-z0-9][a-z0-9._/-]*$"
+      runtime_secrets = "^[a-zA-Z0-9/_+=.@-]+$"
+      kms_keys        = "^([a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}|mrk-[a-f0-9]{32})$"
+    } : concat([key == "kms_keys" || length(var.ecosystem_resources[key]) > 0], [for name in var.ecosystem_resources[key] : can(regex(pattern, name))])]))
+    error_message = "Supply exact physical names (no ARNs/wildcards), all six resource classes, nonempty except explicit bootstrap kms_keys."
+  }
+  validation {
+    condition     = alltrue([for s in var.ecosystem_resources.runtime_secrets : !can(regex("FalconClient(ID|Secret)$", s))])
+    error_message = "Runtime roles must not read Falcon API build credentials."
+  }
 }
-
-variable "ecr_repo_names" {
-  description = <<-EOT
-    Fixed ECR repo names the ECS image-pull policy is scoped to (iam.ecs_ecr_policy -> [env_name] +
-    ecr.ECR_REPO_NAMES). Defaults to the fixed set from ecr._ECR_FIXED_REPO_EXPORTS. The env portal
-    repo (named after env_name) is added automatically.
-  EOT
-  type        = list(string)
-  default = [
-    "falcon-sensor", "tibanna-awsf", "base", "fastqc", "md5",
-    "upstream_gatk", "upstream_sentieon",
-    "snv_germline_gatk", "snv_germline_granite", "snv_germline_misc", "snv_germline_tools",
-    "snv_germline_vep", "snv_somatic", "cnv_germline", "manta",
-    "sv_germline_granite", "sv_germline_tools", "sv_germline_vep", "ascat", "somatic_sentieon",
-  ]
-}
-
 variable "role_name_overrides" {
-  description = "Optional {ecs|dev|autoscaling|instance_profile|s3_user|flowlog => name} from discovery."
+  description = "Discovered {ecs|dev|autoscaling|instance_profile|s3_user|flowlog => name}; preserve identities on import."
   type        = map(string)
   default     = {}
 }
-
 variable "tags" {
-  description = "Cost-allocation tags."
-  type        = map(string)
-  default     = {}
+  type    = map(string)
+  default = {}
 }

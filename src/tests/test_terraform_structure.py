@@ -6,6 +6,7 @@ Troposphere codebase, so they add no dependencies and run under `make test` unch
 the SHARING invariant (plan §1.1): a module's Terraform root must match its SHARING scope, so no
 physical resource can ever be owned by two Terraform states.
 """
+
 import importlib.util
 import os
 import re
@@ -21,8 +22,8 @@ TF_ROOT = os.path.join(REPO_ROOT, "terraform")
 SECRET_BEARING_MODULES = {"datastore", "shared-secrets", "appconfig"}
 
 # Implemented modules that are NEVER imported from CFN: bootstrap is fresh local state;
-# network-data/srce-network are data-source-only wrappers over externally-owned VPCs.
-NEVER_IMPORTED_MODULES = {"bootstrap", "network-data", "srce-network"}
+# network-data is data-only; srce-network now owns SGs/rules, NEVER IT VPCs/subnets.
+NEVER_IMPORTED_MODULES = {"bootstrap", "network-data"}
 
 
 def _load_import_tool():
@@ -33,14 +34,39 @@ def _load_import_tool():
     spec.loader.exec_module(module)
     return module
 
+
 # SHARING scope of each module (from src/parts/*.py; see plan §1.1 / §2.1).
-ECOSYSTEM_MODULES = {"network", "network-data", "iam", "ecr", "logging", "shared-secrets", "srce-network"}
+ECOSYSTEM_MODULES = {
+    "network",
+    "network-data",
+    "iam",
+    "ecr",
+    "logging",
+    "shared-secrets",
+    "srce-network",
+    "codebuild-credentials",
+}
+# ecs-app is dual-scope: the blue_green variant is allowed only once in shared/.
+DUAL_SCOPE_MODULES = {"ecs-app"}
 ENV_MODULES = {"appconfig", "datastore", "datastore-slim", "redis", "ecs-app", "codebuild", "ec2-service"}
 
 # Modules actually implemented in this PR (deferred ones are README-only, no .tf).
 IMPLEMENTED_MODULES = {
-    "bootstrap", "network", "network-data", "iam", "ecr", "logging", "shared-secrets",
-    "appconfig", "datastore", "redis", "srce-network",
+    "bootstrap",
+    "network",
+    "network-data",
+    "iam",
+    "ecr",
+    "logging",
+    "shared-secrets",
+    "appconfig",
+    "datastore",
+    "redis",
+    "srce-network",
+    "ecs-app",
+    "codebuild",
+    "ec2-service",
+    "codebuild-credentials",
 }
 
 MODULE_SOURCE_RE = re.compile(r'source\s*=\s*"((?:\.\./)+modules/([a-z0-9-]+))"')
@@ -92,7 +118,7 @@ def test_shared_roots_only_instantiate_ecosystem_modules():
         if os.path.basename(root) != "shared":
             continue
         for src in _module_sources(os.path.join(root, "main.tf")):
-            assert src in ECOSYSTEM_MODULES, (
+            assert src in ECOSYSTEM_MODULES | DUAL_SCOPE_MODULES, (
                 f"shared root {root} instantiates non-ecosystem module {src!r} "
                 f"(would violate the SHARING scope split)"
             )
@@ -104,6 +130,9 @@ def test_env_roots_only_instantiate_env_modules():
         # env roots live under .../envs/<env>
         if os.path.basename(os.path.dirname(root)) != "envs":
             continue
+        text = open(os.path.join(root, "main.tf")).read()
+        if "source" in text and re.search(r"^\s*source\s*=.*modules/ecs-app", text, re.M):
+            assert 'deployment_paradigm = "blue_green"' not in text
         for src in _module_sources(os.path.join(root, "main.tf")):
             assert src in ENV_MODULES, (
                 f"env root {root} instantiates non-env module {src!r} "
@@ -216,19 +245,19 @@ def test_import_tool_emits_secret_version_adoption_warning():
         "appconfig": "C4AppConfigSmahtWolf",
     }
     for mod in sorted(SECRET_BEARING_MODULES):
-        resources = [{
-            "LogicalResourceId": fixture_logical_ids[mod],
-            "PhysicalResourceId": "arn:aws:secretsmanager:us-east-1:111111111111:secret:test-abc123",
-            "ResourceType": "AWS::SecretsManager::Secret",
-        }]
+        resources = [
+            {
+                "LogicalResourceId": fixture_logical_ids[mod],
+                "PhysicalResourceId": "arn:aws:secretsmanager:us-east-1:111111111111:secret:test-abc123",
+                "ResourceType": "AWS::SecretsManager::Secret",
+            }
+        ]
         lines = tool.build_commands(mod, f"module.{mod.replace('-', '_')}", resources)
         output = "\n".join(lines)
-        assert "aws_secretsmanager_secret_version" in output, (
-            f"{mod}: import tool did not resolve the secret container for its own fixture"
-        )
-        assert "ACTION-REQUIRED" in output, (
-            f"{mod}: import tool did not emit the mandatory *_version adoption warning"
-        )
+        assert (
+            "aws_secretsmanager_secret_version" in output
+        ), f"{mod}: import tool did not resolve the secret container for its own fixture"
+        assert "ACTION-REQUIRED" in output, f"{mod}: import tool did not emit the mandatory *_version adoption warning"
         assert "list-secret-version-ids" in output
 
 
@@ -238,6 +267,7 @@ def test_datastore_import_fixture_still_triggers_secret_version_warning():
     tool = _load_import_tool()
     fixture = os.path.join(TF_ROOT, "tools", "fixtures", "datastore.json")
     import json
+
     with open(fixture) as f:
         resources = json.load(f)["StackResources"]
     lines = tool.build_commands("datastore", "module.datastore", resources)

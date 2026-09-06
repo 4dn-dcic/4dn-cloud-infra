@@ -3,10 +3,6 @@
 # Scope: ENV-scoped -> each envs/<env>/ root. Encryption at-rest and in-transit are enabled
 # (redis.py:71-72), automatic failover disabled (redis.py:69).
 
-locals {
-  env_camel = join("", [for w in split("-", var.env_name) : title(w)])
-}
-
 resource "aws_elasticache_subnet_group" "this" {
   name        = "${var.env_name}-redis-subnet-group"
   description = "Subnet group for Redis cache cluster associated with ${var.env_name}"
@@ -15,7 +11,7 @@ resource "aws_elasticache_subnet_group" "this" {
 }
 
 resource "aws_elasticache_replication_group" "this" {
-  replication_group_id       = "${local.env_camel}Redis"
+  replication_group_id       = coalesce(var.replication_group_id, "${var.env_name}-redis")
   description                = "Pass additional options to the Redis Cluster"
   engine                     = "redis"
   engine_version             = var.engine_version

@@ -15,14 +15,15 @@ locals {
   rds_identifier  = coalesce(var.rds_name, "rds-${var.env_name}")
   postgres_major  = split(".", var.rds_postgres_version)[0]
   env_camel       = join("", [for w in split("-", var.env_name) : title(w)])
-  kms_key_enabled = var.s3_bucket_encryption
+  kms_key_enabled = var.variant != "slim" && var.s3_bucket_encryption
+  search_prefix   = var.variant == "slim" ? "es" : "os"
 
   # OpenSearch domains: standalone => one; blue_green => -blue and -green (datastore.py:190-202).
   os_domains = var.deployment_paradigm == "blue_green" ? {
-    blue  = "os-${var.env_name}-blue"
-    green = "os-${var.env_name}-green"
+    blue  = "${local.search_prefix}-${var.env_name}-blue"
+    green = "${local.search_prefix}-${var.env_name}-green"
     } : {
-    default = "os-${var.env_name}"
+    default = "${local.search_prefix}-${var.env_name}"
   }
 
   # Bucket logical keys -> default physical names (ConfigManager.resolve_bucket_name shape).
@@ -41,7 +42,7 @@ locals {
     fs_results      = "${var.env_name}-foursight-results"
     fs_app_versions = "${var.env_name}-foursight-application-versions"
   }
-  all_bucket_defaults = merge(local.app_bucket_defaults, local.fs_bucket_defaults)
+  all_bucket_defaults = var.variant == "slim" ? {} : merge(local.app_bucket_defaults, local.fs_bucket_defaults)
 
   lifecycle_keys = ["files", "wfout"]
   system_key     = "system"
@@ -65,14 +66,20 @@ resource "random_password" "rds" {
 }
 
 resource "aws_secretsmanager_secret" "rds" {
-  name        = "C4Datastore${local.env_camel}RDSSecret"
+  name        = coalesce(var.rds_secret_name, "C4${var.variant == "srce" ? "SRCE" : ""}Datastore${local.env_camel}RDSSecret")
   description = "The RDS instance master password for ${var.env_name}."
   tags        = var.tags
 }
 
 resource "aws_secretsmanager_secret_version" "rds" {
-  secret_id     = aws_secretsmanager_secret.rds.id
-  secret_string = jsonencode({ username = var.rds_username, password = random_password.rds.result })
+  secret_id = aws_secretsmanager_secret.rds.id
+  # Native equivalent of SecretTargetAttachment: metadata is seeded with the credentials.
+  # Existing versions MUST be adopted; ignore_changes prevents rewriting populated secrets.
+  secret_string = jsonencode({
+    username = var.rds_username, password = random_password.rds.result
+    engine   = "postgres", host = aws_db_instance.rds.address, port = aws_db_instance.rds.port
+    dbname   = var.rds_db_name, dbInstanceIdentifier = aws_db_instance.rds.identifier
+  })
   lifecycle {
     ignore_changes = [secret_string] # keep the live generated value on import
   }
@@ -80,7 +87,7 @@ resource "aws_secretsmanager_secret_version" "rds" {
 
 # ------------------------------------------------------------------ RDS
 resource "aws_db_parameter_group" "rds" {
-  name        = "c4-rds-${var.env_name}-pg${local.postgres_major}"
+  name        = coalesce(var.rds_parameter_group_name, "c4-rds-${var.env_name}-pg${local.postgres_major}")
   family      = "postgres${local.postgres_major}"
   description = "parameters for C4 RDS instances"
 
@@ -91,7 +98,7 @@ resource "aws_db_parameter_group" "rds" {
 }
 
 resource "aws_db_subnet_group" "rds" {
-  name        = "c4-rds-${var.env_name}-subnet-group"
+  name        = coalesce(var.rds_subnet_group_name, "c4-rds-${var.env_name}-subnet-group")
   description = "RDS subnet group for ${var.env_name}."
   subnet_ids  = var.private_subnet_ids
   tags        = var.tags
@@ -128,7 +135,7 @@ resource "aws_db_instance" "rds" {
 resource "aws_opensearch_domain" "this" {
   for_each       = local.os_domains
   domain_name    = each.value
-  engine_version = var.opensearch_engine_version
+  engine_version = var.variant == "slim" ? "Elasticsearch_6.8" : var.opensearch_engine_version
 
   cluster_config {
     instance_count = var.es_data_node_count
@@ -137,8 +144,8 @@ resource "aws_opensearch_domain" "this" {
 
   ebs_options {
     ebs_enabled = true
-    volume_size = var.es_volume_size
-    volume_type = "gp3"
+    volume_size = coalesce(var.es_volume_size, var.variant == "slim" ? 10 : 30)
+    volume_type = var.variant == "slim" ? "gp2" : "gp3"
   }
 
   node_to_node_encryption {
@@ -171,7 +178,7 @@ locals {
 }
 
 resource "aws_sqs_queue" "this" {
-  for_each                   = local.queues
+  for_each                   = var.variant == "slim" ? {} : local.queues
   name                       = each.value.name
   visibility_timeout_seconds = each.value.visibility
   message_retention_seconds  = 1209600 # 14 days
@@ -210,12 +217,6 @@ resource "aws_kms_key" "s3" {
       },
     ]
   })
-}
-
-resource "aws_kms_alias" "s3" {
-  count         = local.kms_key_enabled ? 1 : 0
-  name          = "alias/c4-s3-encrypt-${var.env_name}"
-  target_key_id = aws_kms_key.s3[0].key_id
 }
 
 # ------------------------------------------------------------------ S3 buckets

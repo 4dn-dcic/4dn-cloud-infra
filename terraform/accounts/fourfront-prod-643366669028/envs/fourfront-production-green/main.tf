@@ -3,7 +3,8 @@
 # Green half of the blue/green pair; mirrors the blue root. Shares the account shared/ root
 # (network-data) and the account-wide GLOBAL_ENV_BUCKET with blue (plan §1.2).
 #
-# Wired today: appconfig. DEFERRED: datastore-slim, ecs-app (see terraform/OWNERSHIP.md).
+# Wired today: appconfig. Datastore slim and ECS modules are implemented; account wiring
+# remains gated on discovery (see terraform/OWNERSHIP.md and terraform/PARITY.md).
 # ============================================================================================
 
 provider "aws" {
@@ -36,6 +37,6 @@ module "appconfig" {
   tags                = local.common_tags
 }
 
-# --- DEFERRED in this PR (see terraform/OWNERSHIP.md + terraform/README.md) ---
-# module "datastore_slim" { source = "../../../../modules/datastore-slim" ... } # legacy ES 6.8 variant — NOT YET IMPLEMENTED
-# module "ecs_app"        { source = "../../../../modules/ecs-app" ... }        # fourfront_ecs.py — NOT YET IMPLEMENTED
+# Account wiring remains gated on physical-resource and consumer discovery:
+# module "datastore" { source = "../../../../modules/datastore" ... } # variant = "slim"
+# module "ecs_app"   { source = "../../../../modules/ecs-app" ... }   # app_kind = "ff"

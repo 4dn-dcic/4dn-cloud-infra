@@ -29,9 +29,12 @@ Usage:
     python3 import_from_cfn.py --list
 
 Supported modules ship faithful mappings for every implemented module that requires an import
-(all except `bootstrap` — fresh local state, never imported from CFN — and `network-data` /
-`srce-network`, which are data-source-only wrappers over externally-owned VPCs and are never
-imported either). Resources with no rule are emitted as commented "# TODO(no-rule)" lines with
+(all except `bootstrap` — fresh local state, never imported from CFN — and `network-data`,
+which is a data-source-only wrapper). SRCE imports only its owned security
+groups/rules, NEVER IT VPCs/subnets. Consolidated variants require --address-map with exact
+logical-id -> relative Terraform addresses from a reviewed inventory. Unmapped resources
+make the command fail, even though partial suggestions are printed. Resources with no rule
+are emitted as commented "# TODO(no-rule)" lines with
 their type — never silently dropped (plan "no silent caps").
 
 SAFETY (HIGH — plan §5.3/§7.4/§8.3): a `AWS::SecretsManager::Secret` CFN resource maps to TWO
@@ -51,6 +54,7 @@ fixing the underlying create-vs-update gap it documents.
 import argparse
 import json
 import re
+import shlex
 import sys
 
 
@@ -89,8 +93,16 @@ def _route_table_address(prefix, logical_id):
 def _endpoint_address(prefix, logical_id):
     lid = logical_id.lower()
     interface_keys = {
-        "sqs": "sqs", "ecrapi": "ecrapi", "ecrdkr": "ecrdkr", "secretsmanager": "secretsmanager",
-        "ssm": "ssm", "logs": "logs", "ec2": "ec2", "ebs": "ebs", "lambda": "lambda", "states": "states",
+        "sqs": "sqs",
+        "ecrapi": "ecrapi",
+        "ecrdkr": "ecrdkr",
+        "secretsmanager": "secretsmanager",
+        "ssm": "ssm",
+        "logs": "logs",
+        "ec2": "ec2",
+        "ebs": "ebs",
+        "lambda": "lambda",
+        "states": "states",
     }
     gateway_keys = {"dynamodb": "dynamodb", "s3": "s3"}
     for token, key in interface_keys.items():
@@ -105,10 +117,15 @@ def _endpoint_address(prefix, logical_id):
 def _bucket_key(logical_id):
     lid = logical_id.lower()
     order = [
-        ("metadata", "metadata_bundles"), ("tibannaoutput", "tibanna_output"),
-        ("tibannacwl", "tibanna_cwl"), ("blob", "blobs"), ("wfout", "wfout"),
-        ("system", "system"), ("file", "files"),
-        ("foursightenv", "fs_envs"), ("foursightresult", "fs_results"),
+        ("metadata", "metadata_bundles"),
+        ("tibannaoutput", "tibanna_output"),
+        ("tibannacwl", "tibanna_cwl"),
+        ("blob", "blobs"),
+        ("wfout", "wfout"),
+        ("system", "system"),
+        ("file", "files"),
+        ("foursightenv", "fs_envs"),
+        ("foursightresult", "fs_results"),
         ("foursightapplicationversion", "fs_app_versions"),
     ]
     for token, key in order:
@@ -118,16 +135,18 @@ def _bucket_key(logical_id):
 
 
 NETWORK_RULES = {
-    "AWS::EC2::VPC": lambda p, l: f"{p}.aws_vpc.main",
-    "AWS::EC2::InternetGateway": lambda p, l: f"{p}.aws_internet_gateway.main",
-    "AWS::EC2::NatGateway": lambda p, l: f"{p}.aws_nat_gateway.main",
-    "AWS::EC2::EIP": lambda p, l: f"{p}.aws_eip.nat",
+    "AWS::EC2::VPC": lambda p, logical: f"{p}.aws_vpc.main",
+    "AWS::EC2::InternetGateway": lambda p, logical: f"{p}.aws_internet_gateway.main",
+    "AWS::EC2::NatGateway": lambda p, logical: f"{p}.aws_nat_gateway.main",
+    "AWS::EC2::EIP": lambda p, logical: f"{p}.aws_eip.nat",
     "AWS::EC2::Subnet": _subnet_address,
     "AWS::EC2::SecurityGroup": _sg_address,
     "AWS::EC2::RouteTable": _route_table_address,
     "AWS::EC2::VPCEndpoint": _endpoint_address,
-    "AWS::Logs::LogGroup": lambda p, l: f"{p}.aws_cloudwatch_log_group.flow_log[0]",
-    "AWS::IAM::Role": lambda p, l: f"{p}.aws_iam_role.flow_log[0]",
+    "AWS::Logs::LogGroup": lambda p, logical: f"{p}.aws_cloudwatch_log_group.flow_log[0]",
+    "AWS::IAM::Role": lambda p, logical: f"{p}.aws_iam_role.flow_log[0]",
+    "AWS::EC2::FlowLog": lambda p, logical: f"{p}.aws_flow_log.main[0]",
+    "AWS::EC2::Instance": lambda p, logical: f"{p}.aws_instance.bastion[0]" if "BastionHost" in logical else None,
     # NOTE: SecurityGroupIngress/Egress + SubnetRouteTableAssociation + VPCGatewayAttachment are
     # modeled differently in TF (rule for_each / implicit attachment) — mapped as TODO below.
 }
@@ -152,8 +171,14 @@ def _datastore_address(prefix, logical_id, res_type):
             return f'{prefix}.aws_opensearch_domain.this["green"]'
         return f'{prefix}.aws_opensearch_domain.this["default"]'
     if res_type == "AWS::SQS::Queue":
-        for token, key in [("secondary", "secondary"), ("dlq", "dlq"), ("ingestion", "ingestion"),
-                           ("realtime", "realtime"), ("primary", "primary")]:
+        for token, key in [
+            ("secondary", "secondary"),
+            ("deadletter", "dlq"),
+            ("dlq", "dlq"),
+            ("ingestion", "ingestion"),
+            ("realtime", "realtime"),
+            ("primary", "primary"),
+        ]:
             if token in lid:
                 return f'{prefix}.aws_sqs_queue.this["{key}"]'
         return None
@@ -189,6 +214,18 @@ def _iam_address(prefix, logical_id, res_type):
             return f"{prefix}.aws_iam_role.autoscaling"
         if "flowlogrole" in lid:
             return f"{prefix}.aws_iam_role.flowlog"
+        return None
+    if res_type == "AWS::IAM::ManagedPolicy":
+        for token, address in [
+            ("secretmanager", "ecs_secret_manager"),
+            ("esaccess", "ecs_es"),
+            ("sqsaccess", "ecs_sqs"),
+            ("ecrpolicy", "ecs_ecr"),
+            ("s3policy", "ecs_s3"),
+            ("kmspolicy", "ecs_kms[0]"),
+        ]:
+            if token in lid:
+                return f"{prefix}.aws_iam_policy.{address}"
         return None
     if res_type == "AWS::IAM::InstanceProfile":
         return f"{prefix}.aws_iam_instance_profile.ecs"
@@ -256,9 +293,7 @@ def _appconfig_address(prefix, logical_id, res_type):
 def _secret_version_action_required(secret_address, secret_physical_id):
     """The mandatory adoption block for a secret container's *_version sibling (see module
     docstring SAFETY note — create-vs-update ignore_changes gap)."""
-    version_address = secret_address.replace(
-        "aws_secretsmanager_secret.", "aws_secretsmanager_secret_version.", 1
-    )
+    version_address = secret_address.replace("aws_secretsmanager_secret.", "aws_secretsmanager_secret_version.", 1)
     return [
         f"# ACTION-REQUIRED ({version_address}): importing the container above is NOT enough.",
         "#   ignore_changes = [secret_string] only suppresses UPDATE diffs; if this *_version",
@@ -281,18 +316,25 @@ def _extra_lines(rtype, addr, physical):
     return []
 
 
-def build_commands(module, prefix, resources):
+def build_commands(module, prefix, resources, address_map=None):
     lines = []
+    seen = set()
+    address_map = address_map or {}
     for r in resources:
         logical = r["LogicalResourceId"]
         physical = r.get("PhysicalResourceId", "")
         rtype = r["ResourceType"]
         addr = None
-        if module == "network":
+        if logical in address_map:
+            suffix = address_map[logical]
+            if not isinstance(suffix, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.\[\]"/-]*', suffix):
+                raise ValueError(f"Invalid Terraform address for {logical}")
+            addr = f"{prefix}.{suffix}"
+        elif module == "network":
             fn = NETWORK_RULES.get(rtype)
             if fn:
                 addr = fn(prefix, logical)
-        elif module == "datastore":
+        elif module in {"datastore", "datastore-slim", "srce-datastore"}:
             addr = datastore_rule(prefix, logical, rtype)
         elif module == "iam":
             addr = _iam_address(prefix, logical, rtype)
@@ -306,11 +348,18 @@ def build_commands(module, prefix, resources):
             addr = _shared_secrets_address(rtype, prefix)
         elif module == "appconfig":
             addr = _appconfig_address(prefix, logical, rtype)
+        elif module == "codebuild-credentials" and rtype == "AWS::CodeBuild::SourceCredential":
+            addr = f"{prefix}.aws_codebuild_source_credential.github"
         else:
             addr = None
         if addr and physical:
-            lines.append(f"terraform import '{addr}' '{physical}'")
+            if addr in seen:
+                raise ValueError(f"Duplicate import address {addr}; supply an exact --address-map")
+            seen.add(addr)
+            lines.append(f"terraform import {shlex.quote(addr)} {shlex.quote(physical)}")
             lines.extend(_extra_lines(rtype, addr, physical))
+            if rtype == "AWS::IAM::ManagedPolicy":
+                lines.append("# ACTION-REQUIRED: adopt its role/user attachments too; see terraform/PARITY.md.")
         else:
             reason = "no-rule" if not addr else "no-physical-id"
             lines.append(f"# TODO({reason}): {rtype}  logical={logical}  physical={physical!r}")
@@ -321,12 +370,19 @@ SUPPORTED = {
     "network": "VPC/IGW/NAT/EIP/subnets/route-tables/SGs/endpoints/flow-log group+role",
     "datastore": "RDS/param-group/subnet-group/secret/KMS/OpenSearch/SQS/S3 buckets+policies",
     "iam": "ECS/dev/autoscaling/flowlog roles + instance profile + S3-federator user "
-           "(inline policies: static import, see README)",
+    "(inline policies: static import, see README)",
     "logging": "docker + vpc-flow log groups (standalone and blue/green)",
     "ecr": "repositories + repository policies",
     "redis": "elasticache subnet group + replication group",
     "shared-secrets": "dockerhub secret container (+ mandatory *_version adoption)",
     "appconfig": "gac/foursight/falcon secret containers (+ mandatory *_version adoption)",
+    "ecs-app": "consolidated variants: exact --address-map required",
+    "codebuild": "projects/roles/logs: exact --address-map; credential belongs to shared root",
+    "codebuild-credentials": "account-level GitHub SourceCredential (token ignored after adoption)",
+    "ec2-service": "instance/LB/SG rules: exact --address-map required",
+    "srce-network": "owned security groups/rules ONLY: exact --address-map required",
+    "srce-datastore": "datastore module with variant=srce and Database network inputs",
+    "datastore-slim": "datastore module with variant=slim; never imports buckets/queues/KMS",
 }
 
 
@@ -336,6 +392,7 @@ def main(argv=None):
     ap.add_argument("--module-address", dest="prefix", help="TF module address, e.g. module.network")
     ap.add_argument("--stack-file", help="path to a saved describe-stack-resources JSON")
     ap.add_argument("--list", action="store_true", help="list supported modules and exit")
+    ap.add_argument("--address-map", help="JSON mapping of exact CFN logical ids to relative TF addresses")
     args = ap.parse_args(argv)
 
     if args.list:
@@ -352,14 +409,26 @@ def main(argv=None):
 
     with open(args.stack_file) as f:
         doc = json.load(f)
-    resources = doc.get("StackResources", doc if isinstance(doc, list) else [])
+    resources = doc if isinstance(doc, list) else doc.get("StackResources", [])
+    address_map = {}
+    if args.address_map:
+        with open(args.address_map) as f:
+            address_map = json.load(f)
 
     print(f"# terraform import commands for module={args.module} address={args.prefix}")
     print(f"# source: {args.stack_file}  ({len(resources)} CFN resources)")
     print("# Review each line, then run inside the target root. Verify a no-op plan after (plan §4.4).")
-    for line in build_commands(args.module, args.prefix, resources):
+    try:
+        lines = build_commands(args.module, args.prefix, resources, address_map)
+    except ValueError as error:
+        print(f"error: {error}")
+        return 1
+    for line in lines:
         print(line)
-    return 0
+    incomplete = not resources or any(line.startswith("# TODO(") for line in lines)
+    if incomplete:
+        print("# INCOMPLETE: resolve every missing mapping/physical ID before running any import.")
+    return int(incomplete)
 
 
 if __name__ == "__main__":

@@ -34,20 +34,32 @@ data "terraform_remote_state" "shared" {
   }
 }
 
+variable "rds_postgres_version" {
+  type    = string
+  default = "17.6"
+}
+variable "bucket_name_overrides" {
+  type    = map(string)
+  default = {}
+}
+
 module "appconfig" {
   source              = "../../../../modules/appconfig"
   env_name            = local.env_name
   deployment_paradigm = "standalone"
   deploying_iam_user  = local.deploying_iam_user
   global_env_bucket   = "smaht-wolf-foursight-envs"
+  bucket_names        = module.datastore.bucket_names
   s3_encrypt_key_id   = "27d040a3-ead1-4f5a-94ce-0fa6e7f84a95"
   tags                = local.common_tags
 }
 
 module "datastore" {
-  source              = "../../../../modules/datastore"
-  env_name            = local.env_name
-  deployment_paradigm = "standalone"
+  source                = "../../../../modules/datastore"
+  rds_postgres_version  = var.rds_postgres_version
+  bucket_name_overrides = var.bucket_name_overrides
+  env_name              = local.env_name
+  deployment_paradigm   = "standalone"
 
   # network wiring from the shared root
   private_subnet_ids      = data.terraform_remote_state.shared.outputs.private_subnet_ids
@@ -72,6 +84,7 @@ module "redis" {
   tags                          = local.common_tags
 }
 
-# --- DEFERRED in this PR (see terraform/OWNERSHIP.md + terraform/README.md "Deferred modules") ---
-# module "ecs_app"   { source = "../../../../modules/ecs-app"  ... }  # ecs.py family — NOT YET IMPLEMENTED
-# module "codebuild" { source = "../../../../modules/codebuild" ... } # codebuild.py — NOT YET IMPLEMENTED
+# Modules implemented; wiring awaits discovered physical names and an authorized adoption plan.
+# See terraform/examples/srce/main.tf for the typed producer/consumer contract, not account guesses.
+# module "ecs_app"   { source = "../../../../modules/ecs-app" ... }
+# module "codebuild" { source = "../../../../modules/codebuild" ... }

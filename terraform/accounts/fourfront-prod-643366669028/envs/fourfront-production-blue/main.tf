@@ -3,8 +3,8 @@
 # The 4dn blue/green pair is realized as two STANDALONE env roots (blue + green), both sharing the
 # account's shared/ root (network-data) — plan §1.2 point 3, §2.4, §5.1.
 #
-# Wired today: appconfig (env-scoped, works for ff). DEFERRED: datastore-slim (the legacy ES 6.8 /
-# parameter-injected variant) and ecs-app — see terraform/OWNERSHIP.md + terraform/README.md.
+# Wired today: appconfig. Native datastore (variant=slim) and ecs-app (app_kind=ff) are
+# implemented, but account wiring/adoption requires discovery; see terraform/PARITY.md.
 # ============================================================================================
 
 provider "aws" {
@@ -39,8 +39,7 @@ module "appconfig" {
   tags                = local.common_tags
 }
 
-# --- DEFERRED in this PR (see terraform/OWNERSHIP.md + terraform/README.md) ---
-# module "datastore_slim" { source = "../../../../modules/datastore-slim" ... } # legacy ES 6.8 variant — NOT YET IMPLEMENTED
-#   # network wiring would come from the shared network-data root:
-#   #   private_subnet_ids = data.terraform_remote_state.shared.outputs.private_subnet_ids   (etc.)
-# module "ecs_app"        { source = "../../../../modules/ecs-app" ... }        # fourfront_ecs.py — NOT YET IMPLEMENTED
+# Account wiring remains gated on physical-resource and consumer discovery:
+# module "datastore" { source = "../../../../modules/datastore" ... } # variant = "slim"
+# module "ecs_app"   { source = "../../../../modules/ecs-app" ... }   # app_kind = "ff"
+# Consume the existing network-data shared outputs; do not create/import the legacy VPC.

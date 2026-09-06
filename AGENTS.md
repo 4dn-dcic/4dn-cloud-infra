@@ -6,10 +6,13 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 ## Build, test, validate
 
-- `make build` (poetry install), `make test` (pytest), `make alpha` (synthesize + validate the core
-  alpha stacks). CI runs all three against a mock `custom/config.json` — see `.github/workflows/main.yml`.
-- `cli provision <stack> --stdout` synthesizes a stack's CloudFormation without touching AWS; that is
-  the cheapest way to inspect a template change. `--validate` shells out to Docker + real AWS creds.
+- `make build` installs Python dependencies. Safe tests: `PYTHONPATH=tests/offline:. poetry run pytest`.
+  The opt-in sandbox blocks network/AWS and substitutes synthetic operator config before imports.
+  `cli provision --stdout` is not universally offline: AppConfig discovers datastore outputs.
+  `make alpha` / `--validate` use real CloudFormation via Docker and require separate authorization.
+- Terraform schema/lint commands and mock-provider parity tests are documented in `terraform/README.md`;
+  `terraform/PARITY.md` records resource-scope/adoption differences. Never use a real-provider plan as
+  an offline validation substitute. Shared IAM requires the complete `docs/source/iam_inventory.rst` inventory.
 - Stack registrations (name → part/stack class) live in `src/stacks/alpha_stacks.py`.
 
 ## Sharp edges

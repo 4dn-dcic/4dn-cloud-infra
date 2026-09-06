@@ -11,6 +11,11 @@ output "gac_secret_names" {
   value       = { for k, s in aws_secretsmanager_secret.gac : k => s.name }
 }
 
+output "foursight_secret_name" {
+  value       = aws_secretsmanager_secret.foursight.name
+  description = "Default Foursight IDENTITY; selecting it never selects a VPC or populates its values."
+}
+
 output "foursight_secret_arn" {
   value       = aws_secretsmanager_secret.foursight.arn
   description = "Foursight config secret ARN."

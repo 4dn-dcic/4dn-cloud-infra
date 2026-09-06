@@ -7,7 +7,7 @@
   no rollback path for this VPC; that is exactly why Terraform never owns it.
 - The legacy `c4-network-main-stack` (`cli.py:33`) is the `ImportValue` source for every ff CFN
   deploy — leave it CFN-owned and **frozen** until every ff CFN consumer is migrated, then retire
-  it in Phase 7 (its `list-imports`-empty gate genuinely works here — consumers are template-level).
+  it only after both template-level `list-imports` and Python runtime-discovery consumers are retired.
 - The account hosts the blue/green pair (`fourfront-production-blue` = today's `4dn-dev`,
   `fourfront-production-green` = today's `4dn-prod`) as two standalone env roots.
 
@@ -31,8 +31,8 @@ aws ec2 describe-vpcs --vpc-ids vpc-066421dc99161d0ea
 | shared-secrets | | shared | pending — wire `modules/shared-secrets` |
 | appconfig (blue) | | env | implemented/wired |
 | appconfig (green) | | env | implemented/wired |
-| datastore_slim (blue/green) | | env | **DEFERRED** (legacy ES 6.8 variant) |
-| fourfront_ecs (blue/green) | | env | **DEFERRED** (ecs-app) |
+| datastore_slim (blue/green) | | env | implemented as `datastore.variant=slim`; wiring/adoption pending |
+| fourfront_ecs (blue/green) | | env | implemented as standalone `ecs-app`, `app_kind=ff`; wiring/adoption pending |
 
 - [ ] Legacy VPC/subnet/SG IDs re-confirmed against `network-data` inputs
 - [ ] `identity_swap.py` (blue/green cutover) verification belongs to this account's track (plan §8.4)

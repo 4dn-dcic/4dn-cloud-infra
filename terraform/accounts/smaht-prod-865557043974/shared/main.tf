@@ -28,12 +28,17 @@ module "network" {
   tags              = local.common_tags
 }
 
+# Required operator inventory, not a guessed subset from production.
+variable "iam_ecosystem_resources" {
+  type = object({ buckets = set(string), queues = set(string), search_domains = set(string), repositories = set(string), runtime_secrets = set(string), kms_keys = set(string) })
+}
+
 module "iam" {
-  source            = "../../../modules/iam"
-  env_name          = "production"
-  app_kind          = "smaht"
-  s3_encrypt_key_id = "9777cd71-4b5b-44b7-a8a0-de107c667c64" # smaht-prod config: s3.encrypt_key_id
-  tags              = local.common_tags
+  source              = "../../../modules/iam"
+  env_name            = "production"
+  app_kind            = "smaht"
+  ecosystem_resources = var.iam_ecosystem_resources
+  tags                = local.common_tags
 }
 
 module "logging" {
