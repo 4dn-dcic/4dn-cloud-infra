@@ -39,6 +39,7 @@ locked primary package after installation, as in `.github/workflows/terraform.ym
 ```bash
 terraform/tools/validate.sh schema  # fmt check, init -backend=false -input=false, validate
 terraform/tools/validate.sh lint    # tflint; any failing child makes the parent fail
+mkdir -p .parity                   # pytest creates/clears only the pytest child directory
 TF_PARITY=1 PYTHONPATH=tests/offline:. poetry run pytest -q --basetemp=.parity/pytest
 ```
 
@@ -51,6 +52,10 @@ configuration come from the actual modules. No real-provider plan/apply/import r
 `CAPTURE_CFN_DIR=.parity/synth` additionally saves deduplicated synthetic CFN templates for
 `cfn-lint`. Checkov is advisory; run offline with `--skip-download` and report its nonzero exit
 and findings rather than suppressing them. CI's advisory lint jobs preserve child exit statuses.
+
+```bash
+checkov -d terraform/modules --framework terraform --compact --skip-download
+```
 
 ## Adoption gates (for a separately authorized operation)
 

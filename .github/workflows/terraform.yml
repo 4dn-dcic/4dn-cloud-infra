@@ -46,7 +46,10 @@ jobs:
         env:
           PYTHONPATH: tests/offline:.
           TF_PARITY: "1"
-        run: poetry run pytest -q --basetemp=.parity/pytest
+        run: |
+          # pytest creates/clears the leaf, but requires its parent to exist on a fresh checkout.
+          mkdir -p .parity
+          poetry run pytest -q --basetemp=.parity/pytest
 
   tflint:
     name: tflint (non-blocking)

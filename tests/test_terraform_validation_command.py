@@ -4,8 +4,10 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -64,3 +66,56 @@ exit 0
     if mode == "schema":
         assert "-backend=false -input=false" in calls
     assert not any(command in calls for command in [" apply ", " plan ", " import "])
+
+
+@pytest.mark.parametrize("parent_exists", [False, True])
+@pytest.mark.parametrize("child_fails", [False, True])
+def test_workflow_pytest_temp_contract(tmp_path, parent_exists, child_fails):
+    """Execute the real CI shell block with real pytest, without Poetry installs or Terraform."""
+    workflow = yaml.safe_load((ROOT / ".github/workflows/terraform.yml").read_text())
+    step = next(
+        step for step in workflow["jobs"]["fmt-validate"]["steps"] if "--basetemp=" in step.get("run", "")
+    )
+    assert step["env"] == {"PYTHONPATH": "tests/offline:.", "TF_PARITY": "1"}
+    parent = tmp_path / ".parity"
+    if parent_exists:
+        parent.mkdir()
+        (parent / "keep.txt").write_text("not pytest-owned")
+        (parent / "pytest").mkdir()
+        (parent / "pytest/stale.txt").write_text("old run")
+    (tmp_path / "pytest.ini").write_text("[pytest]\n")
+    (tmp_path / "test_temp.py").write_text(
+        "def test_temp(tmp_path):\n"
+        "    assert tmp_path.parent.name == 'pytest'\n"
+        "    assert not (tmp_path.parent / 'stale.txt').exists()\n"
+        f"    assert {not child_fails!r}, 'deliberate child failure'\n"
+    )
+    binaries = tmp_path / "bin"
+    binaries.mkdir()
+    poetry = binaries / "poetry"
+    poetry.write_text(
+        f"#!{sys.executable}\n"
+        "import os, sys\n"
+        "assert sys.argv[1:3] == ['run', 'pytest']\n"
+        "os.execv(sys.executable, [sys.executable, '-m', 'pytest', *sys.argv[3:]])\n"
+    )
+    poetry.chmod(0o755)
+    env = dict(
+        os.environ,
+        PATH=str(binaries) + os.pathsep + os.environ["PATH"],
+        PYTEST_DISABLE_PLUGIN_AUTOLOAD="1",
+        PYTEST_ADDOPTS="",
+    )
+    result = subprocess.run(
+        ["bash", "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", step["run"]],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    assert result.returncode == (1 if child_fails else 0), result.stdout
+    assert ("1 failed" if child_fails else "1 passed") in result.stdout, result.stdout
+    assert "FileNotFoundError" not in result.stdout
+    if parent_exists:
+        assert (parent / "keep.txt").read_text() == "not pytest-owned"

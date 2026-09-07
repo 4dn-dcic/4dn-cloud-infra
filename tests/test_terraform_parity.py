@@ -1,6 +1,6 @@
 """Native mock-provider plans compared with FULL current Troposphere templates.
 
-Run TF_PARITY=1 PYTHONPATH=tests/offline:. python -m pytest --basetemp=.parity/pytest.
+Run the offline validation commands in terraform/README.md (including temporary-parent setup).
 No Terraform real-provider plan/apply, AWS discovery or operator secrets are used.
 """
 
