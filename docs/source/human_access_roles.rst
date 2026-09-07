@@ -1,136 +1,142 @@
 Human Direct AWS Access Roles
 -----------------------------
 
-Two optional IAM roles let people work directly in AWS without assuming ``*DevRole``
-(which is trusted by the account root and carries ten full-access managed policies):
+``C4IAM`` in ``src/parts/iam.py`` optionally creates ``*DevDiagnoseRole`` and
+``*PowerRemediateRole``, separate from the unchanged, much broader ``*DevRole``.
+Both are **disabled by default**. Neither is emitted without an explicit enable flag
+and a nonempty list of approved principals. No new exports or cross-stack dependencies
+are introduced; outputs contain generated role names, not credentials.
 
-``*DevDiagnoseRole``
-    Read-only diagnosis. The read/inspection actions needed to answer "is it up, why did that
-    task die, is indexing backed up", plus Secrets Manager and S3 object reads so a developer can
-    inspect the system and bring evidence to a change request.
+This is a direct-API permission model, **not a sandbox or an information-flow boundary**.
+Review the retained delegation and credential-exposure risks below before enabling it.
 
-``*PowerRemediateRole``
-    The reversible operational actions needed to remediate those same services: restart or
-    rescale a service, stop a stuck task, release in-flight queue messages, start or stop a
-    workflow execution, trigger a CI rebuild.
+Configuration and trust
+-----------------------
 
-Both are built by ``C4IAM`` in ``src/parts/iam.py`` and live in the IAM stack. The README has
-illustrative JSON for each role, which is useful for review; ``src/parts/iam.py`` is the only
-authoritative source.
-
-Scoping model
--------------
-
-This account holds only our own resources, so these policies **do not enumerate resource
-identifiers**. Two rules apply instead:
-
-* Where an action supports resource-level authorization, the resource is scoped to the **service** -
-  ``arn:aws:ecs:<region>:<account>:service/*``, ``arn:aws:s3:::*/*``,
-  ``arn:aws:secretsmanager:<region>:<account>:secret:*`` and so on. Every resource of that type in
-  this account and region, and nothing outside it.
-* Where an action has no resource-level authorization at all (``ecs:Describe*``,
-  ``cloudwatch:GetMetricData``, ``ec2:Describe*``, ``sqs:ListQueues``, ``sts:GetCallerIdentity``),
-  AWS accepts only ``"*"``. Those actions live in one named read-only statement per role and are
-  constrained by an ``aws:RequestedRegion`` condition instead.
-
-The constraint that carries the weight is therefore **the action list**, which is fully enumerated.
-Neither role grants ``"Action": "*"`` or a service-wide wildcard such as ``ecs:*``.
-
-Consequence worth being explicit about: because remediation is scoped at the service level, it
-reaches **every** ECS service, queue, state machine and CodeBuild project in the account -
-including the live side of a blue/green pair. The controls that bound it are the short action list
-(all reversible), the MFA-gated short session, the region pin, and the fact that the role is
-disabled by default and assumable only by enumerated principals.
-
-Both roles also carry a permission boundary. A boundary is a **ceiling, not a grant**: effective
-permissions are the intersection of the role's own policies and the boundary, so it must open with
-an ``Allow`` or the roles could do nothing. It does not widen either role; it is a backstop so that
-a future additive edit still cannot reach identity administration, CloudFormation mutation, the
-network perimeter, the image supply chain, or data-plane writes.
-
-Nothing is created by default
------------------------------
-
-With none of the ``human_access.*`` settings in ``template.config.json``, the IAM template is
-byte-for-byte what it was before - no roles, no boundary, no CloudFormation parameters or
-conditions. Enabling any of this is always deliberate.
-
-A role is also **not** created when it is enabled but no approved principal ARNs were supplied.
-There is no account-root trust fallback: that is the exact weakness these roles exist to avoid.
-
-Configuration
--------------
-
-Because resources are scoped at the service level, there is nothing to configure per resource. The
-only settings are who may assume each role, the trust conditions, and one explicit opt-in.
-
-Turn a role on and say who may assume it. Principal lists are comma-separated::
+Set these in ``template.config.json`` (replace placeholders before use)::
 
     "human_access.diagnose.enabled": true,
-    "human_access.diagnose.trusted_principals": "arn:aws:iam::<acct>:user/alice, arn:aws:iam::<acct>:user/bob",
-
+    "human_access.diagnose.trusted_principals": "arn:aws:iam::<account-id>:user/alice",
     "human_access.remediate.enabled": true,
-    "human_access.remediate.trusted_principals": "arn:aws:iam::<acct>:user/alice"
+    "human_access.remediate.trusted_principals": "arn:aws:iam::<account-id>:role/ApprovedOperators"
 
-Trust conditions:
+Principal lists accept comma/newline-separated strings or JSON arrays of concrete
+commercial-AWS IAM user/role ARNs. Account IDs, root, wildcards, service principals,
+STS session ARNs and malformed entries are rejected at synthesis. Generated trust policies
+must fit IAM's default 2048-character quota; this feature does not raise quotas. Identity Center role
+paths are supported. Cross-account trust is permitted only for an explicitly named
+principal; that caller also needs authorization in its own account. The policies use
+``arn:aws`` and are not a GovCloud/China partition implementation.
 
 ``human_access.require_mfa`` (default ``true``)
-    Asserts ``aws:MultiFactorAuthPresent`` on assume and on every remediation action. Set it to
-    ``false`` **only** in an IAM Identity Center (SSO) account, where MFA is asserted upstream at
-    the identity provider and this condition key cannot be relied on. Leaving it on in an SSO
-    account fails closed (the role becomes unassumable), not open.
+    The trust policy requires MFA and ``aws:MultiFactorAuthAge < 3600`` when assuming
+    either role. **MFA is enforced at assumption, not per downstream API call**:
+    AssumeRole credentials do not carry MFA context for those checks. Adding a Bool
+    MFA condition to remediation permissions would make ordinary assumed-role calls fail.
+    Set this switch to ``false`` only when the identity provider enforces MFA upstream
+    (for example, Identity Center). This switch covers both roles and all their principals;
+    do not include callers lacking upstream MFA. Leaving it on for incompatible federation fails closed.
 
 ``human_access.source_identity_pattern`` (optional)
-    A ``StringLike`` pattern for ``sts:SourceIdentity``, e.g. ``*@hms.harvard.edu``. Independent of
-    this setting, an assume with **no** source identity is always refused, so every session is
-    attributable to a person in CloudTrail. Callers must therefore pass
-    ``--source-identity <you>`` to ``aws sts assume-role``.
+    Restricts ``sts:SourceIdentity`` with StringLike, for example ``*@hms.harvard.edu``.
+    Source identity is always required; callers need ``sts:SetSourceIdentity`` and must
+    supply or propagate it. A manually supplied label is **not verified identity** and an
+    email-pattern check does not prove ownership of that email. Correlate it with the
+    authenticated caller in CloudTrail, or enforce a trusted IdP mapping upstream.
 
-Session length is capped by ``MaxSessionDuration`` on the role itself - one hour for diagnosis,
-thirty minutes for remediation. There is no ``sts:DurationSeconds`` condition key.
+Both roles have a **one-hour enforceable ceiling** (``MaxSessionDuration=3600``), the
+minimum IAM supports. Request ``DurationSeconds=1800`` for remediation, but this is
+**not an enforced 30-minute ceiling**; a caller can request 3600. There is no
+``sts:DurationSeconds`` IAM condition key and no external session broker in this design.
 
-The one capability opt-in:
+Actions, resources and boundaries
+---------------------------------
 
-``human_access.diagnose.allow_kms_decrypt`` (default ``false``)
-    Adds ``kms:Decrypt`` and ``kms:GetKeyPolicy`` for the diagnostic role, needed to read objects in
-    an SSE-KMS bucket. It is off by default because at service scope it reaches any key in the
-    account. Plain key metadata (``kms:DescribeKey``, ``kms:GetKeyRotationStatus``,
-    ``kms:ListAliases``) is always available, so bucket encryption stays diagnosable without it.
+The action allowlists are explicit: neither role grants ``Action: *`` or ``service:*``.
+Resources are service-level, not individually enumerated. Remediation covers **every**
+ECS service/task, queue, state machine/execution and CodeBuild project in this account
+and deployment region, including production and both sides of a blue/green pair.
 
-    **KMS requires dual authorization.** This setting alone grants nothing: the key policy must
-    also name the role. That is a separate, out-of-band change (see ``encryption.rst`` and
-    ``update-kms-policy``). Until it is made, S3 object reads on an encrypted bucket return
-    ``AccessDenied``, which looks like a bug but is not.
+Resource-authorized inspection (including ECS services/tasks/clusters, stack descriptions,
+log streams, RDS instances and OpenSearch domains) uses account/region service ARNs.
+The remaining discovery/inspection groups use ``Resource: *`` with ``aws:RequestedRegion``
+and ``aws:ResourceAccount`` when AWS supplies that context. Inventory requests often do
+not supply a resource owner: a region condition alone is not an account boundary.
+These groups include, for example, list APIs, task-definition inspection, metrics,
+composite-alarm inspection and cancellation of Logs Insights queries. They must not be
+mistaken for proof that every Describe/List API is unscopable.
 
-What these roles deliberately cannot do
+S3 ARNs have no account component. S3 reads require ``s3:ResourceAccount`` to match this
+account, with explicit cross-account denies in the diagnostic policy and shared boundary.
+Consequently even a bucket policy granting a human role session access cannot authorize
+reads of another account's buckets. This also excludes AWS-owned service buckets.
+
+The permission boundary is a **ceiling, not a grant**. Its Allow-all statement enables
+intersection with the role's explicit grants; the denies block direct identity, network,
+CloudFormation, code-authoring and destructive data APIs. It is defense in depth, not an
+exhaustive denylist for all future AWS APIs. Never attach additional policies on the
+assumption that the boundary alone defines this role's complete action allowlist.
+Global-service exceptions in the region deny are not grants. Keep direct PassRole,
+AssumeRole and GetFederationToken denied; use a fresh assume from the approved human
+identity to switch roles. The original DevRole is not retired by this feature.
+
+Retained risks: approve before enabling
 ---------------------------------------
 
-Neither role can push an image (``ecr:PutImage``), register a task definition, run a task, open a
-shell in a container (``ecs:ExecuteCommand``), update Lambda code, pass a role, mutate
-CloudFormation, change the network perimeter, administer IAM or Identity Center, write to S3 or RDS,
-or assume another role. ``sts:AssumeRole`` is denied so neither can be used as a stepping stone -
-each privilege increase has to be a fresh, separately audited assume from the person's own identity.
+* **Diagnostic reads expose sensitive information.** S3 objects, Secrets Manager values,
+  application logs, CloudFormation templates, build metadata, workflow histories and
+  Lambda inventory can contain data, credentials or configuration. Denying direct
+  ``lambda:GetFunctionConfiguration`` does not remove configuration returned by
+  ``lambda:ListFunctions``. Credential material copied from a secret can be used outside
+  this role; its boundary cannot constrain the separate identity. Treat diagnosis as
+  trusted access to all readable account data, not as a low-trust support role.
+* **CodeBuild delegation is intentionally retained.** ``codebuild:StartBuild`` accepts
+  ``buildspecOverride``, source/image/environment overrides and ``sourceVersion`` under
+  the existing project service role. It can execute arbitrary build commands, publish
+  images, read secrets or mutate resources permitted to that service role, even though
+  the human is denied the corresponding direct APIs and ``iam:PassRole``. ``RetryBuild``
+  can repeat a previously overridden build. The project repository/branch is not pinned
+  against request overrides. No no-override restriction or new broker is provided here.
+* ``states:StartExecution`` accepts caller-controlled input. Existing state machines can
+  perform code execution, data writes or destructive operations under their service roles.
+  Neither the human boundary nor a direct API deny propagates to those roles. Starting
+  or stopping workflows/builds/tasks is **not guaranteed reversible**.
+* ``ecs:UpdateService`` is broader than restart/rescale: this policy does not constrain
+  its task-definition, network or other supported request fields. Existing images/task
+  definitions and service-linked roles can change what runs or its exposure. Direct
+  ``ec2`` perimeter denies are not a restriction on delegated ECS service operations.
+* Queue purge/deletion/message receipt remain denied. ``ChangeMessageVisibility`` requires
+  an already-held valid receipt handle; it cannot discover/release arbitrary in-flight
+  messages while ``ReceiveMessage`` is denied. Do not promise a general queue-unblocking API.
 
-Irreversible queue operations - ``sqs:PurgeQueue`` and ``sqs:DeleteQueue`` - are excluded from
-remediation entirely and denied both on the role and in the boundary. There is no switch to enable
-them; releasing in-flight messages with ``sqs:ChangeMessageVisibility`` is the reversible
-alternative that is granted.
+Before enabling remediation, review **all** reachable CodeBuild projects, workflow input
+contracts, ECS services, their execution roles and mutable images. Approve their delegated
+privileges, require upstream change controls, and monitor CloudTrail for overrides,
+execution inputs and ECS configuration changes. Region pins restrict requests, not all
+cross-region effects that a delegated service role might cause.
 
-The diagnostic role additionally cannot read SQS message bodies, RDS log files, SSM parameters, or
-Lambda function configuration and code, all of which are data or configuration exfiltration paths.
+KMS opt-in
+----------
 
-One residual risk is worth stating plainly: IAM has no condition key for the task-definition
-argument of ``ecs:UpdateService``, so a remediation holder can repoint a service at another
-already-registered task-definition revision. That cannot be expressed in IAM. It is bounded by
-``ecr:PutImage`` being denied (no new image content can be authored) and by CloudTrail attribution
-under a short MFA-gated session. Alerting on ``ecs:UpdateService`` events whose ``taskDefinition``
-differs from the service's prior value is the right complementary control.
+``human_access.diagnose.allow_kms_decrypt`` defaults to ``false``. Decrypt is explicitly
+denied by default; key metadata remains readable. Enabling adds ``kms:Decrypt`` and
+``kms:GetKeyPolicy`` for all keys in this account/region, allowing supported encrypted
+S3 objects **and Secrets Manager secrets** to be read when otherwise authorized.
 
-Verifying before you rely on it
--------------------------------
+KMS key policy authorization is also required, but the key policy need not explicitly
+name this role: a default account-root statement can already delegate authorization to
+IAM. **The switch may grant decrypt immediately without any key-policy change.** Inspect
+existing key policies/grants before opting in. Do not change key policies merely to make
+an expected AccessDenied disappear; this template makes no key-policy changes.
 
-``tests/test_human_access_roles.py`` pins the disabled-by-default behaviour, the trust
-restrictions, the service-level resource scope, the constrained action lists, the prohibition on
-broad administration, and the alignment of the README examples with what the template renders.
-Against a real account, ``aws iam simulate-custom-policy`` on the rendered policy documents is the
-cheapest way to confirm a specific action is allowed or denied before anyone depends on it.
+Offline verification
+--------------------
+
+``tests/test_human_access_roles.py`` and ``tests/test_human_access_regressions.py`` check
+opt-in parity, malformed trust, action/deny intersections, owner conditions, references,
+IAM quotas, session limits and full README example parity (actions, resources, conditions).
+They synthesize templates; they are not an AWS IAM simulator or evidence of deployment.
+Use the mock config from ``.github/workflows/main.yml`` and locked dependencies for tests.
+Run ``pytest tests src/tests`` and local ``cfn-lint`` on synthesized templates without AWS
+credentials/network access. **Do not use ``make alpha`` for offline validation**: it invokes
+CloudFormation validation against AWS. No infrastructure is applied by these tests.

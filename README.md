@@ -44,12 +44,12 @@ For an in-depth overview, see `docs/architecture.rst`.
 ## Human Direct AWS Access Roles
 
 Two **optional, disabled-by-default** IAM roles let people work directly in AWS without assuming
-`*DevRole` (which is trusted by the account root and carries ten full-access managed policies):
+`*DevRole` (which trusts the account root and carries ten AWS managed policies plus runtime policies):
 
 | Role | Purpose |
 |---|---|
 | `*DevDiagnoseRole` | Read-only inspection of the running system |
-| `*PowerRemediateRole` | The reversible operational actions needed to remediate those same services |
+| `*PowerRemediateRole` | Operational API access, including privileged build/workflow delegation |
 
 They are built by `C4IAM` in `src/parts/iam.py` and live in the IAM stack. With none of the
 `human_access.*` settings present in `template.config.json` the IAM template is byte-for-byte what
@@ -58,18 +58,12 @@ no account-root trust fallback. See `docs/source/human_access_roles.rst` for the
 
 ### Scoping model: service-level resources, tightly constrained actions
 
-This account holds only our own resources, so these policies **do not enumerate resource
-identifiers**. Two rules apply instead:
-
-1. **Where an action supports resource-level authorization, the resource is scoped to the
-   service** - `arn:aws:ecs:<region>:<account-id>:service/*`, `arn:aws:s3:::*/*`,
-   `arn:aws:secretsmanager:<region>:<account-id>:secret:*`, and so on. That means every resource of
-   that type in this account and region, and nothing outside it.
-2. **Where an action has no resource-level authorization at all** - `ecs:Describe*`,
-   `cloudwatch:GetMetricData`, `ec2:Describe*`, `sqs:ListQueues`, `sts:GetCallerIdentity` and
-   friends - AWS accepts only `"*"`. Those live in a single clearly named read-only statement per
-   role (`InspectServiceStateAcrossSupportedServices`, `ReadsNeededToTargetARemediation`) and are
-   constrained by an `aws:RequestedRegion` condition instead.
+These policies **do not enumerate resource identifiers**. Account/region service-level ARNs
+scope resource reads and operational actions. S3 additionally requires `s3:ResourceAccount`
+and explicitly denies other owners because S3 ARNs contain no account field. Remaining
+wildcard discovery/inspection groups use `aws:RequestedRegion` and check `aws:ResourceAccount`
+when AWS supplies it; not every inventory request carries resource ownership. See the operator
+documentation for the exact scope and limits rather than inferring them from a statement name.
 
 So the real constraint is **the action list**, which is fully enumerated - no `ecs:*`, no
 `s3:*`, and never `"Action": "*"` in either role. Every action is individually listed and
@@ -77,18 +71,24 @@ justified by a supported service. Both roles also carry a permission boundary; n
 permission boundary is a **ceiling, not a grant** - it must open with an `Allow` or the roles could
 do nothing at all, and it does not widen either role.
 
-What both roles are prevented from doing, by their own `Deny` statements and by the boundary: IAM
-or Identity Center administration, CloudFormation mutation, network/perimeter changes, authoring or
-running new code (`ecr:PutImage`, `ecs:RegisterTaskDefinition`, `ecs:RunTask`,
-`ecs:ExecuteCommand`, `lambda:UpdateFunctionCode`), irreversible queue operations
-(`sqs:PurgeQueue`, `sqs:DeleteQueue`), data-plane writes, and `sts:AssumeRole` - so neither role
-can be a stepping stone to the other or to the ECS runtime role.
+Direct identity administration, PassRole/AssumeRole, CloudFormation/perimeter mutations,
+code-authoring APIs and queue purge/deletion are denied. **These are not sandbox roles.**
+Diagnosis can expose credentials in objects, secrets, logs and configuration. Remediation keeps
+`StartBuild`/`RetryBuild`: buildspec/source/image overrides can execute arbitrary commands under
+existing service roles, unaffected by the human boundary. Workflow inputs and ECS service
+updates also permit delegated effects; operations are not guaranteed reversible. Read and
+approve the [retained risks and enablement checklist](docs/source/human_access_roles.rst).
+
+MFA is checked on role assumption, not downstream API calls. Both roles enforce a **one-hour**
+maximum, IAM's minimum supported ceiling. Request 1800 seconds for remediation as guidance only,
+not enforced 30-minute access. KMS decrypt remains separately off by default; enabling it may
+grant access immediately through an existing key policy's delegation to account IAM.
 
 > ### These JSON documents are illustrative, not authoritative
 >
 > They are provided for group discussion. **The deployed policy is whatever `src/parts/iam.py`
 > renders** - that is the single source of truth, and `tests/test_human_access_roles.py` asserts
-> that the action sets below match it statement for statement.
+> that the actions, resources and conditions below match it statement for statement.
 >
 > They are **not deployable as written**: `<region>` and `<account-id>` are placeholders for
 > CloudFormation's `AWS::Region` and `AWS::AccountId`, and the trust policy (which needs approved
@@ -97,10 +97,9 @@ can be a stepping stone to the other or to the ECS runtime role.
 
 ### Illustrative policy: diagnostic role (`*DevDiagnoseRole`)
 
-Read and inspect only. Retains resource-scoped Secrets Manager and S3 object reads so a developer
-can gather evidence, and denies the data-exfiltration paths a read-only role should not have
-(`sqs:ReceiveMessage`, `rds:Download*LogFile*`, `lambda:GetFunctionConfiguration`,
-`ssm:GetParameter`). `kms:Decrypt` is **not** shown because it is off by default; enabling
+Read and inspect, including sensitive Secrets Manager and S3 data. Direct SQS message,
+RDS-log, Lambda-function and SSM-parameter retrieval are denied, but other allowed reads can
+still expose configuration or credentials. `kms:Decrypt` is **not** shown because it is off by default; enabling
 `human_access.diagnose.allow_kms_decrypt` adds a `DecryptWithApplicationKeys` statement.
 
 ```json
@@ -108,13 +107,11 @@ can gather evidence, and denies the data-exfiltration paths a read-only role sho
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "InspectServiceStateAcrossSupportedServices",
+      "Effect": "Allow",
       "Action": [
         "sts:GetCallerIdentity",
-        "ecs:DescribeClusters",
-        "ecs:DescribeServices",
-        "ecs:DescribeTasks",
         "ecs:DescribeTaskDefinition",
-        "ecs:DescribeContainerInstances",
         "ecs:ListClusters",
         "ecs:ListServices",
         "ecs:ListTasks",
@@ -132,28 +129,17 @@ can gather evidence, and denies the data-exfiltration paths a read-only role sho
         "cloudwatch:GetMetricStatistics",
         "cloudwatch:ListMetrics",
         "logs:DescribeLogGroups",
-        "logs:DescribeLogStreams",
         "logs:DescribeQueries",
-        "rds:DescribeDBInstances",
-        "rds:DescribeDBParameters",
-        "rds:DescribeDBSnapshots",
+        "logs:StopQuery",
         "rds:DescribeEvents",
-        "es:DescribeDomain",
-        "es:DescribeDomains",
         "es:ListDomainNames",
         "elasticache:DescribeCacheClusters",
         "sqs:ListQueues",
-        "cloudformation:DescribeStacks",
-        "cloudformation:DescribeStackEvents",
-        "cloudformation:DescribeStackResources",
         "cloudformation:ListStacks",
-        "cloudformation:GetTemplate",
-        "cloudformation:GetStackPolicy",
         "ecr:GetAuthorizationToken",
         "codebuild:ListProjects",
         "codebuild:ListBuilds",
         "states:ListStateMachines",
-        "states:ListExecutions",
         "lambda:ListFunctions",
         "ec2:DescribeSecurityGroups",
         "ec2:DescribeSubnets",
@@ -166,33 +152,183 @@ can gather evidence, and denies the data-exfiltration paths a read-only role sho
         "secretsmanager:ListSecrets",
         "kms:ListAliases"
       ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        },
+        "StringEqualsIfExists": {
+          "aws:ResourceAccount": "<account-id>"
+        }
+      }
+    },
+    {
+      "Sid": "Inspectecscluster",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeClusters"
+      ],
+      "Resource": "arn:aws:ecs:<region>:<account-id>:cluster/*",
       "Condition": {
         "StringEquals": {
           "aws:RequestedRegion": "<region>"
         }
-      },
-      "Effect": "Allow",
-      "Resource": "*",
-      "Sid": "InspectServiceStateAcrossSupportedServices"
+      }
     },
     {
+      "Sid": "Inspectecsservice",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeServices"
+      ],
+      "Resource": "arn:aws:ecs:<region>:<account-id>:service/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "Inspectecstask",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeTasks"
+      ],
+      "Resource": "arn:aws:ecs:<region>:<account-id>:task/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "Inspectecscontainerinstance",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeContainerInstances"
+      ],
+      "Resource": "arn:aws:ecs:<region>:<account-id>:container-instance/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "Inspectcloudformationstack",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:DescribeStacks",
+        "cloudformation:DescribeStackEvents",
+        "cloudformation:DescribeStackResources",
+        "cloudformation:GetTemplate",
+        "cloudformation:GetStackPolicy"
+      ],
+      "Resource": "arn:aws:cloudformation:<region>:<account-id>:stack/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "Inspectlogsloggroup",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogStreams"
+      ],
+      "Resource": "arn:aws:logs:<region>:<account-id>:log-group:*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "Inspectesdomain",
+      "Effect": "Allow",
+      "Action": [
+        "es:DescribeDomain",
+        "es:DescribeDomains"
+      ],
+      "Resource": "arn:aws:es:<region>:<account-id>:domain/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "Inspectrdsdb",
+      "Effect": "Allow",
+      "Action": [
+        "rds:DescribeDBInstances"
+      ],
+      "Resource": "arn:aws:rds:<region>:<account-id>:db:*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "Inspectrdspg",
+      "Effect": "Allow",
+      "Action": [
+        "rds:DescribeDBParameters"
+      ],
+      "Resource": "arn:aws:rds:<region>:<account-id>:pg:*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "Inspectrdssnapshot",
+      "Effect": "Allow",
+      "Action": [
+        "rds:DescribeDBSnapshots"
+      ],
+      "Resource": "arn:aws:rds:<region>:<account-id>:snapshot:*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "InspectstatesstateMachine",
+      "Effect": "Allow",
+      "Action": [
+        "states:ListExecutions"
+      ],
+      "Resource": "arn:aws:states:<region>:<account-id>:stateMachine:*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "ReadApplicationLogs",
+      "Effect": "Allow",
       "Action": [
         "logs:FilterLogEvents",
         "logs:GetLogEvents",
         "logs:GetLogGroupFields",
         "logs:GetLogRecord",
         "logs:StartQuery",
-        "logs:StopQuery",
         "logs:GetQueryResults"
       ],
-      "Effect": "Allow",
       "Resource": [
         "arn:aws:logs:<region>:<account-id>:log-group:*",
         "arn:aws:logs:<region>:<account-id>:log-group:*:log-stream:*"
-      ],
-      "Sid": "ReadApplicationLogs"
+      ]
     },
     {
+      "Sid": "InspectBucketConfiguration",
+      "Effect": "Allow",
       "Action": [
         "s3:ListBucket",
         "s3:GetBucketLocation",
@@ -205,41 +341,51 @@ can gather evidence, and denies the data-exfiltration paths a read-only role sho
         "s3:GetBucketTagging",
         "s3:GetBucketCORS"
       ],
-      "Effect": "Allow",
       "Resource": "arn:aws:s3:::*",
-      "Sid": "InspectBucketConfiguration"
+      "Condition": {
+        "StringEquals": {
+          "s3:ResourceAccount": "<account-id>"
+        }
+      }
     },
     {
+      "Sid": "ReadObjects",
+      "Effect": "Allow",
       "Action": [
         "s3:GetObject",
         "s3:GetObjectVersion",
         "s3:GetObjectTagging"
       ],
-      "Effect": "Allow",
       "Resource": "arn:aws:s3:::*/*",
-      "Sid": "ReadObjects"
+      "Condition": {
+        "StringEquals": {
+          "s3:ResourceAccount": "<account-id>"
+        }
+      }
     },
     {
+      "Sid": "ReadSecrets",
+      "Effect": "Allow",
       "Action": [
         "secretsmanager:GetSecretValue",
         "secretsmanager:DescribeSecret",
         "secretsmanager:ListSecretVersionIds",
         "secretsmanager:GetResourcePolicy"
       ],
-      "Effect": "Allow",
-      "Resource": "arn:aws:secretsmanager:<region>:<account-id>:secret:*",
-      "Sid": "ReadSecrets"
+      "Resource": "arn:aws:secretsmanager:<region>:<account-id>:secret:*"
     },
     {
+      "Sid": "InspectQueueDepth",
+      "Effect": "Allow",
       "Action": [
         "sqs:GetQueueAttributes",
         "sqs:GetQueueUrl"
       ],
-      "Effect": "Allow",
-      "Resource": "arn:aws:sqs:<region>:<account-id>:*",
-      "Sid": "InspectQueueDepth"
+      "Resource": "arn:aws:sqs:<region>:<account-id>:*"
     },
     {
+      "Sid": "InspectContainerImages",
+      "Effect": "Allow",
       "Action": [
         "ecr:DescribeRepositories",
         "ecr:DescribeImages",
@@ -248,50 +394,50 @@ can gather evidence, and denies the data-exfiltration paths a read-only role sho
         "ecr:GetRepositoryPolicy",
         "ecr:GetLifecyclePolicy"
       ],
-      "Effect": "Allow",
-      "Resource": "arn:aws:ecr:<region>:<account-id>:repository/*",
-      "Sid": "InspectContainerImages"
+      "Resource": "arn:aws:ecr:<region>:<account-id>:repository/*"
     },
     {
+      "Sid": "InspectBuildsAndWorkflows",
+      "Effect": "Allow",
       "Action": [
         "codebuild:BatchGetBuilds",
         "codebuild:BatchGetProjects"
       ],
-      "Effect": "Allow",
-      "Resource": "arn:aws:codebuild:<region>:<account-id>:project/*",
-      "Sid": "InspectBuildsAndWorkflows"
+      "Resource": "arn:aws:codebuild:<region>:<account-id>:project/*"
     },
     {
+      "Sid": "InspectWorkflowExecutions",
+      "Effect": "Allow",
       "Action": [
         "states:DescribeStateMachine",
         "states:DescribeExecution",
         "states:GetExecutionHistory"
       ],
-      "Effect": "Allow",
-      "Resource": "arn:aws:states:<region>:<account-id>:*",
-      "Sid": "InspectWorkflowExecutions"
+      "Resource": "arn:aws:states:<region>:<account-id>:*"
     },
     {
+      "Sid": "InspectKeyMetadata",
+      "Effect": "Allow",
       "Action": [
         "kms:DescribeKey",
         "kms:GetKeyRotationStatus"
       ],
-      "Effect": "Allow",
-      "Resource": "arn:aws:kms:<region>:<account-id>:key/*",
-      "Sid": "InspectKeyMetadata"
+      "Resource": "arn:aws:kms:<region>:<account-id>:key/*"
     },
     {
+      "Sid": "InspectAccountRoleDefinitions",
+      "Effect": "Allow",
       "Action": [
         "iam:GetRole",
         "iam:GetRolePolicy",
         "iam:ListRolePolicies",
         "iam:ListAttachedRolePolicies"
       ],
-      "Effect": "Allow",
-      "Resource": "arn:aws:iam::<account-id>:role/*",
-      "Sid": "InspectOwnRoleDefinition"
+      "Resource": "arn:aws:iam::<account-id>:role/*"
     },
     {
+      "Sid": "DiagnosisIsReadOnly",
+      "Effect": "Deny",
       "Action": [
         "s3:PutObject",
         "s3:DeleteObject",
@@ -352,16 +498,10 @@ can gather evidence, and denies the data-exfiltration paths a read-only role sho
         "kms:GenerateDataKeyWithoutPlaintext",
         "kms:ReEncryptFrom"
       ],
-      "Effect": "Deny",
-      "Resource": "*",
-      "Sid": "DiagnosisIsReadOnly"
+      "Resource": "*"
     },
     {
-      "Condition": {
-        "StringNotEquals": {
-          "aws:RequestedRegion": "<region>"
-        }
-      },
+      "Sid": "DenyOutsideHomeRegionExceptGlobalServices",
       "Effect": "Deny",
       "NotAction": [
         "iam:*",
@@ -376,7 +516,25 @@ can gather evidence, and denies the data-exfiltration paths a read-only role sho
         "ce:*"
       ],
       "Resource": "*",
-      "Sid": "DenyOutsideHomeRegionExceptGlobalServices"
+      "Condition": {
+        "StringNotEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "DenyS3OutsideThisAccount",
+      "Effect": "Deny",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::*",
+        "arn:aws:s3:::*/*"
+      ],
+      "Condition": {
+        "StringNotEquals": {
+          "s3:ResourceAccount": "<account-id>"
+        }
+      }
     }
   ]
 }
@@ -384,22 +542,20 @@ can gather evidence, and denies the data-exfiltration paths a read-only role sho
 
 ### Illustrative policy: remediation role (`*PowerRemediateRole`)
 
-Six operational actions, each scoped to its service and each gated on region plus a live MFA
-session. Every one is reversible: restart or rescale a service, stop a stuck task, release
-in-flight queue messages, start or stop a workflow execution, and trigger a CI rebuild. Its read
-set is deliberately narrower than the diagnostic role's - no secrets, no S3, no KMS - which keeps
-CloudTrail cleanly separable into "someone was looking" and "someone was changing".
+Eight operational APIs in six groups, region-pinned after MFA-protected assumption: update a
+service, stop a task, change visibility using an existing receipt handle, start/stop a workflow,
+and start/stop/retry a build. Direct secrets, S3 and KMS reads are denied, but delegated build
+commands and workflow inputs can exercise the separately privileged execution roles.
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "ReadsNeededToTargetARemediation",
+      "Effect": "Allow",
       "Action": [
         "sts:GetCallerIdentity",
-        "ecs:DescribeClusters",
-        "ecs:DescribeServices",
-        "ecs:DescribeTasks",
         "ecs:DescribeTaskDefinition",
         "ecs:ListClusters",
         "ecs:ListServices",
@@ -410,126 +566,210 @@ CloudTrail cleanly separable into "someone was looking" and "someone was changin
         "cloudwatch:DescribeAlarms",
         "cloudwatch:GetMetricData",
         "logs:DescribeLogGroups",
-        "logs:DescribeLogStreams",
         "sqs:ListQueues",
         "codebuild:ListProjects",
         "codebuild:ListBuilds",
         "states:ListStateMachines",
-        "states:ListExecutions",
-        "cloudformation:DescribeStacks",
         "cloudformation:ListStacks",
-        "rds:DescribeDBInstances",
-        "es:DescribeDomain",
         "es:ListDomainNames"
       ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        },
+        "StringEqualsIfExists": {
+          "aws:ResourceAccount": "<account-id>"
+        }
+      }
+    },
+    {
+      "Sid": "Inspectecscluster",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeClusters"
+      ],
+      "Resource": "arn:aws:ecs:<region>:<account-id>:cluster/*",
       "Condition": {
         "StringEquals": {
           "aws:RequestedRegion": "<region>"
         }
-      },
-      "Effect": "Allow",
-      "Resource": "*",
-      "Sid": "ReadsNeededToTargetARemediation"
+      }
     },
     {
+      "Sid": "Inspectecsservice",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeServices"
+      ],
+      "Resource": "arn:aws:ecs:<region>:<account-id>:service/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "Inspectecstask",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeTasks"
+      ],
+      "Resource": "arn:aws:ecs:<region>:<account-id>:task/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "Inspectcloudformationstack",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:DescribeStacks"
+      ],
+      "Resource": "arn:aws:cloudformation:<region>:<account-id>:stack/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "Inspectlogsloggroup",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogStreams"
+      ],
+      "Resource": "arn:aws:logs:<region>:<account-id>:log-group:*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "Inspectesdomain",
+      "Effect": "Allow",
+      "Action": [
+        "es:DescribeDomain"
+      ],
+      "Resource": "arn:aws:es:<region>:<account-id>:domain/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "Inspectrdsdb",
+      "Effect": "Allow",
+      "Action": [
+        "rds:DescribeDBInstances"
+      ],
+      "Resource": "arn:aws:rds:<region>:<account-id>:db:*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "InspectstatesstateMachine",
+      "Effect": "Allow",
+      "Action": [
+        "states:ListExecutions"
+      ],
+      "Resource": "arn:aws:states:<region>:<account-id>:stateMachine:*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "RestartOrRescaleServices",
+      "Effect": "Allow",
       "Action": [
         "ecs:UpdateService"
       ],
+      "Resource": "arn:aws:ecs:<region>:<account-id>:service/*",
       "Condition": {
-        "Bool": {
-          "aws:MultiFactorAuthPresent": "true"
-        },
         "StringEquals": {
           "aws:RequestedRegion": "<region>"
         }
-      },
-      "Effect": "Allow",
-      "Resource": "arn:aws:ecs:<region>:<account-id>:service/*",
-      "Sid": "RestartOrRescaleServices"
+      }
     },
     {
+      "Sid": "StopStuckTasks",
+      "Effect": "Allow",
       "Action": [
         "ecs:StopTask"
       ],
+      "Resource": "arn:aws:ecs:<region>:<account-id>:task/*",
       "Condition": {
-        "Bool": {
-          "aws:MultiFactorAuthPresent": "true"
-        },
         "StringEquals": {
           "aws:RequestedRegion": "<region>"
         }
-      },
-      "Effect": "Allow",
-      "Resource": "arn:aws:ecs:<region>:<account-id>:task/*",
-      "Sid": "StopStuckTasks"
+      }
     },
     {
+      "Sid": "ReleaseInFlightQueueMessages",
+      "Effect": "Allow",
       "Action": [
         "sqs:ChangeMessageVisibility"
       ],
+      "Resource": "arn:aws:sqs:<region>:<account-id>:*",
       "Condition": {
-        "Bool": {
-          "aws:MultiFactorAuthPresent": "true"
-        },
         "StringEquals": {
           "aws:RequestedRegion": "<region>"
         }
-      },
-      "Effect": "Allow",
-      "Resource": "arn:aws:sqs:<region>:<account-id>:*",
-      "Sid": "ReleaseInFlightQueueMessages"
+      }
     },
     {
+      "Sid": "StartWorkflowExecutions",
+      "Effect": "Allow",
       "Action": [
         "states:StartExecution"
       ],
+      "Resource": "arn:aws:states:<region>:<account-id>:stateMachine:*",
       "Condition": {
-        "Bool": {
-          "aws:MultiFactorAuthPresent": "true"
-        },
         "StringEquals": {
           "aws:RequestedRegion": "<region>"
         }
-      },
-      "Effect": "Allow",
-      "Resource": "arn:aws:states:<region>:<account-id>:stateMachine:*",
-      "Sid": "StartWorkflowExecutions"
+      }
     },
     {
+      "Sid": "StopWorkflowExecutions",
+      "Effect": "Allow",
       "Action": [
         "states:StopExecution"
       ],
+      "Resource": "arn:aws:states:<region>:<account-id>:execution:*",
       "Condition": {
-        "Bool": {
-          "aws:MultiFactorAuthPresent": "true"
-        },
         "StringEquals": {
           "aws:RequestedRegion": "<region>"
         }
-      },
-      "Effect": "Allow",
-      "Resource": "arn:aws:states:<region>:<account-id>:execution:*",
-      "Sid": "StopWorkflowExecutions"
+      }
     },
     {
+      "Sid": "DelegateBuildsToExistingServiceRoles",
+      "Effect": "Allow",
       "Action": [
         "codebuild:StartBuild",
         "codebuild:StopBuild",
         "codebuild:RetryBuild"
       ],
+      "Resource": "arn:aws:codebuild:<region>:<account-id>:project/*",
       "Condition": {
-        "Bool": {
-          "aws:MultiFactorAuthPresent": "true"
-        },
         "StringEquals": {
           "aws:RequestedRegion": "<region>"
         }
-      },
-      "Effect": "Allow",
-      "Resource": "arn:aws:codebuild:<region>:<account-id>:project/*",
-      "Sid": "RebuildApplicationImageViaCiOnly"
+      }
     },
     {
+      "Sid": "DenyDirectCodeDataAndIdentityOperations",
+      "Effect": "Deny",
       "Action": [
         "ecs:RegisterTaskDefinition",
         "ecs:DeregisterTaskDefinition",
@@ -577,16 +817,10 @@ CloudTrail cleanly separable into "someone was looking" and "someone was changin
         "sts:AssumeRoleWithWebIdentity",
         "sts:GetFederationToken"
       ],
-      "Effect": "Deny",
-      "Resource": "*",
-      "Sid": "RemediationCannotSupplyCodeDestroyDataOrReadIt"
+      "Resource": "*"
     },
     {
-      "Condition": {
-        "StringNotEquals": {
-          "aws:RequestedRegion": "<region>"
-        }
-      },
+      "Sid": "DenyOutsideHomeRegionExceptGlobalServices",
       "Effect": "Deny",
       "NotAction": [
         "iam:*",
@@ -601,7 +835,11 @@ CloudTrail cleanly separable into "someone was looking" and "someone was changin
         "ce:*"
       ],
       "Resource": "*",
-      "Sid": "DenyOutsideHomeRegionExceptGlobalServices"
+      "Condition": {
+        "StringNotEquals": {
+          "aws:RequestedRegion": "<region>"
+        }
+      }
     }
   ]
 }

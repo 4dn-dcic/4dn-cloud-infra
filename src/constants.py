@@ -166,8 +166,8 @@ class Settings:
     HUMAN_ACCESS_SOURCE_IDENTITY_PATTERN = 'human_access.source_identity_pattern'
 
     # kms:Decrypt (and the key-policy read) for the diagnostic role, needed to read objects in an
-    # SSE-KMS bucket. Off by default: at service scope this reaches any key in the account, and it
-    # stays inert until the key policy also names the role.
+    # SSE-KMS bucket. Off by default: at service scope this reaches any key in the account whose
+    # key policy authorizes the role, including through delegation to account IAM policies.
     HUMAN_ACCESS_DIAGNOSE_ALLOW_KMS_DECRYPT = 'human_access.diagnose.allow_kms_decrypt'
 
 
@@ -211,10 +211,10 @@ class C4IAMBase:
     STACK_TITLE_TOKEN = "IAM"
     SHARING = 'ecosystem'
 
-    # Session length for the opt-in human direct-access roles. Diagnosis is a working session;
-    # remediation is meant to be a short, deliberate act.
-    HUMAN_ACCESS_DIAGNOSE_SESSION_DURATION = 3600   # 1 hour
-    HUMAN_ACCESS_REMEDIATE_SESSION_DURATION = 1800  # 30 minutes
+    # IAM MaxSessionDuration has a minimum of 3600 seconds. Both enforce a one-hour ceiling;
+    # operators should request 1800 seconds for remediation, but that is guidance, not enforcement.
+    HUMAN_ACCESS_DIAGNOSE_SESSION_DURATION = 3600
+    HUMAN_ACCESS_REMEDIATE_SESSION_DURATION = 3600
 
 
 # dmichaels/2022-07-05: Factored out from sentieon.py.

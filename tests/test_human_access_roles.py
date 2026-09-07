@@ -1,23 +1,22 @@
 """
 Static/template tests for the opt-in human direct-AWS-access roles built by C4IAM.
 
-These roles exist so a developer can inspect the running system, and a power user can perform the
-reversible operational actions needed to remediate it, without assuming the existing DevRole
+These roles exist so a developer can inspect the running system, and a power user can perform
+operational actions needed to remediate it, without assuming the existing DevRole
 (which is trusted by the account root and holds ten full-access managed policies).
 
 The scoping model these tests pin: the account holds only our own resources, so the policies do
 *not* enumerate resource identifiers. Where an action supports resource-level authorization it is
 scoped to the service (`arn:aws:ecs:<region>:<account>:service/*`, `arn:aws:s3:::*/*`, ...); where
-an action has no resource-level authorization at all, the resource is `"*"` and the statement is
-region-pinned instead. The constraint that carries the weight is therefore the *action list*, which
+discovery/inspection needs wildcard scope, the resource is `"*"` with region and resource-owner
+conditions (where AWS provides ownership). The main constraint is therefore the *action list*, which
 is fully enumerated - so these tests check that list closely.
 
 Covered here, in the order the requirements were stated:
 
   1. Disabled-default behaviour - no resources, outputs, parameters or conditions added.
   2. Trust restrictions - enumerated principal ARNs, attributable session, never account root.
-  3. Service-level resource scope - and `"*"` only in the two statements whose actions AWS gives
-     no ARN to scope to.
+  3. Service-level resource scope - and `"*"` only in explicit discovery/inspection groups.
   4. Constrained allowed actions - every action enumerated, no `service:*` and no `"*"`.
   5. Prohibited broad administration - no managed policies, and the administrative/destructive
      actions are explicitly denied.
@@ -40,10 +39,10 @@ from troposphere import Template
 
 
 TEST_ENV_NAME = 'cgap-build'
-TEST_ACCOUNT = '123456789'
-ALICE = 'arn:aws:iam::123456789:user/alice'
-BOB = 'arn:aws:iam::123456789:user/bob'
-SSO_PRINCIPAL = ('arn:aws:iam::123456789:role/aws-reserved/sso.amazonaws.com/'
+TEST_ACCOUNT = '123456789012'
+ALICE = 'arn:aws:iam::123456789012:user/alice'
+BOB = 'arn:aws:iam::123456789012:user/bob'
+SSO_PRINCIPAL = ('arn:aws:iam::123456789012:role/aws-reserved/sso.amazonaws.com/'
                  'AWSReservedSSO_Developer_abc123')
 
 REPO_ROOT = os.path.join(os.path.dirname(__file__), '..')
@@ -288,13 +287,15 @@ def test_trust_policy_requires_an_attributable_mfa_session():
     assert 'DurationSeconds' not in _flat(trust)
 
 
-def test_session_duration_is_bounded_and_shorter_for_remediation():
+def test_session_duration_uses_the_minimum_valid_iam_ceiling():
     template = _build_template(**ENABLED_BOTH)
     diagnose = _role(template, C4IAM.DIAGNOSE_ROLE)
     remediate = _role(template, C4IAM.REMEDIATE_ROLE)
     assert diagnose['MaxSessionDuration'] == 3600
-    assert remediate['MaxSessionDuration'] == 1800
-    assert remediate['MaxSessionDuration'] < diagnose['MaxSessionDuration']
+    assert remediate['MaxSessionDuration'] == 3600
+    # IAM cannot enforce the recommended caller-requested 1800-second remediation session.
+    for role in (diagnose, remediate):
+        assert 3600 <= role['MaxSessionDuration'] <= 43200
 
 
 def test_mfa_condition_can_be_dropped_for_sso_accounts_without_losing_attribution():
@@ -318,18 +319,19 @@ def test_mfa_condition_can_be_dropped_for_sso_accounts_without_losing_attributio
 # ---------------------------------------------------------------------------------------------
 
 @pytest.mark.parametrize('logical_id', BOTH_ROLES)
-def test_wildcard_resources_appear_only_in_the_unscopable_read_statements(logical_id):
-    """ A bare "*" resource is permitted only where AWS offers no resource-level authorization for
-        the actions involved. Those statements are named, read-only and region-pinned.
+def test_wildcard_resources_appear_only_in_discovery_inspection_statements(logical_id):
+    """ Wildcard inspection is explicit, region-pinned, and owner-restricted when AWS supplies
+        resource context. A Sid alone is not proof that an API cannot support ARN scoping.
     """
     role = _role(_build_template(**ENABLED_BOTH), logical_id)
     for statement in _allows(role):
         if '*' in _resources(statement):
-            assert statement['Sid'] in C4IAM.UNSCOPABLE_READ_SIDS, (
+            assert statement['Sid'] in C4IAM.WILDCARD_READ_SIDS, (
                 f"{logical_id} statement {statement['Sid']!r} uses Resource '*' but is not one of"
-                f" the declared unscopable read statements")
+                f" the declared wildcard inspection statements")
             assert statement['Condition'] == {
-                'StringEquals': {'aws:RequestedRegion': {'Ref': 'AWS::Region'}}}
+                'StringEquals': {'aws:RequestedRegion': {'Ref': 'AWS::Region'}},
+                'StringEqualsIfExists': {'aws:ResourceAccount': {'Ref': 'AWS::AccountId'}}}
 
 
 @pytest.mark.parametrize('logical_id', BOTH_ROLES)
@@ -338,7 +340,7 @@ def test_every_other_allow_is_scoped_to_a_service_level_arn(logical_id):
         and region), with a trailing wildcard standing in for "every resource of this type".
     """
     role = _role(_build_template(**ENABLED_BOTH), logical_id)
-    scoped = [s for s in _allows(role) if s['Sid'] not in C4IAM.UNSCOPABLE_READ_SIDS]
+    scoped = [s for s in _allows(role) if s['Sid'] not in C4IAM.WILDCARD_READ_SIDS]
     assert scoped, f'{logical_id} has no resource-scoped statements'
     for statement in scoped:
         for resource in _resources(statement):
@@ -364,7 +366,7 @@ def test_diagnostic_resource_scopes_are_service_level_for_each_supported_service
         'InspectBuildsAndWorkflows': ['arn:aws:codebuild:<region>:<account-id>:project/*'],
         'InspectWorkflowExecutions': ['arn:aws:states:<region>:<account-id>:*'],
         'InspectKeyMetadata': ['arn:aws:kms:<region>:<account-id>:key/*'],
-        'InspectOwnRoleDefinition': ['arn:aws:iam::<account-id>:role/*'],
+        'InspectAccountRoleDefinitions': ['arn:aws:iam::<account-id>:role/*'],
     }
     actual = {s['Sid']: [_render(r) for r in _resources(s)]
               for s in _allows(diagnose) if s['Sid'] in expected}
@@ -379,7 +381,7 @@ def test_remediation_resource_scopes_are_service_level_for_each_action():
         'ReleaseInFlightQueueMessages': ['arn:aws:sqs:<region>:<account-id>:*'],
         'StartWorkflowExecutions': ['arn:aws:states:<region>:<account-id>:stateMachine:*'],
         'StopWorkflowExecutions': ['arn:aws:states:<region>:<account-id>:execution:*'],
-        'RebuildApplicationImageViaCiOnly': ['arn:aws:codebuild:<region>:<account-id>:project/*'],
+        'DelegateBuildsToExistingServiceRoles': ['arn:aws:codebuild:<region>:<account-id>:project/*'],
     }
     actual = {s['Sid']: [_render(r) for r in _resources(s)]
               for s in _allows(remediate) if s['Sid'] in expected}
@@ -408,7 +410,7 @@ def test_no_role_ever_grants_action_star_or_a_service_wide_wildcard(logical_id):
             assert action != '*', f"{logical_id} grants Action '*'"
             assert not re.fullmatch(r'[a-z0-9-]+:\*', action), (
                 f'{logical_id} grants the service-wide wildcard {action!r}')
-    rendered = _flat(role['Policies'])
+    rendered = _flat(_allows(role))
     for blanket in ('"ecs:*"', '"es:*"', '"sqs:*"', '"s3:*"', '"elasticloadbalancing:*"'):
         assert blanket not in rendered, f'{logical_id} grants {blanket}'
 
@@ -453,20 +455,23 @@ def test_remediation_grants_exactly_the_intended_operational_actions():
     """ The mutating surface is small and closed - nothing creeps in unnoticed. """
     remediate = _role(_build_template(**ENABLED_BOTH), C4IAM.REMEDIATE_ROLE)
     mutating = {action
-                for statement in _allows(remediate)
-                if statement['Sid'] not in C4IAM.UNSCOPABLE_READ_SIDS
+                for policy in remediate['Policies']
+                if policy['PolicyName'] == 'HumanRemediateActionPolicy'
+                for statement in policy['PolicyDocument']['Statement']
                 for action in _actions(statement)}
     assert mutating == REMEDIATION_ACTIONS
 
 
 @pytest.mark.parametrize('action', sorted(REMEDIATION_ACTIONS))
-def test_every_remediation_action_is_region_pinned_and_mfa_gated(action):
+def test_every_remediation_action_is_region_pinned_without_unavailable_mfa_context(action):
     remediate = _role(_build_template(**ENABLED_BOTH), C4IAM.REMEDIATE_ROLE)
     allowing = _statements_allowing(remediate, action)
     assert len(allowing) == 1
     condition = allowing[0]['Condition']
-    assert condition['Bool'] == {'aws:MultiFactorAuthPresent': 'true'}
-    assert condition['StringEquals'] == {'aws:RequestedRegion': {'Ref': 'AWS::Region'}}
+    assert condition == {'StringEquals': {'aws:RequestedRegion': {'Ref': 'AWS::Region'}}}
+    # MFA belongs in the trust policy. AssumeRole credentials do not retain API MFA context.
+    trust = remediate['AssumeRolePolicyDocument']['Statement'][0]['Condition']
+    assert trust['Bool'] == {'aws:MultiFactorAuthPresent': 'true'}
 
 
 def test_irreversible_and_destructive_operations_are_excluded_from_remediation():
@@ -579,7 +584,7 @@ def test_boundary_forbids_identity_infrastructure_and_destructive_operations():
         'PolicyDocument']
     denied = {action for s in document['Statement'] if s['Effect'] == 'Deny'
               for action in _actions(s)}
-    for action in ('iam:Create*', 'iam:Attach*', 'iam:PassRole', 'sso-admin:*', 'organizations:*',
+    for action in ('iam:Create*', 'iam:Attach*', 'iam:PassRole', 'sso:*', 'organizations:*',
                    'cloudformation:UpdateStack', 'cloudformation:ExecuteChangeSet',
                    'ecr:PutImage', 'lambda:UpdateFunctionCode', 'ec2:AuthorizeSecurityGroup*',
                    'sqs:PurgeQueue', 'sqs:DeleteQueue', 'rds:Delete*', 's3:PutObject*'):
@@ -662,11 +667,20 @@ def test_readme_policy_example_is_valid_and_well_formed(logical_id):
 def test_readme_policy_example_matches_what_the_template_renders(logical_id):
     """ Makes "aligned with the generated policy" a fact rather than a claim.
 
-        Compared by {Sid: sorted(actions)}: resources are deliberately not compared, because the
-        README uses <region>/<account-id> placeholders where the template emits Ref intrinsics.
+        Compare resources and conditions too, resolving pseudo-parameters to the same placeholders.
+        Action-only equality previously missed broken MFA gates and cross-account S3 reads.
     """
-    generated = _action_map(_role(_build_template(**ENABLED_BOTH), logical_id))
-    documented = {s['Sid']: sorted(_actions(s)) for s in _readme_policy(logical_id)['Statement']}
+    def render(value):
+        if isinstance(value, dict):
+            if 'Ref' in value or 'Fn::Join' in value:
+                return _render(value)
+            return {key: render(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [render(item) for item in value]
+        return value
+
+    generated = render(_statements(_role(_build_template(**ENABLED_BOTH), logical_id)))
+    documented = _readme_policy(logical_id)['Statement']
     assert documented == generated
 
 

@@ -1,4 +1,7 @@
+import ast
+import json
 import logging
+import re
 
 from awacs.aws import PolicyDocument, Statement, Action, Principal, AWSPrincipal
 from awacs.ecr import (
@@ -116,8 +119,10 @@ class C4IAM(C4IAMBase, C4Part):
         if not (diagnose_wanted or remediate_wanted):
             return template
 
-        diagnose_principals = self._human_access_list(Settings.HUMAN_ACCESS_DIAGNOSE_PRINCIPALS)
-        remediate_principals = self._human_access_list(Settings.HUMAN_ACCESS_REMEDIATE_PRINCIPALS)
+        diagnose_principals = (self._human_access_list(Settings.HUMAN_ACCESS_DIAGNOSE_PRINCIPALS)
+                               if diagnose_wanted else [])
+        remediate_principals = (self._human_access_list(Settings.HUMAN_ACCESS_REMEDIATE_PRINCIPALS)
+                                if remediate_wanted else [])
         build_diagnose = diagnose_wanted and bool(diagnose_principals)
         build_remediate = remediate_wanted and bool(remediate_principals)
         if diagnose_wanted and not build_diagnose:
@@ -586,18 +591,18 @@ class C4IAM(C4IAMBase, C4Part):
     # Scoping model. This account holds only our own resources, so these policies do not enumerate
     # resource identifiers. Where an action supports resource-level authorization it is scoped to
     # the *service* - every ECS service, every queue, every bucket in this account and region - and
-    # the real constraint is the action list, which is deliberately short and enumerated. Where an
-    # action has no resource-level authorization at all (see UNSCOPABLE_READ_SIDS) the resource is
-    # '*' and the statement is region-pinned instead. Neither role ever grants Action '*'.
+    # the real constraint is the action list, which is deliberately short and enumerated. Remaining
+    # discovery/inspection requests use '*' (see WILDCARD_READ_SIDS), with a region pin and an
+    # account restriction wherever AWS supplies resource ownership. Neither role grants Action '*'.
     #
     # These are defined independently of the ecs_*_policy() helpers above on purpose. Sharing those
     # helpers is exactly what makes dev_user_role() a superset of the ECS runtime role, and reusing
     # them here would reintroduce that coupling. dev_user_role() itself is untouched.
     # -------------------------------------------------------------------------------------------
 
-    # The only statements permitted to use Resource '*': their actions have no resource-level
-    # authorization in AWS, so there is no ARN to scope them to. Every one is read-only.
-    UNSCOPABLE_READ_SIDS = (
+    # Wildcard discovery/inspection groups. Do not infer AWS authorization semantics from the Sid:
+    # some reads support ARNs, while inventory or composite-alarm requests require '*'.
+    WILDCARD_READ_SIDS = (
         'InspectServiceStateAcrossSupportedServices',
         'ReadsNeededToTargetARemediation',
     )
@@ -618,10 +623,33 @@ class C4IAM(C4IAMBase, C4Part):
             defaulting to empty. Empty means "this capability is not granted".
         """
         value = ConfigManager.get_config_setting(setting, default='')
-        if not value or value is True:
+        if value is None or value == '' or value is False:
             return []
-        items = value if isinstance(value, list) else str(value).replace('\n', ',').split(',')
-        return [item.strip() for item in items if str(item).strip()]
+        # ConfigManager._load_config stringifies JSON values, including lists, with str().
+        # Parse only a literal list; never evaluate arbitrary config text.
+        if isinstance(value, str) and value.lstrip().startswith('['):
+            try:
+                value = ast.literal_eval(value)
+            except (ValueError, SyntaxError) as error:
+                raise ValueError(f'{setting} must contain concrete IAM user or role ARNs.') from error
+        if not isinstance(value, (str, list)):
+            raise ValueError(f'{setting} must contain concrete IAM user or role ARNs.')
+        items = value if isinstance(value, list) else value.replace('\n', ',').split(',')
+        principals = []
+        for item in items:
+            if not isinstance(item, str):
+                raise ValueError(f'{setting} must contain concrete IAM user or role ARNs.')
+            item = item.strip()
+            if not item:
+                continue
+            # Never accept root, account IDs, wildcards, service principals or STS sessions.
+            # Cross-account trust is possible, but must name a specific approved user/role.
+            if not re.fullmatch(r'arn:aws:iam::[0-9]{12}:(?:user|role)/'
+                                r'(?:[A-Za-z0-9_+=,.@-]+/)*[A-Za-z0-9_+=,.@-]+', item):
+                raise ValueError(f'{setting} must contain concrete commercial-AWS IAM user or role ARNs.')
+            if item not in principals:
+                principals.append(item)
+        return principals
 
     @staticmethod
     def _human_access_require_mfa() -> bool:
@@ -643,13 +671,24 @@ class C4IAM(C4IAMBase, C4Part):
 
     @classmethod
     def _human_access_mutation_condition(cls) -> dict:
-        """ Conditions attached to every remediation write: this region, and normally a live MFA
-            session.
+        """ Region-pin every remediation write. MFA is enforced when assuming the role, not on
+            downstream calls: AssumeRole credentials do not carry MFA context for API checks.
+            See IAM's 'Secure API access with MFA' documentation.
         """
-        condition = cls._region_pin()
-        if cls._human_access_require_mfa():
-            condition['Bool'] = {'aws:MultiFactorAuthPresent': 'true'}
-        return condition
+        return cls._region_pin()
+
+    @staticmethod
+    def human_access_s3_account_deny_statement() -> dict:
+        """ S3 ARNs have no account field. Explicitly deny other owners, including resource-policy
+            grants to a role session which could bypass an identity policy's implicit deny.
+        """
+        return {
+            'Sid': 'DenyS3OutsideThisAccount',
+            'Effect': 'Deny',
+            'Action': 's3:*',
+            'Resource': ['arn:aws:s3:::*', 'arn:aws:s3:::*/*'],
+            'Condition': {'StringNotEquals': {'s3:ResourceAccount': AccountId}},
+        }
 
     @staticmethod
     def _service_arn(service: str, suffix: str):
@@ -668,8 +707,8 @@ class C4IAM(C4IAMBase, C4Part):
         ]
 
     def human_access_trust_policy(self, principal_arns: list) -> dict:
-        """ Trust policy for a human-access role: only the enumerated principal ARNs, only with an
-            attributable session.
+        """ Trust only enumerated principals and require a source-identity audit label. Manually
+            supplied labels are not verified identities; correlate the authenticated caller.
 
             Deliberately NOT AWSPrincipal(AccountId): account-root trust in a role's trust policy
             means any identity in the account holding sts:AssumeRole can assume it, which is how
@@ -696,12 +735,12 @@ class C4IAM(C4IAMBase, C4Part):
         }
         if condition:
             allow_statement['Condition'] = condition
-        return {
+        policy = {
             'Version': '2012-10-17',
             'Statement': [
                 allow_statement,
                 {
-                    # Every session must be attributable to a person in CloudTrail.
+                    # Require a label, without mistaking a caller-supplied value for verified identity.
                     'Sid': 'DenyAssumeWithoutSourceIdentity',
                     'Effect': 'Deny',
                     'Principal': {'AWS': '*'},
@@ -710,6 +749,10 @@ class C4IAM(C4IAMBase, C4Part):
                 },
             ],
         }
+        if len(json.dumps(policy, separators=(',', ':'))) > 2048:
+            raise ValueError('Human access trust policy exceeds the default IAM 2048-character limit;'
+                             ' reduce the principal list or source-identity pattern.')
+        return policy
 
     @classmethod
     def human_access_region_deny_statement(cls) -> dict:
@@ -733,9 +776,9 @@ class C4IAM(C4IAMBase, C4Part):
             able to do nothing at all. That Allow does not widen either role - each role's own
             policies enumerate a short action list and never use Action '*'.
 
-            What this adds is a backstop: a future additive edit to either role still cannot reach
-            identity administration, CloudFormation mutation, the network perimeter, the image
-            supply chain, or data-plane writes.
+            This adds explicit direct-API backstops, not a complete future-proof allowlist or an
+            information-flow sandbox. It does not constrain separately privileged service roles
+            reached through the deliberately retained build/workflow delegation.
         """
         return ManagedPolicy(
             self.name.logical_id('HumanAccessBoundary'),
@@ -752,14 +795,14 @@ class C4IAM(C4IAMBase, C4Part):
                             'iam:Create*', 'iam:Delete*', 'iam:Update*', 'iam:Put*', 'iam:Attach*',
                             'iam:Detach*', 'iam:Add*', 'iam:Remove*', 'iam:Set*', 'iam:Tag*',
                             'iam:Untag*', 'iam:ChangePassword', 'iam:PassRole',
-                            'sso:*', 'sso-admin:*', 'sso-directory:*', 'identitystore:*',
+                            'sso:*', 'sso-directory:*', 'identitystore:*',
                             'organizations:*', 'account:*', 'aws-portal:*', 'billing:*', 'ce:*',
                             'budgets:*', 'cur:*', 'sts:GetFederationToken',
                         ],
                         'Resource': '*',
                     },
                     {
-                        'Sid': 'NeverCodeSupplyChainOrArbitraryExecution',
+                        'Sid': 'NeverDirectCodeSupplyChainOrExecution',
                         'Effect': 'Deny',
                         'Action': [
                             'ecr:PutImage', 'ecr:InitiateLayerUpload', 'ecr:UploadLayerPart',
@@ -794,9 +837,12 @@ class C4IAM(C4IAMBase, C4Part):
                             'cloudformation:CreateStackInstances',
                             'ec2:AuthorizeSecurityGroup*', 'ec2:RevokeSecurityGroup*',
                             'ec2:CreateSecurityGroup', 'ec2:DeleteSecurityGroup',
-                            'ec2:ModifySecurityGroupRules', 'ec2:*Vpc*', 'ec2:*Subnet*',
-                            'ec2:*Route*', 'ec2:*InternetGateway*', 'ec2:*NatGateway*',
-                            'ec2:*NetworkAcl*', 'ec2:RunInstances', 'ec2:TerminateInstances',
+                            # Match mutation verbs, not resource nouns: *Vpc* and *Subnet*
+                            # also denied the explicitly allowed DescribeVpcs/DescribeSubnets.
+                            'ec2:Create*', 'ec2:Delete*', 'ec2:Modify*', 'ec2:Attach*',
+                            'ec2:Detach*', 'ec2:Associate*', 'ec2:Disassociate*', 'ec2:Replace*',
+                            'ec2:Accept*', 'ec2:Reject*', 'ec2:Enable*', 'ec2:Disable*',
+                            'ec2:RunInstances', 'ec2:TerminateInstances',
                             'elasticloadbalancing:Create*', 'elasticloadbalancing:Delete*',
                             'elasticloadbalancing:Modify*', 'elasticloadbalancing:Set*',
                             'es:Create*', 'es:Delete*', 'es:Update*',
@@ -833,20 +879,61 @@ class C4IAM(C4IAMBase, C4Part):
                         'Resource': '*',
                     },
                     self.human_access_region_deny_statement(),
+                    self.human_access_s3_account_deny_statement(),
                 ],
             },
         )
 
     @classmethod
-    def human_diagnose_observability_policy(cls) -> Policy:
-        """ The read/inspection actions for the supported services whose Describe/List APIs have no
-            resource-level authorization at all. These cannot be scoped to an ARN, so they are
-            region-pinned on '*' instead. Every action here is a read.
-
-            cloudformation:Detect* is deliberately absent: drift detection starts a job, which is
-            not a read.
+    def _scope_inspection_policy(cls, policy: Policy) -> Policy:
+        """ Split known resource-authorized reads out of the discovery group. The remaining
+            inventory/inspection actions stay region-pinned; account ownership is checked when
+            provided by AWS (inventory requests often have no resource-account context).
         """
-        return Policy(
+        statement = policy.PolicyDocument['Statement'][0]
+        scoped = {
+            'ecs': {
+                'cluster/*': ['ecs:DescribeClusters'],
+                'service/*': ['ecs:DescribeServices'],
+                'task/*': ['ecs:DescribeTasks'],
+                'container-instance/*': ['ecs:DescribeContainerInstances'],
+            },
+            'cloudformation': {'stack/*': [
+                'cloudformation:DescribeStacks', 'cloudformation:DescribeStackEvents',
+                'cloudformation:DescribeStackResources', 'cloudformation:GetTemplate',
+                'cloudformation:GetStackPolicy',
+            ]},
+            'logs': {'log-group:*': ['logs:DescribeLogStreams']},
+            'es': {'domain/*': ['es:DescribeDomain', 'es:DescribeDomains']},
+            'rds': {
+                'db:*': ['rds:DescribeDBInstances'],
+                'pg:*': ['rds:DescribeDBParameters'],
+                'snapshot:*': ['rds:DescribeDBSnapshots'],
+            },
+            'states': {'stateMachine:*': ['states:ListExecutions']},
+        }
+        for service, resources in scoped.items():
+            for resource, actions in resources.items():
+                selected = [action for action in actions if action in statement['Action']]
+                if not selected:
+                    continue
+                statement['Action'] = [a for a in statement['Action'] if a not in selected]
+                policy.PolicyDocument['Statement'].append({
+                    'Sid': 'Inspect' + re.sub('[^a-zA-Z0-9]', '', service + resource),
+                    'Effect': 'Allow', 'Action': selected,
+                    'Resource': cls._service_arn(service, resource),
+                    'Condition': cls._region_pin(),
+                })
+        statement['Condition']['StringEqualsIfExists'] = {'aws:ResourceAccount': AccountId}
+        return policy
+
+    @classmethod
+    def human_diagnose_observability_policy(cls) -> Policy:
+        """ Supported inspection/discovery actions. Resource-authorized reads are separated by
+            _scope_inspection_policy; remaining wildcard requests are region-pinned.
+            cloudformation:Detect* is absent because drift detection mutates service state.
+        """
+        return cls._scope_inspection_policy(Policy(
             PolicyName='HumanDiagnoseObservabilityPolicy',
             PolicyDocument={
                 'Version': '2012-10-17',
@@ -873,7 +960,7 @@ class C4IAM(C4IAMBase, C4Part):
                         'cloudwatch:GetMetricStatistics', 'cloudwatch:ListMetrics',
                         # Log group discovery (reading the events themselves is scoped below)
                         'logs:DescribeLogGroups', 'logs:DescribeLogStreams',
-                        'logs:DescribeQueries',
+                        'logs:DescribeQueries', 'logs:StopQuery',
                         # Datastores
                         'rds:DescribeDBInstances', 'rds:DescribeDBParameters',
                         'rds:DescribeDBSnapshots', 'rds:DescribeEvents',
@@ -900,7 +987,7 @@ class C4IAM(C4IAMBase, C4Part):
                     'Condition': cls._region_pin(),
                 }],
             },
-        )
+        ))
 
     def human_diagnose_resource_read_policy(self) -> Policy:
         """ The read/inspection actions that DO support resource-level authorization, scoped to the
@@ -916,7 +1003,7 @@ class C4IAM(C4IAMBase, C4Part):
                 'Effect': 'Allow',
                 'Action': [
                     'logs:FilterLogEvents', 'logs:GetLogEvents', 'logs:GetLogGroupFields',
-                    'logs:GetLogRecord', 'logs:StartQuery', 'logs:StopQuery',
+                    'logs:GetLogRecord', 'logs:StartQuery',
                     'logs:GetQueryResults',
                 ],
                 'Resource': self._log_group_arns(),
@@ -931,12 +1018,14 @@ class C4IAM(C4IAMBase, C4Part):
                     's3:GetBucketPublicAccessBlock', 's3:GetBucketTagging', 's3:GetBucketCORS',
                 ],
                 'Resource': 'arn:aws:s3:::*',
+                'Condition': {'StringEquals': {'s3:ResourceAccount': AccountId}},
             },
             {
                 'Sid': 'ReadObjects',
                 'Effect': 'Allow',
                 'Action': ['s3:GetObject', 's3:GetObjectVersion', 's3:GetObjectTagging'],
                 'Resource': 'arn:aws:s3:::*/*',
+                'Condition': {'StringEquals': {'s3:ResourceAccount': AccountId}},
             },
             {
                 'Sid': 'ReadSecrets',
@@ -985,7 +1074,7 @@ class C4IAM(C4IAMBase, C4Part):
                 'Resource': self._service_arn('kms', 'key/*'),
             },
             {
-                'Sid': 'InspectOwnRoleDefinition',
+                'Sid': 'InspectAccountRoleDefinitions',
                 'Effect': 'Allow',
                 'Action': ['iam:GetRole', 'iam:GetRolePolicy', 'iam:ListRolePolicies',
                            'iam:ListAttachedRolePolicies'],
@@ -994,9 +1083,9 @@ class C4IAM(C4IAMBase, C4Part):
         ]
         if self._human_access_flag(Settings.HUMAN_ACCESS_DIAGNOSE_ALLOW_KMS_DECRYPT):
             # Off by default. Needed to read objects in an SSE-KMS bucket, and at service scope
-            # that means any key in the account - hence its own explicit switch. KMS also requires
-            # dual authorization, so this grant stays inert until the key policy names the role,
-            # which is a separate out-of-band change this template cannot make.
+            # that means any key in the account - hence its own explicit switch. Key policies may
+            # already delegate authorization to account IAM policies; enabling this can therefore
+            # grant decrypt immediately, without naming this role in a separate key-policy edit.
             statements.append({
                 'Sid': 'DecryptWithApplicationKeys',
                 'Effect': 'Allow',
@@ -1029,8 +1118,8 @@ class C4IAM(C4IAMBase, C4Part):
             # ChangeMessageVisibility is a remediation action rather than a read.
             'sqs:ReceiveMessage', 'sqs:SendMessage', 'sqs:DeleteMessage', 'sqs:PurgeQueue',
             'sqs:ChangeMessageVisibility',
-            # GetFunctionConfiguration returns environment variables and GetFunction returns a
-            # presigned code download URL; both are configuration exfiltration paths.
+            # Block direct function/configuration retrieval. This is not an information-flow
+            # guarantee: ListFunctions, logs and secrets can also expose configuration or data.
             'lambda:GetFunction', 'lambda:GetFunctionConfiguration', 'lambda:InvokeFunction',
             'lambda:UpdateFunctionCode', 'lambda:UpdateFunctionConfiguration',
             'es:ESHttp*',
@@ -1059,6 +1148,7 @@ class C4IAM(C4IAMBase, C4Part):
                     {'Sid': 'DiagnosisIsReadOnly', 'Effect': 'Deny',
                      'Action': actions, 'Resource': '*'},
                     cls.human_access_region_deny_statement(),
+                    cls.human_access_s3_account_deny_statement(),
                 ],
             },
         )
@@ -1084,15 +1174,14 @@ class C4IAM(C4IAMBase, C4Part):
 
     @classmethod
     def human_remediate_read_policy(cls) -> Policy:
-        """ The reads a power user needs to target a remediation safely - you cannot restart a
-            service you cannot find, or release in-flight messages without first seeing the
-            backlog. Same '*'-with-region-pin rationale as the diagnostic observability policy.
+        """ Reads needed to target remediation. The same resource splitting and region/account
+            conditions as the diagnostic observability policy apply.
 
             Deliberately narrower than the diagnostic role's reads: no secrets, no S3, no KMS, no
             service quotas, no tag inventory. That keeps CloudTrail cleanly separable into
             "someone was looking" and "someone was changing".
         """
-        return Policy(
+        return cls._scope_inspection_policy(Policy(
             PolicyName='HumanRemediateReadPolicy',
             PolicyDocument={
                 'Version': '2012-10-17',
@@ -1119,18 +1208,15 @@ class C4IAM(C4IAMBase, C4Part):
                     'Condition': cls._region_pin(),
                 }],
             },
-        )
+        ))
 
     @classmethod
     def human_remediate_action_policy(cls) -> Policy:
-        """ The exact operational actions needed to remediate the supported services, each scoped
-            to the service and gated on region plus (normally) a live MFA session.
-
-            Every one is reversible. Excluded on purpose: sqs:PurgeQueue and sqs:DeleteQueue
-            (irreversible - messages are gone), anything that authors or runs new code
-            (ecr:PutImage, ecs:RegisterTaskDefinition, ecs:RunTask, ecs:ExecuteCommand,
-            lambda:UpdateFunctionCode), IAM administration, and any unrelated data-plane or
-            network mutation.
+        """ Operational actions scoped to the service and region, after MFA-protected assumption.
+            Direct code-authoring APIs, IAM administration and queue deletion/purge are excluded.
+            This is NOT a reversible-only or no-code-execution sandbox: CodeBuild overrides and
+            workflow inputs can delegate code/data mutations to existing, separately privileged
+            service roles. Keep those explicitly accepted risks visible in operator documentation.
         """
         condition = cls._human_access_mutation_condition()
         return Policy(
@@ -1179,10 +1265,11 @@ class C4IAM(C4IAMBase, C4Part):
                         'Condition': condition,
                     },
                     {
-                        # Rebuild through CI - the only sanctioned way to change what runs. The
-                        # build runs under CodeBuild's own role from the pinned repo and branch,
-                        # and the human never pushes an image (ecr:PutImage is denied).
-                        'Sid': 'RebuildApplicationImageViaCiOnly',
+                        # Deliberately retained delegated execution: StartBuild accepts buildspec,
+                        # source, image and environment overrides under the project's service role.
+                        # The human boundary does NOT constrain that role. RetryBuild can repeat
+                        # an earlier overridden build. See the operator risk/enablement checklist.
+                        'Sid': 'DelegateBuildsToExistingServiceRoles',
                         'Effect': 'Allow',
                         'Action': ['codebuild:StartBuild', 'codebuild:StopBuild',
                                    'codebuild:RetryBuild'],
@@ -1195,8 +1282,8 @@ class C4IAM(C4IAMBase, C4Part):
 
     @classmethod
     def human_remediate_guardrail_policy(cls) -> Policy:
-        """ Denies that hold whether or not the boundary is attached: no way to author or run new
-            code, no irreversible queue operation, no data or secret reads, no chaining.
+        """ Direct API denies: no code-authoring API, queue deletion, secret reads or role chaining.
+            These do not constrain downstream execution under CodeBuild or workflow service roles.
         """
         return Policy(
             PolicyName='HumanRemediateGuardrailPolicy',
@@ -1204,7 +1291,7 @@ class C4IAM(C4IAMBase, C4Part):
                 'Version': '2012-10-17',
                 'Statement': [
                     {
-                        'Sid': 'RemediationCannotSupplyCodeDestroyDataOrReadIt',
+                        'Sid': 'DenyDirectCodeDataAndIdentityOperations',
                         'Effect': 'Deny',
                         'Action': [
                             'ecs:RegisterTaskDefinition', 'ecs:DeregisterTaskDefinition',
