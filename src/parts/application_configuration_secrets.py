@@ -46,16 +46,23 @@ class ApplicationConfigurationSecrets:
             'ENCODED_REDIS_SERVER': None,  # populate later if in use
             'ENCODED_FOURSIGHT_BUCKET_PREFIX': ConfigManager.resolve_bucket_name("{foursight_prefix}"),
             'ENCODED_IDENTITY': None,  # This is the name of the Secrets Manager with all our identity's secrets
+            # NOTE: these five are resolved directly via ConfigManager.resolve_bucket_name(AppBucketTemplate.*)
+            # rather than via C4Datastore.application_layer_bucket(...) (src/parts/datastore.py), which is the
+            # same underlying computation, to avoid a circular import (datastore.py imports this module).
+            # Previously these were left as "" placeholders, which made dcicutils.deployment_utils fall back to
+            # its own bucket-name default -- one that double-inserts the env name when
+            # ENCODED_APPLICATION_BUCKET_PREFIX (above) already contains it, producing bucket names that were
+            # never actually provisioned. See the 4dn-dcic/4dn-cloud-infra SRCE NoSuchBucket investigation.
             'ENCODED_FILE_UPLOAD_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_FILES_BUCKET),
+                ConfigManager.resolve_bucket_name(ConfigManager.AppBucketTemplate.FILES),
             'ENCODED_FILE_WFOUT_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_WFOUT_BUCKET),
+                ConfigManager.resolve_bucket_name(ConfigManager.AppBucketTemplate.WFOUT),
             'ENCODED_BLOB_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_BLOBS_BUCKET),
+                ConfigManager.resolve_bucket_name(ConfigManager.AppBucketTemplate.BLOBS),
             'ENCODED_SYSTEM_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_SYSTEM_BUCKET),
+                ConfigManager.resolve_bucket_name(ConfigManager.AppBucketTemplate.SYSTEM),
             'ENCODED_METADATA_BUNDLES_BUCKET':
-                "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_METADATA_BUNDLES_BUCKET),
+                ConfigManager.resolve_bucket_name(ConfigManager.AppBucketTemplate.METADATA_BUNDLES),
             'ENCODED_S3_BUCKET_ORG': ConfigManager.get_config_setting(Settings.S3_BUCKET_ORG, default=None),
             'ENCODED_TIBANNA_OUTPUT_BUCKET':
                 "",  # cls.application_layer_bucket(C4DatastoreExports.APPLICATION_TIBANNA_OUTPUT_BUCKET),
