@@ -27,6 +27,9 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.15.8"
+          # The harness captures verbose mock plans itself. Duplicating them in GITHUB_OUTPUT
+          # can exhaust the runner when it processes step outputs, even after pytest passes.
+          terraform_wrapper: false
 
       - name: terraform fmt -check
         run: terraform fmt -check -recursive terraform/

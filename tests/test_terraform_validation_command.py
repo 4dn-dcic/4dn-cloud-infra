@@ -68,6 +68,16 @@ exit 0
     assert not any(command in calls for command in [" apply ", " plan ", " import "])
 
 
+def test_workflow_disables_terraform_output_wrapper():
+    """Verbose mock plans belong to the parity harness, not GitHub's step-output file."""
+    workflow = yaml.safe_load((ROOT / ".github/workflows/terraform.yml").read_text())
+    setup = next(
+        step for step in workflow["jobs"]["fmt-validate"]["steps"]
+        if step.get("uses", "").startswith("hashicorp/setup-terraform@")
+    )
+    assert setup["with"].get("terraform_wrapper") is False
+
+
 @pytest.mark.parametrize("parent_exists", [False, True])
 @pytest.mark.parametrize("child_fails", [False, True])
 def test_workflow_pytest_temp_contract(tmp_path, parent_exists, child_fails):

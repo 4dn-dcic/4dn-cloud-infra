@@ -18,7 +18,7 @@ Troposphere templates; `tests/test_stack_regressions.py` retains the independent
 | PR100 / Foursight | Complete portal/Foursight initial JSON compared, including the five concrete bucket values matching datastore producers. Root wiring passes actual bucket outputs. `foursight_secret_name` and the SRCE example expose identity and Application-only metadata; the retained Python package path selects `foursight_smaht`. |
 | SRCE shells / auxiliary compute | Three existing VPCs, seven owned SGs, exact directional protocol/port/CIDR rule comparison, subnet disjointness. Compute retained. EC2 Higlass/JupyterHub user data and default instance/LB/rule contracts; standard/SRCE Sentieon admin/VPC/Compute license rules. Optional standard bastion skips incomplete/off configurations. |
 | Other foundations | ECR/logging/shared-secret implementations retain the current contracts. Redis encryption, engine/node/failover options are compared; discovered replication-group ID is supported. Bootstrap is new state infrastructure, not a migrated CFN resource. |
-| N2 validation / tooling | No forced TTY; schema/init/lint child errors propagate, including a failed init preventing validation. Parent success is never printed on failure. CI creates the pytest temporary parent explicitly; executable workflow regressions cover fresh/existing parents and pytest failure propagation. CFN validation/package/change-set failure tests remain. Exact import maps reject duplicate targets and incomplete suggestions exit nonzero. |
+| N2 validation / tooling | No forced TTY; schema/init/lint child errors propagate, including a failed init preventing validation. Parent success is never printed on failure. CI creates the pytest temporary parent explicitly and disables Terraform's step-output wrapper; workflow regressions cover fresh/existing parents, pytest failure propagation and the wrapper setting. CFN validation/package/change-set failure tests remain. Exact import maps reject duplicate targets and incomplete suggestions exit nonzero. |
 
 ## Local validation evidence
 
@@ -26,7 +26,7 @@ Against PR97 `d7ba6e9` (including merged PR100), merged into PR98 without rewrit
 
 | Safe check | Result |
 |---|---|
-| Full locked Python suite + native plan-only mock matrix | **317 passed**, three dependency/deprecation warnings; includes 80 native parity cases and four workflow temporary-directory regressions |
+| Full locked Python suite + native plan-only mock matrix | **318 passed**, three dependency/deprecation warnings; includes 80 native parity cases and five workflow regressions |
 | Terraform 1.15.8 `validate.sh schema` | **47 checks passed**: formatting plus backend-disabled init/validate for 23 roots/modules/examples |
 | TFLint 0.53.0 `validate.sh lint` | **23 passed** |
 | Changed Python files, flake8 (120-column limit); shell syntax/ShellCheck; workflow actionlint; `git diff --check` | Passed |

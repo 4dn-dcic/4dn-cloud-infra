@@ -48,6 +48,8 @@ config/credential fallbacks, and blocks socket and botocore API calls **before a
 Native parity uses `terraform test` with **mock providers and plan-only run blocks** in scratch
 copies. Only computed IDs/ARNs are mocked; containers, policies, listeners, dependencies and
 configuration come from the actual modules. No real-provider plan/apply/import runs.
+CI disables the setup-terraform output wrapper: the harness captures verbose JSON plans itself,
+and duplicating every plan into `GITHUB_OUTPUT` can exhaust GitHub's step-output processor.
 
 `CAPTURE_CFN_DIR=.parity/synth` additionally saves deduplicated synthetic CFN templates for
 `cfn-lint`. Checkov is advisory; run offline with `--skip-download` and report its nonzero exit
