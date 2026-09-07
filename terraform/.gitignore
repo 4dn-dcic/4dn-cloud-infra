@@ -1,0 +1,23 @@
+# Terraform working directories and local state — never commit these.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Local override files
+*_override.tf
+*_override.tf.json
+override.tf
+override.tf.json
+
+# Plan artifacts
+*.tfplan
+tfplan
+tfplan.json
+
+# NOTE: account-root .terraform.lock.hcl IS committed (per-root provider pinning; plan §2.4).
+# Module-level lock files are NOT committed: standalone `terraform init` in a module dir generates a
+# single-platform lock that would break cross-platform CI; modules take their pins from the root
+# lock when consumed via a root.
+modules/*/.terraform.lock.hcl

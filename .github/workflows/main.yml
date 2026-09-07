@@ -41,4 +41,4 @@ jobs:
         run: |
           # Includes the ECS/TLS, datastore-version, IAM, CodeBuild and CLI failure matrices.
           # No Docker TTY, ambient AWS credentials or live CloudFormation validation in CI.
-          make test
+          PYTHONPATH=tests/offline:. make test

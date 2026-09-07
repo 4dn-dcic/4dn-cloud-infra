@@ -1,0 +1,25 @@
+{
+  "StackResources": [
+    {"LogicalResourceId": "C4NetworkMainVPC", "PhysicalResourceId": "vpc-0abc1234def567890", "ResourceType": "AWS::EC2::VPC"},
+    {"LogicalResourceId": "C4NetworkMainInternetGateway", "PhysicalResourceId": "igw-0abc1234def567890", "ResourceType": "AWS::EC2::InternetGateway"},
+    {"LogicalResourceId": "C4NetworkMainPrivateSubnetA", "PhysicalResourceId": "subnet-0aaa1111", "ResourceType": "AWS::EC2::Subnet"},
+    {"LogicalResourceId": "C4NetworkMainPublicSubnetA", "PhysicalResourceId": "subnet-0bbb2222", "ResourceType": "AWS::EC2::Subnet"},
+    {"LogicalResourceId": "C4NetworkMainPrivateSubnetB", "PhysicalResourceId": "subnet-0ccc3333", "ResourceType": "AWS::EC2::Subnet"},
+    {"LogicalResourceId": "C4NetworkMainPublicSubnetB", "PhysicalResourceId": "subnet-0ddd4444", "ResourceType": "AWS::EC2::Subnet"},
+    {"LogicalResourceId": "C4NetworkMainMainRouteTable", "PhysicalResourceId": "rtb-0main0000", "ResourceType": "AWS::EC2::RouteTable"},
+    {"LogicalResourceId": "C4NetworkMainPrivateRouteTable", "PhysicalResourceId": "rtb-0priv0000", "ResourceType": "AWS::EC2::RouteTable"},
+    {"LogicalResourceId": "C4NetworkMainPublicRouteTable", "PhysicalResourceId": "rtb-0publ0000", "ResourceType": "AWS::EC2::RouteTable"},
+    {"LogicalResourceId": "C4NetworkMainDBSecurityGroup", "PhysicalResourceId": "sg-0db000000", "ResourceType": "AWS::EC2::SecurityGroup"},
+    {"LogicalResourceId": "C4NetworkMainHTTPSSecurityGroup", "PhysicalResourceId": "sg-0https0000", "ResourceType": "AWS::EC2::SecurityGroup"},
+    {"LogicalResourceId": "C4NetworkMainApplicationSecurityGroup", "PhysicalResourceId": "sg-0app00000", "ResourceType": "AWS::EC2::SecurityGroup"},
+    {"LogicalResourceId": "C4NetworkMainNATGatewayForPublicSubnetA", "PhysicalResourceId": "nat-0abc123", "ResourceType": "AWS::EC2::NatGateway"},
+    {"LogicalResourceId": "C4NetworkMainEIPforPublicSubnetA", "PhysicalResourceId": "eipalloc-0abc123", "ResourceType": "AWS::EC2::EIP"},
+    {"LogicalResourceId": "C4NetworkMainsqsVPCIEndpoint", "PhysicalResourceId": "vpce-0sqs0000", "ResourceType": "AWS::EC2::VPCEndpoint"},
+    {"LogicalResourceId": "C4NetworkMains3VPCGEndpoint", "PhysicalResourceId": "vpce-0s3g0000", "ResourceType": "AWS::EC2::VPCEndpoint"},
+    {"LogicalResourceId": "C4NetworkMaindynamodbVPCGEndpoint", "PhysicalResourceId": "vpce-0ddbg000", "ResourceType": "AWS::EC2::VPCEndpoint"},
+    {"LogicalResourceId": "C4NetworkMainVPCFlowLogGroup", "PhysicalResourceId": "c4-network-main-vpc-flow-logs", "ResourceType": "AWS::Logs::LogGroup"},
+    {"LogicalResourceId": "VPCFlowLogDeliveryRole", "PhysicalResourceId": "c4-network-main-vpc-flow-log-delivery", "ResourceType": "AWS::IAM::Role"},
+    {"LogicalResourceId": "C4NetworkMainDBPortRangeAccess", "PhysicalResourceId": "sgr-0db000", "ResourceType": "AWS::EC2::SecurityGroupIngress"},
+    {"LogicalResourceId": "C4NetworkMainAttachGateway", "PhysicalResourceId": "C4NetworkMainAttachGateway", "ResourceType": "AWS::EC2::VPCGatewayAttachment"}
+  ]
+}

@@ -1,0 +1,80 @@
+# Terraform static validation (plan §9). SEPARATE from the Python CI (main.yml) so it never blocks
+# it. NO real-provider plan/apply runs here. Tests use plan-only mock providers; schema,
+# formatting and linters require no AWS credentials. Dependency downloads need internet.
+name: Terraform
+
+on:
+  push:
+    branches: [master, wrr_scre]
+  pull_request:
+    paths:
+      - "terraform/**"
+      - "src/**"
+      - "tests/**"
+      - "poetry.lock"
+      - ".github/workflows/terraform.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fmt-validate:
+    name: fmt + validate (offline)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.8"
+          # The harness captures verbose mock plans itself. Duplicating them in GITHUB_OUTPUT
+          # can exhaust the runner when it processes step outputs, even after pytest passes.
+          terraform_wrapper: false
+
+      - name: terraform fmt -check
+        run: terraform fmt -check -recursive terraform/
+
+      - name: terraform validate (every root AND every module, -backend=false)
+        run: terraform/tools/validate.sh schema
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: make build
+      - name: Select locked Tibanna namespace
+        # tibanna-ff and tibanna distribute the same Python namespace. Make the locked
+        # primary package authoritative for this generic/SRCE contract matrix.
+        run: poetry run pip install --no-deps --force-reinstall "tibanna==$(poetry run python -c 'from importlib.metadata import version; print(version("tibanna"))')"
+      - name: Full safe suite and deterministic native/Troposphere parity
+        env:
+          PYTHONPATH: tests/offline:.
+          TF_PARITY: "1"
+        run: |
+          # pytest creates/clears the leaf, but requires its parent to exist on a fresh checkout.
+          mkdir -p .parity
+          poetry run pytest -q --basetemp=.parity/pytest
+
+  tflint:
+    name: tflint (non-blocking)
+    runs-on: ubuntu-22.04
+    continue-on-error: true # advisory only — do not block (plan §9)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.53.0
+      - name: tflint (recursive over modules)
+        run: terraform/tools/validate.sh lint
+
+  checkov:
+    name: checkov (non-blocking)
+    runs-on: ubuntu-22.04
+    continue-on-error: true # findings against the like-for-like port are EXPECTED (plan §8.1, §10.4)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install checkov==3.2.471
+      - name: checkov (advisory job, truthful failing exit for findings)
+        run: checkov -d terraform/modules --framework terraform --compact --skip-download

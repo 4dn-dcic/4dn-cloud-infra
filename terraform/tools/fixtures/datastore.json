@@ -1,0 +1,15 @@
+{
+  "StackResources": [
+    {"LogicalResourceId": "C4DatastoreSmahtWolfRDSSecret", "PhysicalResourceId": "arn:aws:secretsmanager:us-east-1:537626822796:secret:C4DatastoreSmahtWolfRDSSecret-abc123", "ResourceType": "AWS::SecretsManager::Secret"},
+    {"LogicalResourceId": "C4DatastoreRDSParameterGroup", "PhysicalResourceId": "c4-rds-smaht-wolf-pg17", "ResourceType": "AWS::RDS::DBParameterGroup"},
+    {"LogicalResourceId": "C4DatastoreSmahtWolfDBSubnetGroup", "PhysicalResourceId": "c4-rds-smaht-wolf-subnet-group", "ResourceType": "AWS::RDS::DBSubnetGroup"},
+    {"LogicalResourceId": "C4DatastoreSmahtWolfRDS", "PhysicalResourceId": "rds-smaht-wolf", "ResourceType": "AWS::RDS::DBInstance"},
+    {"LogicalResourceId": "C4DatastoreSmahtWolfOpenSearch", "PhysicalResourceId": "os-smaht-wolf", "ResourceType": "AWS::OpenSearchService::Domain"},
+    {"LogicalResourceId": "C4DatastoreSmahtWolfS3EncryptKey", "PhysicalResourceId": "27d040a3-ead1-4f5a-94ce-0fa6e7f84a95", "ResourceType": "AWS::KMS::Key"},
+    {"LogicalResourceId": "C4DatastorePrimaryQueue", "PhysicalResourceId": "https://sqs.us-east-1.amazonaws.com/537626822796/smaht-wolf-indexer-queue", "ResourceType": "AWS::SQS::Queue"},
+    {"LogicalResourceId": "C4DatastoreIngestionQueue", "PhysicalResourceId": "https://sqs.us-east-1.amazonaws.com/537626822796/smaht-wolf-ingestion-queue", "ResourceType": "AWS::SQS::Queue"},
+    {"LogicalResourceId": "C4BucketSmahtWolfApplicationFiles", "PhysicalResourceId": "smaht-wolf-application-files", "ResourceType": "AWS::S3::Bucket"},
+    {"LogicalResourceId": "C4BucketSmahtWolfApplicationSystem", "PhysicalResourceId": "smaht-wolf-application-system", "ResourceType": "AWS::S3::Bucket"},
+    {"LogicalResourceId": "SmahtWolfApplicationFilesEncryptionPolicy", "PhysicalResourceId": "smaht-wolf-application-files", "ResourceType": "AWS::S3::BucketPolicy"}
+  ]
+}
