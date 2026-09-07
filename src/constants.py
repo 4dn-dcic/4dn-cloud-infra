@@ -132,6 +132,44 @@ class Settings:
     CODEBUILD_DEPLOY_BRANCH = 'codebuild.build_branch'
     CODEBUILD_REPO_NAME = 'codebuild.repo_name'  # name of ECR repo
 
+    # Human direct-AWS-access role options (see C4IAM.human_diagnose_role/human_remediate_role).
+    #
+    # Every setting in this block is off or empty by default: with none of them present in
+    # template.config.json the IAM stack is byte-for-byte what it was before, so enabling any of
+    # this is always a deliberate act. Two independent roles can be turned on:
+    #
+    #   diagnose  - read-only inspection of the running system
+    #   remediate - the reversible operational actions needed to remediate those services
+    #
+    # A role is only emitted when its enable flag is on AND its trusted-principal list is
+    # non-empty; there is deliberately no account-root trust fallback.
+    #
+    # These policies do not enumerate resource identifiers. The account holds only our own
+    # resources, so where an action supports resource-level authorization it is scoped to the
+    # service (every ECS service, every queue, every bucket in this account and region) and the
+    # constraint that matters is the enumerated action list. Consequently there is nothing here to
+    # configure per resource - the only knobs are who may assume each role and the one explicit
+    # opt-in below.
+
+    # Enablement (both default false)
+    HUMAN_ACCESS_DIAGNOSE_ENABLED = 'human_access.diagnose.enabled'
+    HUMAN_ACCESS_REMEDIATE_ENABLED = 'human_access.remediate.enabled'
+
+    # Trust: comma-separated IAM principal ARNs approved to assume each role. No default.
+    HUMAN_ACCESS_DIAGNOSE_PRINCIPALS = 'human_access.diagnose.trusted_principals'
+    HUMAN_ACCESS_REMEDIATE_PRINCIPALS = 'human_access.remediate.trusted_principals'
+
+    # Trust conditions. require_mfa defaults true; set it false only for IAM Identity Center
+    # (SSO) accounts, where aws:MultiFactorAuthPresent is asserted upstream and unreliable.
+    HUMAN_ACCESS_REQUIRE_MFA = 'human_access.require_mfa'
+    # Optional StringLike pattern for sts:SourceIdentity, e.g. '*@hms.harvard.edu'.
+    HUMAN_ACCESS_SOURCE_IDENTITY_PATTERN = 'human_access.source_identity_pattern'
+
+    # kms:Decrypt (and the key-policy read) for the diagnostic role, needed to read objects in an
+    # SSE-KMS bucket. Off by default: at service scope this reaches any key in the account whose
+    # key policy authorizes the role, including through delegation to account IAM policies.
+    HUMAN_ACCESS_DIAGNOSE_ALLOW_KMS_DECRYPT = 'human_access.diagnose.allow_kms_decrypt'
+
 
 # dmichaels/2022-06-06: Factored out from base.py.
 COMMON_STACK_PREFIX = "c4-"
@@ -172,6 +210,11 @@ class C4IAMBase:
     STACK_NAME_TOKEN = "iam"
     STACK_TITLE_TOKEN = "IAM"
     SHARING = 'ecosystem'
+
+    # IAM MaxSessionDuration has a minimum of 3600 seconds. Both enforce a one-hour ceiling;
+    # operators should request 1800 seconds for remediation, but that is guidance, not enforcement.
+    HUMAN_ACCESS_DIAGNOSE_SESSION_DURATION = 3600
+    HUMAN_ACCESS_REMEDIATE_SESSION_DURATION = 3600
 
 
 # dmichaels/2022-07-05: Factored out from sentieon.py.
