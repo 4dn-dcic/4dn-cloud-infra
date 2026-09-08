@@ -49,6 +49,23 @@ def _read_subnet_ids(setting_key):
     return subnet_ids
 
 
+def _required_subnet_export_names(setting_key, export_names, label):
+    """ The subnet export names an SRCE stack may reference, one per IT-provided subnet.
+
+        Raises rather than returning an empty list when the config key is unset: see the note on
+        C4SRCENetworkExports.PRIVATE_SUBNETS. Also refuses to name more subnets than
+        C4NetworkExports declares, since a name beyond that list has no matching export.
+    """
+    subnet_ids = _read_subnet_ids(setting_key)
+    if len(subnet_ids) > len(export_names):
+        raise RuntimeError(
+            f"{setting_key!r} lists {len(subnet_ids)} {label} subnets but only"
+            f" {len(export_names)} subnet exports exist ({list(export_names)}); the extra subnets"
+            f" could not be exported or imported."
+        )
+    return export_names[:len(subnet_ids)]
+
+
 def _assert_no_other_vpc_subnets(subnet_ids):
     """ Guard for the SRCE three-VPC split: the Application VPC's private subnets must not overlap
         the Database or Compute VPC's. Anything attached to those subnets (Foursight Lambda ENIs,
@@ -88,15 +105,22 @@ class C4SRCENetworkExports(C4Exports):
     # PrivateSubnetA/B/... naming as C4NetworkExports. Exposed as lazy properties (not class
     # attributes) so the config read happens at access time rather than at module-import time —
     # alpha_stacks imports this unconditionally on every CLI invocation (CLN-9).
+    #
+    # Both fail loudly on an unset/empty config key rather than returning []. An empty list is
+    # never a usable answer here: it would emit an ECS service with no Subnets and a Foursight
+    # VpcConfig with none either, which CloudFormation accepts as "no networking" or (for chalice,
+    # whose build_config() gates on `if subnet_ids:`) silently leaves a stale config in place.
     @property
     def PRIVATE_SUBNETS(self):
-        n = len(_parse_subnet_ids(ConfigManager.get_config_setting(Settings.PRIVATE_SUBNETS, default=[])))
-        return C4NetworkExports.PRIVATE_SUBNETS[:n]
+        return _required_subnet_export_names(Settings.PRIVATE_SUBNETS,
+                                             C4NetworkExports.PRIVATE_SUBNETS,
+                                             'Application VPC private')
 
     @property
     def PUBLIC_SUBNETS(self):
-        n = len(_parse_subnet_ids(ConfigManager.get_config_setting(Settings.PUBLIC_SUBNETS, default=[])))
-        return C4NetworkExports.PUBLIC_SUBNETS[:n]
+        return _required_subnet_export_names(Settings.PUBLIC_SUBNETS,
+                                             C4NetworkExports.PUBLIC_SUBNETS,
+                                             'Application VPC public')
 
     @classmethod
     def get_security_ids(cls):

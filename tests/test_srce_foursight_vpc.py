@@ -441,6 +441,42 @@ def test_get_subnet_ids_rejects_a_subnet_shared_with_another_srce_vpc(setting_ke
     assert borrowed in str(exc.value)
 
 
+# Review follow-up (srce_network.py): "Can this be an empty list when there is no config? Should
+# deployment abort here if it is empty?" -- yes, it must abort. An empty subnet list is never a
+# usable answer: it yields an ECS service with no Subnets, and foursight_core's build_config()
+# gates on `if subnet_ids:`, so an empty resolution silently keeps whatever stale VpcConfig is
+# already in .chalice/config.json.
+@pytest.mark.parametrize('setting_key, attribute', [
+    (Settings.PRIVATE_SUBNETS, 'PRIVATE_SUBNETS'),
+    (Settings.PUBLIC_SUBNETS, 'PUBLIC_SUBNETS'),
+])
+@pytest.mark.parametrize('unset_as', [None, '', '[]', '   '])
+def test_srce_subnet_export_names_abort_instead_of_resolving_empty(setting_key, attribute, unset_as):
+    config = srce_config(**{setting_key: unset_as})
+    exports = C4SRCENetworkExports()
+    with mock.patch.object(ConfigManager, 'get_config_setting', config):
+        with pytest.raises(RuntimeError) as exc:
+            getattr(exports, attribute)
+    assert setting_key in str(exc.value)
+
+
+def test_srce_subnet_export_names_refuse_more_subnets_than_there_are_exports():
+    too_many = [f'subnet-0aaaaaaaaaaaaaa{index:02d}' for index in
+                range(len(C4NetworkExports.PRIVATE_SUBNETS) + 1)]
+    config = srce_config(**{Settings.PRIVATE_SUBNETS: too_many})
+    exports = C4SRCENetworkExports()
+    with mock.patch.object(ConfigManager, 'get_config_setting', config):
+        with pytest.raises(RuntimeError, match='subnet exports exist'):
+            exports.PRIVATE_SUBNETS
+
+
+def test_srce_subnet_export_names_track_the_configured_subnet_count():
+    config = srce_config(**{Settings.PRIVATE_SUBNETS: APP_PRIVATE_SUBNETS[:1]})
+    exports = C4SRCENetworkExports()
+    with mock.patch.object(ConfigManager, 'get_config_setting', config):
+        assert exports.PRIVATE_SUBNETS == C4NetworkExports.PRIVATE_SUBNETS[:1]
+
+
 # ---------------------------------------------------------------------------------------------
 # The non-SRCE Foursight stacks: the real-world failing command.
 #
