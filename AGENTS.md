@@ -46,6 +46,15 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   CGAP while `app.py` imports whichever `chalicelib_*` its runtime env implies — a `Runtime.ImportModuleError`
   at Lambda startup, not a packaging error. A new variant must present a name that classifier knows;
   `C4FoursightSMAHTSRCEStack.PackageDeploy.build_config_and_package` (`src/stack.py`) is the pattern.
+- **The fixed deployments must synthesize byte-identically.** Fourfront and the existing CGAP
+  deployments are fixed infrastructure. `tests/test_fixed_stack_parity.py` fingerprints every
+  registered stack's template across all app kinds and both deployment paradigms and compares it
+  against `tests/parity/fixed_stack_baseline.json`, generated from `origin/master` by
+  `tests/parity/synthesis_matrix.py` (run inside a `git archive` of the ref -- never against a
+  feature branch, or the baseline asserts its own result). New behaviour for a new deployment goes
+  behind a config gate that is off by default, or into a subclass; `ecr` and `appconfig` are the
+  only stacks allowed a delta, and only an additive one.
+
 - **Config list values arrive as strings.** `ConfigManager._load_config` stringifies every setting so it
   can be sourced into `os.environ`, so a JSON list in `config.json` reaches consumers as its Python repr —
   see the CLN-10 note in `src/base.py` and `_parse_subnet_ids` in `src/parts/srce_network.py`.
