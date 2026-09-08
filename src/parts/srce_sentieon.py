@@ -29,10 +29,10 @@ class C4SRCESentieonSupport(C4SentieonSupport):
         compute_cidr = ConfigManager.get_config_setting(Settings.COMPUTE_VPC_CIDR, default=None)
         # SSH is restricted to the admin/VPN CIDR (config-driven, defaults to the App VPC CIDR),
         # never 0.0.0.0/0 — a world-open SSH port will not survive an IT security review for a
-        # "secure enclave" (SEC-4).
+        # "secure enclave".
         admin_cidr = ConfigManager.get_config_setting(Settings.SENTIEON_ADMIN_CIDR, default=app_cidr)
         rules = [
-            # SSH Access — restricted to the admin/VPN CIDR (SEC-4).
+            # SSH Access — restricted to the admin/VPN CIDR.
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationSSHInboundAllAccess'),
                 CidrIp=admin_cidr,
@@ -74,7 +74,7 @@ class C4SRCESentieonSupport(C4SentieonSupport):
                 ToPort=443,
             ),
 
-            # ICMP for server diagnostics — restricted to the App VPC CIDR, not world-open (SEC-4).
+            # ICMP for server diagnostics — restricted to the App VPC CIDR, not world-open.
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationICMPInboundAllAccess'),
                 CidrIp=app_cidr,

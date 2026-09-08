@@ -215,7 +215,7 @@ class C4Client:
                                              value=srce_network_compute_stack_name.stack_name),
                 # IAM/ECR/Logging are ecosystem-scoped shared stacks; derive their names from the
                 # same c4_alpha_stack_metadata helper as everything else rather than hardcoding
-                # literals (CLN-11). These are resolved here at upload time (config is loaded).
+                # literals. These are resolved here at upload time (config is loaded).
                 cls.build_parameter_override(param_name='ECRStackNameParameter',
                                              value=ecr_stack_name.stack_name),
                 cls.build_parameter_override(param_name='IAMStackNameParameter',

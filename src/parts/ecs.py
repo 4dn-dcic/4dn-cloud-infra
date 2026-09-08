@@ -197,7 +197,7 @@ class C4ECSApplication(C4Part):
         return template
 
     def _awslogs_config(self, stream_prefix, log_group_export=None) -> LogConfiguration:
-        """ Shared awslogs LogConfiguration for ECS container definitions (RED-4). All ECS/task
+        """ Shared awslogs LogConfiguration for ECS container definitions. All ECS/task
             variants used a byte-identical block differing only in the stream prefix and (for
             blue/green) the log-group export; this factors that out. """
         return LogConfiguration(

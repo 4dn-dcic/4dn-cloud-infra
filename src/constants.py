@@ -151,7 +151,8 @@ class Settings:
     # Sentieon Options
     SENTIEON_SSH_KEY = 'sentieon.ssh_key'
     # CIDR allowed to SSH into the Sentieon license server (institutional VPN/admin range).
-    # Defaults to the VPC CIDR (never 0.0.0.0/0) if unset (see SEC-4).
+    # Defaults to the VPC CIDR if unset, never 0.0.0.0/0. Read by the SRCE Sentieon stack only;
+    # the standard Sentieon stack is unchanged.
     SENTIEON_ADMIN_CIDR = 'sentieon.admin_cidr'
 
     # JH Options
