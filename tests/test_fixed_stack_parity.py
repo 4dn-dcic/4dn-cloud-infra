@@ -18,7 +18,9 @@ import pytest
 from tests.parity import synthesis_matrix as matrix
 
 
-BASELINE = matrix.load_baseline()
+_BASELINE_FILE = matrix.load_baseline()
+BASELINE_ENVIRONMENT = _BASELINE_FILE['environment']
+BASELINE = _BASELINE_FILE['matrix']
 
 # Registered stacks introduced by this change. They have no baseline because they do not exist on
 # origin/master, and they are exactly the surface the fresh SMaHT SRCE deployment adds.
@@ -29,6 +31,22 @@ NEW_SRCE_STACKS = {
 }
 
 CASES = [(variant, stack) for variant in sorted(BASELINE) for stack in sorted(BASELINE[variant])]
+
+
+def test_baseline_was_generated_by_the_same_renderer():
+    """ Fail once, legibly, when the fingerprints are simply not comparable.
+
+        Digests are taken over rendered CloudFormation, so upgrading troposphere changes every one
+        of them without a single infrastructure change. Without this check that shows up as ~100
+        digest mismatches with no hint of the cause.
+    """
+    current = matrix.environment()
+    assert current == BASELINE_ENVIRONMENT, (
+        f'tests/parity/fixed_stack_baseline.json was generated under {BASELINE_ENVIRONMENT}'
+        f' (Python {_BASELINE_FILE.get("generated_under", {}).get("python", "?")}) but this run is'
+        f' under {current} (Python {matrix.provenance()["python"]}); the rendered-template digests'
+        f' are not comparable. Regenerate the baseline against origin/master with a matching'
+        f' troposphere -- see tests/parity/synthesis_matrix.py -- never against this branch.')
 
 
 @pytest.fixture(scope='module')

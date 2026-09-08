@@ -15,6 +15,7 @@ Nothing here contacts AWS or the network; both are hard-denied below.
 import hashlib
 import json
 import os
+import platform
 import socket
 import sys
 
@@ -29,6 +30,7 @@ def _deny(*args, **kwargs):
 socket.socket.connect = _deny
 botocore.client.BaseClient._make_api_call = _deny
 
+import troposphere  # noqa: E402
 from troposphere import Template  # noqa: E402
 from src import base  # noqa: E402
 from src.base import ConfigManager, REGISTERED_STACK_CLASSES  # noqa: E402
@@ -166,6 +168,24 @@ def build_matrix():
 BASELINE_PATH = os.path.join(os.path.dirname(__file__), 'fixed_stack_baseline.json')
 
 
+def environment():
+    """ What the fingerprints depend on besides this repository, and is compared.
+
+        Digests are taken over *rendered* CloudFormation, so a troposphere upgrade can change every
+        one of them without a single change here. Recording the renderer's version turns that from
+        ~100 unreadable digest mismatches into one actionable message (see
+        tests/test_fixed_stack_parity.py). Only troposphere is compared: the repo supports several
+        Python minors and CI runs a different one from most development environments, and rendering
+        is identical across them (verified across 3.10 and 3.11).
+    """
+    return {'troposphere': troposphere.__version__}
+
+
+def provenance():
+    """ Informational only -- never compared. Helps diagnose an unexpected mismatch. """
+    return {'python': '.'.join(platform.python_version_tuple()[:2])}
+
+
 def load_baseline():
     with open(BASELINE_PATH) as fp:
         return json.load(fp)
@@ -173,9 +193,11 @@ def load_baseline():
 
 if __name__ == '__main__':
     out = sys.argv[1] if len(sys.argv) > 1 else BASELINE_PATH
-    matrix = build_matrix()
+    baseline = {'environment': environment(), 'generated_under': provenance(),
+                'matrix': build_matrix()}
     with open(out, 'w') as fp:
-        json.dump(matrix, fp, indent=1, sort_keys=True)
+        json.dump(baseline, fp, indent=1, sort_keys=True)
         fp.write('\n')
-    print(f'wrote {out}: {len(matrix)} variants, '
-          f'{len(next(iter(matrix.values())))} registered stacks each')
+    print(f"wrote {out}: {len(baseline['matrix'])} variants, "
+          f"{len(next(iter(baseline['matrix'].values())))} registered stacks each, "
+          f"environment {baseline['environment']}, generated under {baseline['generated_under']}")
