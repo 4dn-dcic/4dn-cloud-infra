@@ -66,6 +66,27 @@ def test_every_registered_stack_is_classified(current):
         assert not missing, f'{variant}: baseline stacks no longer registered {sorted(missing)}'
 
 
+def test_synthesis_is_hermetic_against_the_ambient_environment(monkeypatch):
+    """ The fingerprints must be a property of this repository, not of the caller's shell.
+
+        ConfigManager resolves settings through os.environ, so an unpinned setting falls through to
+        whatever the caller exports -- and Auth0Client / Auth0Secret / S3_ENCRYPT_KEY are read
+        straight into the appconfig GAC secret's SecretString. A developer who exports those (they
+        are ordinary orchestration variables) would otherwise generate a baseline that no clean
+        environment, CI included, can reproduce, and would bake ambient secret values into
+        synthesized templates.
+    """
+    matrix.configure('cgap', 'standalone')
+    from src.parts.appconfig import C4AppConfig
+    clean = matrix.digest(matrix.synthesize(C4AppConfig))
+    for key, value in [('Auth0Client', 'ambient-client'), ('Auth0Secret', 'ambient-secret'),
+                       ('S3_ENCRYPT_KEY', 'ambient-key'), ('ENCODED_DATA_SET', 'ambient-set'),
+                       ('reCaptchaKey', 'ambient-recaptcha')]:
+        monkeypatch.setenv(key, value)
+    matrix.configure('cgap', 'standalone')
+    assert matrix.digest(matrix.synthesize(C4AppConfig)) == clean
+
+
 @pytest.mark.parametrize('variant,stack', CASES, ids=[f'{v}-{s}' for v, s in CASES])
 def test_fixed_stack_is_unchanged_or_additive(current, variant, stack):
     expected = BASELINE[variant][stack]

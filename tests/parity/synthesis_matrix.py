@@ -12,6 +12,7 @@ come from the reference code, never from the branch under test, or it would asse
 
 Nothing here contacts AWS or the network; both are hard-denied below.
 """
+import contextlib
 import hashlib
 import json
 import os
@@ -42,6 +43,48 @@ import src.stacks.alpha_stacks  # noqa: F401,E402  (importing registers every st
 # CloudFormation stacks. Pin it so synthesis is offline and identical on both sides of the compare.
 _acs.ApplicationConfigurationSecrets.get_es_url = classmethod(
     lambda cls: 'https://es.parity.invalid:443')
+
+# --- hermetic configuration ---------------------------------------------------------------------
+#
+# ConfigManager.get_config_setting() reads os.environ inside
+# ConfigManager.validate_and_source_configuration(), which sources the config over the ambient
+# environment. Any setting the matrix does not pin therefore falls through to whatever the caller's
+# shell exports -- and several of them are real credentials (Auth0Client, Auth0Secret,
+# S3_ENCRYPT_KEY are read straight into the appconfig GAC secret's SecretString). Two consequences,
+# both unacceptable here:
+#
+#   * the fingerprints stop being a property of the repository. A baseline generated on a developer
+#     machine that exports those variables does not match the same code synthesized in CI, which
+#     exports none of them, and the whole comparison fails for reasons unrelated to any change.
+#   * ambient secret *values* end up inside synthesized templates.
+#
+# So synthesis runs against exactly the pinned config plus a few process-level variables that are
+# not configuration at all. Everything else is unset for the duration.
+_PROCESS_ENV_KEYS = ('PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP', 'PYTHONPATH', 'PWD', 'SYSTEMROOT',
+                     'VIRTUAL_ENV', 'PYENV_ROOT')
+
+
+@contextlib.contextmanager
+def _pinned_environment():
+    saved = dict(os.environ)
+    pinned = {key: value
+              for key, value in (ConfigManager.singleton()._CACHED_CONFIG or {}).items()
+              if value is not None}
+    kept = {key: saved[key] for key in _PROCESS_ENV_KEYS if key in saved}
+    os.environ.clear()
+    os.environ.update(kept)
+    os.environ.update(pinned)
+    try:
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(saved)
+
+
+ConfigManager.validate_and_source_configuration = classmethod(lambda cls: _pinned_environment())
+
+# Same reasoning: this reads custom/aws_creds/s3_encrypt_key.txt if a developer happens to have one.
+ConfigManager.get_s3_encrypt_key_from_file = classmethod(lambda cls: None)
 
 # Modules that snapshot APP_KIND / APP_DEPLOYMENT at import time and must be re-pointed per variant.
 _MODULE_NAMES = [

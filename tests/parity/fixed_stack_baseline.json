@@ -8,7 +8,7 @@
  "matrix": {
   "cgap-blue-green": {
    "4dn:appconfig": {
-    "digest": "b5811b74b36da46d0a909093e61884ff22a90821f8ccd49f4340bb52491d411f",
+    "digest": "b0c3fd391c74cdb0b4bb1d558bf4e3eb2126498ddb07f6816eae1aab279ff775",
     "sections": {
      "Conditions": {},
      "Mappings": {},
@@ -18,8 +18,8 @@
      },
      "Parameters": {},
      "Resources": {
-      "C4AppConfigCgapBuildBlue": "98ae9a963842560553d96b07b6c0555f3a83fff0b13d9f7dbc1471feea0c31e8",
-      "C4AppConfigCgapBuildGreen": "2233879444ef2744a1d7c838396ad3bc21b6ae09a8b140f63ff74655a8cb2b03"
+      "C4AppConfigCgapBuildBlue": "ce1ce6493fac5bc32eac4d5f819e6929511c3fbc2424a49c2c9b61e995f539b4",
+      "C4AppConfigCgapBuildGreen": "e70607492d9d00a03f7de0a3a6b8ec6d5ebcd2d12b6f337677d393d5b7a1c8a7"
      }
     }
    },
@@ -134,7 +134,7 @@
     }
    },
    "alpha:appconfig": {
-    "digest": "b5811b74b36da46d0a909093e61884ff22a90821f8ccd49f4340bb52491d411f",
+    "digest": "b0c3fd391c74cdb0b4bb1d558bf4e3eb2126498ddb07f6816eae1aab279ff775",
     "sections": {
      "Conditions": {},
      "Mappings": {},
@@ -144,8 +144,8 @@
      },
      "Parameters": {},
      "Resources": {
-      "C4AppConfigCgapBuildBlue": "98ae9a963842560553d96b07b6c0555f3a83fff0b13d9f7dbc1471feea0c31e8",
-      "C4AppConfigCgapBuildGreen": "2233879444ef2744a1d7c838396ad3bc21b6ae09a8b140f63ff74655a8cb2b03"
+      "C4AppConfigCgapBuildBlue": "ce1ce6493fac5bc32eac4d5f819e6929511c3fbc2424a49c2c9b61e995f539b4",
+      "C4AppConfigCgapBuildGreen": "e70607492d9d00a03f7de0a3a6b8ec6d5ebcd2d12b6f337677d393d5b7a1c8a7"
      }
     }
    },
@@ -592,7 +592,7 @@
   },
   "cgap-standalone": {
    "4dn:appconfig": {
-    "digest": "ddc72fcbbe9a9e9d93cfaad38a8d30d5e42c2d1ef0cbeffeddb68871db222b77",
+    "digest": "378012b2a3f02874a1ece62eb8b376ba0859ef557db2d625df651fee24e8c179",
     "sections": {
      "Conditions": {},
      "Mappings": {},
@@ -601,7 +601,7 @@
      },
      "Parameters": {},
      "Resources": {
-      "C4AppConfigCgapBuild": "930732a9d1b43f7ec9e65037890cb6f2ffcec040867a35548c31c2ce16f35139"
+      "C4AppConfigCgapBuild": "287048d21a5eaf551c710c7612f08963d79973472d922cee1e90f662a9c341cd"
      }
     }
    },
@@ -667,7 +667,7 @@
     "error": "Exception: Tried to build Fourfront blue/green but APP_DEPLOYMENT is not \"blue/green\"!"
    },
    "alpha:appconfig": {
-    "digest": "ddc72fcbbe9a9e9d93cfaad38a8d30d5e42c2d1ef0cbeffeddb68871db222b77",
+    "digest": "378012b2a3f02874a1ece62eb8b376ba0859ef557db2d625df651fee24e8c179",
     "sections": {
      "Conditions": {},
      "Mappings": {},
@@ -676,7 +676,7 @@
      },
      "Parameters": {},
      "Resources": {
-      "C4AppConfigCgapBuild": "930732a9d1b43f7ec9e65037890cb6f2ffcec040867a35548c31c2ce16f35139"
+      "C4AppConfigCgapBuild": "287048d21a5eaf551c710c7612f08963d79973472d922cee1e90f662a9c341cd"
      }
     }
    },
@@ -1069,7 +1069,7 @@
   },
   "ff-blue-green": {
    "4dn:appconfig": {
-    "digest": "b6da602a26da08cda71e548bfd4a8ea177db9f305735d37a026b550c39e798a0",
+    "digest": "4da929f85e878a7015579a224cb3b7062949144c732d170b69149383822615fd",
     "sections": {
      "Conditions": {},
      "Mappings": {},
@@ -1079,8 +1079,8 @@
      },
      "Parameters": {},
      "Resources": {
-      "C4AppConfigCgapBuildBlue": "279f371314b044fee8cf745121e7a169a8eabfda2c48211146606ea06bc9d5dc",
-      "C4AppConfigCgapBuildGreen": "9565233d6e8f8f911b3f7957705b62b53123f10c98da3f097923f8b81dd65d22"
+      "C4AppConfigCgapBuildBlue": "58722eae38335258e7743a78d3581eb896f7290f96b057cc94687ce086bb2e81",
+      "C4AppConfigCgapBuildGreen": "35afdb862aaf8f36a4542fc04ba875d3d69bc6eed697ff728fe313820bf3f5de"
      }
     }
    },
@@ -1195,7 +1195,7 @@
     }
    },
    "alpha:appconfig": {
-    "digest": "b6da602a26da08cda71e548bfd4a8ea177db9f305735d37a026b550c39e798a0",
+    "digest": "4da929f85e878a7015579a224cb3b7062949144c732d170b69149383822615fd",
     "sections": {
      "Conditions": {},
      "Mappings": {},
@@ -1205,8 +1205,8 @@
      },
      "Parameters": {},
      "Resources": {
-      "C4AppConfigCgapBuildBlue": "279f371314b044fee8cf745121e7a169a8eabfda2c48211146606ea06bc9d5dc",
-      "C4AppConfigCgapBuildGreen": "9565233d6e8f8f911b3f7957705b62b53123f10c98da3f097923f8b81dd65d22"
+      "C4AppConfigCgapBuildBlue": "58722eae38335258e7743a78d3581eb896f7290f96b057cc94687ce086bb2e81",
+      "C4AppConfigCgapBuildGreen": "35afdb862aaf8f36a4542fc04ba875d3d69bc6eed697ff728fe313820bf3f5de"
      }
     }
    },
@@ -1609,7 +1609,7 @@
   },
   "ff-standalone": {
    "4dn:appconfig": {
-    "digest": "9b532075aba9dd32e7569769421ebcbcd1cf5bd66663ea2bcafef6167dffd282",
+    "digest": "001f5ad0fc2a389ecef33740c0f44bed918017acd615d1fb21cad2359af5a54b",
     "sections": {
      "Conditions": {},
      "Mappings": {},
@@ -1618,7 +1618,7 @@
      },
      "Parameters": {},
      "Resources": {
-      "C4AppConfigCgapBuild": "1343bbe8b8ff6e7da54c5aff63f40ae16ee132c063ded27a16fe7937842165d7"
+      "C4AppConfigCgapBuild": "f76a833b8df1963bf3ebb161c0864c9db020d50597e083f72d34da4f477dbaf0"
      }
     }
    },
@@ -1684,7 +1684,7 @@
     "error": "Exception: Tried to build Fourfront blue/green but APP_DEPLOYMENT is not \"blue/green\"!"
    },
    "alpha:appconfig": {
-    "digest": "9b532075aba9dd32e7569769421ebcbcd1cf5bd66663ea2bcafef6167dffd282",
+    "digest": "001f5ad0fc2a389ecef33740c0f44bed918017acd615d1fb21cad2359af5a54b",
     "sections": {
      "Conditions": {},
      "Mappings": {},
@@ -1693,7 +1693,7 @@
      },
      "Parameters": {},
      "Resources": {
-      "C4AppConfigCgapBuild": "1343bbe8b8ff6e7da54c5aff63f40ae16ee132c063ded27a16fe7937842165d7"
+      "C4AppConfigCgapBuild": "f76a833b8df1963bf3ebb161c0864c9db020d50597e083f72d34da4f477dbaf0"
      }
     }
    },
@@ -2042,7 +2042,7 @@
   },
   "smaht-blue-green": {
    "4dn:appconfig": {
-    "digest": "0a308d5b04f13bc41cf8bbde6bd52bbd6201a3aa6042131eb8ac62ec2cf3c426",
+    "digest": "ba4422df4283d441a3b39c40426d408fba485306fdcf52980e6225b6239f12ef",
     "sections": {
      "Conditions": {},
      "Mappings": {},
@@ -2052,8 +2052,8 @@
      },
      "Parameters": {},
      "Resources": {
-      "C4AppConfigCgapBuildBlue": "c42f71304de34dbe3afff6ec2fdcc44cff278c1cd5ddd893746a61bb92d392c8",
-      "C4AppConfigCgapBuildGreen": "0a5648a2c86ce5840481abf51d524f47f0655d58558896f4e32febf888278e92"
+      "C4AppConfigCgapBuildBlue": "5739afb91ff26ff462d2b4976ba2f4d4647261693af2c39d9a6ff9a364dac0a4",
+      "C4AppConfigCgapBuildGreen": "d2d47dbb38f6dcff6df6a51dca9c3c5b7366ebf0ad513a0213a5c7b607cc9de1"
      }
     }
    },
@@ -2168,7 +2168,7 @@
     }
    },
    "alpha:appconfig": {
-    "digest": "0a308d5b04f13bc41cf8bbde6bd52bbd6201a3aa6042131eb8ac62ec2cf3c426",
+    "digest": "ba4422df4283d441a3b39c40426d408fba485306fdcf52980e6225b6239f12ef",
     "sections": {
      "Conditions": {},
      "Mappings": {},
@@ -2178,8 +2178,8 @@
      },
      "Parameters": {},
      "Resources": {
-      "C4AppConfigCgapBuildBlue": "c42f71304de34dbe3afff6ec2fdcc44cff278c1cd5ddd893746a61bb92d392c8",
-      "C4AppConfigCgapBuildGreen": "0a5648a2c86ce5840481abf51d524f47f0655d58558896f4e32febf888278e92"
+      "C4AppConfigCgapBuildBlue": "5739afb91ff26ff462d2b4976ba2f4d4647261693af2c39d9a6ff9a364dac0a4",
+      "C4AppConfigCgapBuildGreen": "d2d47dbb38f6dcff6df6a51dca9c3c5b7366ebf0ad513a0213a5c7b607cc9de1"
      }
     }
    },
@@ -2586,7 +2586,7 @@
   },
   "smaht-standalone": {
    "4dn:appconfig": {
-    "digest": "11da0b50a38ae406d65d91ab7445a8a6c54c07e12f7b3c9f110bb8fea207ae29",
+    "digest": "3c494729c4716e8ae3ccea53bba111e081a7441fb5139bd45bb1a07f6a4938e3",
     "sections": {
      "Conditions": {},
      "Mappings": {},
@@ -2595,7 +2595,7 @@
      },
      "Parameters": {},
      "Resources": {
-      "C4AppConfigCgapBuild": "274b9f83cfde043b9b897046a295d6675b9a20c20a33355b3ba77b95b4134ee6"
+      "C4AppConfigCgapBuild": "58ef5a76f6bfdd8f25899c737a854ae45fd3ec80d71db535a8c9da60e5fc78eb"
      }
     }
    },
@@ -2661,7 +2661,7 @@
     "error": "Exception: Tried to build Fourfront blue/green but APP_DEPLOYMENT is not \"blue/green\"!"
    },
    "alpha:appconfig": {
-    "digest": "11da0b50a38ae406d65d91ab7445a8a6c54c07e12f7b3c9f110bb8fea207ae29",
+    "digest": "3c494729c4716e8ae3ccea53bba111e081a7441fb5139bd45bb1a07f6a4938e3",
     "sections": {
      "Conditions": {},
      "Mappings": {},
@@ -2670,7 +2670,7 @@
      },
      "Parameters": {},
      "Resources": {
-      "C4AppConfigCgapBuild": "274b9f83cfde043b9b897046a295d6675b9a20c20a33355b3ba77b95b4134ee6"
+      "C4AppConfigCgapBuild": "58ef5a76f6bfdd8f25899c737a854ae45fd3ec80d71db535a8c9da60e5fc78eb"
      }
     }
    },
