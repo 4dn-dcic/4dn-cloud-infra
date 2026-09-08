@@ -56,46 +56,6 @@ class C4ECRExports(C4Exports):
         super().__init__(parameter)
 
 
-# Single source of truth for the fixed (non-env) ECR repositories this stack creates, as
-# (repo_name, C4ECRExports attribute name) pairs, in the order they are added to the template.
-# src/parts/iam.py imports ECR_REPO_NAMES to scope ECS image-pull permissions to exactly these
-# repositories (plus the env portal repo), so the IAM scope cannot drift out of sync with the
-# repositories that actually exist (see SEC-1). Order matters: 'falcon-sensor' and 'tibanna-awsf'
-# must stay first because build_template's ff/smaht short-circuit relies on it.
-_ECR_FIXED_REPO_EXPORTS = [
-    # Crowdstrike Falcon sensor sidecar image
-    ('falcon-sensor', 'FALCON_SENSOR_URL'),
-    # Tibanna executor image
-    ('tibanna-awsf', 'TIBANNA_REPO_URL'),
-    # Misc
-    ('base', 'BASE_REPO_URL'),
-    ('fastqc', 'FASTQC_REPO_URL'),
-    ('md5', 'MD5_REPO_URL'),
-    # Alignment algorithms
-    ('upstream_gatk', 'UPSTREAM_GATK_URL'),
-    ('upstream_sentieon', 'UPSTREAM_SENTIEON_URL'),
-    # SNV callers
-    ('snv_germline_gatk', 'SNV_GERMLINE_GATK_URL'),
-    ('snv_germline_granite', 'SNV_GERMLINE_GRANITE_URL'),
-    ('snv_germline_misc', 'SNV_GERMLINE_MISC_URL'),
-    ('snv_germline_tools', 'SNV_GERMLINE_TOOLS_URL'),
-    ('snv_germline_vep', 'SNV_GERMLINE_VEP_URL'),
-    ('snv_somatic', 'SNV_SOMATIC_URL'),
-    # CNV/SV callers
-    ('cnv_germline', 'CNV_GERMLINE_URL'),
-    ('manta', 'MANTA_REPO_URL'),
-    ('sv_germline_granite', 'SV_GERMLINE_GRANITE_URL'),
-    ('sv_germline_tools', 'SV_GERMLINE_TOOLS_URL'),
-    ('sv_germline_vep', 'SV_GERMLINE_VEP_URL'),
-    ('ascat', 'ASCAT_URL'),
-    # Sentieon callers
-    ('somatic_sentieon', 'SOMATIC_SENTION_URL'),
-]
-
-# Fixed repo names only (the env portal repo is named after ENV_NAME and handled separately).
-ECR_REPO_NAMES = [name for name, _ in _ECR_FIXED_REPO_EXPORTS]
-
-
 class C4ContainerRegistry(C4Part):
     """ Contains a classmethod that builds an ECR template for this stack.
         NOTE: IAM setup must be done before this.
@@ -121,18 +81,51 @@ class C4ContainerRegistry(C4Part):
 
         # build repos
         # note that these are defined by the structure in cgap-pipeline-master - Will Dec 6 2021
-        # The fixed repo names live in _ECR_FIXED_REPO_EXPORTS (module-level) so IAM can import
-        # ECR_REPO_NAMES and scope pulls to exactly these repos (see SEC-1).
         repo_export_pairs = [
             # Main application portal image
             (env_name or ECOSYSTEM, self.EXPORTS.PORTAL_REPO_URL),
-        ] + [(name, getattr(self.EXPORTS, export_attr)) for name, export_attr in _ECR_FIXED_REPO_EXPORTS]
+
+            # Crowdstrike Falcon sensor sidecar image, pulled by the ECS task definitions when
+            # crowdstrike.enabled is set. Listed with tibanna-awsf so it survives the
+            # fourfront/smaht short-circuit below (the SMaHT SRCE deployment needs it).
+            ('falcon-sensor', self.EXPORTS.FALCON_SENSOR_URL),
+
+            # Tibanna executor image
+            ('tibanna-awsf', self.EXPORTS.TIBANNA_REPO_URL),
+
+            # Misc
+            ('base', self.EXPORTS.BASE_REPO_URL),
+            ('fastqc', self.EXPORTS.FASTQC_REPO_URL),
+            ('md5', self.EXPORTS.MD5_REPO_URL),
+
+            # Alignment algorithms
+            ('upstream_gatk', self.EXPORTS.UPSTREAM_GATK_URL),
+            ('upstream_sentieon', self.EXPORTS.UPSTREAM_SENTIEON_URL),
+
+            # SNV callers
+            ('snv_germline_gatk', self.EXPORTS.SNV_GERMLINE_GATK_URL),
+            ('snv_germline_granite', self.EXPORTS.SNV_GERMLINE_GRANITE_URL),
+            ('snv_germline_misc', self.EXPORTS.SNV_GERMLINE_MISC_URL),
+            ('snv_germline_tools', self.EXPORTS.SNV_GERMLINE_TOOLS_URL),
+            ('snv_germline_vep', self.EXPORTS.SNV_GERMLINE_VEP_URL),
+            ('snv_somatic', self.EXPORTS.SNV_SOMATIC_URL),
+
+            # CNV/SV callers
+            ('cnv_germline', self.EXPORTS.CNV_GERMLINE_URL),
+            ('manta', self.EXPORTS.MANTA_REPO_URL),
+            ('sv_germline_granite', self.EXPORTS.SV_GERMLINE_GRANITE_URL),
+            ('sv_germline_tools', self.EXPORTS.SV_GERMLINE_TOOLS_URL),
+            ('sv_germline_vep', self.EXPORTS.SV_GERMLINE_VEP_URL),
+            ('ascat', self.EXPORTS.ASCAT_URL),
+
+            # Sentieon callers
+            ('somatic_sentieon', self.EXPORTS.SOMATIC_SENTION_URL),
+
+        ]
         for rname, export in repo_export_pairs:
             if (ConfigManager.get_config_setting(Settings.APP_KIND) in ['ff', 'smaht'] and
                     rname not in [env_name, 'tibanna-awsf', 'falcon-sensor']):
-                # skip pipeline repos when building a fourfront/smaht env. Use `continue`, not
-                # `break`, so it is not order-dependent on the allowlisted repos coming first (CLN-14).
-                continue
+                break  # do not add tibanna repos if building a fourfront/smaht env
             repo = self.repository(repo_name=rname)
             template.add_resource(repo)
             template.add_output(self.output_repo_url(repo, export))

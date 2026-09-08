@@ -2,6 +2,7 @@ from troposphere import Template
 
 from .datastore import C4Datastore
 from .srce_network import C4SRCEDBNetworkExports
+from ..constants import C4SRCEDatastoreBase
 
 
 # The IAM stack uses SHARING='ecosystem' and is shared across all environments in the account.
@@ -9,7 +10,7 @@ from .srce_network import C4SRCEDBNetworkExports
 SRCE_IAM_STACK_NAME = 'c4-iam-main-stack'
 
 
-class C4SRCEDatastore(C4Datastore):
+class C4SRCEDatastore(C4SRCEDatastoreBase, C4Datastore):
     """
     SRCE variant of C4Datastore. Creates RDS, OpenSearch, S3, and SQS resources
     inside the IT-provided Database VPC by swapping in C4SRCEDBNetworkExports.
@@ -24,8 +25,9 @@ class C4SRCEDatastore(C4Datastore):
     """
     NETWORK_EXPORTS = C4SRCEDBNetworkExports()
 
-    STACK_NAME_TOKEN = 'srce-datastore'
-    STACK_TITLE_TOKEN = 'SRCEDatastore'
+    # STACK_NAME_TOKEN / STACK_TITLE_TOKEN / DEFAULT_RDS_POSTGRES_VERSION come from
+    # C4SRCEDatastoreBase, which src/names.py also uses to compute this stack's names before
+    # orchestration (setup-remaining-secrets). Keeping one source stops the two from drifting.
 
     def build_template(self, template: Template) -> Template:
         template = super().build_template(template)

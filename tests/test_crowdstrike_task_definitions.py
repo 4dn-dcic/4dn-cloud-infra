@@ -1,7 +1,13 @@
 """
 Tests for the CrowdStrike Falcon container-sensor sidecar support on ECS task definitions.
 
-The demonstrated (vendor) contract, applied to every ECS task variant when crowdstrike.enabled:
+Scope: the sidecar is wired into the shared ECS task builders (src/parts/ecs.py,
+src/parts/ecs_blue_green.py) that the SRCE/SMaHT stacks inherit, and is off unless
+crowdstrike.enabled is set. The fixed Fourfront ECS stack (src/parts/fourfront_ecs.py) is
+deliberately NOT wired for it and is unchanged from origin/master -- see
+tests/test_fixed_stack_parity.py.
+
+The demonstrated (vendor) contract, applied to each wired ECS task variant when crowdstrike.enabled:
   * a non-essential 'falcon-container' sidecar pulls the falcon-sensor image and prepares a shared
     task-level 'crowdstrike-falcon-volume' (Host volume), with the Falcon CID injected from Secrets
     Manager as FALCONCTL_OPT_FALCONCTL_CID and FALCONCTL_OPT_BACKEND set;
@@ -11,15 +17,13 @@ The demonstrated (vendor) contract, applied to every ECS task variant when crowd
 
 The default (crowdstrike.enabled false) must leave every task definition byte-identical to before:
 single container, no Volumes, no EntryPoint/DependsOn/MountPoints/Secrets. That preservation is the
-regression guard for the ~11 existing task definitions across the CGAP/Fourfront/blue-green/SRCE
-variants.
+regression guard that keeps the existing CGAP standalone/blue-green task definitions unchanged.
 """
 import pytest
 from unittest import mock
 
 from src.parts import ecs as ecs_mod
 from src.parts.ecs import C4ECSApplication
-from src.parts.fourfront_ecs import FourfrontECSApplication
 from src.parts.ecs_blue_green import ECSBlueGreen
 from src.parts.srce_ecs import C4SRCEECSApplication
 from src.parts.srce_ecs_blue_green import SRCEECSBlueGreen
@@ -66,6 +70,7 @@ def _by_name(containers, name):
 
 # The full set of (class, task-builder callable factory, app-container-name) we assert on. SRCE
 # inherits C4ECSApplication's task builders verbatim, so exercising it proves the mixin path too.
+# Fourfront is absent on purpose: fourfront_ecs.py is unchanged from origin/master.
 def _task_matrix():
     return [
         ('cgap-portal', C4ECSApplication, lambda p: p.ecs_portal_task(), 'portal'),
@@ -74,10 +79,9 @@ def _task_matrix():
         ('cgap-deploy', C4ECSApplication, lambda p: p.ecs_deployment_task(), 'DeploymentAction'),
         ('cgap-initial-deploy', C4ECSApplication, lambda p: p.ecs_deployment_task(initial=True), 'DeploymentAction'),
         ('srce-portal', C4SRCEECSApplication, lambda p: p.ecs_portal_task(), 'portal'),
+        ('srce-indexer', C4SRCEECSApplication, lambda p: p.ecs_indexer_task(), 'Indexer'),
+        ('srce-ingester', C4SRCEECSApplication, lambda p: p.ecs_ingester_task(), 'Ingester'),
         ('srce-deploy', C4SRCEECSApplication, lambda p: p.ecs_deployment_task(), 'DeploymentAction'),
-        ('ff-portal', FourfrontECSApplication, lambda p: p.ecs_portal_task(), 'portal'),
-        ('ff-indexer', FourfrontECSApplication, lambda p: p.ecs_indexer_task(), 'Indexer'),
-        ('ff-deploy', FourfrontECSApplication, lambda p: p.ecs_deployment_task(), 'DeploymentAction'),
     ]
 
 

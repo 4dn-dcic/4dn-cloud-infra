@@ -7,7 +7,8 @@ Theory
 
 A **SRCE** (Secure Research Collaborative Environment) deployment runs the CGAP/SMaHT
 infrastructure inside VPCs that are **provided by an institution's IT/security team** rather than
-VPCs this repository creates. This satisfies environments where network infrastructure (VPCs,
+VPCs this repository creates. This document describes a *fresh* deployment; the existing Fourfront
+and CGAP deployments are unaffected by anything here. This satisfies environments where network infrastructure (VPCs,
 subnets, routing, NAT, IGW) must be centrally owned and audited, and where application teams are
 only permitted to create resources *inside* those pre-provisioned VPCs.
 
@@ -59,13 +60,15 @@ Compute VPC (Sentieon compute jobs; JupyterHub/Higlass if introduced):
 
 Other relevant keys:
 
-* ``rds.postgres_version`` — explicit pins drive both engine and parameter-group family
-  in standard, SRCE and Fourfront slim datastores. The default remains ``17.6``. This
-  consistency fix is not an automatic major-version upgrade/migration plan.
-* ``ecs.lb_certificate_arn`` — enables HTTPS with HTTP redirect for standalone,
-  Fourfront and both blue/green ALBs. Each portal service waits for its forwarding
-  listener. Unset retains HTTP-only behavior; verify the certificate covers operator
-  DNS names (the generated ALB DNS name itself is not covered by a custom certificate).
+* ``rds.postgres_version`` — an explicit pin drives both the RDS engine version and the
+  parameter-group family, which must agree or the stack fails to create. The SRCE datastore
+  defaults to ``17.6``; the standard and Fourfront slim datastores keep their existing default,
+  so nothing here upgrades an existing RDS instance.
+* ``ecs.lb_certificate_arn`` — enables HTTPS (with an HTTP:80 redirect) on the standalone and
+  blue/green portal ALBs, and each portal service then waits for its forwarding listener. Unset
+  — the state of every existing deployment — retains the HTTP-only listener unchanged. The fixed
+  Fourfront ECS stack does not read this setting at all. Verify the certificate covers the
+  operator DNS names (the generated ALB DNS name itself is not covered by a custom certificate).
 
 * ``sentieon.admin_cidr`` — CIDR (institutional VPN/admin range) allowed to SSH into the Sentieon
   license server. Defaults to the Application VPC CIDR; **never** ``0.0.0.0/0``.
@@ -74,36 +77,34 @@ Other relevant keys:
 Deploy order
 ------------
 
-First complete the shared :doc:`iam_inventory`; do not replace another environment's grants.
-Generate the stacks in dependency order below. Bare ``cli provision`` writes templates only;
+Generate the stacks in dependency order below. ``iam``, ``ecr`` and ``logging`` are
+ecosystem-shared stacks; this deployment consumes them as they already are, adding only the
+``falcon-sensor`` ECR repository (see :doc:`crowdstrike`). Bare ``cli provision`` writes templates only;
 ``--validate`` additionally contacts CloudFormation (not an offline check). To create a change
 set, add ``--upload-change-set`` and review/execute it separately before proceeding to consumers.
 Child command failures now stop the CLI instead of reporting success::
 
-    # 1. Ecosystem-scoped shared secrets (DockerHub credentials, etc.)
-    cli provision shared-secrets
-
-    # 2. Network shells inside the three IT-provided VPCs (security groups + exports)
+    # 1. Network shells inside the three IT-provided VPCs (security groups + exports)
     cli provision srce-network            # Application VPC
     cli provision srce-network-db         # Database VPC
     cli provision srce-network-compute    # Compute VPC
 
-    # 3. Ecosystem-shared stacks (IAM / ECR / logging / appconfig) as in a normal deploy
+    # 2. Ecosystem-shared stacks (IAM / ECR / logging / appconfig) as in a normal deploy
     cli provision iam
     cli provision ecr
     cli provision logging
     cli provision appconfig
     cli provision codebuild              # vpc.id selects SRCE Application network imports
 
-    # 4. Data stores in the Database VPC
+    # 3. Data stores in the Database VPC
     cli provision srce-datastore
     cli provision srce-redis
 
-    # 5. Application + license server in the Application VPC
+    # 4. Application + license server in the Application VPC
     cli provision srce-ecs
     cli provision srce-sentieon
 
-    # 6. Foursight for the SRCE deployment (uses the SRCE Application VPC)
+    # 5. Foursight for the SRCE deployment (uses the SRCE Application VPC)
     cli provision foursight-srce
 
 .. note::
@@ -113,8 +114,8 @@ Child command failures now stop the CLI instead of reporting success::
 
 .. note::
     ``foursight-srce`` reads *literal* subnet and security-group IDs out of the deployed
-    ``c4-srce-network-main-stack`` at package time (chalice cannot use ``ImportValue``), so step 2
-    must be complete before step 6. If that stack is not up, ``cli provision foursight-srce`` now
+    ``c4-srce-network-main-stack`` at package time (chalice cannot use ``ImportValue``), so step 1
+    must be complete before step 5. If that stack is not up, ``cli provision foursight-srce`` now
     fails with an explicit error instead of silently packaging a Foursight config with no — or a
     stale — ``VpcConfig``.
 
@@ -185,17 +186,14 @@ in those rules; adding a Database-VPC security group to the Lambdas is not the f
 Post-deploy: populate secrets
 ------------------------------
 
-The appconfig and shared-secrets stacks create secret *placeholders* (``PLACEHOLDER`` / stub
-values). After the stacks are up, populate the real values with ``setup-remaining-secrets``, which
-fills in the GAC plus the auxiliary secrets:
+The appconfig stack creates secret *placeholders* (``PLACEHOLDER`` / stub values). After the
+stacks are up, populate the real values with ``setup-remaining-secrets``, which fills in the GAC
+plus — when ``crowdstrike.enabled`` is set — the Crowdstrike Falcon ``FalconCID`` /
+``FalconClientID`` / ``FalconClientSecret`` plain-string secrets that the appconfig stack owns
+per environment.
 
-* DockerHub credentials (JSON secret ``dhi-registry-credentials`` with ``username`` + ``token``),
-  owned by the shared-secrets stack.
-* Crowdstrike Falcon ``FalconCID`` / ``FalconClientID`` / ``FalconClientSecret`` (plain-string
-  secrets), owned per-env by the appconfig stack.
-
-Provide the source values in ``custom/secrets.json`` (keys ``DockerHubUsername``, ``DockerHubToken``,
-``FalconCID``, ``FalconClientID``, ``FalconClientSecret``) and run::
+Provide the source values in ``custom/secrets.json`` (keys ``FalconCID``, ``FalconClientID``,
+``FalconClientSecret``) and run::
 
     setup-remaining-secrets
 

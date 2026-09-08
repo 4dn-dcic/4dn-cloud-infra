@@ -1,4 +1,9 @@
-"""Full-template contracts for the PR97 review blockers, not isolated method snapshots."""
+"""Full-template contracts for the retained SRCE/SMaHT changes, not isolated method snapshots.
+
+Everything here exercises a stack the fresh SMaHT SRCE blue/green deployment actually provisions,
+or a config gate that must leave the fixed Fourfront/CGAP stacks alone. The proof that those fixed
+stacks are unchanged lives in tests/test_fixed_stack_parity.py.
+"""
 import subprocess
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -11,13 +16,10 @@ from src.cli import C4Client
 from src.exceptions import CLIException
 from src.parts.codebuild import C4CodeBuild
 from src.parts.datastore import C4Datastore
-from src.parts.datastore_slim import C4DatastoreSlim
 from src.parts.ecs import C4ECSApplication
 from src.parts.ecs_blue_green import ECSBlueGreen
-from src.parts.fourfront_ecs import FourfrontECSApplication
 from src.parts.network import C4Network
 from src.parts.logging import C4Logging
-from src.parts.shared_secrets import C4SharedSecrets
 from src.parts.srce_datastore import C4SRCEDatastore
 from src.parts.srce_ecs import C4SRCEECSApplication
 from src.parts.srce_ecs_blue_green import SRCEECSBlueGreen
@@ -51,7 +53,7 @@ def assert_reference_integrity(template):
     visit(template)
 
 
-@pytest.mark.parametrize('kind', ['cgap', 'ff', 'smaht'])
+@pytest.mark.parametrize('kind', ['cgap', 'smaht'])
 @pytest.mark.parametrize('variant', ['standalone', 'blue/green', 'srce', 'srce-blue/green'])
 @pytest.mark.parametrize('certificate', [None, CERT])
 @pytest.mark.parametrize('falcon', [False, True])
@@ -63,7 +65,7 @@ def test_full_ecs_listener_graph(synthesis_config, synthesize, kind, variant, ce
         'vpc.id': 'vpc-0aaaaaaaaaaaaaaa1', 'vpc.cidr': '10.10.0.0/16',
     })
     cls = (SRCEECSBlueGreen if bg else C4SRCEECSApplication) if srce else (
-        ECSBlueGreen if bg else FourfrontECSApplication if kind == 'ff' else C4ECSApplication)
+        ECSBlueGreen if bg else C4ECSApplication)
     template = synthesize(cls)
     assert_reference_integrity(template)
     resources = template['Resources']
@@ -90,38 +92,33 @@ def test_full_ecs_listener_graph(synthesis_config, synthesize, kind, variant, ce
         assert output['Value']['Fn::Join'][1][0] == ('https://' if certificate else 'http://')
 
 
-@pytest.mark.parametrize('cls', [C4Datastore, C4SRCEDatastore, C4DatastoreSlim])
+@pytest.mark.parametrize('cls,default_version', [(C4Datastore, '14.4'), (C4SRCEDatastore, '17.6')])
 @pytest.mark.parametrize('version', [None, '14.4', '16.6', '17.6'])
 @pytest.mark.parametrize('deployment', ['standalone', 'blue/green'])
-def test_rds_configured_version_and_group(synthesis_config, synthesize, cls, version, deployment):
-    synthesis_config('ff' if cls is C4DatastoreSlim else 'smaht', deployment,
-                     {'rds.postgres_version': version})
+def test_rds_configured_version_and_group(synthesis_config, synthesize, cls, default_version,
+                                          version, deployment):
+    """ One configured version must drive BOTH the instance's EngineVersion and the separately
+        built parameter group's Family, or the deploy fails. The *default* deliberately differs by
+        stack: the fresh SMaHT SRCE datastore orchestrates on 17.6 while the standard datastore
+        keeps 14.4, so no existing RDS instance is offered a major-version upgrade. """
+    synthesis_config('smaht', deployment, {'rds.postgres_version': version})
     template = synthesize(cls)
     assert_reference_integrity(template)
     resources = template['Resources']
     db = next(res['Properties'] for res in resources.values() if res['Type'] == 'AWS::RDS::DBInstance')
     group = resources[db['DBParameterGroupName']['Ref']]['Properties']
-    assert db['EngineVersion'] == (version or '17.6')
+    assert db['EngineVersion'] == (version or default_version)
     assert group['Family'] == 'postgres' + db['EngineVersion'].split('.')[0]
     with pytest.raises(ValueError, match='rds.postgres_version'):
         cls.rds_postgres_version_for_instance('13.0')
 
 
-@pytest.mark.parametrize('cls', [C4Logging, C4SharedSecrets])
+@pytest.mark.parametrize('cls', [C4Logging])
 @pytest.mark.parametrize('kind', ['cgap', 'ff', 'smaht'])
 @pytest.mark.parametrize('deployment', ['standalone', 'blue/green'])
 def test_other_core_stack_synthesis(synthesis_config, synthesize, cls, kind, deployment):
     synthesis_config(kind, deployment)
     assert_reference_integrity(synthesize(cls))
-
-
-@pytest.mark.parametrize('enabled', [False, True])
-def test_network_iam_capability_matches_actual_resources(synthesis_config, synthesize, enabled):
-    synthesis_config(extra={'network.flow_logs.enabled': enabled})
-    template = synthesize(C4Network)
-    assert_reference_integrity(template)
-    stack = SimpleNamespace(template=SimpleNamespace(to_dict=lambda: template), name=C4Network.suggest_stack_name())
-    assert C4Client.build_capability_param(stack) == ('--capabilities CAPABILITY_IAM' if enabled else '')
 
 
 def _import_strings(value):
@@ -138,30 +135,27 @@ def _import_strings(value):
 @pytest.mark.parametrize('kind', ['cgap', 'ff', 'smaht'])
 @pytest.mark.parametrize('srce', [False, True])
 @pytest.mark.parametrize('deployment', ['standalone', 'blue/green'])
-def test_codebuild_attached_roles_and_network(synthesis_config, synthesize, monkeypatch, kind, srce, deployment):
+def test_codebuild_network_routing(synthesis_config, synthesize, monkeypatch, kind, srce, deployment):
+    """ CodeBuild keeps its own stack identity in an SRCE deployment; only which network stack's
+        exports its VpcConfig imports changes, selected by `vpc.id`. Nothing else about the shared
+        codebuild stack moves -- the roles, policies and projects are unchanged from origin/master
+        (see tests/test_fixed_stack_parity.py). """
     synthesis_config(kind, deployment, {
         'vpc.id': 'vpc-0aaaaaaaaaaaaaaa1' if srce else None, 'vpc.cidr': '10.10.0.0/16',
     })
     template = synthesize(C4CodeBuild)
     assert_reference_integrity(template)
     resources = template['Resources']
-    for project in [r['Properties'] for r in resources.values() if r['Type'] == 'AWS::CodeBuild::Project']:
-        role_id, attribute = project['ServiceRole']['Fn::GetAtt']
-        assert attribute == 'Arn'
-        role = resources[role_id]['Properties']
-        assert not role.get('ManagedPolicyArns')
-        secret_policies = [p for p in role['Policies'] if p['PolicyName'] == 'CBExternalSecretsAccess']
-        assert len(secret_policies) == 1
-        permitted = set(_import_strings(secret_policies))
-        delivered = set(_import_strings([var for var in project['Environment']['EnvironmentVariables']
-                                        if var.get('Type') == 'SECRETS_MANAGER']))
-        assert permitted == delivered  # both allowed AND denied, from the role actually attached
-        is_sensor_build = project['Name'].endswith('-pipeline-builder') and '-external-' not in project['Name']
-        assert any('FalconClientSecret' in arn for arn in permitted) == is_sensor_build
-        if not is_sensor_build:
-            assert not any('Falcon' in arn for arn in permitted)
-        if '-builder' in project['Name']:
-            assert role_id.endswith('Builder')
+    projects = [r['Properties'] for r in resources.values() if r['Type'] == 'AWS::CodeBuild::Project']
+    assert projects
+    for project in projects:
+        # Unchanged from master: the service role is a plain Ref, and no external-secret policy
+        # or SECRETS_MANAGER environment variable was introduced.
+        assert 'Ref' in project['ServiceRole']
+        assert not [var for var in project['Environment']['EnvironmentVariables']
+                    if var.get('Type') == 'SECRETS_MANAGER']
+    for role in [r['Properties'] for r in resources.values() if r['Type'] == 'AWS::IAM::Role']:
+        assert not [p for p in role.get('Policies', []) if 'Secret' in p['PolicyName']]
 
     run = Mock()
     monkeypatch.setattr(C4Client, 'run_command', run)
@@ -169,17 +163,20 @@ def test_codebuild_attached_roles_and_network(synthesis_config, synthesize, monk
     stack = SimpleNamespace(name=C4CodeBuild.suggest_stack_name(), template=SimpleNamespace(to_dict=lambda: template))
     C4Client.upload_cloudformation_template(stack=stack, file_path='/offline/codebuild.json')
     command = run.call_args.args[0]
-    network_name = 'c4-srce-network-main-stack' if srce else 'c4-network-main-stack'
+    network_name = 'c4-srce-network-main-stack' if srce else (
+        'c4-network-main-stack' if kind != 'ff' else C4Client.FOURFRONT_NETWORK_STACK)
     assert f'"NetworkStackNameParameter={network_name}"' in command
+    # codebuild is not an SRCE-named stack, so it must not receive the SRCE-only overrides.
     assert 'DBNetworkStackNameParameter=' not in command
     assert 'ComputeNetworkStackNameParameter=' not in command
+    assert 'AppConfigStackNameParameter=' not in command
     assert '--no-execute-changeset' in command
     assert '--capabilities CAPABILITY_IAM' in command
     # Producer/consumer export closure, not just a parameter string assertion.
     producer = synthesize(C4SRCENetwork if srce else C4Network)
     exports = {out['Export']['Name']['Fn::Sub'].replace('${AWS::StackName}', network_name)
                for out in producer['Outputs'].values() if 'Export' in out}
-    for project in [r['Properties'] for r in resources.values() if r['Type'] == 'AWS::CodeBuild::Project']:
+    for project in projects:
         imports = list(_import_strings(project['VpcConfig']))
         assert len(imports) == 3
         assert all(imp.replace('${NetworkStackNameParameter}', network_name) in exports for imp in imports)

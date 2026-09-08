@@ -16,16 +16,11 @@ jobs:
 
     runs-on: ubuntu-22.04
 
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: [ '3.9', '3.10', '3.11', '3.12' ]
-
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.10'
 
       - name: Install
         run: make build
@@ -37,8 +32,13 @@ jobs:
           mkdir custom/aws_creds
           echo {\"deploying_iam_user\": \"test\", \"ENCODED_ENV_NAME\": \"cgap-build\", \"account_number\": 123, \"app.kind\": \"cgap\"} > custom/config.json
           echo {\"Auth0Client\": \"test\", \"Auth0Secret\": \"test\", \"ENCODED_SECRET\": \"test\", \"S3_ENCRYPT_KEY\": \"test\"} > custom/secrets.json
-      - name: Unit and offline full-stack synthesis
+      - name: Unit
         run: |
-          # Includes the ECS/TLS, datastore-version, IAM, CodeBuild and CLI failure matrices.
-          # No Docker TTY, ambient AWS credentials or live CloudFormation validation in CI.
           make test
+
+      - name: Validate
+        run: |
+          # will not pass as of right now
+          # test locally
+          # make alpha
+          echo "Run 'make alpha' locally"

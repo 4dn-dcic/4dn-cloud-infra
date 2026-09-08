@@ -21,6 +21,10 @@ see `docs/deploy_srce.rst`.
 To attach the CrowdStrike Falcon container sensor to the ECS tasks (off by default), see
 `docs/crowdstrike.rst`.
 
+Validate Legacy Configuration:
+    
+    make legacy
+
 Validate Alpha Configuration:
 
     make alpha
@@ -55,7 +59,7 @@ current test setup:
 Instructions for testing:  (TODO: May need some updating)
 
     # First load required knowledge base data
-    make provision-knowledge-base
+    make load-knowledge-base
 
     # Then perform metadata bundle submission
     make submission

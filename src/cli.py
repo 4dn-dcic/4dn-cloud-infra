@@ -10,13 +10,13 @@ import tempfile
 
 # from contextlib import contextmanager
 from dcicutils.misc_utils import ignored, PRINT  # , file_contents, override_environ
-from dcicutils.common import REGION  # repo-wide deploy region; change here to deploy elsewhere
 from .constants import Settings
 from .info.aws_util import AWSUtil
 from .base import lookup_stack_creator, ConfigManager
 from .exceptions import CLIException
 from .part import C4Account
 from .stack import BaseC4FoursightStack  # , C4FoursightCGAPStack
+# from .stacks.trial import c4_stack_trial_network_metadata, c4_stack_trial_tibanna
 from .stacks.alpha_stacks import c4_alpha_stack_metadata
 from .parts.codebuild import C4CodeBuild
 
@@ -26,18 +26,17 @@ logger = logging.getLogger(__name__)
 
 # TODO constants
 SUPPORTED_ECS_STACKS = ['c4-ecs-network-trial', 'c4-ecs-datastore-trial', 'c4-ecs-cluster-trial']
-AWS_REGION = REGION  # single source of truth for the deploy region (CLN-11)
+AWS_REGION = 'us-east-1'
 
 
 class C4Client:
     """ Client class for interacting with and provisioning CGAP Infrastructure as Code. """
-    ALPHA_LEAF_STACKS = ['iam', 'logging', 'network', 'appconfig', 'shared-secrets',
+    ALPHA_LEAF_STACKS = ['iam', 'logging', 'network', 'appconfig',
                          'srce-network', 'srce-network-db', 'srce-network-compute']  # stacks that only export values
     SRCE_STACKS = ['srce-datastore', 'srce-ecs', 'srce-ecs-blue-green',
                    'srce-sentieon', 'srce-redis']  # stacks that import from SRCE network stacks
     CAPABILITY_IAM = 'CAPABILITY_IAM'
     FOURFRONT_NETWORK_STACK = 'c4-network-main-stack'  # this stack name is shared by all fourfront envs
-    # IAM/ECR/Logging stack names are derived at upload time via c4_alpha_stack_metadata (CLN-11).
     # these stacks require CAPABILITY_IAM, just IAM for now
     # NB: matched as substrings of the full stack name, so 'foursight' already covers every
     # foursight variant (including the SRCE foursight stack c4-foursight-srce-<env>-stack).
@@ -103,13 +102,6 @@ class C4Client:
 
     @classmethod
     def build_capability_param(cls, stack, name=CAPABILITY_IAM):
-        template = getattr(stack, 'template', None)
-        if template is not None:
-            resources = template.to_dict().get('Resources', {}).values()
-            if any(resource['Type'].startswith('AWS::IAM::') for resource in resources):
-                return f'--capabilities {name}'
-            return ''
-        # Chalice/SAM stacks are packaged separately; retain their IAM declaration.
         caps = ''
         for possible in cls.REQUIRES_CAPABILITY_IAM:
             if possible in stack.name.stack_name:
@@ -175,8 +167,6 @@ class C4Client:
             stack.name.stack_name,
             cls.build_capability_param(stack),  # defaults to IAM
             '--no-execute-changeset',  # creates a changeset, does not execute template
-            '--region',
-            AWS_REGION
         ])
         if s3_key:  # if an s3 key is set, pass to enable server side encryption
             deploy_flags += f' --kms-key-id {s3_key}'
@@ -203,7 +193,6 @@ class C4Client:
         ecr_stack_name, _ = c4_alpha_stack_metadata(name='ecr')
         logging_stack_name, _ = c4_alpha_stack_metadata(name='logging')
         appconfig_stack_name, _ = c4_alpha_stack_metadata(name='appconfig')
-        shared_secrets_stack_name, _ = c4_alpha_stack_metadata(name='shared-secrets')
         # TODO incorporate datastore output to ECS stack
         datastore_stack_name, _ = c4_alpha_stack_metadata(name='datastore')
         srce_network_stack_name, _ = c4_alpha_stack_metadata(name='srce-network')
@@ -235,8 +224,6 @@ class C4Client:
                                              value=logging_stack_name.stack_name),
                 cls.build_parameter_override(param_name='AppConfigStackNameParameter',
                                              value=appconfig_stack_name.stack_name),
-                cls.build_parameter_override(param_name='SharedSecretsStackNameParameter',
-                                             value=shared_secrets_stack_name.stack_name),
             ]
         else:
             codebuild_srce = ('-codebuild-' in stack.name.stack_name and C4CodeBuild.uses_srce_network())
@@ -253,10 +240,6 @@ class C4Client:
                                              value=iam_stack_name.stack_name),
                 cls.build_parameter_override(param_name='LoggingStackNameParameter',
                                              value=logging_stack_name.stack_name),
-                cls.build_parameter_override(param_name='AppConfigStackNameParameter',
-                                             value=appconfig_stack_name.stack_name),
-                cls.build_parameter_override(param_name='SharedSecretsStackNameParameter',
-                                             value=shared_secrets_stack_name.stack_name),
                 # TODO: integrate so auto-populates into GAC
                 # cls.build_parameter_override(param_name='DatastoreStackNameParameter',
                 #                              value=datastore_stack_name.stack_name)
@@ -414,6 +397,28 @@ class C4Client:
                     # If requested with '--upload-change-set', upload to CloudFormation...
                     cls.upload_cloudformation_template(stack=stack, file_path=file_path)
 
+    @classmethod
+    def manage_tibanna(cls, args):
+        """ Implements 'tibanna' command. """
+        # We want to install tibanna differently. -kmp&will 28-Jul-2021
+        raise NotImplementedError("c4_stack_trial_tibanna is not implemented (in manage_tibanna).")
+        # account = C4Client.resolve_account(args)
+        # c4_tibanna = c4_stack_trial_tibanna(account=account)
+        # c4_tibanna_part = c4_tibanna.parts[0]  # better way to reference tibanna part
+        # if args.confirm:
+        #     dry_run = False
+        # else:
+        #     dry_run = True
+        # if args.init_tibanna:  # runs initial tibanna setup
+        #     c4_tibanna_part.initial_deploy(dry_run=dry_run)
+        # elif args.tibanna_run:  # runs a workflow on tibanna
+        #     logger.warning(f'tibanna run on {args.tibanna_run}')
+        #     c4_tibanna_part.tibanna_run(input=args.tibanna_run, dry_run=dry_run)
+        # elif args.cmd == [] or args.cmd[0] == 'help':  # displays tibanna help
+        #     c4_tibanna_part.run_tibanna_cmd(['--help'])
+        # else:  # runs given tibanna command directly
+        #     c4_tibanna_part.run_tibanna_cmd(args.cmd, dry_run=dry_run)
+
     @staticmethod
     def info(args):
         """ Implements 'info' command """
@@ -491,6 +496,25 @@ def cli():
     parser_provision.set_defaults(func=C4Client.provision_stack)
 
     # TODO command for Cloud Formation deploy flow: execute_change_set
+
+    # Configure 'tibanna' command, for managing a tibanna installation on cloud infrastructure
+    parser_tibanna = subparsers.add_parser('tibanna', help='Helps manage and provision tibanna for CGAP/4DN')
+    parser_tibanna.add_argument('cmd', type=str, nargs='*',
+                                help='Runs the tibanna command-line for the trial account')
+    parser_tibanna.add_argument("--init-tibanna",
+                                '--init_tibanna',  # for compatibility
+                                dest="init_tibanna",
+                                action='store_true',
+                                help='Initializes tibanna group with private buckets. Requires c4-tibanna-trial.')
+    parser_tibanna.add_argument('--tibanna-run',
+                                '--tibanna_run',  # for compatibility
+                                dest="tibanna_run",
+                                nargs='?', default=None,
+                                const='tibanna_inputs/trial_tibanna_test_input.json',
+                                help='Runs a sample tibanna input using private buckets. Requires c4-tibanna-trial.')
+    parser_tibanna.add_argument('--confirm', action='store_true',
+                                help='Confirms this command will run in the configured account. Defaults to false.')
+    parser_tibanna.set_defaults(func=C4Client.manage_tibanna)
 
     # Configure 'info' command
     parser_info = subparsers.add_parser('info', help='Generate informational summaries for 4DN accounts')

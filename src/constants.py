@@ -49,32 +49,12 @@ class Settings:
     S3_BUCKET_ORG = 's3.bucket.org'  # was 'ENCODED_S3_BUCKET_ORG'
     S3_BUCKET_ECOSYSTEM = 's3.bucket.ecosystem'
     S3_BUCKET_ENCRYPTION = 's3.bucket.encryption'
-    # Complete physical resource inventory for all environments sharing the IAM stack.
-    # Required for IAM synthesis; never inferred from ENCODED_ENV_NAME.
-    IAM_ECOSYSTEM_RESOURCES = 'iam.ecosystem_resources'
 
     APP_KIND = 'app.kind'
     APP_DEPLOYMENT = 'app.deploy'
 
     # Network options
     SUBNET_PAIR_COUNT = 'subnet.pair_count'
-
-    # Optional bastion host in the standard network stack. Disabled unless bastion.enabled is
-    # truthy AND both an AMI and SSH key are configured; a missing key skips the resource rather
-    # than raising (see SEC-3).
-    BASTION_ENABLED = 'network.bastion.enabled'
-    BASTION_AMI = 'network.bastion.ami'
-    BASTION_SSH_KEY = 'network.bastion.ssh_key'
-
-    # VPC flow logs on the standard network stack (SEC-9). Enabled by default; set to a falsy
-    # value to skip creating the flow log + its CloudWatch log group.
-    NETWORK_FLOW_LOGS_ENABLED = 'network.flow_logs.enabled'
-    NETWORK_FLOW_LOGS_RETENTION_DAYS = 'network.flow_logs.retention_days'
-
-    # Optional ALB access logs (SEC-9). When alb.access_logs_bucket names a pre-existing S3 bucket
-    # (with the required ELB log-delivery bucket policy), the portal ALB writes access logs to it.
-    ALB_ACCESS_LOGS_BUCKET = 'alb.access_logs_bucket'
-    ALB_ACCESS_LOGS_PREFIX = 'alb.access_logs_prefix'
 
     # ACM certificate ARN for the portal load balancer (SEC-5). When set, the ALB gets an HTTPS:443
     # listener (with a modern SslPolicy) and HTTP:80 redirects to it; the portal URL is emitted as
@@ -107,15 +87,16 @@ class Settings:
     RDS_AZ = 'rds.az'                        # TODO: Ignored for now. Always defaults to "us-east-1"
     RDS_POSTGRES_VERSION = 'rds.postgres_version'
     RDS_NAME = 'rds.name'  # can be used to configure name of RDS instance, foursight must know it - Will Nov 2 2021
-    RDS_BACKUP_RETENTION = 'rds.backup_retention_days'  # default 7 days
 
     # ES Configuration Options
-    # (master-node options removed as dead/unimplemented -- RED-7)
+    ES_MASTER_COUNT = 'elasticsearch.master_node_count'
+    ES_MASTER_TYPE = 'elasticsearch.master_node_type'
     ES_DATA_COUNT = 'elasticsearch.data_node_count'
     ES_DATA_TYPE = 'elasticsearch.data_node_type'
     ES_VOLUME_SIZE = 'elasticsearch.volume_size'
 
     # Redis Configuration Options
+    REDIS_ENABLED = 'redis.enabled'
     REDIS_ENGINE_VERSION = 'redis.version'
     REDIS_NODE_COUNT = 'redis.node_count'
     REDIS_NODE_TYPE = 'redis.node_type'
@@ -190,8 +171,7 @@ class Settings:
     # CodeBuild options
     CODEBUILD_GITHUB_REPOSITORY_URL = 'codebuild.repo_url'  # url to github source repository
     CODEBUILD_DEPLOY_BRANCH = 'codebuild.build_branch'
-    # (CODEBUILD_REPO_NAME removed as dead -- unused by code -- RED-7)
-    CODEBUILD_LOG_RETENTION_DAYS = 'codebuild.log_retention_days'  # CloudWatch retention for build logs
+    CODEBUILD_REPO_NAME = 'codebuild.repo_name'  # name of ECR repo
 
 
 # dmichaels/2022-06-06: Factored out from base.py.
@@ -222,17 +202,22 @@ class C4DatastoreBase:
     DEFAULT_RDS_STORAGE_SIZE = 30
     DEFAULT_RDS_INSTANCE_SIZE = 'db.t4g.medium'
     DEFAULT_RDS_STORAGE_TYPE = 'gp3'
-    DEFAULT_RDS_POSTGRES_VERSION = '17.6'
-    DEFAULT_RDS_BACKUP_RETENTION = 7  # days
+    DEFAULT_RDS_POSTGRES_VERSION = '14.4'
 
 
 class C4SRCEDatastoreBase(C4DatastoreBase):
     """
     SRCE variant of C4DatastoreBase. Used to generate SRCE datastore names before orchestration
-    (e.g. setup-remaining-secrets). Inherits RDS defaults from C4DatastoreBase.
+    (e.g. setup-remaining-secrets).
+
+    The fresh SMaHT SRCE deployment is orchestrated on PostgreSQL 17.6; the standard/Fourfront
+    datastores keep C4DatastoreBase.DEFAULT_RDS_POSTGRES_VERSION unchanged so no existing RDS
+    instance is offered a major-version upgrade. Override per deployment with
+    rds.postgres_version, which drives both the engine version and the parameter-group family.
     """
     STACK_NAME_TOKEN = 'srce-datastore'
     STACK_TITLE_TOKEN = 'SRCEDatastore'
+    DEFAULT_RDS_POSTGRES_VERSION = '17.6'
 
 
 # dmichaels/2022-06-22: Factored out from C4IAM in iam.py.

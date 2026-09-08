@@ -148,14 +148,11 @@ class C4ECSApplication(C4Part):
             Description='Name of Logging stack for referencing the log group',
             Type='String',
         ))
-        # Adds AppConfig Stack Parameter -- used to ImportValue the Falcon CID secret ARN for the
-        # CrowdStrike sidecar (unused when crowdstrike.enabled is false). cli.py already supplies this
-        # override for ECS stacks; declaring it here keeps template and provision inputs in sync.
-        template.add_parameter(Parameter(
-            self.APPCONFIG_EXPORTS.reference_param_key,
-            Description='Name of appconfig stack for the CrowdStrike Falcon CID secret ARN ImportValue',
-            Type='String',
-        ))
+        # AppConfig Stack Parameter -- only declared when the CrowdStrike sidecar is enabled, which
+        # is the sole consumer (it ImportValues the Falcon CID secret ARN). Declaring it
+        # unconditionally would change every existing ECS template's parameter list.
+        for parameter in self.crowdstrike_template_parameters():
+            template.add_parameter(parameter)
 
         # ECS Params
         template.add_parameter(self.ecs_web_worker_port())
@@ -224,6 +221,17 @@ class C4ECSApplication(C4Part):
     #     (task-level Host volume) and receives the Falcon CID as a Secrets-Manager-injected env var;
     #   * the application container mounts that volume read-only, is wrapped by the CrowdStrike loader
     #     entrypoint, and dependsOn the sidecar completing successfully before it starts.
+
+    def crowdstrike_template_parameters(self) -> list:
+        """ Template parameters the CrowdStrike sidecar needs, or [] when it is disabled. Returning
+            [] keeps non-CrowdStrike templates byte-identical to their pre-sidecar form. """
+        if not self.crowdstrike_enabled():
+            return []
+        return [Parameter(
+            self.APPCONFIG_EXPORTS.reference_param_key,
+            Description='Name of appconfig stack for the CrowdStrike Falcon CID secret ARN ImportValue',
+            Type='String',
+        )]
 
     def crowdstrike_enabled(self) -> bool:
         """ Whether the CrowdStrike Falcon sidecar should be attached to ECS tasks (crowdstrike.enabled). """
@@ -407,6 +415,24 @@ class C4ECSApplication(C4Part):
             Tags=self.tags.cost_tag_array()
         )
 
+    def ecs_application_load_balancer_listener(self, target_group: elbv2.TargetGroup) -> elbv2.Listener:
+        """ Listener for the application load balancer, forwards traffic to the target group (containing portal).
+
+            Retained unchanged for the fixed Fourfront ECS stack (src/parts/fourfront_ecs.py), which
+            is out of scope for the SMaHT SRCE work and must keep synthesizing exactly as before.
+            Stacks that support the optional ACM listener use ecs_lb_listeners() instead.
+        """
+        logical_id = self.name.logical_id('LBListener')
+        return elbv2.Listener(
+            logical_id,
+            Port=80,
+            Protocol='HTTP',
+            LoadBalancerArn=Ref(self.ecs_application_load_balancer()),
+            DefaultActions=[
+                elbv2.Action(Type='forward', TargetGroupArn=Ref(target_group))
+            ]
+        )
+
     # Modern TLS policy (TLS 1.2/1.3) for the HTTPS listener.
     LB_SSL_POLICY = 'ELBSecurityPolicy-TLS13-1-2-2021-06'
 
@@ -487,28 +513,10 @@ class C4ECSApplication(C4Part):
                 Ref(self.ecs_lb_security_group())
             ],
             Subnets=[self.NETWORK_EXPORTS.import_value(subnet_key)
-                    for subnet_key in self.NETWORK_EXPORTS.PUBLIC_SUBNETS],
-            LoadBalancerAttributes=self._alb_access_log_attributes(),
+                     for subnet_key in self.NETWORK_EXPORTS.PUBLIC_SUBNETS],
             Tags=self.tags.cost_tag_array(name=logical_id),
             Type='application',
         )
-
-    @staticmethod
-    def _alb_access_log_attributes() -> list:
-        """ ALB access-log LoadBalancerAttributes (SEC-9). Off unless alb.access_logs_bucket names
-            a pre-existing, ELB-writable S3 bucket; then access logs are written there (optionally
-            under alb.access_logs_prefix). Returns [] when unset so existing deploys are unchanged. """
-        bucket = ConfigManager.get_config_setting(Settings.ALB_ACCESS_LOGS_BUCKET, default=None)
-        if not bucket:
-            return []
-        attrs = [
-            elbv2.LoadBalancerAttributes(Key='access_logs.s3.enabled', Value='true'),
-            elbv2.LoadBalancerAttributes(Key='access_logs.s3.bucket', Value=bucket),
-        ]
-        prefix = ConfigManager.get_config_setting(Settings.ALB_ACCESS_LOGS_PREFIX, default=None)
-        if prefix:
-            attrs.append(elbv2.LoadBalancerAttributes(Key='access_logs.s3.prefix', Value=prefix))
-        return attrs
 
     def output_application_url(self, env=None) -> Output:
         """ Outputs URL to access portal. Emits https:// when an ACM cert is configured (SEC-5). """

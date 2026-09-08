@@ -1,12 +1,12 @@
 default: info
 
-.PHONY: alpha deploy-alpha-p1 deploy-alpha-p2 info
+.PHONY: alpha legacy deploy-alpha-p1 deploy-alpha-p2 info
 
 configure:
 	pip install --upgrade wheel
 	pip install --upgrade pip
-	pip install --upgrade setuptools  # was pinned to 57.5.0 (2021); that pin breaks Python 3.11/3.12 (CLN-6)
-	pip install poetry==1.8.5
+	pip install setuptools==57.5.0  # later versions break install
+	POETRY_VERSION=1.4.2 eval 'curl -sSL https://install.python-poetry.org | python -'
 
 configure-full:
 	make configure

@@ -1,6 +1,6 @@
 from troposphere import (
     Parameter, Join, Ref,
-    AWS_REGION, Template, Output, GetAtt,
+    Template, Output, GetAtt,
     elasticloadbalancingv2 as elbv2,
 )
 from troposphere.ecs import (
@@ -12,7 +12,6 @@ from dcicutils.cloudformation_utils import camelize
 from ..base import ConfigManager, APP_DEPLOYMENT, APP_KIND
 from ..constants import Settings, DeploymentParadigm
 from .ecs import C4ECSApplicationExports, C4ECSApplication
-from .network import C4NetworkExports
 from .ecr import C4ECRExports
 from .iam import C4IAMExports
 from .logging import C4LoggingExports
@@ -67,14 +66,10 @@ class ECSBlueGreen(C4ECSApplication):
             Description='Name of Logging stack for referencing the log group',
             Type='String',
         ))
-        # Adds AppConfig Stack Parameter -- used to ImportValue the Falcon CID secret ARN for the
-        # CrowdStrike sidecar (unused when crowdstrike.enabled is false). cli.py already supplies
-        # this override for ECS stacks; declaring it here keeps template and provision inputs in sync.
-        template.add_parameter(Parameter(
-            self.APPCONFIG_EXPORTS.reference_param_key,
-            Description='Name of appconfig stack for the CrowdStrike Falcon CID secret ARN ImportValue',
-            Type='String',
-        ))
+        # AppConfig Stack Parameter -- declared only when the CrowdStrike sidecar is enabled (its
+        # sole consumer), so existing blue/green templates keep their exact parameter list.
+        for parameter in self.crowdstrike_template_parameters():
+            template.add_parameter(parameter)
 
         # Standard params
         template.add_parameter(self.ecs_web_worker_port())

@@ -5,11 +5,8 @@ from troposphere import Ref, GetAtt, Output, Template
 from troposphere.ec2 import (
     InternetGateway, Route, RouteTable, SecurityGroup, SecurityGroupEgress, SecurityGroupIngress,
     Subnet, SubnetRouteTableAssociation, VPC, VPCGatewayAttachment, NatGateway, EIP, Instance, NetworkInterfaceProperty,
-    VPCEndpoint, FlowLog,
+    VPCEndpoint,
 )
-from troposphere.iam import Role, Policy
-from troposphere.logs import LogGroup
-from awacs.aws import PolicyDocument, Statement, Action, Principal
 from ..base import ConfigManager, Settings
 from typing import List
 from ..constants import C4NetworkBase
@@ -167,11 +164,6 @@ class C4Network(C4NetworkBase, C4Part):
         # Add VPC output
         template.add_output(self.output_virtual_private_cloud())
 
-        # Add VPC flow logs (publishes to a dedicated CloudWatch log group). Enabled by default;
-        # skipped when network.flow_logs.enabled is explicitly falsy (SEC-9).
-        for i in self.vpc_flow_log_resources():
-            template.add_resource(i)
-
         # Add route tables
         for i in [self.main_route_table(), self.private_route_table(), self.public_route_table()]:
             template.add_resource(i)
@@ -218,12 +210,8 @@ class C4Network(C4NetworkBase, C4Part):
         for i in self.application_security_rules():
             template.add_resource(i)
 
-        # Add Bastion Host (opt-in). Only created when network.bastion.enabled is set and the
-        # required AMI + SSH key are configured; otherwise skipped so a missing key does not break
-        # template generation (SEC-3).
-        bastion = self.bastion_host()
-        if bastion is not None:
-            template.add_resource(bastion)
+        # Add Bastion Host
+        # template.add_resource(self.bastion_host())
         # Add VPC Interface Endpoints for AWS Services (to reduce NAT Gateway charges)
         # NOTE: the service names vary by region, so this may need to be configurable
         # See: aws ec2 describe-vpc-endpoint-services
@@ -290,70 +278,6 @@ class C4Network(C4NetworkBase, C4Part):
             Export=self.EXPORTS.export(export_name),
         )
         return output
-
-    def vpc_flow_log_group(self) -> LogGroup:
-        """ Dedicated CloudWatch log group for VPC flow logs (SEC-9). Retention is configurable
-            via network.flow_logs.retention_days (default 365). """
-        retention = int(ConfigManager.get_config_setting(
-            Settings.NETWORK_FLOW_LOGS_RETENTION_DAYS, default=365))
-        return LogGroup(
-            self.name.logical_id('VPCFlowLogGroup', context='vpc_flow_log_group'),
-            RetentionInDays=retention,
-            DeletionPolicy='Retain',
-            UpdateReplacePolicy='Retain',
-            Tags=self.tags.cost_tag_obj(),
-        )
-
-    def vpc_flow_log_delivery_role(self) -> Role:
-        """ Role assumed by the VPC flow logs service to write to the flow-log group. Created inline
-            here so the network stack is self-contained (no cross-stack import needed). """
-        return Role(
-            self.name.logical_id('VPCFlowLogDeliveryRole', context='vpc_flow_log_delivery_role'),
-            AssumeRolePolicyDocument=PolicyDocument(
-                Version='2012-10-17',
-                Statement=[Statement(
-                    Effect='Allow',
-                    Action=[Action('sts', 'AssumeRole')],
-                    Principal=Principal('Service', 'vpc-flow-logs.amazonaws.com'),
-                )],
-            ),
-            Policies=[Policy(
-                PolicyName='VPCFlowLogDelivery',
-                PolicyDocument={
-                    'Version': '2012-10-17',
-                    'Statement': [{
-                        'Effect': 'Allow',
-                        'Action': [
-                            'logs:CreateLogGroup',
-                            'logs:CreateLogStream',
-                            'logs:PutLogEvents',
-                            'logs:DescribeLogGroups',
-                            'logs:DescribeLogStreams',
-                        ],
-                        'Resource': '*',
-                    }],
-                },
-            )],
-        )
-
-    def vpc_flow_log_resources(self) -> list:
-        """ Build the VPC flow log, its log group, and its delivery role, unless disabled via
-            network.flow_logs.enabled (default enabled). Returns [] when disabled (SEC-9). """
-        if not ConfigManager.get_config_setting(Settings.NETWORK_FLOW_LOGS_ENABLED, default=True):
-            return []
-        log_group = self.vpc_flow_log_group()
-        role = self.vpc_flow_log_delivery_role()
-        flow_log = FlowLog(
-            self.name.logical_id('VPCFlowLog', context='vpc_flow_log'),
-            ResourceId=Ref(self.virtual_private_cloud()),
-            ResourceType='VPC',
-            TrafficType='ALL',
-            LogDestinationType='cloud-watch-logs',
-            LogGroupName=Ref(log_group),
-            DeliverLogsPermissionArn=GetAtt(role, 'Arn'),
-            Tags=self.tags.cost_tag_obj(),
-        )
-        return [log_group, role, flow_log]
 
     def internet_gateway_attachment(self) -> VPCGatewayAttachment:
         """ Define attaching the internet gateway to the VPC. Ref:
@@ -772,29 +696,16 @@ class C4Network(C4NetworkBase, C4Part):
         ]
 
     def bastion_host(self):
-        """ Defines an optional bastion host in public subnet a of the vpc. Ref:
+        """ Defines a bastion host in public subnet a of the vpc. Ref:
             https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_EC2.html
-
-            Opt-in and fully config-driven: returns None (skipping the resource) unless
-            network.bastion.enabled is truthy and both an AMI (network.bastion.ami) and an SSH
-            key (network.bastion.ssh_key) are configured. This avoids the previous hard crash when
-            no key was set, and avoids hard-coding a stale AMI / the Sentieon key (SEC-3).
         """
-        if not ConfigManager.get_config_setting(Settings.BASTION_ENABLED, default=False):
-            return None
-        ami = ConfigManager.get_config_setting(Settings.BASTION_AMI, default=None)
-        ssh_key = ConfigManager.get_config_setting(Settings.BASTION_SSH_KEY, default=None)
-        if not ami or not ssh_key:
-            logging.warning("network.bastion.enabled is set but network.bastion.ami and/or "
-                            "network.bastion.ssh_key are missing; skipping bastion host.")
-            return None
         logical_id = self.name.logical_id('BastionHost')
         network_interface_logical_id = self.name.logical_id('BastionHostNetworkInterface', context='bastion_host')
         instance_name = self.name.instance_name('bastion-host')
         return Instance(
             logical_id,
             Tags=self.tags.cost_tag_array(name=instance_name),
-            ImageId=ami,
+            ImageId='ami-0742b4e673072066f',
             InstanceType='t2.nano',
             NetworkInterfaces=[NetworkInterfaceProperty(
                 network_interface_logical_id,
@@ -803,7 +714,7 @@ class C4Network(C4NetworkBase, C4Part):
                 GroupSet=[Ref(self.application_security_group())],
                 SubnetId=Ref(self.public_subnets()[0]),
             )],
-            KeyName=ssh_key,
+            KeyName=ConfigManager.get_config_setting(Settings.SENTIEON_SSH_KEY),  # use sentieon key for now
         )
 
     def create_vpc_interface_endpoint(self, identifier, service_name, dns=True) -> VPCEndpoint:

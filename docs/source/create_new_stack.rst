@@ -35,13 +35,12 @@ Step Two: Configure a stack creation function and add to the cli
 
 Now that you have a `C4Part` or `C4Parts`s for a stack, configure a new stack using these part(s).
 
-* Register the stack in `src/stacks/alpha_stacks.py` using the `@register_stack_creator(...)`
-  decorator, associating a unique stack name with your implementation class.
-* What you're adding is a stack backed by a `C4Part` (or several), which requires a description,
-  account, tags, name, and its part(s). Use a unique name for this stack.
-* The registered stack is then resolved by `src/cli.py` (see `resolve_alpha_stack` /
-  `resolve_4dn_stack`), so `cli provision <name>` can build it — no manual wiring beyond the
-  registration is required.
+* Add to an existing collection of stacks in `src/stacks/` Currently, `trial.py` for legacy Beanstalk setup, and
+`trial_alpha.py` for alpha-testing ECS stack.
+* What you're adding is an instantiation of `C4Stack`, which requires a description, account, tags, name, and a list
+  of parts. Use a unique name for this stack, and a list of the part(s) you created earlier.
+* Once you've added this instantiation function, add this to the `src/cli.py`. You'll need to import this function, and
+  add it to a stack resolver method, currently `resolve_legacy_stack` and `resolve_alpha_stack`.
 
 Once you've added the new troposphere part(s), instantiated a stack from those part(s), and wired the new stack into the
 command line, you'll be able to generate a Cloudformation template for your new stack, and upload the change set, with

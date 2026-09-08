@@ -142,6 +142,14 @@ class ConfigManager:
                                              application_prefix=application_prefix,
                                              foursight_prefix=foursight_prefix,
                                              )
+        # base_prefix = f"{app_kind}-{org_part}{ecosystem_part}"
+        # foursight_prefix = f"{base_prefix}foursight-"
+        # application_prefix = f"{base_prefix}application-"
+        # bucket_name = bucket_template.format(env_name=env_name,
+        #                                      env_part=env_part,
+        #                                      application_prefix=application_prefix,
+        #                                      foursight_prefix=foursight_prefix,
+        #                                      )
         PRINT(f'{bucket_template} => {bucket_name}')
         return bucket_name
 

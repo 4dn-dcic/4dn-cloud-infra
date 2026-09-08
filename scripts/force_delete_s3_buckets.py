@@ -25,9 +25,7 @@ def force_delete_s3_bucket(bucket_name):
 
 print(f"Force deleting S3 buckets listed in: {BUCKETS_LIST_FILE}")
 print(f"AWS Access Key ID: {os.environ.get('AWS_ACCESS_KEY_ID')}")
-# Do not print any characters of the secret; just report whether it is set (CLN-7). Also avoids a
-# TypeError when AWS_SECRET_ACCESS_KEY is unset (previously indexed None[0]).
-print(f"AWS Secret Access Key: {'<set>' if os.environ.get('AWS_SECRET_ACCESS_KEY') else '<unset>'}")
+print(f"AWS Secret Access Key: {os.environ.get('AWS_SECRET_ACCESS_KEY')[0] + '********'}")
 with io.open(BUCKETS_LIST_FILE, "r") as buckets_list_fp:
     for bucket_name in buckets_list_fp.readlines():
         bucket_name = bucket_name.strip()

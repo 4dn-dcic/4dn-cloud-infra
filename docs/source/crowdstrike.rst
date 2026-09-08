@@ -5,6 +5,12 @@ CrowdStrike Falcon sensor on ECS (Fargate)
 Overview
 --------
 
+Scope: this is part of the fresh SMaHT blue/green SRCE deployment. It is wired into the shared ECS
+task builders (``src/parts/ecs.py`` and ``src/parts/ecs_blue_green.py``) that the SRCE/SMaHT stacks
+inherit, and it is **off unless ``crowdstrike.enabled`` is set**, so the existing CGAP deployments'
+templates do not move. The fixed Fourfront ECS stack (``src/parts/fourfront_ecs.py``) is not wired
+for the sidecar at all and is unchanged from ``origin/master``.
+
 The ECS stacks can optionally attach the **CrowdStrike Falcon container sensor** to every ECS task
 (portal, indexer, ingester, and deployment tasks) as a *sidecar*, following the vendor's
 container-sensor pattern for Fargate. The feature is **off by default**: unless
@@ -13,8 +19,8 @@ byte-identical to their pre-CrowdStrike form (a single application container, no
 
 When enabled, each task definition gains:
 
-* a **non-essential** ``falcon-container`` sidecar (the ``falcon-sensor`` image built into ECR by
-  the CodeBuild stack) that **prepares a shared ``crowdstrike-falcon-volume``** — a task-level
+* a **non-essential** ``falcon-container`` sidecar (the ``falcon-sensor`` image, from the ECR
+  repository of that name) that **prepares a shared ``crowdstrike-falcon-volume``** — a task-level
   ``Host`` volume — and receives the Falcon **CID** from Secrets Manager as the
   ``FALCONCTL_OPT_FALCONCTL_CID`` environment variable, plus ``FALCONCTL_OPT_BACKEND`` (default
   ``bpf``);
@@ -22,9 +28,9 @@ When enabled, each task definition gains:
   **loader entrypoint**, and declares a ``dependsOn`` on the sidecar with condition ``SUCCESS`` so
   it does not start until the sidecar has populated the volume and exited successfully.
 
-This applies uniformly to the CGAP, Fourfront, SMaHT, blue/green, and SRCE ECS variants — the wiring
-lives on the shared base class (``C4ECSApplication._crowdstrike_task_kwargs``) so no variant is left
-inconsistent.
+The wiring lives on the shared base classes (``C4ECSApplication._crowdstrike_task_kwargs``, used by
+``ecs.py`` and ``ecs_blue_green.py``), so the standalone, blue/green and SRCE variants of those
+stacks behave identically once the flag is set.
 
 Nothing in the generated templates hard-codes an AWS account id, secret ARN, image tag, log group,
 or environment identifier. Every input is resolved through existing cross-stack parameters/exports:
@@ -44,7 +50,9 @@ Configuration keys
 
 Set these under the ``config.json`` used for the ECS stack:
 
-* ``crowdstrike.enabled`` — ``true`` to attach the sidecar; default ``false``.
+* ``crowdstrike.enabled`` — ``true`` to attach the sidecar; default ``false``. It also gates the
+  Falcon credential stubs the ``appconfig`` stack creates, so an appconfig stack for a deployment
+  that leaves this off is unchanged.
 * ``crowdstrike.entrypoint`` — **required when enabled, no default.** The CrowdStrike loader
   entrypoint the application container is wrapped with, as a JSON list (``["/path/loader", ...]``)
   or a comma-separated string. This is a **vendor/image-specific contract**: the exact value must
@@ -65,11 +73,12 @@ flag:
 
 #. **Falcon CID populated.** The AppConfig stack creates a *stub* ``FalconCID`` secret; its value
    must be filled in post-deploy (see ``setup-remaining-secrets`` and
-   :doc:`deploy_new_account`). Add its exact physical secret name to
-   ``iam.ecosystem_resources.runtime_secrets`` (:doc:`iam_inventory`). The ECS execution role
-   does not get broad ``C4AppConfig*`` access or Falcon API ClientID/ClientSecret access.
-#. **falcon-sensor image present in ECR.** The CodeBuild pipeline builds and pushes it; the tag must
-   match ``crowdstrike.sensor_image_tag``.
+   :doc:`deploy_new_account`). The ECS task role reaches it through the shared IAM stack's existing
+   Secrets Manager grant; that stack is unchanged by this work.
+#. **falcon-sensor image present in ECR.** The ``ecr`` stack creates the ``falcon-sensor``
+   repository, but nothing in this repository builds or pushes the image yet — publish it out of
+   band and match the tag to ``crowdstrike.sensor_image_tag``. This is the main reason the flag
+   stays off by default.
 #. **Loader entrypoint verified.** ``crowdstrike.entrypoint`` must match the falcon-sensor image's
    documented loader contract. This cannot be validated offline from this repo — verify it against
    the image config / vendor PDF.

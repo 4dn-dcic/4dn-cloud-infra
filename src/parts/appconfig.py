@@ -16,7 +16,7 @@ except ImportError:
 from troposphere.secretsmanager import Secret
 from .application_configuration_secrets import ApplicationConfigurationSecrets
 from ..base import ConfigManager, APP_DEPLOYMENT
-from ..constants import Secrets, DeploymentParadigm
+from ..constants import Secrets, Settings, DeploymentParadigm
 from ..exports import C4Exports
 from ..part import C4Part
 from ..parts.network import C4NetworkExports
@@ -86,6 +86,7 @@ class C4AppConfig(C4AppConfigBase, C4Part):
     NETWORK_EXPORTS = C4NetworkExports()
 
     # Falcon credentials are env-scoped — each appconfig deployment gets its own set.
+    # Only created when crowdstrike.enabled is set (see build_template).
     FALCON_CID_LOGICAL_SUFFIX = 'FalconCID'
     FALCON_CLIENT_ID_LOGICAL_SUFFIX = 'FalconClientID'
     FALCON_CLIENT_SECRET_LOGICAL_SUFFIX = 'FalconClientSecret'
@@ -150,11 +151,14 @@ class C4AppConfig(C4AppConfigBase, C4Part):
         template.add_resource(foursight_configuration_secret)
         template.add_output(self.output_foursight_configuration_secret(foursight_configuration_secret))
 
-        # Build-time / runtime credentials — stubbed here, populated post-deploy via
-        # `aws secretsmanager put-secret-value ...`.  ARNs exported so downstream stacks
-        # (e.g. codebuild) can attach IAM policies and reference SECRETS_MANAGER env vars.
-        # (DockerHub credentials are owned by the ecosystem-scoped shared_secrets stack;
-        #  see C4SharedSecrets in src/parts/shared_secrets.py.)
+        # CrowdStrike Falcon credentials — stubbed here, populated post-deploy via
+        # `aws secretsmanager put-secret-value ...` (or `setup-remaining-secrets`). ARNs are
+        # exported so the ECS task definitions can reference the CID as a SECRETS_MANAGER env var.
+        # Emitted only when crowdstrike.enabled is set, so an appconfig stack for a deployment that
+        # does not run the Falcon sidecar is unchanged.
+        if not self.crowdstrike_enabled():
+            return template
+
         falcon_cid = self.falcon_cid_secret()
         template.add_resource(falcon_cid)
         template.add_output(self.output_simple_secret_arn(
@@ -174,6 +178,14 @@ class C4AppConfig(C4AppConfigBase, C4Part):
             'Crowdstrike Falcon API Client Secret'))
 
         return template
+
+    @staticmethod
+    def crowdstrike_enabled() -> bool:
+        """ Whether this deployment runs the CrowdStrike Falcon sidecar (crowdstrike.enabled), and
+            therefore needs the Falcon credential stubs. Mirrors
+            C4ECSApplication.crowdstrike_enabled(); duplicated rather than imported to keep
+            appconfig free of an ECS import. """
+        return bool(ConfigManager.get_config_setting(Settings.CROWDSTRIKE_ENABLED, default=False))
 
     def output_configuration_secret(self, application_configuration_secret, deployment_type='standalone'):
         """ Outputs GAC """

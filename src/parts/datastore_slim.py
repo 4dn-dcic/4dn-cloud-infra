@@ -163,7 +163,7 @@ class C4DatastoreSlim(C4Datastore):
             DBInstanceClass=instance_size or ConfigManager.get_config_setting(Settings.RDS_INSTANCE_SIZE,
                                                                               default=self.DEFAULT_RDS_INSTANCE_SIZE),
             Engine='postgres',
-            EngineVersion=self.rds_postgres_version_for_instance(postgres_version),
+            EngineVersion=postgres_version or self.DEFAULT_RDS_POSTGRES_VERSION,
             DBInstanceIdentifier=f'rds-{env_name}',  # was logical_id,
             DBName=db_name or ConfigManager.get_config_setting(Settings.RDS_DB_NAME, default=self.DEFAULT_RDS_DB_NAME),
             DBParameterGroupName=Ref(self.rds_parameter_group()),
