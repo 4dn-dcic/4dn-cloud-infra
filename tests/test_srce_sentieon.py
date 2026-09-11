@@ -111,6 +111,65 @@ def test_cli_requests_capability_iam_for_this_stack():
     assert C4Client.build_capability_param(c4_alpha_stack_sentieon(account)) == ''
 
 
+def test_cli_passes_only_parameters_this_template_declares():
+    """ ``aws cloudformation deploy`` refuses the whole deployment -- 'Parameters: [...] do not
+        exist in the template' -- when handed an override for a parameter the template does not
+        declare. The SRCE branch of the CLI offers every SRCE stack-name override there is, and
+        srce-sentieon declares only NetworkStackNameParameter (plus its own SSH key), so the
+        overrides have to be filtered against the template or the stack cannot be deployed at all.
+    """
+    from src.cli import C4Client
+    from src.part import C4Account
+    from src.stacks.alpha_stacks import c4_alpha_stack_srce_sentieon
+
+    configure()
+    stack = c4_alpha_stack_srce_sentieon(C4Account(account_number='123456789012',
+                                                   creds_file='/dev/null'))
+    declared = C4Client.declared_template_parameters(stack)
+    assert 'NetworkStackNameParameter' in declared
+    assert 'DBNetworkStackNameParameter' not in declared
+    assert 'ComputeNetworkStackNameParameter' not in declared
+
+    flags = C4Client.build_srce_parameter_flags(
+        stack=stack,
+        available_overrides={'NetworkStackNameParameter': 'c4-srce-network-main-stack',
+                             'DBNetworkStackNameParameter': 'c4-srce-network-db-main-stack',
+                             'ComputeNetworkStackNameParameter': 'c4-srce-network-compute-main-stack'})
+    assert flags == ['--parameter-overrides', '"NetworkStackNameParameter=c4-srce-network-main-stack"']
+
+
+def test_cli_parameter_overrides_are_declared_by_every_srce_stack():
+    """ Same contract for the sibling SRCE stacks the deploy order runs alongside this one: none
+        of them may be offered an override its template does not declare. """
+    from src.cli import C4Client
+    from src.part import C4Account
+    from src.stacks.alpha_stacks import create_c4_alpha_stack
+
+    configure()
+    account = C4Account(account_number='123456789012', creds_file='/dev/null')
+    offered = {'NetworkStackNameParameter': 'net', 'DBNetworkStackNameParameter': 'db',
+               'ComputeNetworkStackNameParameter': 'compute', 'ECRStackNameParameter': 'ecr',
+               'IAMStackNameParameter': 'iam', 'LoggingStackNameParameter': 'logging',
+               'AppConfigStackNameParameter': 'appconfig'}
+    for name in ['srce-sentieon', 'srce-datastore', 'srce-redis']:
+        stack = create_c4_alpha_stack(name=name, account=account)
+        declared = C4Client.declared_template_parameters(stack)
+        passed = {flag.strip('"').split('=')[0]
+                  for flag in C4Client.build_srce_parameter_flags(stack=stack,
+                                                                  available_overrides=offered)
+                  if flag != '--parameter-overrides'}
+        assert passed <= declared, f'{name} would be passed undeclared {sorted(passed - declared)}'
+
+
+def test_missing_ssh_key_fails_at_synthesis():
+    """ Records, rather than changes, the standard stack's behavior for its other required input:
+        'sentieon.ssh_key' names a pre-existing EC2 key pair and has no default, so an unset value
+        fails offline too. Named here because it is the second key an operator must supply. """
+    with pytest.raises(KeyError) as caught:
+        synthesize(**{Settings.SENTIEON_SSH_KEY: None})
+    assert Settings.SENTIEON_SSH_KEY in str(caught.value)
+
+
 # ---------------------------------------------------------------------------------------------
 # The AMI is configuration
 # ---------------------------------------------------------------------------------------------

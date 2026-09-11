@@ -87,6 +87,27 @@ class C4Client:
     def build_parameter_override(*, param_name, value):
         return '"{param}={stack}"'.format(param=param_name, stack=value)
 
+    @classmethod
+    def build_srce_parameter_flags(cls, *, stack, available_overrides: dict) -> list:
+        """ The --parameter-overrides flags for an SRCE stack, restricted to the parameters the
+            stack's own template declares.
+
+            `aws cloudformation deploy` rejects the whole deployment if it is passed an override
+            for a parameter the template does not declare, and the SRCE stacks declare very
+            different subsets (srce-redis one, srce-sentieon two, srce-datastore two). Returns []
+            -- no flag at all -- for a template that declares no parameters.
+        """
+        declared = cls.declared_template_parameters(stack)
+        selected = [cls.build_parameter_override(param_name=name, value=value)
+                    for name, value in available_overrides.items() if name in declared]
+        return ['--parameter-overrides', *selected] if selected else []
+
+    @staticmethod
+    def declared_template_parameters(stack) -> set:
+        """ Parameter names declared by the stack's synthesized template. """
+        template = getattr(stack, 'template', None)
+        return set(getattr(template, 'parameters', None) or {})
+
     @staticmethod
     def build_flags(*, template_flag, stack_flag, parameter_flags, changeset_flag='--no-execute-changeset',
                     capability_flags):
@@ -207,26 +228,26 @@ class C4Client:
         if any(s in stack.name.stack_name for s in cls.ALPHA_LEAF_STACKS):
             parameter_flags = ''
         elif is_srce:
-            parameter_flags = [
-                '--parameter-overrides',
-                cls.build_parameter_override(param_name='NetworkStackNameParameter',
-                                             value=srce_network_stack_name.stack_name),
-                cls.build_parameter_override(param_name='DBNetworkStackNameParameter',
-                                             value=srce_network_db_stack_name.stack_name),
-                cls.build_parameter_override(param_name='ComputeNetworkStackNameParameter',
-                                             value=srce_network_compute_stack_name.stack_name),
-                # IAM/ECR/Logging are ecosystem-scoped shared stacks; derive their names from the
-                # same c4_alpha_stack_metadata helper as everything else rather than hardcoding
-                # literals. These are resolved here at upload time (config is loaded).
-                cls.build_parameter_override(param_name='ECRStackNameParameter',
-                                             value=ecr_stack_name.stack_name),
-                cls.build_parameter_override(param_name='IAMStackNameParameter',
-                                             value=iam_stack_name.stack_name),
-                cls.build_parameter_override(param_name='LoggingStackNameParameter',
-                                             value=logging_stack_name.stack_name),
-                cls.build_parameter_override(param_name='AppConfigStackNameParameter',
-                                             value=appconfig_stack_name.stack_name),
-            ]
+            # Every stack name an SRCE consumer might import from. Which of these a given stack
+            # actually declares varies a lot -- srce-redis declares one, srce-sentieon two -- and
+            # `aws cloudformation deploy` refuses the whole deployment ("Parameters: [...] do not
+            # exist in the template") if it is handed an override the template does not declare.
+            # So offer them all and pass only the ones this template asks for.
+            #
+            # IAM/ECR/Logging are ecosystem-scoped shared stacks; derive their names from the same
+            # c4_alpha_stack_metadata helper as everything else rather than hardcoding literals.
+            # These are resolved here at upload time (config is loaded).
+            available_overrides = {
+                'NetworkStackNameParameter': srce_network_stack_name.stack_name,
+                'DBNetworkStackNameParameter': srce_network_db_stack_name.stack_name,
+                'ComputeNetworkStackNameParameter': srce_network_compute_stack_name.stack_name,
+                'ECRStackNameParameter': ecr_stack_name.stack_name,
+                'IAMStackNameParameter': iam_stack_name.stack_name,
+                'LoggingStackNameParameter': logging_stack_name.stack_name,
+                'AppConfigStackNameParameter': appconfig_stack_name.stack_name,
+            }
+            parameter_flags = cls.build_srce_parameter_flags(stack=stack,
+                                                             available_overrides=available_overrides)
         else:
             codebuild_srce = ('-codebuild-' in stack.name.stack_name and C4CodeBuild.uses_srce_network())
             selected_network = (srce_network_stack_name.stack_name if codebuild_srce else

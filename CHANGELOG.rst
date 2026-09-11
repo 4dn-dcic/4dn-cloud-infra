@@ -59,6 +59,12 @@ SRCE (Secure Research Collaborative Environment) support
   ``srce-sentieon`` is added to ``C4Client.REQUIRES_CAPABILITY_IAM``, since it creates an instance
   role and that list is matched as substrings of the stack name, which contains no ``iam``.
 
+* Pass an SRCE stack only the ``--parameter-overrides`` its own template declares.
+  ``aws cloudformation deploy`` refuses the whole deployment ("Parameters: [...] do not exist in
+  the template") when handed an override for an undeclared parameter, and the SRCE consumers
+  declare very different subsets -- ``srce-redis`` one, ``srce-sentieon`` two, ``srce-datastore``
+  two -- where the CLI offered all seven. Non-SRCE stacks are unaffected.
+
 * Fix the ECS and blue/green stacks to reference ``self.NETWORK_EXPORTS.PRIVATE_SUBNETS`` /
   ``PUBLIC_SUBNETS`` instead of the hardcoded ``C4NetworkExports`` lists, so an SRCE stack
   references only the subnets that exist in its IT-provided VPC. Rendered output for the existing

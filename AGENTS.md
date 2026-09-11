@@ -65,6 +65,21 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   behind a config gate that is off by default, or into a subclass; `ecr` and `appconfig` are the
   only stacks allowed a delta, and only an additive one.
 
+- **Two CLI contracts that synthesis cannot check.** `C4Client.REQUIRES_CAPABILITY_IAM` and
+  `ALPHA_LEAF_STACKS`/`SRCE_STACKS` are matched as *substrings of the full stack name*, so a stack
+  that creates an IAM resource but whose name contains no `iam` (e.g. `c4-srce-sentieon-…`) must be
+  listed explicitly or CloudFormation refuses it. And `aws cloudformation deploy` rejects the whole
+  deployment when passed a `--parameter-overrides` entry the template does not declare, so
+  `upload_cloudformation_template` must offer a stack only what its own template declares
+  (`build_srce_parameter_flags` in `src/cli.py`). A template can synthesize and lint perfectly and
+  still be undeployable for either reason.
+
+- **A subclass that inherits a resource inherits the base class's export *attributes*, not its own.**
+  `C4SentieonSupport.sentieon_license_server()` reads `C4NetworkExports.PUBLIC_SUBNETS[0]` — the base
+  class attribute — so an SRCE subclass swapping `NETWORK_EXPORTS` still emitted the standard stack's
+  subnet export and never reached the raising `C4SRCENetworkExports` property. Always go through
+  `self.NETWORK_EXPORTS.<SUBNETS>` in an SRCE part; see `src/parts/srce_sentieon.py`.
+
 - **Config list values arrive as strings.** `ConfigManager._load_config` stringifies every setting so it
   can be sourced into `os.environ`, so a JSON list in `config.json` reaches consumers as its Python repr —
   see the CLN-10 note in `src/base.py` and `_parse_subnet_ids` in `src/parts/srce_network.py`.
