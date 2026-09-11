@@ -40,8 +40,10 @@ class C4Client:
     # these stacks require CAPABILITY_IAM, just IAM for now
     # NB: matched as substrings of the full stack name, so 'foursight' already covers every
     # foursight variant (including the SRCE foursight stack c4-foursight-srce-<env>-stack).
+    # NB: 'srce-sentieon' creates its own instance role/profile for SSM access, so it needs
+    # CAPABILITY_IAM even though its stack name contains no 'iam' substring.
     REQUIRES_CAPABILITY_IAM = ['iam', 'foursight', 'foursight-development', 'foursight-production', 'codebuild',
-                               'foursight-smaht']
+                               'foursight-smaht', 'srce-sentieon']
 
     @classmethod
     def _out_templates_mapping_for_mount(cls) -> str:

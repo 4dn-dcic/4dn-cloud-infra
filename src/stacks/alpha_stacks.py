@@ -325,7 +325,9 @@ def c4_alpha_stack_srce_ecs_blue_green(account: C4Account):
 @register_stack_creator(name='srce-sentieon', kind='alpha',
                         implementation_class=srce_sentieon.C4SRCESentieonSupport)
 def c4_alpha_stack_srce_sentieon(account: C4Account):
-    """ SRCE Sentieon stack: license server EC2 in App VPC (public subnet), accessible from Compute VPC. """
+    """ SRCE Sentieon stack: license server EC2 in an App VPC private subnet, reachable from the
+        App VPC and the Compute VPC. Requires sentieon.ami_id (and sentieon.ssh_key) in config.json.
+    """
     return create_c4_alpha_stack(name='srce-sentieon', account=account)
 
 

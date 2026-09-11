@@ -154,6 +154,16 @@ class Settings:
     # Defaults to the VPC CIDR if unset, never 0.0.0.0/0. Read by the SRCE Sentieon stack only;
     # the standard Sentieon stack is unchanged.
     SENTIEON_ADMIN_CIDR = 'sentieon.admin_cidr'
+    # AMI the SRCE Sentieon license server boots from. Required (no default) for the SRCE stack:
+    # the hardened image is supplied per account by the institution's IT/security team, so there is
+    # no image this repository could correctly guess. See C4SRCESentieonSupport.
+    SENTIEON_AMI_ID = 'sentieon.ami_id'
+    # Instance type for the SRCE Sentieon license server. The AMI is operator-supplied, so the
+    # instance family it can boot on is too; defaults to the Nitro-based equivalent of the t2.nano
+    # Sentieon documents, since a current hardened AMI generally requires Nitro.
+    SENTIEON_INSTANCE_TYPE = 'sentieon.instance_type'
+    # Size (GiB) of the SRCE Sentieon license server's encrypted root volume.
+    SENTIEON_VOLUME_SIZE = 'sentieon.volume_size'
 
     # JH Options
     JH_SSH_KEY = 'jupyterhub.ssh_key'

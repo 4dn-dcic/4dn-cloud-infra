@@ -34,20 +34,30 @@ SRCE (Secure Research Collaborative Environment) support
   * ``srce_ecs.py`` / ``srce_ecs_blue_green.py`` -- SRCE ECS variants
     (``C4SRCEECSApplication``, ``SRCEECSBlueGreen``) targeting the Application VPC with a
     config-driven VPC CIDR.
-  * ``srce_sentieon.py`` -- SRCE Sentieon license server (``C4SRCESentieonSupport``) in the
-    Application VPC, with cross-VPC rules for the Compute VPC and SSH restricted to
-    ``sentieon.admin_cidr`` (defaulting to the VPC CIDR, never ``0.0.0.0/0``).
+  * ``srce_sentieon.py`` -- SRCE Sentieon license server (``C4SRCESentieonSupport``), a stack of
+    its own in the Application VPC: the instance sits on a configured ``private.subnets`` subnet
+    with no public IP (the standard stack's ``PublicSubnetA`` import needs an optional export a
+    secure enclave need not publish), boots the AMI named by the **required** ``sentieon.ami_id``
+    rather than a hardcoded account-specific default, carries an in-stack IAM role and instance
+    profile granting only ``AmazonSSMManagedInstanceCore`` for Session Manager access, and has an
+    encrypted ``gp3`` root volume. Cross-VPC rules admit tcp/8990 from the Compute VPC, and SSH is
+    restricted to ``sentieon.admin_cidr`` (defaulting to the VPC CIDR, never ``0.0.0.0/0``).
+    The standard ``sentieon`` stack is untouched.
   * ``srce_redis.py`` -- SRCE Redis (``C4SRCERedis``) targeting the Database VPC.
 
 * New ``config.json`` settings: ``vpc.id``, ``vpc.cidr``, ``public.subnets``, ``private.subnets``,
   ``db.vpc.id``, ``db.vpc.cidr``, ``db.private.subnets``, ``compute.vpc.id``,
-  ``compute.vpc.cidr``, ``compute.private.subnets``, ``sentieon.admin_cidr``.
+  ``compute.vpc.cidr``, ``compute.private.subnets``, ``sentieon.admin_cidr``,
+  ``sentieon.ami_id`` (required by ``srce-sentieon``), ``sentieon.instance_type``,
+  ``sentieon.volume_size``.
 
 * Register the SRCE stacks in ``alpha_stacks.py`` (``srce-network``, ``srce-network-db``,
   ``srce-network-compute``, ``srce-datastore``, ``srce-ecs``, ``srce-ecs-blue-green``,
   ``srce-sentieon``, ``srce-redis``) and route them in ``cli.py``: SRCE network stacks are leaf
   stacks, and the SRCE consumers receive DB/Compute network parameter overrides. CodeBuild keeps
   its own stack identity but imports the SRCE Application VPC when ``vpc.id`` is set.
+  ``srce-sentieon`` is added to ``C4Client.REQUIRES_CAPABILITY_IAM``, since it creates an instance
+  role and that list is matched as substrings of the stack name, which contains no ``iam``.
 
 * Fix the ECS and blue/green stacks to reference ``self.NETWORK_EXPORTS.PRIVATE_SUBNETS`` /
   ``PUBLIC_SUBNETS`` instead of the hardcoded ``C4NetworkExports`` lists, so an SRCE stack

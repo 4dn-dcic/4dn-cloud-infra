@@ -14,8 +14,9 @@ only permitted to create resources *inside* those pre-provisioned VPCs.
 
 Instead of one self-created VPC, a SRCE deployment spans **three IT-provided VPCs**:
 
-* **Application VPC** — runs the ECS portal and Foursight. Has public subnets (for the load
-  balancer and the Sentieon license server) and private subnets (for the ECS tasks).
+* **Application VPC** — runs the ECS portal, Foursight and the Sentieon license server. Private
+  subnets carry the ECS tasks and the license server; public subnets, if the institution provides
+  any, carry only the load balancer.
 * **Database VPC** — runs RDS, OpenSearch, and Redis. Private subnets only.
 * **Compute VPC** — reserved for compute workloads (Sentieon compute jobs, and, if introduced,
   JupyterHub/Higlass variants). Private subnets only.
@@ -40,8 +41,9 @@ Application VPC (ECS portal + Foursight):
 
 * ``vpc.id`` — IT-provided Application VPC ID
 * ``vpc.cidr`` — Application VPC CIDR block (used to scope security-group rules)
-* ``public.subnets`` — public subnet IDs (load balancer, Sentieon license server)
-* ``private.subnets`` — private subnet IDs (ECS tasks)
+* ``public.subnets`` — public subnet IDs (load balancer). Optional: an enclave Application VPC
+  that provides no public subnets deploys ``srce-sentieon`` unchanged.
+* ``private.subnets`` — private subnet IDs (ECS tasks, Sentieon license server)
 
 Database VPC (RDS, OpenSearch, Redis):
 
@@ -70,8 +72,18 @@ Other relevant keys:
   Fourfront ECS stack does not read this setting at all. Verify the certificate covers the
   operator DNS names (the generated ALB DNS name itself is not covered by a custom certificate).
 
+* ``sentieon.ami_id`` — **required** to deploy ``srce-sentieon``. AMI the license server boots
+  from; the hardened image is issued per account by the institution's IT/security team, so there
+  is no default and nothing is discovered from the account. An unset or malformed value fails at
+  ``cli provision`` time with a message naming the key, not at stack-creation time.
+* ``sentieon.ssh_key`` — name of a pre-existing EC2 key pair for the license server.
 * ``sentieon.admin_cidr`` — CIDR (institutional VPN/admin range) allowed to SSH into the Sentieon
   license server. Defaults to the Application VPC CIDR; **never** ``0.0.0.0/0``.
+* ``sentieon.instance_type`` — defaults to ``t3.nano`` (the Nitro-based equivalent of the
+  ``t2.nano`` Sentieon documents for a persistent license server). Set it if the supplied AMI
+  needs a different instance family.
+* ``sentieon.volume_size`` — size in GiB of the license server's encrypted root volume
+  (default 20).
 * ``subnet.pair_count`` — number of subnet pairs the datastore expects (default 2).
 
 Deploy order
@@ -102,7 +114,7 @@ Child command failures now stop the CLI instead of reporting success::
 
     # 4. Application + license server in the Application VPC
     cli provision srce-ecs
-    cli provision srce-sentieon
+    cli provision srce-sentieon         # needs sentieon.ami_id; creates an IAM role (CAPABILITY_IAM)
 
     # 5. Foursight for the SRCE deployment (uses the SRCE Application VPC)
     cli provision foursight-srce
@@ -182,6 +194,52 @@ cross-VPC rules that ``C4SRCENetwork`` and ``C4SRCEDBNetwork`` create — RDS ``
 ``6379``, and HTTPS ``443`` for OpenSearch, each scoped to the peer VPC's CIDR rather than to
 ``0.0.0.0/0``. If Foursight checks time out against the datastore, the fault is in that routing or
 in those rules; adding a Database-VPC security group to the Lambdas is not the fix.
+
+Sentieon license server
+------------------------
+
+``srce-sentieon`` is a stack of its own (``c4-srce-sentieon-<env>-stack``), separate from the
+standard ``sentieon`` stack, which is left exactly as it is for the existing deployments. It puts
+a Sentieon license server in the **Application VPC**, on the first configured ``private.subnets``
+subnet, with **no public IP**. Compute jobs in the Compute VPC reach it on tcp/8990 over the
+IT-provided inter-VPC routing, permitted by a rule scoped to ``compute.vpc.cidr``.
+
+What the stack creates: the license-server security group and its rules, an IAM role and instance
+profile granting only ``AmazonSSMManagedInstanceCore``, and the EC2 instance itself with an
+encrypted ``gp3`` root volume. Its one output is the server's **private** IP
+(``SentieonServerIP<Env>``).
+
+``update-sentieon-security-groups`` reads that output, but its default stack name is the *standard*
+``sentieon`` stack's, which an SRCE account does not have. Point it at this stack explicitly::
+
+    update-sentieon-security-groups --sentieon-stack-name c4-srce-sentieon-<env>-stack
+
+Note that this command changes live security groups; it is not part of ``cli provision``.
+
+Deployment prerequisites, beyond the ordinary SRCE network keys:
+
+* ``sentieon.ami_id`` **must be set.** There is no default: the hardened AMI is issued per account,
+  and nothing is discovered from the account's own state. ``cli provision srce-sentieon`` fails
+  offline, naming the key, if it is unset or malformed.
+* ``sentieon.ssh_key`` must name an EC2 key pair that already exists in the account.
+* The stack creates an IAM role, so it is deployed with ``CAPABILITY_IAM``. The CLI adds that
+  automatically (``C4Client.REQUIRES_CAPABILITY_IAM``); an operator applying the template by hand
+  must pass it.
+* **The Application VPC needs a path to the SSM endpoints.** The instance has no public IP, so
+  Session Manager — the operator's way onto the box — needs either the ``ssm``, ``ssmmessages``
+  and ``ec2messages`` interface endpoints in the Application VPC, or NAT egress from its private
+  subnets. Either is the institution's to provide: these SRCE stacks deliberately create no
+  endpoints, routes or NAT, because IT owns VPC routing (see *Theory* above). Without one of them
+  the instance still boots, but nobody can log in to finish the manual steps below.
+* Outbound HTTPS to the Sentieon license master (``52.89.132.242/32``) must be routable — again,
+  through the institution's egress path.
+
+Manual steps after the stack is up, as for any Sentieon license server
+(https://support.sentieon.com/appnotes/license_server/): connect with
+``aws ssm start-session --target <instance-id>``, install the license daemon under
+``/opt/sentieon`` (the bootstrap creates ``/opt/sentieon/license`` and starts the SSM agent, and
+does no more than that), and install the licence file Sentieon issues for this server's
+instance ID.
 
 Post-deploy: populate secrets
 ------------------------------
