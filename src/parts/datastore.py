@@ -90,6 +90,14 @@ class C4Datastore(C4DatastoreBase, C4Part):
         return ConfigManager.get_config_setting(Settings.RDS_POSTGRES_VERSION, default=cls.DEFAULT_RDS_POSTGRES_VERSION)
 
     @classmethod
+    def rds_postgres_version_for_instance(cls, requested=None):
+        """The separately built parameter group and instance must use one configured version."""
+        configured = cls.rds_postgres_version()
+        if requested is not None and requested != configured:
+            raise ValueError('Set rds.postgres_version instead of overriding only the RDS instance version')
+        return configured
+
+    @classmethod
     def rds_postgres_major_version(cls):
         return cls.rds_postgres_version().split('.')[0]
     # dmichaels/2022-06-21: Factored out to C4DatastoreBase in constants.py
@@ -549,7 +557,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
             DBInstanceClass=instance_size or ConfigManager.get_config_setting(Settings.RDS_INSTANCE_SIZE,
                                                                               default=self.DEFAULT_RDS_INSTANCE_SIZE),
             Engine='postgres',
-            EngineVersion=postgres_version or self.DEFAULT_RDS_POSTGRES_VERSION,
+            EngineVersion=self.rds_postgres_version_for_instance(postgres_version),
             # was logical_id,
             DBInstanceIdentifier=ConfigManager.get_config_setting(Settings.RDS_NAME, default=None) or f"rds-{env_name}",
             DBName=db_name or ConfigManager.get_config_setting(Settings.RDS_DB_NAME, default=self.DEFAULT_RDS_DB_NAME),

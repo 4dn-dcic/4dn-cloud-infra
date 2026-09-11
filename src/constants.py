@@ -56,6 +56,27 @@ class Settings:
     # Network options
     SUBNET_PAIR_COUNT = 'subnet.pair_count'
 
+    # ACM certificate ARN for the portal load balancer (SEC-5). When set, the ALB gets an HTTPS:443
+    # listener (with a modern SslPolicy) and HTTP:80 redirects to it; the portal URL is emitted as
+    # https://. When unset, the ALB keeps the plain HTTP:80 listener (unchanged behavior).
+    ECS_LB_CERTIFICATE_ARN = 'ecs.lb_certificate_arn'
+
+    # Application VPC (ECS portal + foursight) — used in SRCE deployments
+    VPC_ID = 'vpc.id'
+    VPC_CIDR = 'vpc.cidr'
+    PUBLIC_SUBNETS = 'public.subnets'
+    PRIVATE_SUBNETS = 'private.subnets'
+
+    # Database VPC (RDS, OpenSearch, Redis) — used in SRCE deployments
+    DB_VPC_ID = 'db.vpc.id'
+    DB_VPC_CIDR = 'db.vpc.cidr'
+    DB_PRIVATE_SUBNETS = 'db.private.subnets'
+
+    # Compute VPC (Sentieon, JupyterHub, Higlass) — used in SRCE deployments
+    COMPUTE_VPC_ID = 'compute.vpc.id'
+    COMPUTE_VPC_CIDR = 'compute.vpc.cidr'
+    COMPUTE_PRIVATE_SUBNETS = 'compute.private.subnets'
+
     # RDS Configuration Options
     RDS_INSTANCE_SIZE = 'rds.instance_size'
     RDS_STORAGE_SIZE = 'rds.storage_size'
@@ -96,6 +117,23 @@ class Settings:
     ECS_INITIAL_DEPLOYMENT_CPU = 'ecs.initial_deployment.cpu'
     ECS_INITIAL_DEPLOYMENT_MEMORY = 'ecs.initial_deployment.memory'
 
+    # Crowdstrike Falcon container sensor (sidecar) support for ECS tasks. Off by default so
+    # existing deployments are unchanged (see docs/source/crowdstrike.rst). When enabled, every
+    # ECS task definition gains a non-essential 'falcon-container' sidecar that prepares a shared
+    # 'crowdstrike-falcon-volume'; the application container mounts that volume read-only, depends
+    # on the sidecar completing successfully, has the Falcon CID injected from Secrets Manager, and
+    # is wrapped by the CrowdStrike loader entrypoint.
+    CROWDSTRIKE_ENABLED = 'crowdstrike.enabled'                    # bool, default false
+    # REQUIRED when crowdstrike.enabled is true: the CrowdStrike loader entrypoint the application
+    # container must run, as a JSON list or comma-separated string. This is a vendor/image-specific
+    # contract (from the falcon-sensor image config / CrowdStrike PDF) and MUST be supplied by the
+    # operator -- there is deliberately no default, because setting the wrong entrypoint yields a
+    # task definition that validates but never runs the application. See docs/source/crowdstrike.rst.
+    CROWDSTRIKE_ENTRYPOINT = 'crowdstrike.entrypoint'
+    CROWDSTRIKE_MOUNT_PATH = 'crowdstrike.mount_path'             # default /tmp/CrowdStrike
+    CROWDSTRIKE_SENSOR_IMAGE_TAG = 'crowdstrike.sensor_image_tag'  # default latest
+    CROWDSTRIKE_BACKEND = 'crowdstrike.backend'                    # FALCONCTL_OPT_BACKEND, default bpf
+
     # Fourfront Specific Options
     FOURFRONT_VPC = 'fourfront.vpc'
     FOURFRONT_VPC_CIDR = 'fourfront.vpc.cidr'
@@ -112,6 +150,20 @@ class Settings:
 
     # Sentieon Options
     SENTIEON_SSH_KEY = 'sentieon.ssh_key'
+    # CIDR allowed to SSH into the Sentieon license server (institutional VPN/admin range).
+    # Defaults to the VPC CIDR if unset, never 0.0.0.0/0. Read by the SRCE Sentieon stack only;
+    # the standard Sentieon stack is unchanged.
+    SENTIEON_ADMIN_CIDR = 'sentieon.admin_cidr'
+    # AMI the SRCE Sentieon license server boots from. Required (no default) for the SRCE stack:
+    # the hardened image is supplied per account by the institution's IT/security team, so there is
+    # no image this repository could correctly guess. See C4SRCESentieonSupport.
+    SENTIEON_AMI_ID = 'sentieon.ami_id'
+    # Instance type for the SRCE Sentieon license server. The AMI is operator-supplied, so the
+    # instance family it can boot on is too; defaults to the Nitro-based equivalent of the t2.nano
+    # Sentieon documents, since a current hardened AMI generally requires Nitro.
+    SENTIEON_INSTANCE_TYPE = 'sentieon.instance_type'
+    # Size (GiB) of the SRCE Sentieon license server's encrypted root volume.
+    SENTIEON_VOLUME_SIZE = 'sentieon.volume_size'
 
     # JH Options
     JH_SSH_KEY = 'jupyterhub.ssh_key'
@@ -162,6 +214,21 @@ class C4DatastoreBase:
     DEFAULT_RDS_INSTANCE_SIZE = 'db.t4g.medium'
     DEFAULT_RDS_STORAGE_TYPE = 'gp3'
     DEFAULT_RDS_POSTGRES_VERSION = '14.4'
+
+
+class C4SRCEDatastoreBase(C4DatastoreBase):
+    """
+    SRCE variant of C4DatastoreBase. Used to generate SRCE datastore names before orchestration
+    (e.g. setup-remaining-secrets).
+
+    The fresh SMaHT SRCE deployment is orchestrated on PostgreSQL 17.6; the standard/Fourfront
+    datastores keep C4DatastoreBase.DEFAULT_RDS_POSTGRES_VERSION unchanged so no existing RDS
+    instance is offered a major-version upgrade. Override per deployment with
+    rds.postgres_version, which drives both the engine version and the parameter-group family.
+    """
+    STACK_NAME_TOKEN = 'srce-datastore'
+    STACK_TITLE_TOKEN = 'SRCEDatastore'
+    DEFAULT_RDS_POSTGRES_VERSION = '17.6'
 
 
 # dmichaels/2022-06-22: Factored out from C4IAM in iam.py.

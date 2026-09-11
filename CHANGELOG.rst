@@ -6,6 +6,179 @@
 Change Log
 ----------
 
+4.5.0
+=====
+
+Scoped to a **fresh SMaHT blue/green deployment into a Secure Research Collaborative Environment
+(SRCE)**. Fourfront and the existing CGAP deployments are fixed: every stack they provision
+synthesizes byte-identically to the previous release, apart from two additive shared prerequisites
+named below. ``tests/test_fixed_stack_parity.py`` asserts that against a fingerprint of the
+previous release's synthesis, for every app kind and both deployment paradigms.
+
+SRCE (Secure Research Collaborative Environment) support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* Add SRCE infrastructure support for deploying into IT-provided VPCs (3-VPC architecture:
+  Application, Database and Compute).
+
+* New modules:
+
+  * ``srce_network.py`` -- Network stacks (``C4SRCENetwork``, ``C4SRCEDBNetwork``,
+    ``C4SRCEComputeNetwork``) that export IT-provided VPC/subnet IDs and create security groups
+    with cross-VPC rules, so downstream stacks use the standard ``ImportValue`` pattern unchanged.
+    The subnet-export resolvers fail loudly rather than resolving to an empty list.
+  * ``srce_datastore.py`` -- SRCE datastore (``C4SRCEDatastore``) targeting the Database VPC;
+    defaults ``IAMStackNameParameter`` to the shared ``c4-iam-main-stack``, and defaults to
+    PostgreSQL 17.6 (the standard and Fourfront slim datastores keep their existing default, so
+    no existing RDS instance is offered a major-version upgrade).
+  * ``srce_ecs.py`` / ``srce_ecs_blue_green.py`` -- SRCE ECS variants
+    (``C4SRCEECSApplication``, ``SRCEECSBlueGreen``) targeting the Application VPC with a
+    config-driven VPC CIDR.
+  * ``srce_sentieon.py`` -- SRCE Sentieon license server (``C4SRCESentieonSupport``), a stack of
+    its own in the Application VPC: the instance sits on a configured ``private.subnets`` subnet
+    with no public IP (the standard stack's ``PublicSubnetA`` import needs an optional export a
+    secure enclave need not publish), boots the AMI named by the **required** ``sentieon.ami_id``
+    rather than a hardcoded account-specific default, carries an in-stack IAM role and instance
+    profile granting only ``AmazonSSMManagedInstanceCore`` for Session Manager access, and has an
+    encrypted ``gp3`` root volume. Cross-VPC rules admit tcp/8990 from the Compute VPC, and SSH is
+    restricted to ``sentieon.admin_cidr`` (defaulting to the VPC CIDR, never ``0.0.0.0/0``).
+    The standard ``sentieon`` stack is untouched.
+  * ``srce_redis.py`` -- SRCE Redis (``C4SRCERedis``) targeting the Database VPC.
+
+* New ``config.json`` settings: ``vpc.id``, ``vpc.cidr``, ``public.subnets``, ``private.subnets``,
+  ``db.vpc.id``, ``db.vpc.cidr``, ``db.private.subnets``, ``compute.vpc.id``,
+  ``compute.vpc.cidr``, ``compute.private.subnets``, ``sentieon.admin_cidr``,
+  ``sentieon.ami_id`` (required by ``srce-sentieon``), ``sentieon.instance_type``,
+  ``sentieon.volume_size``.
+
+* Register the SRCE stacks in ``alpha_stacks.py`` (``srce-network``, ``srce-network-db``,
+  ``srce-network-compute``, ``srce-datastore``, ``srce-ecs``, ``srce-ecs-blue-green``,
+  ``srce-sentieon``, ``srce-redis``) and route them in ``cli.py``: SRCE network stacks are leaf
+  stacks, and the SRCE consumers receive DB/Compute network parameter overrides. CodeBuild keeps
+  its own stack identity but imports the SRCE Application VPC when ``vpc.id`` is set.
+  ``srce-sentieon`` is added to ``C4Client.REQUIRES_CAPABILITY_IAM``, since it creates an instance
+  role and that list is matched as substrings of the stack name, which contains no ``iam``.
+
+* Pass an SRCE stack only the ``--parameter-overrides`` its own template declares.
+  ``aws cloudformation deploy`` refuses the whole deployment ("Parameters: [...] do not exist in
+  the template") when handed an override for an undeclared parameter, and the SRCE consumers
+  declare very different subsets -- ``srce-redis`` one, ``srce-sentieon`` two, ``srce-datastore``
+  two -- where the CLI offered all seven. Non-SRCE stacks are unaffected.
+
+* Fix the ECS and blue/green stacks to reference ``self.NETWORK_EXPORTS.PRIVATE_SUBNETS`` /
+  ``PUBLIC_SUBNETS`` instead of the hardcoded ``C4NetworkExports`` lists, so an SRCE stack
+  references only the subnets that exist in its IT-provided VPC. Rendered output for the existing
+  stacks is unchanged.
+
+* One configured ``rds.postgres_version`` now drives both the RDS ``EngineVersion`` and the
+  separately built parameter group's ``Family``, which must agree or stack creation fails.
+
+* ``cli`` child commands (``docker run`` for validate/package/deploy) run non-interactively and a
+  non-zero exit stops the orchestration instead of being reported as success.
+
+* ``setup-remaining-secrets`` detects an SRCE deployment (via ``vpc.id``) and computes the RDS
+  secret logical id from the SRCE datastore prefix.
+
+* ``assure-global-env-bucket`` derives ``orchestrated_app`` / ``full_env_prefix`` from
+  ``app.kind`` instead of hardcoding ``cgap``.
+
+Foursight networking in SRCE (Application-VPC Lambda contract)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* Add ``C4FoursightSMAHTSRCEStack`` and the ``foursight-srce`` provision target, which resolves
+  through ``C4SRCENetworkExports`` and defaults its ``IDENTITY`` to the appconfig stack's
+  Foursight configuration secret.
+
+* Resolve the SRCE Foursight security group by CloudFormation **export name**
+  (``c4-srce-network-main-stack-ApplicationSecurityGroup``) rather than by the template's output
+  key -- the identical string ``srce-ecs`` resolves with ``Fn::ImportValue`` via
+  ``NetworkStackNameParameter``, so the pre-deploy (chalice) and deploy-time (CloudFormation)
+  paths agree by construction. The exact output key remains a fallback for a stack that publishes
+  no export name, and the failure message names both identifiers and lists the
+  ``ApplicationSecurityGroup`` export names that do exist (names only, never values). Adds
+  ``ConfigManager.find_stack_exports()``, which reads the same ``DescribeStacks`` data and needs
+  no additional API surface or IAM permission.
+
+* ``C4SRCENetworkExports.get_security_ids()`` raises instead of returning an empty list, which
+  ``foursight_core``'s ``if security_group_ids:`` gate silently swallowed, leaving a stale
+  ``security_group_ids`` in the chalice config. ``get_subnet_ids()`` rejects Application-VPC
+  subnets that also appear under ``db.private.subnets`` or ``compute.private.subnets``.
+
+* **Required shared prerequisite** -- anchor the standard ``C4NetworkExports`` resolvers to the
+  standard network stack's own logical-id prefix (``^C4Network...``), so the existing non-SRCE
+  Foursight stacks (``foursight``/``foursight-smaht``/``foursight-production``/
+  ``foursight-development``) do not match the new SRCE network stacks' ``C4SRCENetwork*`` exports.
+  Without this, standing up the three SRCE network stacks in an account breaks Foursight packaging
+  for the deployments already there: the loose ``.*Network.*`` patterns resolved security groups
+  **and** private subnets spanning all three SRCE VPCs, and CloudFormation rejects every Lambda
+  with ``Security Groups are required to be in the same VPC``. Legacy stack names such as
+  ``c4-network-trial-alpha-stack`` still match, since every standard network stack takes its title
+  token from ``C4NetworkBase``. Both resolvers additionally refuse a match spanning more than one
+  CloudFormation stack, via the new ``ConfigManager.find_stack_outputs_by_stack()``; one of them,
+  ``get_security_ids()``, previously could return an empty list and now raises -- an intentional,
+  strictly-better failure, because an empty resolution was silently swallowed downstream.
+
+* **Required shared prerequisite** -- give each Foursight variant a *deep* copy of the vendored
+  chalice ``CONFIG_BASE``. ``dict(CONFIG_BASE, app_name=...)`` copies only the top level, so all
+  variants shared one mutable ``stages`` dict that ``build_config()`` writes
+  ``security_group_ids`` / ``subnet_ids`` into; adding the SRCE variant would otherwise leak
+  Application-VPC networking into the non-SRCE variants packaged in the same process. No deployed
+  resource changes.
+
+* Package ``foursight-srce`` with the ``foursight_smaht`` poetry group.
+  ``foursight_core.deploy.Deploy.build_config_and_package()`` picks the application library by
+  matching the caller's ``args.stack`` against a hardcoded list of provision targets that knows
+  only ``foursight-smaht``, so ``foursight-srce`` fell through to the ``foursight_cgap`` group and
+  shipped a SMaHT ``app.py`` (which imports ``chalicelib_smaht``) on top of foursight-cgap's
+  dependencies; the Lambda failed at startup with ``Runtime.ImportModuleError: Unable to import
+  module 'app': No module named 'chalicelib_smaht'``. ``C4FoursightSMAHTSRCEStack.PackageDeploy``
+  now presents ``stack='foursight-smaht'`` to that classifier on a local copy of the arguments,
+  so exactly one application group is exported while the caller's deploy target -- and the
+  CloudFormation stack name, change-set upload and error messages -- stay ``foursight-srce``.
+
+Optional TLS listener and CrowdStrike Falcon sidecar (both off by default)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* ``ecs.lb_certificate_arn`` -- when set, the standalone and blue/green portal ALBs get an
+  HTTPS:443 listener with a modern ``SslPolicy`` plus an HTTP:80 redirect, each portal service
+  waits for its forwarding listener, and the portal URL output becomes ``https://``. Unset (the
+  state of every existing deployment) keeps the plain HTTP:80 listener unchanged. The fixed
+  Fourfront ECS stack does not read this setting.
+
+* ``crowdstrike.enabled`` -- when set, every ECS task definition built by ``ecs.py`` /
+  ``ecs_blue_green.py`` gains a non-essential ``falcon-container`` sidecar that prepares a shared
+  ``crowdstrike-falcon-volume``; the application container mounts it read-only, is wrapped by the
+  ``crowdstrike.entrypoint`` loader entrypoint (required when enabled, no default) and waits on
+  the sidecar completing successfully. The sidecar reads the Falcon CID from Secrets Manager.
+  Additional keys: ``crowdstrike.mount_path``, ``crowdstrike.sensor_image_tag``,
+  ``crowdstrike.backend``. Off by default pending sensor-image publication, loader-entrypoint
+  verification and task-memory validation -- see ``docs/source/crowdstrike.rst``. The fixed
+  Fourfront ECS stack is not wired for the sidecar.
+
+Additive changes to shared stacks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These are the only two templates outside the SRCE stacks whose output differs from the previous
+release, and both are strictly additive -- no pre-existing logical id is changed or removed:
+
+* ``ecr`` gains a ``falcon-sensor`` repository and its ``FalconSensorURL`` export, the source of
+  the CrowdStrike sidecar image.
+* ``appconfig`` gains a Foursight configuration secret and its export, used as the ``IDENTITY``
+  for ``foursight-srce`` so Foursight's configuration is separable from the portal's GAC. The
+  Falcon credential stubs in the same stack are created only when ``crowdstrike.enabled`` is set.
+
+Documentation and tests
+~~~~~~~~~~~~~~~~~~~~~~~
+
+* ``docs/source/deploy_srce.rst`` (deployment, configuration keys and the Foursight Application-VPC
+  contract) and ``docs/source/crowdstrike.rst``; ``AGENTS.md`` records the cross-stack export
+  sharp edges.
+* ``tests/test_srce_foursight_vpc.py``, ``tests/test_srce_network_stack_name.py``,
+  ``tests/test_crowdstrike_task_definitions.py``, ``tests/test_stack_regressions.py`` and
+  ``tests/test_fixed_stack_parity.py`` (the deployment-boundary lock described above). All offline:
+  no AWS API calls, no live CloudFormation validation.
+
+
 4.4.0
 =====
 

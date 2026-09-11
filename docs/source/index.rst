@@ -25,3 +25,25 @@ deploy and adapt CGAP to the needs of your project.
 
 .. _CGAP Operations team: cgap-support@hms-dbmi.atlassian.net
 
+
+Contents
+^^^^^^^^
+
+.. toctree::
+   :maxdepth: 1
+
+   setup
+   architecture
+   create_new_stack
+   making_stack_changes
+   deploy_new_account
+   deploy_fourfront
+   deploy_foursight_fourfront
+   deploy_srce
+   crowdstrike
+   destroying_an_account
+   encryption
+   migration
+   kibana
+   running_foursight_from_ec2
+

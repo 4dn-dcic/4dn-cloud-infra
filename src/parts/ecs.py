@@ -1,3 +1,4 @@
+import json
 from dcicutils.cloudformation_utils import make_required_key_for_ecs_application_url, camelize
 from troposphere import (
     Parameter,
@@ -24,6 +25,13 @@ from troposphere.ecs import (
     Environment,
     CapacityProviderStrategyItem,
     SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
+    # CrowdStrike Falcon sidecar support (see _crowdstrike_task_kwargs). NOTE: troposphere.ecs.Secret
+    # is distinct from troposphere.secretsmanager.Secret used elsewhere -- kept unaliased here.
+    Volume,
+    Host,
+    MountPoint,
+    ContainerDependency,
+    Secret,
 )
 from ..base import ConfigManager
 from ..constants import Settings
@@ -33,6 +41,7 @@ from .network import C4NetworkExports, C4Network
 from .ecr import C4ECRExports
 from .iam import C4IAMExports
 from .logging import C4LoggingExports
+from .appconfig import C4AppConfigExports
 
 
 class C4ECSApplicationTypes:
@@ -84,6 +93,25 @@ class C4ECSApplication(C4Part):
     ECR_EXPORTS = C4ECRExports()
     IAM_EXPORTS = C4IAMExports()
     LOGGING_EXPORTS = C4LoggingExports()
+    APPCONFIG_EXPORTS = C4AppConfigExports()  # for the Falcon CID secret ARN (CrowdStrike)
+
+    # --- CrowdStrike Falcon container sensor (sidecar) --------------------------------------------
+    # Physical names/values demonstrated by the vendor task definition; kept as symbols so the
+    # sidecar wiring stays consistent across every task variant (and matches the captain's example).
+    CROWDSTRIKE_VOLUME_NAME = 'crowdstrike-falcon-volume'
+    FALCON_SIDECAR_CONTAINER_NAME = 'falcon-container'
+    # Vendor env var name the falcon sensor reads the CID from; injected from Secrets Manager.
+    FALCON_CID_SECRET_ENV_NAME = 'FALCONCTL_OPT_FALCONCTL_CID'
+    FALCON_BACKEND_ENV_NAME = 'FALCONCTL_OPT_BACKEND'
+    DEFAULT_CROWDSTRIKE_MOUNT_PATH = '/tmp/CrowdStrike'
+    DEFAULT_CROWDSTRIKE_BACKEND = 'bpf'
+    DEFAULT_FALCON_SENSOR_IMAGE_TAG = 'latest'
+    # The application container depends on the sidecar finishing its volume-prep and exiting 0.
+    # SUCCESS is correct for a prepare-and-exit init sidecar (the vendor image is non-essential and
+    # runs to completion). If the sensor image ever runs persistently this must revisit COMPLETE,
+    # else wrapped tasks would deadlock in PENDING -- see docs/source/crowdstrike.rst.
+    FALCON_SIDECAR_DEPENDS_CONDITION = 'SUCCESS'
+
     AMI = 'ami-0be13a99cd970f6a9'  # latest amazon linux 2 ECS optimized
     LB_NAME = 'AppLB'
     IMAGE_TAG = ConfigManager.get_config_setting(Settings.ECS_IMAGE_TAG, 'latest')
@@ -120,6 +148,11 @@ class C4ECSApplication(C4Part):
             Description='Name of Logging stack for referencing the log group',
             Type='String',
         ))
+        # AppConfig Stack Parameter -- only declared when the CrowdStrike sidecar is enabled, which
+        # is the sole consumer (it ImportValues the Falcon CID secret ARN). Declaring it
+        # unconditionally would change every existing ECS template's parameter list.
+        for parameter in self.crowdstrike_template_parameters():
+            template.add_parameter(parameter)
 
         # ECS Params
         template.add_parameter(self.ecs_web_worker_port())
@@ -144,7 +177,8 @@ class C4ECSApplication(C4Part):
         template.add_resource(self.ecs_container_security_group())
         target_group = self.ecs_lbv2_target_group(name=self.TARGET_GROUP_NAME)
         template.add_resource(target_group)
-        template.add_resource(self.ecs_application_load_balancer_listener(target_group))
+        for listener in self.ecs_lb_listeners(target_group):
+            template.add_resource(listener)
         template.add_resource(self.ecs_application_load_balancer())
 
         # Add indexing Cloudwatch Alarms
@@ -161,6 +195,148 @@ class C4ECSApplication(C4Part):
         # Add outputs
         template.add_output(self.output_application_url())
         return template
+
+    def _awslogs_config(self, stream_prefix, log_group_export=None) -> LogConfiguration:
+        """ Shared awslogs LogConfiguration for ECS container definitions. All ECS/task
+            variants used a byte-identical block differing only in the stream prefix and (for
+            blue/green) the log-group export; this factors that out. """
+        return LogConfiguration(
+            LogDriver='awslogs',
+            Options={
+                'awslogs-group':
+                    self.LOGGING_EXPORTS.import_value(log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP),
+                'awslogs-region': Ref(AWS_REGION),
+                'awslogs-stream-prefix': stream_prefix,
+            }
+        )
+
+    # --- CrowdStrike Falcon container sensor (sidecar) helpers -----------------------------------
+    #
+    # These are shared by every ECS task variant (portal/indexer/ingester/deployment, single-cluster
+    # and blue/green, CGAP/Fourfront/SMaHT, and -- via inheritance -- the SRCE variants). They are a
+    # no-op unless crowdstrike.enabled is true, so existing deployments are byte-identical.
+    #
+    # The demonstrated contract (from the captain's vendor task definition):
+    #   * a non-essential 'falcon-container' sidecar prepares a shared 'crowdstrike-falcon-volume'
+    #     (task-level Host volume) and receives the Falcon CID as a Secrets-Manager-injected env var;
+    #   * the application container mounts that volume read-only, is wrapped by the CrowdStrike loader
+    #     entrypoint, and dependsOn the sidecar completing successfully before it starts.
+
+    def crowdstrike_template_parameters(self) -> list:
+        """ Template parameters the CrowdStrike sidecar needs, or [] when it is disabled. Returning
+            [] keeps non-CrowdStrike templates byte-identical to their pre-sidecar form. """
+        if not self.crowdstrike_enabled():
+            return []
+        return [Parameter(
+            self.APPCONFIG_EXPORTS.reference_param_key,
+            Description='Name of appconfig stack for the CrowdStrike Falcon CID secret ARN ImportValue',
+            Type='String',
+        )]
+
+    def crowdstrike_enabled(self) -> bool:
+        """ Whether the CrowdStrike Falcon sidecar should be attached to ECS tasks (crowdstrike.enabled). """
+        return bool(ConfigManager.get_config_setting(Settings.CROWDSTRIKE_ENABLED, default=False))
+
+    def crowdstrike_mount_path(self) -> str:
+        return ConfigManager.get_config_setting(Settings.CROWDSTRIKE_MOUNT_PATH,
+                                                self.DEFAULT_CROWDSTRIKE_MOUNT_PATH)
+
+    @staticmethod
+    def _parse_crowdstrike_entrypoint(value):
+        """ Parse the loader entrypoint from a config value that may be a real list, a JSON/py-repr
+            array string, or a comma-separated string (config values are stringified for the
+            os.environ round-trip -- see the CLN-10 note in src/base.py). Returns a list of args. """
+        if isinstance(value, list):
+            return [str(s).strip() for s in value if str(s).strip()]
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped.startswith('['):
+                try:
+                    return [str(s).strip() for s in json.loads(stripped)]
+                except json.JSONDecodeError:
+                    inner = stripped[1:-1]
+                    return [s.strip().strip("'\"") for s in inner.split(',') if s.strip()]
+            return [s.strip() for s in stripped.split(',') if s.strip()]
+        return []
+
+    def crowdstrike_entrypoint(self) -> list:
+        """ The CrowdStrike loader entrypoint the application container is wrapped with. Required when
+            crowdstrike.enabled is true (no default): a wrong/empty entrypoint would emit a task
+            definition that validates but never runs the application, so we fail loudly at build time. """
+        entrypoint = self._parse_crowdstrike_entrypoint(
+            ConfigManager.get_config_setting(Settings.CROWDSTRIKE_ENTRYPOINT, default=None))
+        if not entrypoint:
+            raise RuntimeError(
+                f"crowdstrike.enabled is true but {Settings.CROWDSTRIKE_ENTRYPOINT!r} is not set. Supply the "
+                f"CrowdStrike loader entrypoint (JSON list or comma-separated) that wraps the application "
+                f"container -- this is a vendor/image-specific value; see docs/source/crowdstrike.rst.")
+        return entrypoint
+
+    def _crowdstrike_volume(self) -> Volume:
+        """ Task-level shared volume the sidecar populates and the app mounts read-only. Host volume
+            with an empty host (ephemeral, task-scoped) exactly as in the vendor example. """
+        return Volume(Name=self.CROWDSTRIKE_VOLUME_NAME, Host=Host())
+
+    def _falcon_sidecar_container(self, stream_prefix, log_group_export=None) -> ContainerDefinition:
+        """ The non-essential Falcon sensor sidecar. Pulls the falcon-sensor image from ECR, mounts
+            the shared volume read-write to prepare it, gets the Falcon CID injected from Secrets
+            Manager (via the appconfig-owned export ARN), and logs like every other container. """
+        sensor_tag = ConfigManager.get_config_setting(
+            Settings.CROWDSTRIKE_SENSOR_IMAGE_TAG, self.DEFAULT_FALCON_SENSOR_IMAGE_TAG)
+        backend = ConfigManager.get_config_setting(Settings.CROWDSTRIKE_BACKEND, self.DEFAULT_CROWDSTRIKE_BACKEND)
+        return ContainerDefinition(
+            Name=self.FALCON_SIDECAR_CONTAINER_NAME,
+            Essential=False,
+            Image=Join('', [
+                self.ECR_EXPORTS.import_value(C4ECRExports.FALCON_SENSOR_URL),
+                ':',
+                sensor_tag,
+            ]),
+            Environment=[Environment(Name=self.FALCON_BACKEND_ENV_NAME, Value=backend)],
+            Secrets=[Secret(
+                Name=self.FALCON_CID_SECRET_ENV_NAME,
+                ValueFrom=self.APPCONFIG_EXPORTS.import_value(C4AppConfigExports.EXPORT_FALCON_CID),
+            )],
+            MountPoints=[MountPoint(
+                SourceVolume=self.CROWDSTRIKE_VOLUME_NAME,
+                ContainerPath=self.crowdstrike_mount_path(),
+                ReadOnly=False,  # the sidecar writes the sensor rootfs here
+            )],
+            LogConfiguration=self._awslogs_config(stream_prefix, log_group_export),
+        )
+
+    def _crowdstrike_task_kwargs(self, app_container: ContainerDefinition,
+                                 sidecar_stream_prefix, log_group_export=None) -> dict:
+        """ Return the TaskDefinition ContainerDefinitions/Volumes kwargs for an application task,
+            wrapping it with the CrowdStrike sidecar when enabled and otherwise leaving it exactly
+            as before (single container, no Volumes key). Mutates app_container in place to add the
+            read-only mount, loader entrypoint, and dependsOn ordering.
+
+            :param app_container: the primary application ContainerDefinition (already built)
+            :param sidecar_stream_prefix: awslogs stream prefix for the sidecar's own log stream
+            :param log_group_export: log-group export to use (threaded through for blue/green)
+        """
+        if not self.crowdstrike_enabled():
+            return {'ContainerDefinitions': [app_container]}
+        mount_path = self.crowdstrike_mount_path()
+        existing_mounts = getattr(app_container, 'MountPoints', None) or []
+        app_container.MountPoints = existing_mounts + [MountPoint(
+            SourceVolume=self.CROWDSTRIKE_VOLUME_NAME,
+            ContainerPath=mount_path,
+            ReadOnly=True,  # the application only reads the sensor rootfs
+        )]
+        app_container.EntryPoint = self.crowdstrike_entrypoint()
+        app_container.DependsOn = [ContainerDependency(
+            ContainerName=self.FALCON_SIDECAR_CONTAINER_NAME,
+            Condition=self.FALCON_SIDECAR_DEPENDS_CONDITION,
+        )]
+        return {
+            'ContainerDefinitions': [
+                app_container,
+                self._falcon_sidecar_container(sidecar_stream_prefix, log_group_export),
+            ],
+            'Volumes': [self._crowdstrike_volume()],
+        }
 
     def ecs_cluster(self) -> Cluster:
         """ Creates an ECS cluster for use with this portal deployment. """
@@ -240,7 +416,12 @@ class C4ECSApplication(C4Part):
         )
 
     def ecs_application_load_balancer_listener(self, target_group: elbv2.TargetGroup) -> elbv2.Listener:
-        """ Listener for the application load balancer, forwards traffic to the target group (containing portal). """
+        """ Listener for the application load balancer, forwards traffic to the target group (containing portal).
+
+            Retained unchanged for the fixed Fourfront ECS stack (src/parts/fourfront_ecs.py), which
+            is out of scope for the SMaHT SRCE work and must keep synthesizing exactly as before.
+            Stacks that support the optional ACM listener use ecs_lb_listeners() instead.
+        """
         logical_id = self.name.logical_id('LBListener')
         return elbv2.Listener(
             logical_id,
@@ -251,6 +432,58 @@ class C4ECSApplication(C4Part):
                 elbv2.Action(Type='forward', TargetGroupArn=Ref(target_group))
             ]
         )
+
+    # Modern TLS policy (TLS 1.2/1.3) for the HTTPS listener.
+    LB_SSL_POLICY = 'ELBSecurityPolicy-TLS13-1-2-2021-06'
+
+    def lb_certificate_arn(self):
+        """ ACM certificate ARN for the portal ALB, from config (ecs.lb_certificate_arn). When
+            present, HTTPS is enabled on the ALB (SEC-5). """
+        return ConfigManager.get_config_setting(Settings.ECS_LB_CERTIFICATE_ARN, default=None)
+
+    def ecs_forwarding_listener_id(self, deployment_type=''):
+        """Wait for the listener that associates the service's target group with the ALB."""
+        prefix = 'LBHTTPSListener' if self.lb_certificate_arn() else 'LBListener'
+        return self.name.logical_id(f'{prefix}{deployment_type}')
+
+    def ecs_lb_listeners(self, target_group: elbv2.TargetGroup, deployment_type='', lb_ref=None) -> list:
+        """ Listeners for the portal ALB.
+
+            When an ACM certificate is configured (ecs.lb_certificate_arn), serve HTTPS on 443
+            (forwarding to the portal target group with a modern SslPolicy) and redirect HTTP:80 to
+            HTTPS:443. When no certificate is configured, fall back to a plain HTTP:80 forward
+            listener (unchanged legacy behavior). (SEC-5)
+        """
+        cert_arn = self.lb_certificate_arn()
+        lb_arn = lb_ref if lb_ref is not None else Ref(self.ecs_application_load_balancer())
+        forward = [elbv2.Action(Type='forward', TargetGroupArn=Ref(target_group))]
+        if not cert_arn:
+            return [elbv2.Listener(
+                self.name.logical_id(f'LBListener{deployment_type}'),
+                Port=80, Protocol='HTTP',
+                LoadBalancerArn=lb_arn,
+                DefaultActions=forward,
+            )]
+        https_listener = elbv2.Listener(
+            self.name.logical_id(f'LBHTTPSListener{deployment_type}'),
+            Port=443, Protocol='HTTPS',
+            LoadBalancerArn=lb_arn,
+            SslPolicy=self.LB_SSL_POLICY,
+            Certificates=[elbv2.Certificate(CertificateArn=cert_arn)],
+            DefaultActions=forward,
+        )
+        http_redirect = elbv2.Listener(
+            self.name.logical_id(f'LBListener{deployment_type}'),
+            Port=80, Protocol='HTTP',
+            LoadBalancerArn=lb_arn,
+            DefaultActions=[elbv2.Action(
+                Type='redirect',
+                RedirectConfig=elbv2.RedirectConfig(
+                    Protocol='HTTPS', Port='443', StatusCode='HTTP_301',
+                ),
+            )],
+        )
+        return [https_listener, http_redirect]
 
     @staticmethod
     def ecs_target_group_stickiness_options():
@@ -279,18 +512,20 @@ class C4ECSApplication(C4Part):
             SecurityGroups=[
                 Ref(self.ecs_lb_security_group())
             ],
-            Subnets=[self.NETWORK_EXPORTS.import_value(subnet_key) for subnet_key in C4NetworkExports.PUBLIC_SUBNETS],
+            Subnets=[self.NETWORK_EXPORTS.import_value(subnet_key)
+                     for subnet_key in self.NETWORK_EXPORTS.PUBLIC_SUBNETS],
             Tags=self.tags.cost_tag_array(name=logical_id),
             Type='application',
         )
 
     def output_application_url(self, env=None) -> Output:
-        """ Outputs URL to access portal. """
+        """ Outputs URL to access portal. Emits https:// when an ACM cert is configured (SEC-5). """
         env = env or ConfigManager.get_config_setting(Settings.ENV_NAME)
+        scheme = 'https://' if self.lb_certificate_arn() else 'http://'
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
             Description=f'URL of {ConfigManager.get_config_setting(Settings.APP_KIND)}-Portal.',
-            Value=Join('', ['http://', GetAtt(self.ecs_application_load_balancer(), 'DNSName')])
+            Value=Join('', [scheme, GetAtt(self.ecs_application_load_balancer(), 'DNSName')])
         )
 
     def _lbv2_target_group(self, name):
@@ -333,7 +568,7 @@ class C4ECSApplication(C4Part):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name='portal',
                     Essential=True,
@@ -345,15 +580,8 @@ class C4ECSApplication(C4Part):
                     PortMappings=[PortMapping(
                         ContainerPort=Ref(self.ecs_web_worker_port()),
                     )],
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-portal'
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(
+                        f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-portal'),
                     Environment=[
                         # VERY IMPORTANT - this environment variable determines which identity in the secrets manager
                         # to use. If this secret does not exist, things will not start up correctly - this is ok in
@@ -373,8 +601,9 @@ class C4ECSApplication(C4Part):
                             Value=C4ECSApplicationTypes.PORTAL
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix=f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-portal-falcon',
+            ),
             Tags=self.tags.cost_tag_obj(),
         )
 
@@ -390,7 +619,7 @@ class C4ECSApplication(C4Part):
         return Service(
             f"{ConfigManager.get_config_setting(Settings.APP_KIND)}portalService",
             Cluster=Ref(self.ecs_cluster()),
-            DependsOn=[self.name.logical_id('LBListener')],
+            DependsOn=[self.ecs_forwarding_listener_id()],
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(
@@ -417,7 +646,7 @@ class C4ECSApplication(C4Part):
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
                         self.NETWORK_EXPORTS.import_value(subnet_key)
-                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                        for subnet_key in self.NETWORK_EXPORTS.PRIVATE_SUBNETS
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
@@ -446,7 +675,7 @@ class C4ECSApplication(C4Part):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name='Indexer',
                     Essential=True,
@@ -455,15 +684,8 @@ class C4ECSApplication(C4Part):
                         ':',
                         self.IMAGE_TAG,
                     ]),
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-indexer'
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(
+                        f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-indexer'),
                     Environment=[
                         Environment(
                             Name='IDENTITY',
@@ -477,8 +699,9 @@ class C4ECSApplication(C4Part):
                             Value=C4ECSApplicationTypes.INDEXER
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix=f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-indexer-falcon',
+            ),
             Tags=self.tags.cost_tag_obj()
         )
 
@@ -513,7 +736,7 @@ class C4ECSApplication(C4Part):
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
                         self.NETWORK_EXPORTS.import_value(subnet_key)
-                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                        for subnet_key in self.NETWORK_EXPORTS.PRIVATE_SUBNETS
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
@@ -597,7 +820,7 @@ class C4ECSApplication(C4Part):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name='Ingester',
                     Essential=True,
@@ -606,15 +829,8 @@ class C4ECSApplication(C4Part):
                         ':',
                         self.IMAGE_TAG
                     ]),
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-ingester'
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(
+                        f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-ingester'),
                     Environment=[
                         Environment(
                             Name='IDENTITY',
@@ -627,8 +843,9 @@ class C4ECSApplication(C4Part):
                             Value=C4ECSApplicationTypes.INGESTER
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix=f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-ingester-falcon',
+            ),
             Tags=self.tags.cost_tag_obj()
         )
 
@@ -648,7 +865,7 @@ class C4ECSApplication(C4Part):
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
                         self.NETWORK_EXPORTS.import_value(subnet_key)
-                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                        for subnet_key in self.NETWORK_EXPORTS.PRIVATE_SUBNETS
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
@@ -748,7 +965,7 @@ class C4ECSApplication(C4Part):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name='DeploymentAction',
                     Essential=True,
@@ -757,15 +974,9 @@ class C4ECSApplication(C4Part):
                         ':',
                         self.IMAGE_TAG,
                     ]),
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(C4LoggingExports.APPLICATION_LOG_GROUP),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-initial-deployment' if initial else f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-deployment',
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(
+                        f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-initial-deployment' if initial
+                        else f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-deployment'),
                     Environment=[
                         Environment(
                             Name='IDENTITY',
@@ -781,8 +992,11 @@ class C4ECSApplication(C4Part):
                             Value=C4ECSApplicationTypes.DEPLOYMENT
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix=(
+                    f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-initial-deployment-falcon' if initial
+                    else f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-deployment-falcon'),
+            ),
             Tags=self.tags.cost_tag_obj()
         )
 
@@ -819,7 +1033,7 @@ class C4ECSApplication(C4Part):
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
                         self.NETWORK_EXPORTS.import_value(subnet_key)
-                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                        for subnet_key in self.NETWORK_EXPORTS.PRIVATE_SUBNETS
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )

@@ -3,6 +3,8 @@ import io
 import logging
 import os
 import shutil
+import shlex
+import subprocess
 import tempfile
 # import json
 
@@ -16,6 +18,7 @@ from .part import C4Account
 from .stack import BaseC4FoursightStack  # , C4FoursightCGAPStack
 # from .stacks.trial import c4_stack_trial_network_metadata, c4_stack_trial_tibanna
 from .stacks.alpha_stacks import c4_alpha_stack_metadata
+from .parts.codebuild import C4CodeBuild
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,12 +31,19 @@ AWS_REGION = 'us-east-1'
 
 class C4Client:
     """ Client class for interacting with and provisioning CGAP Infrastructure as Code. """
-    ALPHA_LEAF_STACKS = ['iam', 'logging', 'network', 'appconfig']  # stacks that only export values
+    ALPHA_LEAF_STACKS = ['iam', 'logging', 'network', 'appconfig',
+                         'srce-network', 'srce-network-db', 'srce-network-compute']  # stacks that only export values
+    SRCE_STACKS = ['srce-datastore', 'srce-ecs', 'srce-ecs-blue-green',
+                   'srce-sentieon', 'srce-redis']  # stacks that import from SRCE network stacks
     CAPABILITY_IAM = 'CAPABILITY_IAM'
     FOURFRONT_NETWORK_STACK = 'c4-network-main-stack'  # this stack name is shared by all fourfront envs
     # these stacks require CAPABILITY_IAM, just IAM for now
+    # NB: matched as substrings of the full stack name, so 'foursight' already covers every
+    # foursight variant (including the SRCE foursight stack c4-foursight-srce-<env>-stack).
+    # NB: 'srce-sentieon' creates its own instance role/profile for SSM access, so it needs
+    # CAPABILITY_IAM even though its stack name contains no 'iam' substring.
     REQUIRES_CAPABILITY_IAM = ['iam', 'foursight', 'foursight-development', 'foursight-production', 'codebuild',
-                               'foursight-smaht']
+                               'foursight-smaht', 'srce-sentieon']
 
     @classmethod
     def _out_templates_mapping_for_mount(cls) -> str:
@@ -48,11 +58,22 @@ class C4Client:
         creds_dir = ConfigManager.get_aws_creds_dir()
         mount_yaml = cls._out_templates_mapping_for_mount()
         mount_creds = f'{creds_dir}:/root/.aws'
-        validation_cmd = 'amazon/aws-cli cloudformation validate-template'
-        validation_args = f'--template-body file://{file_path}'
-        docker_invocation = f'docker run --rm -it -v {mount_yaml} -v {mount_creds} {validation_cmd} {validation_args}'
+        docker_invocation = ['docker', 'run', '--rm', '-v', mount_yaml, '-v', mount_creds,
+                             'amazon/aws-cli', 'cloudformation', 'validate-template',
+                             '--template-body', f'file://{file_path}']
         logger.info('Validating provisioned template...')
-        os.system(docker_invocation)
+        cls.run_command(docker_invocation)
+
+    @staticmethod
+    def run_command(command):
+        """Non-interactive child execution: a failed command must stop the orchestration."""
+        argv = shlex.split(command) if isinstance(command, str) else command
+        try:
+            subprocess.run(argv, check=True)
+        except subprocess.CalledProcessError as error:
+            raise CLIException(f'{argv[0]} command failed with exit status {error.returncode}') from error
+        except OSError as error:
+            raise CLIException(f'Unable to execute {argv[0]}: {error}') from error
 
     @staticmethod
     def build_template_flag(*, file_path):
@@ -65,6 +86,27 @@ class C4Client:
     @staticmethod
     def build_parameter_override(*, param_name, value):
         return '"{param}={stack}"'.format(param=param_name, stack=value)
+
+    @classmethod
+    def build_srce_parameter_flags(cls, *, stack, available_overrides: dict) -> list:
+        """ The --parameter-overrides flags for an SRCE stack, restricted to the parameters the
+            stack's own template declares.
+
+            `aws cloudformation deploy` rejects the whole deployment if it is passed an override
+            for a parameter the template does not declare, and the SRCE stacks declare very
+            different subsets (srce-redis one, srce-sentieon two, srce-datastore two). Returns []
+            -- no flag at all -- for a template that declares no parameters.
+        """
+        declared = cls.declared_template_parameters(stack)
+        selected = [cls.build_parameter_override(param_name=name, value=value)
+                    for name, value in available_overrides.items() if name in declared]
+        return ['--parameter-overrides', *selected] if selected else []
+
+    @staticmethod
+    def declared_template_parameters(stack) -> set:
+        """ Parameter names declared by the stack's synthesized template. """
+        template = getattr(stack, 'template', None)
+        return set(getattr(template, 'parameters', None) or {})
 
     @staticmethod
     def build_flags(*, template_flag, stack_flag, parameter_flags, changeset_flag='--no-execute-changeset',
@@ -128,7 +170,7 @@ class C4Client:
         if s3_key:  # if an s3 key is set, pass to enable server side encryption
             package_flags += f' --kms-key-id {s3_key}'
         # construct package cmd
-        cmd_package = 'docker run --rm -it {mount_points} {cmd} {flags}'.format(
+        cmd_package = 'docker run --rm {mount_points} {cmd} {flags}'.format(
             mount_points=mount_points,
             cmd='amazon/aws-cli cloudformation package',
             flags=package_flags,
@@ -137,7 +179,7 @@ class C4Client:
         # execute package cmd
         logger.info('Uploading foursight package...')
         logger.info(cmd_package)
-        os.system(cmd_package)  # results in sam-packaged.yaml being added to output_file
+        cls.run_command(cmd_package)  # results in sam-packaged.yaml being added to output_file
 
         # flags for cloudformation deploy command (change set upload only, no template execution)
         deploy_flags = ' '.join([
@@ -152,7 +194,7 @@ class C4Client:
         if s3_key:  # if an s3 key is set, pass to enable server side encryption
             deploy_flags += f' --kms-key-id {s3_key}'
         # construct deploy cmd
-        cmd_deploy = 'docker run --rm -it {mount_points} {cmd} {flags}'.format(
+        cmd_deploy = 'docker run --rm {mount_points} {cmd} {flags}'.format(
             mount_points=mount_points,
             cmd='amazon/aws-cli cloudformation deploy',
             flags=deploy_flags,
@@ -160,7 +202,7 @@ class C4Client:
 
         logger.info('Creating foursight changeset...')
         logger.info(cmd_deploy)
-        os.system(cmd_deploy)
+        cls.run_command(cmd_deploy)
 
     @classmethod
     def upload_cloudformation_template(cls, *, stack, file_path):
@@ -173,20 +215,48 @@ class C4Client:
         iam_stack_name, _ = c4_alpha_stack_metadata(name='iam')
         ecr_stack_name, _ = c4_alpha_stack_metadata(name='ecr')
         logging_stack_name, _ = c4_alpha_stack_metadata(name='logging')
+        appconfig_stack_name, _ = c4_alpha_stack_metadata(name='appconfig')
         # TODO incorporate datastore output to ECS stack
         datastore_stack_name, _ = c4_alpha_stack_metadata(name='datastore')
+        srce_network_stack_name, _ = c4_alpha_stack_metadata(name='srce-network')
+        srce_network_db_stack_name, _ = c4_alpha_stack_metadata(name='srce-network-db')
+        srce_network_compute_stack_name, _ = c4_alpha_stack_metadata(name='srce-network-compute')
 
         # if we are building a leaf stack, our upload doesn't require these parameter overrides
         # since we are not importing values from other stacks
-        if stack.name.stack_name in cls.ALPHA_LEAF_STACKS:
+        is_srce = any(s in stack.name.stack_name for s in cls.SRCE_STACKS)
+        if any(s in stack.name.stack_name for s in cls.ALPHA_LEAF_STACKS):
             parameter_flags = ''
+        elif is_srce:
+            # Every stack name an SRCE consumer might import from. Which of these a given stack
+            # actually declares varies a lot -- srce-redis declares one, srce-sentieon two -- and
+            # `aws cloudformation deploy` refuses the whole deployment ("Parameters: [...] do not
+            # exist in the template") if it is handed an override the template does not declare.
+            # So offer them all and pass only the ones this template asks for.
+            #
+            # IAM/ECR/Logging are ecosystem-scoped shared stacks; derive their names from the same
+            # c4_alpha_stack_metadata helper as everything else rather than hardcoding literals.
+            # These are resolved here at upload time (config is loaded).
+            available_overrides = {
+                'NetworkStackNameParameter': srce_network_stack_name.stack_name,
+                'DBNetworkStackNameParameter': srce_network_db_stack_name.stack_name,
+                'ComputeNetworkStackNameParameter': srce_network_compute_stack_name.stack_name,
+                'ECRStackNameParameter': ecr_stack_name.stack_name,
+                'IAMStackNameParameter': iam_stack_name.stack_name,
+                'LoggingStackNameParameter': logging_stack_name.stack_name,
+                'AppConfigStackNameParameter': appconfig_stack_name.stack_name,
+            }
+            parameter_flags = cls.build_srce_parameter_flags(stack=stack,
+                                                             available_overrides=available_overrides)
         else:
+            codebuild_srce = ('-codebuild-' in stack.name.stack_name and C4CodeBuild.uses_srce_network())
+            selected_network = (srce_network_stack_name.stack_name if codebuild_srce else
+                                ConfigManager.app_case(if_cgap=network_stack_name.stack_name,
+                                                       if_ff=cls.FOURFRONT_NETWORK_STACK,
+                                                       if_smaht=network_stack_name.stack_name))
             parameter_flags = [
                 '--parameter-overrides',  # the flag itself
-                cls.build_parameter_override(param_name='NetworkStackNameParameter',
-                                             value=ConfigManager.app_case(if_cgap=network_stack_name.stack_name,
-                                                                          if_ff=cls.FOURFRONT_NETWORK_STACK,
-                                                                          if_smaht=network_stack_name.stack_name)),
+                cls.build_parameter_override(param_name='NetworkStackNameParameter', value=selected_network),
                 cls.build_parameter_override(param_name='ECRStackNameParameter',
                                              value=ecr_stack_name.stack_name),
                 cls.build_parameter_override(param_name='IAMStackNameParameter',
@@ -204,7 +274,7 @@ class C4Client:
             capability_flags=cls.build_capability_param(stack)  # defaults to IAM
         )
 
-        cmd = 'docker run --rm -it -v {mount_yaml} -v {mount_creds} {command} {flags}'.format(
+        cmd = 'docker run --rm -v {mount_yaml} -v {mount_creds} {command} {flags}'.format(
             mount_yaml=cls._out_templates_mapping_for_mount(),
             mount_creds=f'{creds_dir}:/root/.aws',
             command='amazon/aws-cli cloudformation deploy',
@@ -215,7 +285,7 @@ class C4Client:
         if '--no-execute-changeset' not in cmd:
             raise CLIException(
                 'Upload command must include no-execute-changeset, or the changes will be executed immediately')
-        os.system(cmd)
+        cls.run_command(cmd)
 
     @staticmethod
     def resolve_account():

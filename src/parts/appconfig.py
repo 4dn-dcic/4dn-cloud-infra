@@ -16,7 +16,7 @@ except ImportError:
 from troposphere.secretsmanager import Secret
 from .application_configuration_secrets import ApplicationConfigurationSecrets
 from ..base import ConfigManager, APP_DEPLOYMENT
-from ..constants import Secrets, DeploymentParadigm
+from ..constants import Secrets, Settings, DeploymentParadigm
 from ..exports import C4Exports
 from ..part import C4Part
 from ..parts.network import C4NetworkExports
@@ -33,6 +33,15 @@ class C4AppConfigExports(C4Exports):
 
     # Standalone, blue/green version is inlined
     EXPORT_APPLICATION_CONFIG = 'ExportApplicationConfig'
+    EXPORT_FOURSIGHT_APPLICATION_CONFIG = 'ExportFoursightApplicationConfig'
+    # Build-time / runtime secrets — values stubbed by the appconfig stack, filled in post-deploy.
+    # Each Output exports the secret's ARN so downstream stacks (e.g. codebuild) can grant
+    # GetSecretValue and reference SECRETS_MANAGER-typed env vars without hardcoding ARNs.
+    # (DockerHub credentials live in the ecosystem-scoped shared_secrets stack instead — see
+    #  C4SharedSecretsExports — so multiple env-scoped appconfig stacks share one secret.)
+    EXPORT_FALCON_CID = 'ExportFalconCID'
+    EXPORT_FALCON_CLIENT_ID = 'ExportFalconClientID'
+    EXPORT_FALCON_CLIENT_SECRET = 'ExportFalconClientSecret'
     _ENV_BUCKET_EXPORT_PATTERN = re.compile(".*AppConfig.*Env.*Bucket")
 
     # RDS Exports
@@ -75,6 +84,12 @@ class C4AppConfig(C4AppConfigBase, C4Part):
     RDS_SECRET_STRING = 'RDSSecret'  # Used as logical id suffix in resource names
     EXPORTS = C4AppConfigExports()
     NETWORK_EXPORTS = C4NetworkExports()
+
+    # Falcon credentials are env-scoped — each appconfig deployment gets its own set.
+    # Only created when crowdstrike.enabled is set (see build_template).
+    FALCON_CID_LOGICAL_SUFFIX = 'FalconCID'
+    FALCON_CLIENT_ID_LOGICAL_SUFFIX = 'FalconClientID'
+    FALCON_CLIENT_SECRET_LOGICAL_SUFFIX = 'FalconClientSecret'
     # TODO only use configuration placeholder for orchestration time values; otherwise, use src.constants values
     CONFIGURATION_PLACEHOLDER = 'XXX: ENTER VALUE'
 
@@ -116,7 +131,9 @@ class C4AppConfig(C4AppConfigBase, C4Part):
     }
 
     def build_template(self, template: Template) -> Template:
-        """ Builds the appconfig template - builds GACs for blue/green if APP_DEPLOYMENT == blue/green """
+        """ Builds the appconfig template - builds GACs for blue/green if APP_DEPLOYMENT == blue/green.
+            Always builds a single Foursight configuration secret with identical key/value structure
+            (foursight is not blue/green'd; only ECS is). """
         if APP_DEPLOYMENT == DeploymentParadigm.BLUE_GREEN:
             gac_blue = self.application_configuration_secret(postfix='Blue')
             template.add_resource(gac_blue)
@@ -128,7 +145,47 @@ class C4AppConfig(C4AppConfigBase, C4Part):
             application_configuration_secret = self.application_configuration_secret()
             template.add_resource(application_configuration_secret)
             template.add_output(self.output_configuration_secret(application_configuration_secret))
+
+        # Single foursight secret regardless of deployment paradigm.
+        foursight_configuration_secret = self.foursight_configuration_secret()
+        template.add_resource(foursight_configuration_secret)
+        template.add_output(self.output_foursight_configuration_secret(foursight_configuration_secret))
+
+        # CrowdStrike Falcon credentials — stubbed here, populated post-deploy via
+        # `aws secretsmanager put-secret-value ...` (or `setup-remaining-secrets`). ARNs are
+        # exported so the ECS task definitions can reference the CID as a SECRETS_MANAGER env var.
+        # Emitted only when crowdstrike.enabled is set, so an appconfig stack for a deployment that
+        # does not run the Falcon sidecar is unchanged.
+        if not self.crowdstrike_enabled():
+            return template
+
+        falcon_cid = self.falcon_cid_secret()
+        template.add_resource(falcon_cid)
+        template.add_output(self.output_simple_secret_arn(
+            falcon_cid, C4AppConfigExports.EXPORT_FALCON_CID,
+            'Crowdstrike Falcon Customer ID (CID)'))
+
+        falcon_client_id = self.falcon_client_id_secret()
+        template.add_resource(falcon_client_id)
+        template.add_output(self.output_simple_secret_arn(
+            falcon_client_id, C4AppConfigExports.EXPORT_FALCON_CLIENT_ID,
+            'Crowdstrike Falcon API Client ID'))
+
+        falcon_client_secret = self.falcon_client_secret_secret()
+        template.add_resource(falcon_client_secret)
+        template.add_output(self.output_simple_secret_arn(
+            falcon_client_secret, C4AppConfigExports.EXPORT_FALCON_CLIENT_SECRET,
+            'Crowdstrike Falcon API Client Secret'))
+
         return template
+
+    @staticmethod
+    def crowdstrike_enabled() -> bool:
+        """ Whether this deployment runs the CrowdStrike Falcon sidecar (crowdstrike.enabled), and
+            therefore needs the Falcon credential stubs. Mirrors
+            C4ECSApplication.crowdstrike_enabled(); duplicated rather than imported to keep
+            appconfig free of an ECS import. """
+        return bool(ConfigManager.get_config_setting(Settings.CROWDSTRIKE_ENABLED, default=False))
 
     def output_configuration_secret(self, application_configuration_secret, deployment_type='standalone'):
         """ Outputs GAC """
@@ -154,4 +211,73 @@ class C4AppConfig(C4AppConfigBase, C4Part):
             Description='This secret defines the application configuration for the orchestrated environment.',
             SecretString=json.dumps(ApplicationConfigurationSecrets.build_initial_values(), indent=2),
             Tags=self.tags.cost_tag_array()
+        )
+
+    def foursight_configuration_secret(self, postfix=None) -> Secret:
+        """ Returns a Foursight configuration secret with the same key/value structure as the
+            application configuration secret. Foursight reads/owns this independently from the
+            portal so it can be filled in without touching the portal's GAC.
+        """
+        suffix = 'Foursight' + (postfix or '')
+        logical_id = dehyphenate(self.name.logical_id(suffix)).replace('_', '')
+        return Secret(
+            logical_id,
+            Name=logical_id,
+            Description='This secret defines the foursight configuration for the orchestrated environment.',
+            SecretString=json.dumps(ApplicationConfigurationSecrets.build_initial_values(), indent=2),
+            Tags=self.tags.cost_tag_array()
+        )
+
+    def output_foursight_configuration_secret(self, foursight_configuration_secret, deployment_type='standalone'):
+        """ Outputs the foursight configuration secret reference (mirrors output_configuration_secret). """
+        base = C4AppConfigExports.EXPORT_FOURSIGHT_APPLICATION_CONFIG + (deployment_type if deployment_type else '')
+        logical_id = self.name.logical_id(base)
+        export = self.EXPORTS.export(base)
+        return Output(
+            logical_id,
+            Description='Foursight Application Configuration Secret',
+            Value=Ref(foursight_configuration_secret),
+            Export=export
+        )
+
+    def _falcon_stub_secret(self, suffix: str, description: str) -> Secret:
+        """ Single-string Falcon secret stub (no JSON wrapper). Plain string makes the
+            CodeBuild SECRETS_MANAGER env-var reference one-liner — no `:key` suffix needed. """
+        logical_id = dehyphenate(self.name.logical_id(suffix)).replace('_', '')
+        return Secret(
+            logical_id,
+            Name=logical_id,
+            Description=description,
+            SecretString='PLACEHOLDER',  # populate post-deploy via aws secretsmanager put-secret-value
+            Tags=self.tags.cost_tag_array()
+        )
+
+    def falcon_cid_secret(self) -> Secret:
+        return self._falcon_stub_secret(
+            self.FALCON_CID_LOGICAL_SUFFIX,
+            'Crowdstrike Falcon Customer ID (CID). Used by the falcon sensor sidecar at runtime.'
+        )
+
+    def falcon_client_id_secret(self) -> Secret:
+        return self._falcon_stub_secret(
+            self.FALCON_CLIENT_ID_LOGICAL_SUFFIX,
+            'Crowdstrike Falcon API Client ID. Used when calling the Falcon API to download '
+            'the sensor or register hosts.'
+        )
+
+    def falcon_client_secret_secret(self) -> Secret:
+        return self._falcon_stub_secret(
+            self.FALCON_CLIENT_SECRET_LOGICAL_SUFFIX,
+            'Crowdstrike Falcon API Client Secret (paired with FALCON_CLIENT_ID).'
+        )
+
+    def output_simple_secret_arn(self, secret: Secret, export_name: str, description: str) -> Output:
+        """ Output a Secrets Manager secret's ARN under EXPORTS so other stacks can ImportValue it.
+            Ref(secret) returns the secret's ARN for AWS::SecretsManager::Secret. """
+        logical_id = self.name.logical_id(export_name)
+        return Output(
+            logical_id,
+            Description=description,
+            Value=Ref(secret),
+            Export=self.EXPORTS.export(export_name)
         )

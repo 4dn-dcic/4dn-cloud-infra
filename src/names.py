@@ -5,6 +5,7 @@ from .constants import (
     COMMON_STACK_PREFIX,
     COMMON_STACK_PREFIX_CAMEL_CASE,
     C4DatastoreBase,
+    C4SRCEDatastoreBase,
     C4IAMBase,
     C4NetworkBase,
     C4SentieonSupportBase,
@@ -31,6 +32,13 @@ class Names(StackNameBaseMixin):
     def datastore_stack_name_object(cls, env_name: str) -> C4Name:
         title_token = C4DatastoreBase.STACK_TITLE_TOKEN
         name_token = C4DatastoreBase.STACK_NAME_TOKEN
+        qualifier = env_name
+        return cls.suggest_stack_name(title_token, name_token, qualifier)
+
+    @classmethod
+    def srce_datastore_stack_name_object(cls, env_name: str) -> C4Name:
+        title_token = C4SRCEDatastoreBase.STACK_TITLE_TOKEN
+        name_token = C4SRCEDatastoreBase.STACK_NAME_TOKEN
         qualifier = env_name
         return cls.suggest_stack_name(title_token, name_token, qualifier)
 
@@ -62,6 +70,13 @@ class Names(StackNameBaseMixin):
         if not c4name:
             c4name = cls.appconfig_stack_name_object(env_name)
         return c4name.logical_id(camelize(env_name))
+
+    @classmethod
+    def foursight_application_configuration_secret(cls, env_name: str, c4name: C4Name = None) -> str:
+        """ Name of the parallel Foursight configuration secret produced by the appconfig stack
+            (see C4AppConfig.foursight_configuration_secret). Used as the IDENTITY for the
+            SRCE foursight deployment. """
+        return cls.application_configuration_secret(env_name, c4name=c4name) + 'Foursight'
 
     # dmichaels/2022-06-20: Factored out from C4Datastore.rds_secret_logical_id() in datastore.py.
     @classmethod
