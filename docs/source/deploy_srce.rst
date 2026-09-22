@@ -76,9 +76,6 @@ Other relevant keys:
   from; the hardened image is issued per account by the institution's IT/security team, so there
   is no default and nothing is discovered from the account. An unset or malformed value fails at
   ``cli provision`` time with a message naming the key, not at stack-creation time.
-* ``sentieon.ssh_key`` — **required**; name of a pre-existing EC2 key pair for the license server.
-* ``sentieon.admin_cidr`` — CIDR (institutional VPN/admin range) allowed to SSH into the Sentieon
-  license server. Defaults to the Application VPC CIDR; **never** ``0.0.0.0/0``.
 * ``sentieon.instance_type`` — defaults to ``t3.nano`` (the Nitro-based equivalent of the
   ``t2.nano`` Sentieon documents for a persistent license server). Set it if the supplied AMI
   needs a different instance family.
@@ -118,7 +115,7 @@ Child command failures now stop the CLI instead of reporting success::
 
     # 5. Application + license server in the Application VPC
     cli provision srce-ecs
-    cli provision srce-sentieon         # needs sentieon.ami_id and sentieon.ssh_key; named IAM resources
+    cli provision srce-sentieon         # needs sentieon.ami_id; SSM only, no key pair or SSH ingress
 
     # 6. Foursight for the SRCE deployment (uses the SRCE Application VPC)
     cli provision foursight-srce
@@ -225,7 +222,8 @@ Deployment prerequisites, beyond the ordinary SRCE network keys:
 * ``sentieon.ami_id`` **must be set.** There is no default: the hardened AMI is issued per account,
   and nothing is discovered from the account's own state. ``cli provision srce-sentieon`` fails
   offline, naming the key, if it is unset or malformed.
-* ``sentieon.ssh_key`` must name an EC2 key pair that already exists in the account.
+* Administration is through SSM Session Manager only. The instance has no SSH ingress, public IP,
+  key-pair parameter, or ``sentieon.ssh_key`` configuration dependency.
 * The stack creates explicitly named IAM resources, so it is deployed with
   ``CAPABILITY_NAMED_IAM``. The CLI adds that automatically
   (``C4Client.REQUIRES_CAPABILITY_NAMED_IAM``); an operator applying the template by hand must

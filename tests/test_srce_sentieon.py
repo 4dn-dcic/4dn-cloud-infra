@@ -22,7 +22,7 @@ from src.parts.srce_sentieon import C4SRCESentieonSupport
 AMI_ID = 'ami-0123456789abcdef0'
 
 # A complete SRCE configuration: the three IT-provided VPCs, their CIDRs and private subnets, plus
-# the two Sentieon inputs an operator supplies. Deliberately has no 'public.subnets': a secure
+# the Sentieon AMI. Deliberately has no 'public.subnets': a secure
 # enclave's Application VPC is not required to have any, and the stack must deploy without one.
 SRCE_CONFIG = dict(matrix.BASE_CONFIG, **{
     'app.kind': 'smaht', 'app.deploy': 'blue/green', 'ENCODED_ENV_NAME': 'smaht-srce',
@@ -33,7 +33,6 @@ SRCE_CONFIG = dict(matrix.BASE_CONFIG, **{
     'compute.vpc.id': 'vpc-0cccccccccccccccc', 'compute.vpc.cidr': '10.3.0.0/16',
     'compute.private.subnets': 'subnet-0cmp1, subnet-0cmp2',
     Settings.SENTIEON_AMI_ID: AMI_ID,
-    Settings.SENTIEON_SSH_KEY: 'test-key',
 })
 
 
@@ -116,7 +115,7 @@ def test_cli_passes_only_parameters_this_template_declares():
     """ ``aws cloudformation deploy`` refuses the whole deployment -- 'Parameters: [...] do not
         exist in the template' -- when handed an override for a parameter the template does not
         declare. The SRCE branch of the CLI offers every SRCE stack-name override there is, and
-        srce-sentieon declares only NetworkStackNameParameter (plus its own SSH key), so the
+        srce-sentieon declares only NetworkStackNameParameter, so the
         overrides have to be filtered against the template or the stack cannot be deployed at all.
     """
     from src.cli import C4Client
@@ -160,15 +159,6 @@ def test_cli_parameter_overrides_are_declared_by_every_srce_stack():
                                                                   available_overrides=offered)
                   if flag != '--parameter-overrides'}
         assert passed <= declared, f'{name} would be passed undeclared {sorted(passed - declared)}'
-
-
-def test_missing_ssh_key_fails_at_synthesis():
-    """ Records, rather than changes, the standard stack's behavior for its other required input:
-        'sentieon.ssh_key' names a pre-existing EC2 key pair and has no default, so an unset value
-        fails offline too. Named here because it is the second key an operator must supply. """
-    with pytest.raises(KeyError) as caught:
-        synthesize(**{Settings.SENTIEON_SSH_KEY: None})
-    assert Settings.SENTIEON_SSH_KEY in str(caught.value)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -301,17 +291,15 @@ def test_license_port_is_reachable_from_both_the_app_and_compute_vpcs(template):
     assert license_sources == {SRCE_CONFIG['vpc.cidr'], SRCE_CONFIG['compute.vpc.cidr']}
 
 
-def test_ssh_is_never_world_open(template):
-    for rule in ingress_rules(template):
-        if rule['Properties'].get('FromPort') == 22:
-            assert rule['Properties']['CidrIp'] != '0.0.0.0/0'
-
-
-def test_ssh_ingress_follows_the_configured_admin_cidr():
-    template = synthesize(**{Settings.SENTIEON_ADMIN_CIDR: '192.0.2.0/24'})
-    ssh_sources = {rule['Properties']['CidrIp'] for rule in ingress_rules(template)
-                   if rule['Properties'].get('FromPort') == 22}
-    assert ssh_sources == {'192.0.2.0/24'}
+def test_instance_uses_ssm_only_without_ssh_or_public_access(template):
+    instance_properties = the_instance(template)['Properties']
+    assert 'KeyName' not in instance_properties
+    assert not any('SentieonSSHKey' in name for name in template['Parameters'])
+    assert not any(rule['Properties'].get('FromPort') == 22 for rule in ingress_rules(template))
+    assert not any(rule['Properties'].get('FromPort') == 22 for rule in egress_rules(template))
+    assert all(interface['AssociatePublicIpAddress'] is False
+               for interface in instance_properties['NetworkInterfaces'])
+    assert not resources_of_type(template, 'AWS::EC2::EIP')
 
 
 def test_instance_can_reach_the_ssm_endpoints_in_the_app_vpc(template):

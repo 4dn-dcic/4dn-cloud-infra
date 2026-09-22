@@ -38,9 +38,9 @@ class C4SRCESentieonSupport(C4SentieonSupport):
       per account by the institution's IT/security team; the standard stack's fallback to
       ``EC2Constants.DEFAULT_AMI_IMAGE`` is an AMI ID from one specific account and silently
       produces an undeployable (or wrong) instance anywhere else.
-    * **SSM Session Manager is the operator access path**, since the instance has no public IP.
-      That needs an instance profile on the instance and HTTPS egress that can reach the SSM
-      endpoints -- both added here.
+    * **SSM Session Manager is the only operator access path**, since the instance has no public
+      IP. No SSH ingress or key pair is created or required. SSM needs an instance profile on the
+      instance and HTTPS egress that can reach the SSM endpoints -- both added here.
     * **Encrypted root volume**, which a secure enclave requires.
 
     The security rules allow license-server traffic (tcp/8990) from the Application VPC CIDR and,
@@ -67,7 +67,6 @@ class C4SRCESentieonSupport(C4SentieonSupport):
             Description='Name of network stack for network import value references',
             Type='String',
         ))
-        template.add_parameter(self.ssh_key())
 
         template.add_resource(self.application_security_group())
         for rule in self.application_security_rules():
@@ -132,31 +131,7 @@ class C4SRCESentieonSupport(C4SentieonSupport):
         """Security rules for the Sentieon license server in the App VPC."""
         app_cidr = self.app_vpc_cidr()
         compute_cidr = ConfigManager.get_config_setting(Settings.COMPUTE_VPC_CIDR, default=None)
-        # SSH is restricted to the admin/VPN CIDR (config-driven, defaults to the App VPC CIDR),
-        # never 0.0.0.0/0 — a world-open SSH port will not survive an IT security review for a
-        # "secure enclave".
-        admin_cidr = ConfigManager.get_config_setting(Settings.SENTIEON_ADMIN_CIDR, default=app_cidr)
         rules = [
-            # SSH Access — restricted to the admin/VPN CIDR.
-            SecurityGroupIngress(
-                self.name.logical_id('ApplicationSSHInboundAllAccess'),
-                CidrIp=admin_cidr,
-                Description='allows inbound SSH (tcp/22) from the admin/VPN CIDR',
-                GroupId=Ref(self.application_security_group()),
-                IpProtocol='tcp',
-                FromPort=22,
-                ToPort=22,
-            ),
-            SecurityGroupEgress(
-                self.name.logical_id('ApplicationSSHOutboundAllAccess'),
-                CidrIp=admin_cidr,
-                Description='allows outbound SSH (tcp/22) to the admin/VPN CIDR',
-                GroupId=Ref(self.application_security_group()),
-                IpProtocol='tcp',
-                FromPort=22,
-                ToPort=22,
-            ),
-
             # License Server — allow from App VPC
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationSentieonServer'),
@@ -328,7 +303,6 @@ class C4SRCESentieonSupport(C4SentieonSupport):
                 GroupSet=[Ref(self.application_security_group())],
                 SubnetId=self.NETWORK_EXPORTS.import_value(self.NETWORK_EXPORTS.PRIVATE_SUBNETS[0]),
             )],
-            KeyName=Ref(self.ssh_key()),
             UserData=Base64(Join('', self.bootstrap_user_data())),
             # GroupSet only orders the instance after the security group, not after its rules, and
             # the bootstrap above needs egress the moment the instance boots.
