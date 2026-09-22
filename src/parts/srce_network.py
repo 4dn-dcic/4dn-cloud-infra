@@ -239,6 +239,7 @@ class C4SRCEDBNetworkExports(C4Exports):
     # group, so an SRCE DB VPC must either have exactly 2 private subnets or set subnet.pair_count
     # to match db.private.subnets, otherwise the RDS subnet group would ImportValue exports that do
     # not exist (CLN-9).
+
     PRIVATE_SUBNETS = C4NetworkExports.PRIVATE_SUBNETS
 
     @classmethod
@@ -260,7 +261,12 @@ class C4SRCEComputeNetworkExports(C4Exports):
     """
     VPC = C4NetworkExports.VPC
     APPLICATION_SECURITY_GROUP = C4NetworkExports.APPLICATION_SECURITY_GROUP
-    PRIVATE_SUBNETS = C4NetworkExports.PRIVATE_SUBNETS
+
+    @property
+    def PRIVATE_SUBNETS(self):
+        return _required_subnet_export_names(Settings.COMPUTE_PRIVATE_SUBNETS,
+                                             C4NetworkExports.PRIVATE_SUBNETS,
+                                             'Compute VPC private')
 
     @classmethod
     def get_subnet_ids(cls):
@@ -457,8 +463,8 @@ class C4SRCENetwork(C4Network, C4Part):
                 FromPort=443,
                 ToPort=443,
             ))
-            # Compute VPC -> App VPC: allow Sentieon license server port (8990)
-            # Sentieon runs in App VPC but compute jobs in the Compute VPC need to reach it
+            # Preserve the shared Compute-to-App license-server rule for existing consumers.
+            # The SRCE Sentieon server itself uses a dedicated security group in the Compute VPC.
             rules.append(SecurityGroupIngress(
                 self.name.logical_id('SentieonFromComputeVPC', context='cross_vpc_sentieon_in'),
                 CidrIp=compute_cidr,
@@ -617,14 +623,14 @@ class C4SRCEDBNetwork(C4SRCENetwork):
 
 class C4SRCEComputeNetwork(C4SRCENetwork):
     """
-    SRCE Network stack for the Compute VPC (JupyterHub, Higlass).
+    SRCE Network stack for the Compute VPC (Sentieon and future compute workloads).
 
     Creates application security group(s) inside the IT-provided Compute VPC specified
     by 'compute.vpc.id' in config.json.  Exports use standard key names so inherited
     EC2 compute modules resolve imports correctly via ComputeNetworkStackNameParameter.
 
-    Note: Sentieon runs in the App VPC (needs public subnet), not here. Compute jobs
-    reach the Sentieon license server cross-VPC on port 8990.
+    The SRCE Sentieon license server uses a dedicated security group in this VPC; this
+    network stack continues to export the existing shared security group for other consumers.
     """
     STACK_NAME_TOKEN = 'srce-network-compute'
     STACK_TITLE_TOKEN = 'SRCENetworkCompute'

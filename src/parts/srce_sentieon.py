@@ -10,7 +10,7 @@ from troposphere.iam import InstanceProfile, Role
 
 from .sentieon import C4SentieonSupport
 from .network import C4Network
-from .srce_network import C4SRCENetworkExports
+from .srce_network import C4SRCEComputeNetworkExports
 from ..base import ConfigManager
 from ..constants import C4SRCESentieonBase, Settings
 from ..names import Names
@@ -24,29 +24,27 @@ AMI_ID_PATTERN = re.compile(r'^ami-(?:[0-9a-f]{8}|[0-9a-f]{17})$')
 class C4SRCESentieonSupport(C4SentieonSupport):
     """
     SRCE variant of C4SentieonSupport: the Sentieon license server inside the IT-provided
-    Application VPC.
+    Compute VPC.
 
     Differences from the standard stack, all of them required for a secure enclave:
 
-    * **Application VPC private subnet, no public IP.** The enclave's Application VPC is not
-      guaranteed to have public subnets at all, and the standard stack's
-      ``ImportValue ${NetworkStackNameParameter}-PublicSubnetA`` therefore resolves to an export
-      ``srce-network`` only publishes when ``public.subnets`` happens to be configured. The
-      license server is reached from inside the enclave (the portal in the Application VPC and
-      compute jobs in the Compute VPC), so it belongs on a private subnet.
+    * **Compute VPC private subnet, no public IP.** The license server is deployed into the
+      institution-provided Compute VPC, using its configured ``compute.private.subnets`` export.
+      It is reachable from compute jobs in that VPC and from the portal through existing
+      inter-VPC routing.
     * **The AMI is configuration, not code** (``sentieon.ami_id``). The hardened image is issued
       per account by the institution's IT/security team; the standard stack's fallback to
       ``EC2Constants.DEFAULT_AMI_IMAGE`` is an AMI ID from one specific account and silently
       produces an undeployable (or wrong) instance anywhere else.
     * **SSM Session Manager is the only operator access path**, since the instance has no public
       IP. No SSH ingress or key pair is created or required. SSM needs an instance profile on the
-      instance and HTTPS egress that can reach the SSM endpoints -- both added here.
+      instance and HTTPS egress through the centrally managed transit-gateway path.
     * **Encrypted root volume**, which a secure enclave requires.
 
-    The security rules allow license-server traffic (tcp/8990) from the Application VPC CIDR and,
-    when ``compute.vpc.cidr`` is configured, from the Compute VPC CIDR.
+    The security rules allow license-server traffic (tcp/8990) from the Application and Compute
+    VPC CIDRs, and HTTPS egress for SSM and the Sentieon license master.
     """
-    NETWORK_EXPORTS = C4SRCENetworkExports()
+    NETWORK_EXPORTS = C4SRCEComputeNetworkExports()
 
     STACK_NAME_TOKEN = C4SRCESentieonBase.STACK_NAME_TOKEN
     STACK_TITLE_TOKEN = C4SRCESentieonBase.STACK_TITLE_TOKEN
@@ -128,11 +126,11 @@ class C4SRCESentieonSupport(C4SentieonSupport):
     # ---------------------------------------------------------------------------------------
 
     def application_security_rules(self) -> list:
-        """Security rules for the Sentieon license server in the App VPC."""
+        """Security rules for the Sentieon license server in the Compute VPC."""
         app_cidr = self.app_vpc_cidr()
         compute_cidr = ConfigManager.get_config_setting(Settings.COMPUTE_VPC_CIDR, default=None)
         rules = [
-            # License Server — allow from App VPC
+            # License Server — allow only the established port from the App VPC.
             SecurityGroupIngress(
                 self.name.logical_id('ApplicationSentieonServer'),
                 CidrIp=app_cidr,
@@ -143,57 +141,25 @@ class C4SRCESentieonSupport(C4SentieonSupport):
                 ToPort=8990,
             ),
 
-            # Outbound HTTPS to license master
+            # The central transit-gateway path provides inspected HTTPS egress for the SSM
+            # endpoints and the Sentieon license master. Keep this limited to TCP/443.
             SecurityGroupEgress(
-                self.name.logical_id('ApplicationHTTPSOutboundAllAccess'),
-                CidrIp=self.SENTIEON_MASTER_CIDR,
-                Description='allows outbound traffic on tcp port 443',
+                self.name.logical_id('ComputeHTTPSOutboundSSM'),
+                CidrIp='0.0.0.0/0',
+                Description='allows outbound tcp/443 through the centrally managed SSM egress path',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
                 FromPort=443,
                 ToPort=443,
-            ),
-
-            # Outbound HTTPS inside the App VPC. The instance has no public IP, so SSM Session
-            # Manager (the operator access path) reaches ssm/ssmmessages/ec2messages through the
-            # Application VPC's interface endpoints, which answer on 443 at in-VPC addresses.
-            SecurityGroupEgress(
-                self.name.logical_id('ApplicationHTTPSOutboundVPC'),
-                CidrIp=app_cidr,
-                Description='allows outbound tcp/443 within the App VPC (SSM interface endpoints)',
-                GroupId=Ref(self.application_security_group()),
-                IpProtocol='tcp',
-                FromPort=443,
-                ToPort=443,
-            ),
-
-            # ICMP for server diagnostics — restricted to the App VPC CIDR, not world-open.
-            SecurityGroupIngress(
-                self.name.logical_id('ApplicationICMPInboundAllAccess'),
-                CidrIp=app_cidr,
-                FromPort=-1,
-                ToPort=-1,
-                Description='allows ICMP from within the App VPC',
-                GroupId=Ref(self.application_security_group()),
-                IpProtocol='icmp',
-            ),
-            SecurityGroupEgress(
-                self.name.logical_id('ApplicationICMPOutboundAllAccess'),
-                CidrIp=app_cidr,
-                FromPort=-1,
-                ToPort=-1,
-                Description='allows ICMP within the App VPC',
-                GroupId=Ref(self.application_security_group()),
-                IpProtocol='icmp',
             ),
         ]
 
-        # License Server — allow from Compute VPC (cross-VPC)
+        # Compute jobs use the license server from the Compute VPC.
         if compute_cidr:
             rules.append(SecurityGroupIngress(
-                self.name.logical_id('SentieonFromComputeVPC'),
+                self.name.logical_id('ComputeSentieonLicenseServer'),
                 CidrIp=compute_cidr,
-                Description='allows inbound traffic on tcp port 8990 from Compute VPC',
+                Description='allows inbound tcp/8990 from Compute VPC license clients',
                 GroupId=Ref(self.application_security_group()),
                 IpProtocol='tcp',
                 FromPort=8990,
@@ -215,8 +181,8 @@ class C4SRCESentieonSupport(C4SentieonSupport):
             stack does.
 
             AmazonSSMManagedInstanceCore is the whole grant. It is what Session Manager requires,
-            and Session Manager is the only way onto an instance that has no public IP and whose
-            SSH ingress is limited to the institutional admin CIDR.
+            and Session Manager is the only operator access path for this instance, which has no
+            public IP or SSH ingress.
         """
         return Role(
             self.name.logical_id('SentieonInstanceRole'),
@@ -279,13 +245,11 @@ class C4SRCESentieonSupport(C4SentieonSupport):
         )
 
     def sentieon_license_server(self) -> Instance:
-        """ The license server, in an Application VPC *private* subnet with no public IP.
+        """ The license server, in a Compute VPC *private* subnet with no public IP.
 
-            Note ``self.NETWORK_EXPORTS.PRIVATE_SUBNETS[0]``, not
-            ``C4NetworkExports.PRIVATE_SUBNETS[0]``: the SRCE exports resolve the subnet export
-            names from the configured ``private.subnets`` and raise when that key is unset, so an
-            unconfigured deployment fails here at synthesis instead of emitting an ImportValue for
-            an export ``srce-network`` never published.
+            The SRCE Compute exports resolve subnet names from ``compute.private.subnets`` and
+            raise when that key is unset, so an unconfigured deployment fails during synthesis
+            rather than importing an export the compute network never published.
         """
         logical_id = self.name.logical_id('SentieonLicenseServer')
         network_interface_logical_id = self.name.logical_id('SentieonLicenseServerNetworkInterface')

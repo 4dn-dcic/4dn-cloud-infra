@@ -58,14 +58,18 @@ def test_srce_datastore_creates_scoped_upload_role_and_export(synthesis_config, 
     policy = role_properties['Policies'][0]['PolicyDocument']['Statement']
     s3_objects = next(statement for statement in policy if 's3:GetObject' in statement['Action'])
     s3_bucket = next(statement for statement in policy if statement['Action'] == 's3:ListBucket')
-    assert s3_objects['Action'] == ['s3:GetObject', 's3:PutObject']
+    assert s3_objects['Action'] == [
+        's3:GetObject', 's3:PutObject', 's3:AbortMultipartUpload'
+    ]
     assert s3_objects['Resource'] == f'arn:aws:s3:::{env_name}-application-files/*'
     assert s3_bucket['Resource'] == f'arn:aws:s3:::{env_name}-application-files'
     assert all('DeleteObject' not in str(statement['Action']) for statement in policy)
+    assert not any(action in str(statement['Action']) for statement in policy
+                   for action in ['s3:ListBucketMultipartUploads', 's3:ListMultipartUploadParts'])
 
-    kms_statement = next(statement for statement in policy if 'kms:Encrypt' in statement['Action'])
+    kms_statement = next(statement for statement in policy if 'kms:Decrypt' in statement['Action'])
     assert kms_statement['Action'] == [
-        'kms:Encrypt', 'kms:Decrypt', 'kms:ReEncrypt*', 'kms:GenerateDataKey*', 'kms:DescribeKey'
+        'kms:Decrypt', 'kms:GenerateDataKey'
     ]
     assert isinstance(kms_statement['Resource'], dict) and 'Fn::GetAtt' in kms_statement['Resource']
 
@@ -75,6 +79,7 @@ def test_srce_datastore_creates_scoped_upload_role_and_export(synthesis_config, 
     upload_key_statement = next(statement for statement in kms_key['Properties']['KeyPolicy']['Statement']
                                 if statement.get('Sid') == 'Allow SRCE S3 upload role to use the key')
     assert upload_key_statement['Principal'] == {'AWS': '*'}
+    assert upload_key_statement['Action'] == ['kms:Decrypt', 'kms:GenerateDataKey']
     assert upload_key_statement['Condition']['ArnEquals']['aws:PrincipalArn']
     assert f'c4-srce-s3-upload-{env_name}' in str(
         upload_key_statement['Condition']['ArnEquals']['aws:PrincipalArn'])
@@ -118,7 +123,13 @@ def test_srce_appconfig_imports_the_upload_role_for_gac_only(synthesis_config, s
     assert f'c4-srce-s3-upload-{env_name}' not in str(gac_secrets)
 
 
-@pytest.mark.parametrize('kind,env_name', [('cgap', 'cgap-test'), ('ff', 'fourfront-test')])
+@pytest.mark.parametrize('kind,env_name', [
+    ('cgap', 'cgap-test'),
+    ('ff', 'fourfront-test'),
+    ('smaht', 'smaht-test'),
+    ('cgap', 'cgap-dev-srce'),
+    ('ff', 'fourfront-dev-srce'),
+])
 def test_non_srce_variants_do_not_get_the_upload_role_setting(synthesis_config, synthesize, kind, env_name):
     synthesis_config(kind=kind, extra={Settings.ENV_NAME: env_name})
     with mock.patch.object(ApplicationConfigurationSecrets, 'get_es_url', return_value='es.example:443'):

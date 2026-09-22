@@ -22,8 +22,8 @@ from src.parts.srce_sentieon import C4SRCESentieonSupport
 AMI_ID = 'ami-0123456789abcdef0'
 
 # A complete SRCE configuration: the three IT-provided VPCs, their CIDRs and private subnets, plus
-# the Sentieon AMI. Deliberately has no 'public.subnets': a secure
-# enclave's Application VPC is not required to have any, and the stack must deploy without one.
+# the Sentieon AMI. Deliberately has no 'public.subnets': a secure enclave's Application VPC does
+# not need public subnets for the Sentieon server.
 SRCE_CONFIG = dict(matrix.BASE_CONFIG, **{
     'app.kind': 'smaht', 'app.deploy': 'blue/green', 'ENCODED_ENV_NAME': 'smaht-srce',
     'vpc.id': 'vpc-0aaaaaaaaaaaaaaaa', 'vpc.cidr': '10.1.0.0/16',
@@ -115,7 +115,7 @@ def test_cli_passes_only_parameters_this_template_declares():
     """ ``aws cloudformation deploy`` refuses the whole deployment -- 'Parameters: [...] do not
         exist in the template' -- when handed an override for a parameter the template does not
         declare. The SRCE branch of the CLI offers every SRCE stack-name override there is, and
-        srce-sentieon declares only NetworkStackNameParameter, so the
+        srce-sentieon declares only ComputeNetworkStackNameParameter, so the
         overrides have to be filtered against the template or the stack cannot be deployed at all.
     """
     from src.cli import C4Client
@@ -126,16 +126,17 @@ def test_cli_passes_only_parameters_this_template_declares():
     stack = c4_alpha_stack_srce_sentieon(C4Account(account_number='123456789012',
                                                    creds_file='/dev/null'))
     declared = C4Client.declared_template_parameters(stack)
-    assert 'NetworkStackNameParameter' in declared
+    assert 'ComputeNetworkStackNameParameter' in declared
+    assert 'NetworkStackNameParameter' not in declared
     assert 'DBNetworkStackNameParameter' not in declared
-    assert 'ComputeNetworkStackNameParameter' not in declared
 
     flags = C4Client.build_srce_parameter_flags(
         stack=stack,
         available_overrides={'NetworkStackNameParameter': 'c4-srce-network-main-stack',
                              'DBNetworkStackNameParameter': 'c4-srce-network-db-main-stack',
                              'ComputeNetworkStackNameParameter': 'c4-srce-network-compute-main-stack'})
-    assert flags == ['--parameter-overrides', '"NetworkStackNameParameter=c4-srce-network-main-stack"']
+    assert flags == ['--parameter-overrides',
+                     '"ComputeNetworkStackNameParameter=c4-srce-network-compute-main-stack"']
 
 
 def test_cli_parameter_overrides_are_declared_by_every_srce_stack():
@@ -209,21 +210,17 @@ def test_valid_ami_forms_are_accepted(good):
 
 
 # ---------------------------------------------------------------------------------------------
-# App VPC placement
+# Compute VPC placement
 # ---------------------------------------------------------------------------------------------
 
-def test_instance_is_in_an_application_vpc_private_subnet(template):
-    """ Every network interface sits on an Application VPC *private* subnet export.
-
-        The standard stack imports ``PublicSubnetA``, which srce-network only publishes when
-        'public.subnets' is configured -- so the standard placement is both wrong for an enclave
-        and undeployable without an optional key.
-    """
+def test_instance_is_in_a_compute_vpc_private_subnet(template):
+    """ The license server uses the existing Compute VPC's configured private subnet export. """
     interfaces = the_instance(template)['Properties']['NetworkInterfaces']
     assert interfaces
     for interface in interfaces:
         assert interface['SubnetId'] == {
-            'Fn::ImportValue': {'Fn::Sub': '${NetworkStackNameParameter}-PrivateSubnetA'}}
+            'Fn::ImportValue': {'Fn::Sub': '${ComputeNetworkStackNameParameter}-PrivateSubnetA'}}
+        assert '${NetworkStackNameParameter}' not in str(interface['SubnetId'])
 
 
 def test_no_public_subnet_is_referenced_anywhere(template):
@@ -237,40 +234,39 @@ def test_instance_has_no_public_ip(template):
         assert interface['AssociatePublicIpAddress'] is False
 
 
-def test_security_group_is_in_the_application_vpc(template):
+def test_security_group_is_in_the_compute_vpc(template):
     groups = resources_of_type(template, 'AWS::EC2::SecurityGroup')
     assert len(groups) == 1
     group = next(iter(groups.values()))
     assert group['Properties']['VpcId'] == {
-        'Fn::ImportValue': {'Fn::Sub': '${NetworkStackNameParameter}-VPC'}}
+        'Fn::ImportValue': {'Fn::Sub': '${ComputeNetworkStackNameParameter}-VPC'}}
+    assert '${NetworkStackNameParameter}' not in str(group['Properties']['VpcId'])
 
 
-def test_network_imports_resolve_through_the_srce_application_network_exports():
-    """ The cross-stack reference is the SRCE Application network stack, so the deployer wires
-        NetworkStackNameParameter to c4-srce-network-main-stack rather than the standard one. """
-    from src.parts.srce_network import C4SRCENetwork, C4SRCENetworkExports
+def test_network_imports_resolve_through_the_srce_compute_network_exports():
+    """ The deployer wires the reference to the existing SRCE Compute network stack. """
+    from src.parts.srce_network import C4SRCEComputeNetwork, C4SRCEComputeNetworkExports
 
     configure()
-    assert isinstance(C4SRCESentieonSupport.NETWORK_EXPORTS, C4SRCENetworkExports)
-    assert C4SRCENetwork.suggest_stack_name().stack_name.startswith('c4-srce-network-')
+    assert isinstance(C4SRCESentieonSupport.NETWORK_EXPORTS, C4SRCEComputeNetworkExports)
+    assert C4SRCEComputeNetwork.suggest_stack_name().stack_name.startswith(
+        'c4-srce-network-compute-')
 
 
-def test_the_instance_uses_the_configured_application_private_subnet_count():
-    """ The subnet export the instance imports is derived from the configured subnets, so a config
-        naming a single Application private subnet still resolves (to that one). """
-    template = synthesize(**{Settings.PRIVATE_SUBNETS: 'subnet-0onlyone'})
+def test_the_instance_uses_the_configured_compute_private_subnet_count():
+    """ A single configured Compute subnet still resolves to its first export. """
+    template = synthesize(**{Settings.COMPUTE_PRIVATE_SUBNETS: 'subnet-0onlyone'})
     for interface in the_instance(template)['Properties']['NetworkInterfaces']:
         assert interface['SubnetId'] == {
-            'Fn::ImportValue': {'Fn::Sub': '${NetworkStackNameParameter}-PrivateSubnetA'}}
+            'Fn::ImportValue': {'Fn::Sub': '${ComputeNetworkStackNameParameter}-PrivateSubnetA'}}
 
 
 @pytest.mark.parametrize('missing', [None, ''])
 def test_missing_private_subnets_fails_loudly_at_synthesis(missing):
-    """ An unset 'private.subnets' must raise rather than emit an ImportValue for an export
-        srce-network never published. """
+    """ Missing Compute subnets must not emit an import for an unpublished export. """
     with pytest.raises(RuntimeError) as caught:
-        synthesize(**{Settings.PRIVATE_SUBNETS: missing})
-    assert Settings.PRIVATE_SUBNETS in str(caught.value)
+        synthesize(**{Settings.COMPUTE_PRIVATE_SUBNETS: missing})
+    assert Settings.COMPUTE_PRIVATE_SUBNETS in str(caught.value)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -297,23 +293,28 @@ def test_instance_uses_ssm_only_without_ssh_or_public_access(template):
     assert not any('SentieonSSHKey' in name for name in template['Parameters'])
     assert not any(rule['Properties'].get('FromPort') == 22 for rule in ingress_rules(template))
     assert not any(rule['Properties'].get('FromPort') == 22 for rule in egress_rules(template))
+    assert {rule['Properties'].get('FromPort') for rule in ingress_rules(template)} == {8990}
     assert all(interface['AssociatePublicIpAddress'] is False
                for interface in instance_properties['NetworkInterfaces'])
     assert not resources_of_type(template, 'AWS::EC2::EIP')
 
 
-def test_instance_can_reach_the_ssm_endpoints_in_the_app_vpc(template):
-    """ With no public IP, Session Manager is the way onto the box, and it speaks HTTPS to the
-        Application VPC's SSM interface endpoints. """
-    https_targets = {rule['Properties']['CidrIp'] for rule in egress_rules(template)
-                     if rule['Properties'].get('FromPort') == 443}
-    assert SRCE_CONFIG['vpc.cidr'] in https_targets
+def test_instance_has_only_central_https_egress_for_ssm_and_license_master(template):
+    """ The existing transit-gateway path carries HTTPS; no other egress is added. """
+    rules = list(egress_rules(template))
+    assert len(rules) == 1
+    assert rules[0]['Properties']['IpProtocol'] == 'tcp'
+    assert rules[0]['Properties']['FromPort'] == 443
+    assert rules[0]['Properties']['ToPort'] == 443
+    assert rules[0]['Properties']['CidrIp'] == '0.0.0.0/0'
 
 
-def test_instance_can_reach_the_sentieon_license_master(template):
-    https_targets = {rule['Properties']['CidrIp'] for rule in egress_rules(template)
-                     if rule['Properties'].get('FromPort') == 443}
-    assert C4SRCESentieonSupport.SENTIEON_MASTER_CIDR in https_targets
+def test_instance_does_not_attach_the_ssh_permitting_compute_network_group(template):
+    security_groups = resources_of_type(template, 'AWS::EC2::SecurityGroup')
+    assert len(security_groups) == 1
+    expected_group_ref = {'Ref': next(iter(security_groups))}
+    assert all(interface['GroupSet'] == [expected_group_ref]
+               for interface in the_instance(template)['Properties']['NetworkInterfaces'])
 
 
 def test_instance_profile_grants_only_ssm_core(template):

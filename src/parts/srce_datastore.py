@@ -72,11 +72,8 @@ class C4SRCEDatastore(C4SRCEDatastoreBase, C4Datastore):
             'Effect': 'Allow',
             'Principal': {'AWS': '*'},
             'Action': [
-                'kms:Encrypt',
                 'kms:Decrypt',
-                'kms:ReEncrypt*',
-                'kms:GenerateDataKey*',
-                'kms:DescribeKey',
+                'kms:GenerateDataKey',
             ],
             'Resource': '*',
             'Condition': {'ArnEquals': {'aws:PrincipalArn': self.s3_upload_role_arn()}},
@@ -89,7 +86,7 @@ class C4SRCEDatastore(C4SRCEDatastoreBase, C4Datastore):
         statements = [
             {
                 'Effect': 'Allow',
-                'Action': ['s3:GetObject', 's3:PutObject'],
+                'Action': ['s3:GetObject', 's3:PutObject', 's3:AbortMultipartUpload'],
                 'Resource': f'arn:aws:s3:::{bucket_name}/*',
             },
             {
@@ -102,11 +99,8 @@ class C4SRCEDatastore(C4SRCEDatastoreBase, C4Datastore):
             statements.append({
                 'Effect': 'Allow',
                 'Action': [
-                    'kms:Encrypt',
                     'kms:Decrypt',
-                    'kms:ReEncrypt*',
-                    'kms:GenerateDataKey*',
-                    'kms:DescribeKey',
+                    'kms:GenerateDataKey',
                 ],
                 'Resource': GetAtt(self.s3_encrypt_key(), 'Arn'),
             })

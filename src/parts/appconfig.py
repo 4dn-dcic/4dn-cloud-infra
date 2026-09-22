@@ -211,7 +211,8 @@ class C4AppConfig(C4AppConfigBase, C4Part):
         values = ApplicationConfigurationSecrets.build_initial_values()
         secret_string = json.dumps(values, indent=2)
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME, default='')
-        if isinstance(env_name, str) and env_name.endswith('-srce'):
+        app_kind = ConfigManager.get_config_setting(Settings.APP_KIND, default='')
+        if app_kind == 'smaht' and isinstance(env_name, str) and env_name.endswith('-srce'):
             marker = '__S3_UPLOAD_ROLE_ARN_CFN_IMPORT__'
             values['S3_UPLOAD_ROLE_ARN'] = marker
             serialized_values = json.dumps(values, indent=2)

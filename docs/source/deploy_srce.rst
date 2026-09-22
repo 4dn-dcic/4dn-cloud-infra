@@ -14,12 +14,11 @@ only permitted to create resources *inside* those pre-provisioned VPCs.
 
 Instead of one self-created VPC, a SRCE deployment spans **three IT-provided VPCs**:
 
-* **Application VPC** — runs the ECS portal, Foursight and the Sentieon license server. Private
-  subnets carry the ECS tasks and the license server; public subnets, if the institution provides
-  any, carry only the load balancer.
+* **Application VPC** — runs the ECS portal and Foursight. Private subnets carry ECS tasks; public
+  subnets, if the institution provides any, carry only the load balancer.
 * **Database VPC** — runs RDS, OpenSearch, and Redis. Private subnets only.
-* **Compute VPC** — reserved for compute workloads (Sentieon compute jobs, and, if introduced,
-  JupyterHub/Higlass variants). Private subnets only.
+* **Compute VPC** — runs Sentieon compute jobs and the SRCE Sentieon license server, plus, if
+  introduced, JupyterHub/Higlass variants. Private subnets only.
 
 The SRCE ``srce-network*`` stacks do **not** create VPCs, subnets, or routing. They create only the
 security groups (and cross-VPC security-group rules) inside the IT-provided VPCs, and they *export*
@@ -43,7 +42,7 @@ Application VPC (ECS portal + Foursight):
 * ``vpc.cidr`` — Application VPC CIDR block (used to scope security-group rules)
 * ``public.subnets`` — public subnet IDs (load balancer). Optional: an enclave Application VPC
   that provides no public subnets deploys ``srce-sentieon`` unchanged.
-* ``private.subnets`` — private subnet IDs (ECS tasks, Sentieon license server)
+* ``private.subnets`` — private subnet IDs for ECS tasks
 
 Database VPC (RDS, OpenSearch, Redis):
 
@@ -54,7 +53,7 @@ Database VPC (RDS, OpenSearch, Redis):
   from ``subnet.pair_count`` subnet exports (see ``C4SRCEDBNetworkExports`` in
   ``src/parts/srce_network.py``).
 
-Compute VPC (Sentieon compute jobs; JupyterHub/Higlass if introduced):
+Compute VPC (Sentieon jobs and license server; JupyterHub/Higlass if introduced):
 
 * ``compute.vpc.id`` — IT-provided Compute VPC ID
 * ``compute.vpc.cidr`` — Compute VPC CIDR block
@@ -113,7 +112,7 @@ Child command failures now stop the CLI instead of reporting success::
     cli provision appconfig
     cli provision codebuild              # vpc.id selects SRCE Application network imports
 
-    # 5. Application + license server in the Application VPC
+    # 5. Application and license server in their respective VPCs
     cli provision srce-ecs
     cli provision srce-sentieon         # needs sentieon.ami_id; SSM only, no key pair or SSH ingress
 
@@ -201,9 +200,11 @@ Sentieon license server
 
 ``srce-sentieon`` is a stack of its own (``c4-srce-sentieon-<env>-stack``), separate from the
 standard ``sentieon`` stack, which is left exactly as it is for the existing deployments. It puts
-a Sentieon license server in the **Application VPC**, on the first configured ``private.subnets``
-subnet, with **no public IP**. Compute jobs in the Compute VPC reach it on tcp/8990 over the
-IT-provided inter-VPC routing, permitted by a rule scoped to ``compute.vpc.cidr``.
+a Sentieon license server in the **Compute VPC**, on the first configured
+``compute.private.subnets`` subnet, with **no public IP**. The portal in the Application VPC and
+compute jobs reach it on tcp/8990 over IT-provided inter-VPC routing, permitted by rules scoped to
+``vpc.cidr`` and ``compute.vpc.cidr``. Its dedicated security group has no SSH/admin ingress and
+allows only the established license port inbound plus outbound HTTPS on tcp/443.
 
 What the stack creates: the license-server security group and its rules, an IAM role and instance
 profile granting only ``AmazonSSMManagedInstanceCore``, and the EC2 instance itself with an
@@ -228,14 +229,14 @@ Deployment prerequisites, beyond the ordinary SRCE network keys:
   ``CAPABILITY_NAMED_IAM``. The CLI adds that automatically
   (``C4Client.REQUIRES_CAPABILITY_NAMED_IAM``); an operator applying the template by hand must
   pass it.
-* **The Application VPC needs a path to the SSM endpoints.** The instance has no public IP, so
-  Session Manager — the operator's way onto the box — needs either the ``ssm``, ``ssmmessages``
-  and ``ec2messages`` interface endpoints in the Application VPC, or NAT egress from its private
-  subnets. Either is the institution's to provide: these SRCE stacks deliberately create no
-  endpoints, routes or NAT, because IT owns VPC routing (see *Theory* above). Without one of them
-  the instance still boots, but nobody can log in to finish the manual steps below.
-* Outbound HTTPS to the Sentieon license master (``52.89.132.242/32``) must be routable — again,
-  through the institution's egress path.
+* **The Compute VPC needs the centrally managed SSM egress path.** The instance has no public IP;
+  Session Manager therefore depends on the institution's transit-gateway/firewall path reaching
+  the SSM endpoints. This deployment assumes that central path provides the required reachability;
+  the SRCE stacks create no endpoints, routes, NAT, or subnets. If the instance does not register
+  with SSM, stop and report the missing centrally managed route or policy rather than changing
+  network infrastructure here.
+* Outbound HTTPS to the Sentieon license master must be routable through the institution's egress
+  path; the dedicated security group permits only TCP/443 outbound.
 
 Manual steps after the stack is up, as for any Sentieon license server
 (https://support.sentieon.com/appnotes/license_server/): connect with
