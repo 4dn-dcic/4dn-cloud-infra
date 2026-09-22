@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import pytest
@@ -121,6 +122,11 @@ def test_srce_appconfig_imports_the_upload_role_for_gac_only(synthesis_config, s
     assert not _find_intrinsics(foursight_secret['SecretString'], 'Fn::ImportValue')
     assert 'S3_UPLOAD_ROLE_ARN' in str(gac_secrets)
     assert f'c4-srce-s3-upload-{env_name}' not in str(gac_secrets)
+    for secret in gac_secrets:
+        secret_string = secret['SecretString']
+        parts = secret_string['Fn::Join'][1]
+        reconstructed = ''.join(parts[:1] + ['__S3_UPLOAD_ROLE_ARN_CFN_IMPORT__'] + parts[2:])
+        assert json.loads(reconstructed)['S3_UPLOAD_ROLE_ARN'] == '__S3_UPLOAD_ROLE_ARN_CFN_IMPORT__'
 
 
 @pytest.mark.parametrize('kind,env_name', [

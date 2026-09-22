@@ -216,7 +216,7 @@ class C4AppConfig(C4AppConfigBase, C4Part):
             marker = '__S3_UPLOAD_ROLE_ARN_CFN_IMPORT__'
             values['S3_UPLOAD_ROLE_ARN'] = marker
             serialized_values = json.dumps(values, indent=2)
-            prefix, delimiter, suffix = serialized_values.partition(json.dumps(marker))
+            prefix, delimiter, suffix = serialized_values.partition(marker)
             if not delimiter:
                 raise ValueError('Could not construct the SRCE S3 upload role AppConfig import.')
             datastore_stack = Names.srce_datastore_stack_name_object(env_name).stack_name
