@@ -176,6 +176,12 @@ def test_authorized_dev_ami_survives_synthesis_unchanged():
     assert the_instance(template)['Properties']['ImageId'] == AUTHORIZED_DEV_AMI_ID
 
 
+def test_approved_dev_ami_and_instance_type_survive_synthesis():
+    instance = the_instance(synthesize(**{Settings.SENTIEON_AMI_ID: AUTHORIZED_DEV_AMI_ID}))
+    assert instance['Properties']['ImageId'] == AUTHORIZED_DEV_AMI_ID
+    assert instance['Properties']['InstanceType'] == 't3.small'
+
+
 def test_a_different_configured_ami_reaches_the_instance():
     """ Propagation, not a coincidence: a second value must follow the config too, and nothing in
         the template may retain the repository's hardcoded default. """
