@@ -76,7 +76,7 @@ Other relevant keys:
   from; the hardened image is issued per account by the institution's IT/security team, so there
   is no default and nothing is discovered from the account. An unset or malformed value fails at
   ``cli provision`` time with a message naming the key, not at stack-creation time.
-* ``sentieon.ssh_key`` — name of a pre-existing EC2 key pair for the license server.
+* ``sentieon.ssh_key`` — **required**; name of a pre-existing EC2 key pair for the license server.
 * ``sentieon.admin_cidr`` — CIDR (institutional VPN/admin range) allowed to SSH into the Sentieon
   license server. Defaults to the Application VPC CIDR; **never** ``0.0.0.0/0``.
 * ``sentieon.instance_type`` — defaults to ``t3.nano`` (the Nitro-based equivalent of the
@@ -91,8 +91,10 @@ Deploy order
 
 Generate the stacks in dependency order below. ``iam``, ``ecr`` and ``logging`` are
 ecosystem-shared stacks; this deployment consumes them as they already are, adding only the
-``falcon-sensor`` ECR repository (see :doc:`crowdstrike`). Bare ``cli provision`` writes templates only;
-``--validate`` additionally contacts CloudFormation (not an offline check). To create a change
+``falcon-sensor`` ECR repository (see :doc:`crowdstrike`). The SRCE AppConfig GAC imports the upload
+role ARN from ``srce-datastore``, so deploy the datastore before AppConfig. Bare ``cli provision``
+writes templates only; ``--validate`` additionally contacts CloudFormation (not an offline check).
+To create a change
 set, add ``--upload-change-set`` and review/execute it separately before proceeding to consumers.
 Child command failures now stop the CLI instead of reporting success::
 
@@ -101,22 +103,24 @@ Child command failures now stop the CLI instead of reporting success::
     cli provision srce-network-db         # Database VPC
     cli provision srce-network-compute    # Compute VPC
 
-    # 2. Ecosystem-shared stacks (IAM / ECR / logging / appconfig) as in a normal deploy
+    # 2. Ecosystem-shared prerequisites
     cli provision iam
     cli provision ecr
     cli provision logging
-    cli provision appconfig
-    cli provision codebuild              # vpc.id selects SRCE Application network imports
 
-    # 3. Data stores in the Database VPC
+    # 3. Data stores in the Database VPC (also creates the S3 upload role)
     cli provision srce-datastore
     cli provision srce-redis
 
-    # 4. Application + license server in the Application VPC
-    cli provision srce-ecs
-    cli provision srce-sentieon         # needs sentieon.ami_id; creates an IAM role (CAPABILITY_IAM)
+    # 4. AppConfig consumes the datastore's upload-role ARN; CodeBuild uses AppConfig
+    cli provision appconfig
+    cli provision codebuild              # vpc.id selects SRCE Application network imports
 
-    # 5. Foursight for the SRCE deployment (uses the SRCE Application VPC)
+    # 5. Application + license server in the Application VPC
+    cli provision srce-ecs
+    cli provision srce-sentieon         # needs sentieon.ami_id and sentieon.ssh_key; named IAM resources
+
+    # 6. Foursight for the SRCE deployment (uses the SRCE Application VPC)
     cli provision foursight-srce
 
 .. note::
@@ -222,9 +226,10 @@ Deployment prerequisites, beyond the ordinary SRCE network keys:
   and nothing is discovered from the account's own state. ``cli provision srce-sentieon`` fails
   offline, naming the key, if it is unset or malformed.
 * ``sentieon.ssh_key`` must name an EC2 key pair that already exists in the account.
-* The stack creates an IAM role, so it is deployed with ``CAPABILITY_IAM``. The CLI adds that
-  automatically (``C4Client.REQUIRES_CAPABILITY_IAM``); an operator applying the template by hand
-  must pass it.
+* The stack creates explicitly named IAM resources, so it is deployed with
+  ``CAPABILITY_NAMED_IAM``. The CLI adds that automatically
+  (``C4Client.REQUIRES_CAPABILITY_NAMED_IAM``); an operator applying the template by hand must
+  pass it.
 * **The Application VPC needs a path to the SSM endpoints.** The instance has no public IP, so
   Session Manager — the operator's way onto the box — needs either the ``ssm``, ``ssmmessages``
   and ``ec2messages`` interface endpoints in the Application VPC, or NAT egress from its private

@@ -92,11 +92,12 @@ def test_synthesizes_from_a_fresh_srce_configuration_without_public_subnets(temp
     the_instance(template)
 
 
-def test_cli_requests_capability_iam_for_this_stack():
-    """ The stack creates an instance role, so the CLI must pass --capabilities CAPABILITY_IAM.
+def test_cli_requests_named_iam_capability_for_this_stack():
+    """ The stack creates IAM resources with explicit names, so the CLI must request
+        CAPABILITY_NAMED_IAM.
         The CLI matches its list as *substrings of the stack name*, and 'c4-srce-sentieon-...'
         contains no 'iam', so the entry is not optional -- without it CloudFormation refuses the
-        stack with 'Requires capabilities: [CAPABILITY_IAM]'.
+        stack with 'Requires capabilities: [CAPABILITY_NAMED_IAM]'.
     """
     from src.cli import C4Client
     from src.part import C4Account
@@ -106,7 +107,7 @@ def test_cli_requests_capability_iam_for_this_stack():
     account = C4Account(account_number='123456789012', creds_file='/dev/null')
     srce_stack = c4_alpha_stack_srce_sentieon(account)
     assert C4Client.build_capability_param(srce_stack) == \
-        f'--capabilities {C4Client.CAPABILITY_IAM}'
+        f'--capabilities {C4Client.CAPABILITY_NAMED_IAM}'
     # ... and the standard Sentieon stack, which creates no IAM resource, still does not ask for it
     assert C4Client.build_capability_param(c4_alpha_stack_sentieon(account)) == ''
 
@@ -342,6 +343,11 @@ def test_instance_is_attached_to_the_instance_profile(template):
     assert len(profiles) == 1
     profile_id = next(iter(profiles))
     assert the_instance(template)['Properties']['IamInstanceProfile'] == {'Ref': profile_id}
+    from src.names import Names
+    assert next(iter(resources_of_type(template, 'AWS::IAM::Role').values()))['Properties']['RoleName'] == \
+        Names.srce_sentieon_instance_role_name('smaht-srce')
+    assert next(iter(resources_of_type(template, 'AWS::IAM::InstanceProfile').values()))[
+        'Properties']['InstanceProfileName'] == Names.srce_sentieon_instance_profile_name('smaht-srce')
 
 
 def test_the_iam_role_lives_in_this_stack_not_the_shared_iam_stack():
@@ -353,6 +359,80 @@ def test_the_iam_role_lives_in_this_stack_not_the_shared_iam_stack():
     configure()
     shared_iam = matrix.synthesize(REGISTERED_STACK_CLASSES['alpha']['iam'])
     assert not [key for key in shared_iam['Resources'] if 'Sentieon' in key]
+
+
+def test_srce_dev_role_can_deploy_only_the_srce_sentieon_stack(synthesis_config, synthesize):
+    from src.parts.iam import C4IAM
+    from src.names import Names
+
+    env_name = 'smaht-dev-srce'
+    synthesis_config(kind='smaht', extra={Settings.ENV_NAME: env_name})
+    template = synthesize(C4IAM)
+    deploy_policies = [policy for role in resources_of_type(template, 'AWS::IAM::Role').values()
+                       for policy in role['Properties'].get('Policies', [])
+                       if policy['PolicyName'] == f'{env_name}-SRCESentieonStackDeployAccess']
+    assert len(deploy_policies) == 1
+    deploy_policy = deploy_policies[0]
+    statements = deploy_policy['PolicyDocument']['Statement']
+
+    cloudformation = next(statement for statement in statements
+                          if 'cloudformation:CreateChangeSet' in statement['Action'])
+    assert cloudformation['Resource'] != '*'
+    assert Names.srce_sentieon_stack_name_object(env_name).stack_name in str(cloudformation['Resource'])
+    assert set(cloudformation['Action']) == {
+        'cloudformation:CreateChangeSet', 'cloudformation:DeleteChangeSet',
+        'cloudformation:ExecuteChangeSet', 'cloudformation:CreateStack',
+        'cloudformation:UpdateStack', 'cloudformation:DeleteStack',
+        'cloudformation:ContinueUpdateRollback', 'cloudformation:CancelUpdateStack',
+        'cloudformation:RollbackStack',
+    }
+
+    role_arn = str(Names.srce_sentieon_instance_role_name(env_name))
+    profile_arn = str(Names.srce_sentieon_instance_profile_name(env_name))
+    pass_role = next(statement for statement in statements if statement['Action'] == 'iam:PassRole')
+    assert role_arn in str(pass_role['Resource'])
+    assert 'AWS::AccountId' in str(pass_role['Resource'])
+    assert '*' not in str(pass_role['Resource'])
+    assert pass_role['Condition'] == {'StringEquals': {'iam:PassedToService': 'ec2.amazonaws.com'}}
+
+    role_permissions = next(statement for statement in statements
+                            if 'iam:CreateRole' in statement['Action'])
+    profile_permissions = next(statement for statement in statements
+                               if 'iam:CreateInstanceProfile' in statement['Action'])
+    attach_policy = next(statement for statement in statements
+                         if 'iam:AttachRolePolicy' in statement['Action'])
+    assert role_arn in str(role_permissions['Resource'])
+    assert 'AWS::AccountId' in str(role_permissions['Resource'])
+    assert role_arn in str(profile_permissions['Resource'])
+    assert profile_arn in str(profile_permissions['Resource'])
+    assert role_arn in str(attach_policy['Resource'])
+    assert attach_policy['Condition'] == {
+        'ArnEquals': {
+            'iam:PolicyARN': 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore',
+        },
+    }
+    policy_actions = [action for statement in statements
+                      for action in (statement['Action'] if isinstance(statement['Action'], list)
+                                     else [statement['Action']])]
+    assert all(not action.startswith(('ec2:', 'ssm:', 'kms:')) for action in policy_actions)
+    assert all(action.startswith(('cloudformation:', 'iam:')) for action in policy_actions)
+    assert all(statement['Resource'] != '*' for statement in statements)
+
+
+@pytest.mark.parametrize('kind,env_name', [
+    ('smaht', 'smaht-dev'),
+    ('cgap', 'cgap-dev-srce'),
+    ('ff', 'fourfront-dev-srce'),
+])
+def test_sentieon_dev_permissions_are_absent_outside_srce(synthesis_config, synthesize, kind, env_name):
+    from src.parts.iam import C4IAM
+
+    synthesis_config(kind=kind, extra={Settings.ENV_NAME: env_name})
+    template = synthesize(C4IAM)
+    all_policies = [policy for role in resources_of_type(template, 'AWS::IAM::Role').values()
+                    for policy in role['Properties'].get('Policies', [])]
+    assert not any(policy['PolicyName'].endswith('-SRCESentieonStackDeployAccess')
+                   for policy in all_policies)
 
 
 # ---------------------------------------------------------------------------------------------

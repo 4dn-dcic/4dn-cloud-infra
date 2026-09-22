@@ -35,6 +35,7 @@ import troposphere  # noqa: E402
 from troposphere import Template  # noqa: E402
 from src import base  # noqa: E402
 from src.base import ConfigManager, REGISTERED_STACK_CLASSES  # noqa: E402
+from src.constants import Settings  # noqa: E402
 from src.part import C4Account, C4Part, C4Tags  # noqa: E402
 from src.parts import application_configuration_secrets as _acs  # noqa: E402
 import src.stacks.alpha_stacks  # noqa: F401,E402  (importing registers every stack creator)
@@ -193,6 +194,10 @@ def build_matrix():
         configure(kind, deployment)
         per_variant = {}
         for name, cls in sorted(registered_parts().items()):
+            env_name = ConfigManager.get_config_setting(Settings.ENV_NAME, default='')
+            if (name == 'alpha:srce-datastore' and kind == 'smaht' and
+                    (not isinstance(env_name, str) or not env_name.endswith('-srce'))):
+                continue
             try:
                 template = synthesize(cls)
             except Exception as error:  # noqa: BLE001 - recorded, not swallowed

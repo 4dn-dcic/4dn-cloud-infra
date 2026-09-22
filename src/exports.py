@@ -66,6 +66,7 @@ class C4DatastoreExportsMixin:
     APPLICATION_METADATA_BUNDLES_BUCKET = exportify('AppMetadataBundlesBucket')
     APPLICATION_TIBANNA_OUTPUT_BUCKET = exportify('AppTibannaLogsBucket')
     APPLICATION_TIBANNA_CWL_BUCKET = exportify('AppTibannaCWLBucket')
+    S3_UPLOAD_ROLE_ARN = exportify('S3UploadRoleArn')
 
     # Output SQS Queues
     APPLICATION_INDEXER_PRIMARY_QUEUE = exportify('ApplicationIndexerPrimaryQueue')

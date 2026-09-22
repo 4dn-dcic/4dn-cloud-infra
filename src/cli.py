@@ -36,14 +36,17 @@ class C4Client:
     SRCE_STACKS = ['srce-datastore', 'srce-ecs', 'srce-ecs-blue-green',
                    'srce-sentieon', 'srce-redis']  # stacks that import from SRCE network stacks
     CAPABILITY_IAM = 'CAPABILITY_IAM'
+    CAPABILITY_NAMED_IAM = 'CAPABILITY_NAMED_IAM'
     FOURFRONT_NETWORK_STACK = 'c4-network-main-stack'  # this stack name is shared by all fourfront envs
-    # these stacks require CAPABILITY_IAM, just IAM for now
+    # These stacks require an IAM capability; the SRCE stacks with explicit IAM names are listed
+    # separately below and require CAPABILITY_NAMED_IAM.
     # NB: matched as substrings of the full stack name, so 'foursight' already covers every
     # foursight variant (including the SRCE foursight stack c4-foursight-srce-<env>-stack).
-    # NB: 'srce-sentieon' creates its own instance role/profile for SSM access, so it needs
-    # CAPABILITY_IAM even though its stack name contains no 'iam' substring.
+    # NB: the SRCE stacks create explicitly named IAM resources, so IAM-capability handling is
+    # independent of whether 'iam' appears in their stack names.
     REQUIRES_CAPABILITY_IAM = ['iam', 'foursight', 'foursight-development', 'foursight-production', 'codebuild',
-                               'foursight-smaht', 'srce-sentieon']
+                               'foursight-smaht']
+    REQUIRES_CAPABILITY_NAMED_IAM = ['srce-sentieon', 'srce-datastore']
 
     @classmethod
     def _out_templates_mapping_for_mount(cls) -> str:
@@ -126,6 +129,9 @@ class C4Client:
     @classmethod
     def build_capability_param(cls, stack, name=CAPABILITY_IAM):
         caps = ''
+        for possible in cls.REQUIRES_CAPABILITY_NAMED_IAM:
+            if possible in stack.name.stack_name:
+                return '--capabilities %s' % cls.CAPABILITY_NAMED_IAM
         for possible in cls.REQUIRES_CAPABILITY_IAM:
             if possible in stack.name.stack_name:
                 caps = '--capabilities %s' % name

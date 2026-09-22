@@ -12,7 +12,8 @@ from .sentieon import C4SentieonSupport
 from .network import C4Network
 from .srce_network import C4SRCENetworkExports
 from ..base import ConfigManager
-from ..constants import Settings
+from ..constants import C4SRCESentieonBase, Settings
+from ..names import Names
 
 
 # An AMI ID is 'ami-' plus 8 (legacy) or 17 hex digits. Checked at synthesis time so a typo in
@@ -47,8 +48,8 @@ class C4SRCESentieonSupport(C4SentieonSupport):
     """
     NETWORK_EXPORTS = C4SRCENetworkExports()
 
-    STACK_NAME_TOKEN = 'srce-sentieon'
-    STACK_TITLE_TOKEN = 'SRCESentieon'
+    STACK_NAME_TOKEN = C4SRCESentieonBase.STACK_NAME_TOKEN
+    STACK_TITLE_TOKEN = C4SRCESentieonBase.STACK_TITLE_TOKEN
 
     # Nitro-based equivalent of the t2.nano Sentieon documents for a persistent license server;
     # override with 'sentieon.instance_type' if the supplied AMI needs a different family.
@@ -244,6 +245,8 @@ class C4SRCESentieonSupport(C4SentieonSupport):
         """
         return Role(
             self.name.logical_id('SentieonInstanceRole'),
+            RoleName=Names.srce_sentieon_instance_role_name(
+                ConfigManager.get_config_setting(Settings.ENV_NAME)),
             AssumeRolePolicyDocument=PolicyDocument(
                 Version='2012-10-17',
                 Statement=[Statement(
@@ -262,6 +265,8 @@ class C4SRCESentieonSupport(C4SentieonSupport):
         """ Instance profile wrapping the above role, attached to the license server. """
         return InstanceProfile(
             self.name.logical_id('SentieonInstanceProfile'),
+            InstanceProfileName=Names.srce_sentieon_instance_profile_name(
+                ConfigManager.get_config_setting(Settings.ENV_NAME)),
             Roles=[Ref(self.instance_role())]
         )
 

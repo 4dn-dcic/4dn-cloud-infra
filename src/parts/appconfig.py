@@ -4,6 +4,8 @@ from dcicutils.misc_utils import ignorable
 from dcicutils.cloudformation_utils import dehyphenate
 from troposphere import (
     AWS_ACCOUNT_ID,
+    ImportValue,
+    Join,
     Ref,
     Template,
     Output,
@@ -17,10 +19,11 @@ from troposphere.secretsmanager import Secret
 from .application_configuration_secrets import ApplicationConfigurationSecrets
 from ..base import ConfigManager, APP_DEPLOYMENT
 from ..constants import Secrets, Settings, DeploymentParadigm
-from ..exports import C4Exports
+from ..exports import C4DatastoreExportsMixin, C4Exports
 from ..part import C4Part
 from ..parts.network import C4NetworkExports
 from ..constants import C4AppConfigBase
+from ..names import Names
 
 
 ignorable(Output)
@@ -205,11 +208,24 @@ class C4AppConfig(C4AppConfigBase, C4Part):
             template - you must fill it out according to the specification in the README.
         """
         logical_id = dehyphenate(self.name.logical_id(postfix if postfix else '')).replace('_', '')
+        values = ApplicationConfigurationSecrets.build_initial_values()
+        secret_string = json.dumps(values, indent=2)
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME, default='')
+        if isinstance(env_name, str) and env_name.endswith('-srce'):
+            marker = '__S3_UPLOAD_ROLE_ARN_CFN_IMPORT__'
+            values['S3_UPLOAD_ROLE_ARN'] = marker
+            serialized_values = json.dumps(values, indent=2)
+            prefix, delimiter, suffix = serialized_values.partition(json.dumps(marker))
+            if not delimiter:
+                raise ValueError('Could not construct the SRCE S3 upload role AppConfig import.')
+            datastore_stack = Names.srce_datastore_stack_name_object(env_name).stack_name
+            role_export = f'{datastore_stack}-{C4DatastoreExportsMixin.S3_UPLOAD_ROLE_ARN}'
+            secret_string = Join('', [prefix, ImportValue(role_export), suffix])
         return Secret(
             logical_id,
             Name=logical_id,
             Description='This secret defines the application configuration for the orchestrated environment.',
-            SecretString=json.dumps(ApplicationConfigurationSecrets.build_initial_values(), indent=2),
+            SecretString=secret_string,
             Tags=self.tags.cost_tag_array()
         )
 

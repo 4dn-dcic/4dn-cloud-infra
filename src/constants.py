@@ -228,7 +228,14 @@ class C4SRCEDatastoreBase(C4DatastoreBase):
     """
     STACK_NAME_TOKEN = 'srce-datastore'
     STACK_TITLE_TOKEN = 'SRCEDatastore'
+    S3_UPLOAD_ROLE_PREFIX = 'c4-srce-s3-upload-'
     DEFAULT_RDS_POSTGRES_VERSION = '17.6'
+
+
+class C4SRCESentieonBase:
+    STACK_NAME_TOKEN = 'srce-sentieon'
+    STACK_TITLE_TOKEN = 'SRCESentieon'
+    IAM_RESOURCE_PREFIX = 'c4-srce-sentieon-'
 
 
 # dmichaels/2022-06-22: Factored out from C4IAM in iam.py.
