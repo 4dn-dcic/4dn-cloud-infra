@@ -20,6 +20,7 @@ from src.parts.srce_sentieon import C4SRCESentieonSupport
 
 
 AMI_ID = 'ami-0123456789abcdef0'
+AUTHORIZED_DEV_AMI_ID = 'ami-034ba86fa1363855a'
 
 # A complete SRCE configuration: the three IT-provided VPCs, their CIDRs and private subnets, plus
 # the Sentieon AMI. Deliberately has no 'public.subnets': a secure enclave's Application VPC does
@@ -168,6 +169,11 @@ def test_cli_parameter_overrides_are_declared_by_every_srce_stack():
 
 def test_configured_ami_reaches_the_instance(template):
     assert the_instance(template)['Properties']['ImageId'] == AMI_ID
+
+
+def test_authorized_dev_ami_survives_synthesis_unchanged():
+    template = synthesize(**{Settings.SENTIEON_AMI_ID: AUTHORIZED_DEV_AMI_ID})
+    assert the_instance(template)['Properties']['ImageId'] == AUTHORIZED_DEV_AMI_ID
 
 
 def test_a_different_configured_ami_reaches_the_instance():
