@@ -453,6 +453,10 @@ def test_instance_type_is_configurable():
     assert the_instance(template)['Properties']['InstanceType'] == 'm5.large'
 
 
+def test_default_instance_type_supports_the_srce_rhel9_image():
+    assert C4SRCESentieonSupport.DEFAULT_INSTANCE_TYPE == 't3.small'
+
+
 def test_bootstrap_brings_up_the_ssm_agent(template):
     lines = the_instance(template)['Properties']['UserData']['Fn::Base64']['Fn::Join'][1]
     assert any('amazon-ssm-agent' in line for line in lines)

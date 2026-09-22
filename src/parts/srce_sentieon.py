@@ -49,9 +49,9 @@ class C4SRCESentieonSupport(C4SentieonSupport):
     STACK_NAME_TOKEN = C4SRCESentieonBase.STACK_NAME_TOKEN
     STACK_TITLE_TOKEN = C4SRCESentieonBase.STACK_TITLE_TOKEN
 
-    # Nitro-based equivalent of the t2.nano Sentieon documents for a persistent license server;
-    # override with 'sentieon.instance_type' if the supplied AMI needs a different family.
-    DEFAULT_INSTANCE_TYPE = 't3.nano'
+    # t3.nano cannot launch the supplied RHEL 9 image; override with 'sentieon.instance_type'
+    # if the supplied AMI needs a different family.
+    DEFAULT_INSTANCE_TYPE = 't3.small'
     DEFAULT_VOLUME_SIZE = 20
     ROOT_DEVICE_NAME = '/dev/xvda'
 

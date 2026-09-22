@@ -75,9 +75,9 @@ Other relevant keys:
   from; the hardened image is issued per account by the institution's IT/security team, so there
   is no default and nothing is discovered from the account. An unset or malformed value fails at
   ``cli provision`` time with a message naming the key, not at stack-creation time.
-* ``sentieon.instance_type`` — defaults to ``t3.nano`` (the Nitro-based equivalent of the
-  ``t2.nano`` Sentieon documents for a persistent license server). Set it if the supplied AMI
-  needs a different instance family.
+* ``sentieon.instance_type`` — defaults to ``t3.small``, the smallest SRCE default compatible
+  with the institution-provided RHEL 9 image. Set it if the supplied AMI needs a different
+  instance family.
 * ``sentieon.volume_size`` — size in GiB of the license server's encrypted root volume
   (default 20).
 * ``subnet.pair_count`` — number of subnet pairs the datastore expects (default 2).
