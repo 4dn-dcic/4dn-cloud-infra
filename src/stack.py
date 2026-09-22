@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 import sys
@@ -17,10 +18,26 @@ from .part import C4Name, C4Tags, C4Account, C4Part, StackNameMixin
 from .parts.datastore import C4DatastoreExports
 from .parts.network import C4NetworkExports
 from .parts.appconfig import C4AppConfigExports
+from .parts.srce_network import C4SRCENetworkExports
 
 # Version string identifies template capabilities. Ref:
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/format-version-structure.html
 CLOUD_FORMATION_VERSION = '2010-09-09'
+
+
+def foursight_config_base(app_name):
+    """ Per-subclass copy of the vendored chalice CONFIG_BASE for one Foursight variant.
+
+        This must be a DEEP copy. ``dict(PackageDeploy_from_core.CONFIG_BASE, app_name=...)``
+        copies only the top level, so every Foursight variant used to share one
+        ``CONFIG_BASE['stages']`` dict -- and ``foursight_core.deploy.Deploy.build_config()``
+        mutates that dict in place, writing ``security_group_ids`` / ``subnet_ids`` /
+        ``environment_variables`` into it. Sharing it means the SRCE variant's Application-VPC
+        networking would leak into the non-SRCE variants' chalice config (and vice versa) whenever
+        more than one variant is constructed in a single process, which is exactly the cross-VPC
+        divergence the SRCE Foursight stack is supposed to make impossible.
+    """
+    return dict(copy.deepcopy(PackageDeploy_from_core.CONFIG_BASE), app_name=app_name)
 
 
 class BaseC4Stack:
@@ -189,8 +206,7 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
 
     class PackageDeploy(PackageDeploy_from_core):
 
-        CONFIG_BASE = PackageDeploy_from_core.CONFIG_BASE
-        CONFIG_BASE['app_name'] = 'foursight-cgap'
+        CONFIG_BASE = foursight_config_base('foursight-cgap')
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")
@@ -252,8 +268,7 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
 
     class PackageDeploy(PackageDeploy_from_core):
 
-        CONFIG_BASE = PackageDeploy_from_core.CONFIG_BASE
-        CONFIG_BASE['app_name'] = 'foursight-fourfront'
+        CONFIG_BASE = foursight_config_base('foursight-fourfront')
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")
@@ -308,8 +323,92 @@ class C4FoursightSMAHTStack(C4FoursightCGAPStack):
 
     class PackageDeploy(PackageDeploy_from_core):
 
-        CONFIG_BASE = PackageDeploy_from_core.CONFIG_BASE
-        CONFIG_BASE['app_name'] = 'foursight-smaht'
+        CONFIG_BASE = foursight_config_base('foursight-smaht')
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")
+
+
+class C4FoursightSMAHTSRCEStack(C4FoursightSMAHTStack):
+    """ Foursight-SMaHT variant for SRCE deployments. Uses the SRCE Application VPC stack
+        (C4SRCENetworkExports) for VPC/subnet/security-group lookups, mirroring how
+        C4SRCEECSApplication swaps its NETWORK_EXPORTS.
+
+        Runs alongside the existing 'foursight-smaht' stack: a different STACK_NAME_TOKEN
+        gives it a distinct CFN stack name (`c4-foursight-srce-<env>-stack`), and it
+        defaults to the parallel foursight configuration secret produced by the appconfig
+        stack so its identity does not collide with the portal's GAC.
+    """
+    STACK_NAME_TOKEN = "foursight-srce"
+    STACK_TITLE_TOKEN = "FoursightSRCE"
+    SHARING = 'env'
+
+    NETWORK_EXPORTS = C4SRCENetworkExports()
+
+    def __init__(self, description, name: C4Name, tags: C4Tags, account: C4Account):
+        with ConfigManager.validate_and_source_configuration():
+            self.security_ids = C4SRCENetworkExports.get_security_ids()
+            self.subnet_ids = C4SRCENetworkExports.get_subnet_ids()
+            self.global_env_bucket = C4AppConfigExports.get_env_bucket()
+            env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+            self.trial_creds = get_trial_creds(env_name)
+        # Skip C4FoursightSMAHTStack.__init__ (which re-runs the regular network lookup);
+        # call the grandparent (BaseC4Stack) directly with the values we just resolved.
+        BaseC4Stack.__init__(self, description=description, name=name, tags=tags, account=account)
+
+    def package_foursight_stack(self, args):
+        if args.foursight_identity:
+            identity = args.foursight_identity
+            PRINT(f"Using custom IDENTITY (via --foursight-identity) for FoursightSRCE deployment: {identity}")
+        else:
+            env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
+            identity = Names.foursight_application_configuration_secret(env_name)
+            PRINT(f"Using default Foursight IDENTITY for FoursightSRCE deployment: {identity}")
+        self.PackageDeploy.build_config_and_package(
+            args,
+            identity=identity,
+            stack_name=self.name.stack_name,
+            merge_template=args.merge_template,
+            output_file=args.output_file,
+            stage=args.stage,
+            trial=args.trial,
+            global_env_bucket=self.global_env_bucket,
+            security_ids=self.security_ids,
+            subnet_ids=self.subnet_ids,
+            trial_creds=self.trial_creds
+        )
+
+    class PackageDeploy(PackageDeploy_from_core):
+
+        CONFIG_BASE = foursight_config_base('foursight-smaht')
+
+        config_dir = dirname(dirname(__file__))
+        PRINT(f"Config dir: {config_dir}")
+
+        #: The provision target whose poetry group this deployment needs. `foursight-srce` packages
+        #: the same application library as `foursight-smaht`, so it must export the same group.
+        PACKAGE_GROUP_TARGET = 'foursight-smaht'
+
+        @classmethod
+        def build_config_and_package(cls, args, **kwargs):
+            """ Present a package-group target `foursight_core` recognizes, and nothing else.
+
+                `foursight_core.deploy.Deploy.build_config_and_package()` picks the poetry group --
+                and so which application library lands in the chalice package -- by matching
+                `args.stack` against a hardcoded list of provision targets that knows only
+                'foursight-smaht'. 'foursight-srce' is not in that list, so it fell through to the
+                foursight_cgap group and shipped a SMaHT `app.py` (which imports `chalicelib_smaht`)
+                on top of foursight-cgap's dependencies; the Lambda then failed at startup with
+                `Runtime.ImportModuleError: No module named 'chalicelib_smaht'`.
+
+                Rather than broaden that default group or pin an unreleased foursight-core, hand
+                core a copy of the arguments whose `stack` it can classify. The copy is local to
+                this call: the caller's `args.stack` -- the real deploy target, used for the
+                CloudFormation stack name, the change-set upload and error messages -- stays
+                'foursight-srce'.
+            """
+            package_args = copy.copy(args)
+            package_args.stack = cls.PACKAGE_GROUP_TARGET
+            # super(), not PackageDeploy_from_core: `cls` must stay bound to this subclass so
+            # CONFIG_BASE / get_config_filepath() / build_config() remain the SRCE ones.
+            return super().build_config_and_package(package_args, **kwargs)

@@ -114,6 +114,51 @@ class Aws(AwsContext):
                 print_exception(e)
             return False
 
+    def update_plain_secret_value(self,
+                                  secret_name: str,
+                                  secret_value: str,
+                                  show: bool = False) -> bool:
+        """
+        Replace the entire SecretString of a plain (non-JSON) Secrets Manager secret.
+        Used for single-value secrets — e.g. the Falcon CID / Client ID / Client Secret —
+        where the secret content is just an opaque string rather than a JSON object.
+        Interactive: prints the current value, prints the new value, and prompts.
+
+        :param secret_name: AWS secret name.
+        :param secret_value: New plaintext SecretString. None is rejected (use
+            update_secret_key_value for deactivation semantics on JSON secrets).
+        :param show: True to show any displayed sensitive values in plaintext.
+        :return: True if updated, False otherwise.
+        """
+        if secret_value is None:
+            PRINT(f"AWS secret {secret_name}: no value provided; skipping.")
+            return False
+        PRINT()
+        with super().establish_credentials():
+            secrets_manager = boto3.client("secretsmanager")
+            try:
+                try:
+                    current = secrets_manager.get_secret_value(SecretId=secret_name)
+                except Exception:
+                    PRINT(f"AWS secret name does not exist: {secret_name}")
+                    return False
+                current_value = current.get("SecretString")
+                # Don't render the raw value unless the user opts in — these are credentials.
+                display = secret_value if show else obfuscate(secret_value)
+                current_display = (current_value if show else obfuscate(current_value)) if current_value else "<empty>"
+                PRINT(f"Current value of AWS secret {secret_name}: {current_display}")
+                if current_value == secret_value:
+                    PRINT(f"New value of AWS secret ({secret_name}) same as current one. Nothing to update.")
+                    return False
+                PRINT(f"New value of AWS secret {secret_name}: {display}")
+                if not yes_or_no(f"Are you sure you want to update AWS secret {secret_name}?"):
+                    return False
+                secrets_manager.update_secret(SecretId=secret_name, SecretString=secret_value)
+                return True
+            except Exception as e:
+                print_exception(e)
+            return False
+
     def find_iam_user_name(self, user_name_pattern: str) -> Optional[str]:
         """
         Returns the first AWS IAM user name in which

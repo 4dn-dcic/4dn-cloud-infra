@@ -1,10 +1,10 @@
 from troposphere import (
     Parameter, Join, Ref,
-    AWS_REGION, Template, Output, GetAtt,
+    Template, Output, GetAtt,
     elasticloadbalancingv2 as elbv2,
 )
 from troposphere.ecs import (
-    Cluster, TaskDefinition, ContainerDefinition, LogConfiguration,
+    Cluster, TaskDefinition, ContainerDefinition,
     PortMapping, Service, LoadBalancer, AwsvpcConfiguration, NetworkConfiguration,
     Environment, CapacityProviderStrategyItem, SCHEDULING_STRATEGY_REPLICA,  # use for Fargate
 )
@@ -12,7 +12,6 @@ from dcicutils.cloudformation_utils import camelize
 from ..base import ConfigManager, APP_DEPLOYMENT, APP_KIND
 from ..constants import Settings, DeploymentParadigm
 from .ecs import C4ECSApplicationExports, C4ECSApplication
-from .network import C4NetworkExports
 from .ecr import C4ECRExports
 from .iam import C4IAMExports
 from .logging import C4LoggingExports
@@ -67,6 +66,10 @@ class ECSBlueGreen(C4ECSApplication):
             Description='Name of Logging stack for referencing the log group',
             Type='String',
         ))
+        # AppConfig Stack Parameter -- declared only when the CrowdStrike sidecar is enabled (its
+        # sole consumer), so existing blue/green templates keep their exact parameter list.
+        for parameter in self.crowdstrike_template_parameters():
+            template.add_parameter(parameter)
 
         # Standard params
         template.add_parameter(self.ecs_web_worker_port())
@@ -139,16 +142,10 @@ class ECSBlueGreen(C4ECSApplication):
         template.add_resource(blue_lb)
         green_lb = self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.GREEN)
         template.add_resource(green_lb)
-        template.add_resource(
-            self.ecs_application_load_balancer_listener(target_group_blue,
-                                                        logical_id=f'LBListener{DeploymentParadigm.BLUE}',
-                                                        lb_ref=Ref(blue_lb))
-        )
-        template.add_resource(
-            self.ecs_application_load_balancer_listener(target_group_green,
-                                                        logical_id=f'LBListener{DeploymentParadigm.GREEN}',
-                                                        lb_ref=Ref(green_lb))
-        )
+        for color, target_group, lb in [(DeploymentParadigm.BLUE, target_group_blue, blue_lb),
+                                        (DeploymentParadigm.GREEN, target_group_green, green_lb)]:
+            for listener in self.ecs_lb_listeners(target_group, deployment_type=color, lb_ref=Ref(lb)):
+                template.add_resource(listener)
 
         # Add indexing Cloudwatch Alarms
         # These alarms are meant to trigger symmetric scaling actions in response to
@@ -171,7 +168,7 @@ class ECSBlueGreen(C4ECSApplication):
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
             Description=f'URL of {APP_KIND.capitalize()}-Portal-Blue.',
-            Value=Join('', ['http://', GetAtt(
+            Value=Join('', ['https://' if self.lb_certificate_arn() else 'http://', GetAtt(
                 self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.BLUE), 'DNSName')])
         )
 
@@ -181,8 +178,9 @@ class ECSBlueGreen(C4ECSApplication):
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
             Description=f'URL of {APP_KIND.capitalize()}-Portal-Green.',
-            Value=Join('', ['http://',
-                GetAtt(self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.GREEN), 'DNSName')])
+            Value=Join('', ['https://' if self.lb_certificate_arn() else 'http://',
+                            GetAtt(self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.GREEN),
+                                   'DNSName')])
         )
 
     def ecs_cluster(self, deployment_type=None):
@@ -193,19 +191,6 @@ class ECSBlueGreen(C4ECSApplication):
             camelize(env_name + (deployment_type or '')),
             CapacityProviders=['FARGATE', 'FARGATE_SPOT'],
             Tags=self.tags.cost_tag_obj()
-        )
-
-    def ecs_application_load_balancer_listener(self, target_group: elbv2.TargetGroup,
-                                               logical_id=None, lb_ref=None):
-        """ Load balancer listener, forwards traffic to portal tasks """
-        return elbv2.Listener(
-            self.name.logical_id(logical_id) if logical_id else self.name.logical_id('LBListener'),
-            Port=80,
-            Protocol='HTTP',
-            LoadBalancerArn=lb_ref or Ref(self.ecs_application_load_balancer()),
-            DefaultActions=[
-                elbv2.Action(Type='forward', TargetGroupArn=Ref(target_group))
-            ]
         )
 
     def ecs_lbv2_target_group_blue(self) -> elbv2.TargetGroup:
@@ -235,7 +220,7 @@ class ECSBlueGreen(C4ECSApplication):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name=self.PORTAL_CONTAINER_DEFINITION,
                     Essential=True,
@@ -247,17 +232,7 @@ class ECSBlueGreen(C4ECSApplication):
                     PortMappings=[PortMapping(
                         ContainerPort=Ref(self.ecs_web_worker_port()),
                     )],
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(
-                                    log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP
-                                ),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': f'{APP_KIND}-portal'
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(f'{APP_KIND}-portal', log_group_export),
                     Environment=[
                         Environment(
                             Name='IDENTITY',
@@ -274,8 +249,11 @@ class ECSBlueGreen(C4ECSApplication):
                             Value=self.VPC_SQS_URL
                         ),
                     ]
-                )
-            ],
+                ),
+                # color-distinct sidecar stream + same blue/green log group as the app container
+                sidecar_stream_prefix=f'{APP_KIND}-portal{image_tag}-falcon',
+                log_group_export=log_group_export,
+            ),
             Tags=self.tags.cost_tag_obj(),
         )
 
@@ -296,7 +274,7 @@ class ECSBlueGreen(C4ECSApplication):
         return Service(
             f'{APP_KIND.capitalize()}{image_tag}PortalService',
             Cluster=Ref(self.ecs_cluster()) if not cluster_ref else cluster_ref,
-            DependsOn=[self.name.logical_id(f'LBListener{image_tag}')],
+            DependsOn=[self.ecs_forwarding_listener_id(image_tag)],
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(
@@ -323,7 +301,7 @@ class ECSBlueGreen(C4ECSApplication):
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
                         self.NETWORK_EXPORTS.import_value(subnet_key)
-                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                        for subnet_key in self.NETWORK_EXPORTS.PRIVATE_SUBNETS
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
@@ -352,7 +330,7 @@ class ECSBlueGreen(C4ECSApplication):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name=self.INDEXER_CONTAINER_DEFINITION,
                     Essential=True,
@@ -361,17 +339,7 @@ class ECSBlueGreen(C4ECSApplication):
                         ':',
                         image_tag or self.IMAGE_TAG,
                     ]),
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(
-                                    log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP
-                                ),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': f'{APP_KIND}-indexer'
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(f'{APP_KIND}-indexer', log_group_export),
                     Environment=[
                         Environment(
                             Name='IDENTITY',
@@ -389,8 +357,10 @@ class ECSBlueGreen(C4ECSApplication):
                             Value=self.VPC_SQS_URL
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix=f'{APP_KIND}-indexer{image_tag}-falcon',
+                log_group_export=log_group_export,
+            ),
             Tags=self.tags.cost_tag_obj()
         )
 
@@ -425,7 +395,7 @@ class ECSBlueGreen(C4ECSApplication):
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
                         self.NETWORK_EXPORTS.import_value(subnet_key)
-                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                        for subnet_key in self.NETWORK_EXPORTS.PRIVATE_SUBNETS
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
@@ -455,7 +425,7 @@ class ECSBlueGreen(C4ECSApplication):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name='Ingester',
                     Essential=True,
@@ -464,16 +434,7 @@ class ECSBlueGreen(C4ECSApplication):
                         ':',
                         image_tag or self.IMAGE_TAG
                     ]),
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(
-                                    log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': f'{APP_KIND}-ingester'
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(f'{APP_KIND}-ingester', log_group_export),
                     Environment=[
                         Environment(
                             Name='IDENTITY',
@@ -490,8 +451,10 @@ class ECSBlueGreen(C4ECSApplication):
                             Value=self.VPC_SQS_URL
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix=f'{APP_KIND}-ingester{image_tag}-falcon',
+                log_group_export=log_group_export,
+            ),
             Tags=self.tags.cost_tag_obj()
         )
 
@@ -512,7 +475,7 @@ class ECSBlueGreen(C4ECSApplication):
                 AwsvpcConfiguration=AwsvpcConfiguration(
                     Subnets=[
                         self.NETWORK_EXPORTS.import_value(subnet_key)
-                        for subnet_key in C4NetworkExports.PRIVATE_SUBNETS
+                        for subnet_key in self.NETWORK_EXPORTS.PRIVATE_SUBNETS
                     ],
                     SecurityGroups=[Ref(self.ecs_container_security_group())],
                 )
@@ -569,7 +532,7 @@ class ECSBlueGreen(C4ECSApplication):
             TaskRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
-            ContainerDefinitions=[
+            **self._crowdstrike_task_kwargs(
                 ContainerDefinition(
                     Name=self.DEPLOYMENT_CONTAINER_DEFINITION,
                     Essential=True,
@@ -578,17 +541,9 @@ class ECSBlueGreen(C4ECSApplication):
                         ':',
                         image_tag or self.IMAGE_TAG,
                     ]),
-                    LogConfiguration=LogConfiguration(
-                        LogDriver='awslogs',
-                        Options={
-                            'awslogs-group':
-                                self.LOGGING_EXPORTS.import_value(
-                                    log_group_export or C4LoggingExports.APPLICATION_LOG_GROUP
-                                ),
-                            'awslogs-region': Ref(AWS_REGION),
-                            'awslogs-stream-prefix': f'{APP_KIND}-initial-deployment' if initial else f'{APP_KIND}-deployment',
-                        }
-                    ),
+                    LogConfiguration=self._awslogs_config(
+                        f'{APP_KIND}-initial-deployment' if initial else f'{APP_KIND}-deployment',
+                        log_group_export),
                     Environment=[
                         Environment(
                             Name='IDENTITY',
@@ -608,7 +563,11 @@ class ECSBlueGreen(C4ECSApplication):
                             Value=self.VPC_SQS_URL
                         ),
                     ]
-                )
-            ],
+                ),
+                sidecar_stream_prefix=(
+                    f'{APP_KIND}-initial-deployment{image_tag}-falcon' if initial
+                    else f'{APP_KIND}-deployment{image_tag}-falcon'),
+                log_group_export=log_group_export,
+            ),
             Tags=self.tags.cost_tag_obj()
         )

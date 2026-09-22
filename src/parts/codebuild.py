@@ -7,6 +7,7 @@ from tibanna._version import __version__ as tibanna_version
 from dcicutils.cloudformation_utils import camelize
 from dcicutils.common import REGION  # note to deploy outside us-east-1 you will need to change this
 from .network import C4NetworkExports
+from .srce_network import C4SRCENetworkExports
 from ..part import C4Part
 from ..exports import C4Exports, exportify
 from ..base import ConfigManager, Settings, Secrets, APP_DEPLOYMENT, DeploymentParadigm, APP_KIND
@@ -345,12 +346,25 @@ class C4CodeBuild(C4Part):
             )
         )
 
+    @staticmethod
+    def uses_srce_network():
+        """ True when this deployment's network is the IT-provided SRCE Application VPC, which is
+            what `vpc.id` in config.json declares. CodeBuild keeps its own stack identity either
+            way; only which network stack's exports it imports changes. """
+        return bool(ConfigManager.get_config_setting(Settings.VPC_ID, default=None))
+
     def cb_vpc_config(self) -> VpcConfig:
-        """ Configures CB jobs to run in the VPC """
+        """ Configures CB jobs to run in the VPC. In an SRCE deployment the builds must land in
+            exactly the Application VPC -- never the Database or Compute VPC, whose network stacks
+            export identical key names. """
+        exports = self.NETWORK_EXPORTS
+        if self.uses_srce_network():
+            exports = C4SRCENetworkExports()
+            exports.get_subnet_ids()  # offline validation of required/disjoint Application subnets
         return VpcConfig(
-            SecurityGroupIds=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.APPLICATION_SECURITY_GROUP)],
-            Subnets=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNETS[0])],
-            VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC)
+            SecurityGroupIds=[exports.import_value(exports.APPLICATION_SECURITY_GROUP)],
+            Subnets=[exports.import_value(exports.PRIVATE_SUBNETS[0])],
+            VpcId=exports.import_value(exports.VPC)
         )
 
     def cb_project(self, *, project_name, github_repo_url, branch, environment) -> Project:
