@@ -2,11 +2,13 @@ from ..base import ConfigManager, register_stack_creator, registered_stack_class
 from ..parts import (
     network, datastore, ecr, iam, logging, ecs, fourfront_ecs,
     appconfig, datastore_slim, sentieon, jupyterhub, higlass, ecs_blue_green,
-    codebuild, redis
+    codebuild, redis, srce_network, srce_datastore, srce_ecs,
+    srce_ecs_blue_green, srce_sentieon, srce_redis
 )
 from ..stack import (
     C4Stack, C4Tags, C4Account, C4Part, BaseC4FoursightStack,
-    C4FoursightCGAPStack, C4FoursightFourfrontStack, C4FoursightSMAHTStack
+    C4FoursightCGAPStack, C4FoursightFourfrontStack, C4FoursightSMAHTStack,
+    C4FoursightSMAHTSRCEStack
 )
 
 
@@ -243,6 +245,16 @@ def c4_alpha_stack_foursight_smaht(account: C4Account):
     return create_c4_alpha_foursight_stack(name='foursight-smaht', account=account)
 
 
+# Registration name matches the stack's STACK_NAME_TOKEN ('foursight-srce') so the CLI command,
+# the registered name, and the CloudFormation stack name (c4-foursight-srce-<env>-stack) all agree
+# (CLN-2).
+@register_stack_creator(name='foursight-srce', kind='alpha', implementation_class=C4FoursightSMAHTSRCEStack)
+def c4_alpha_stack_foursight_srce(account: C4Account):
+    """ Foursight stack for smaht SRCE deployments — uses the SRCE App VPC like SRCE ECS does.
+        Runs alongside the existing 'foursight-smaht' stack. """
+    return create_c4_alpha_foursight_stack(name='foursight-srce', account=account)
+
+
 @register_stack_creator(name='foursight-production', kind='4dn', implementation_class=C4FoursightFourfrontStack)
 def c4_alpha_stack_foursight_fourfront(account: C4Account):
     """ Foursight (prod) stack for fourfront """
@@ -259,3 +271,68 @@ def c4_alpha_stack_foursight_fourfront(account: C4Account):
 def c4_alpha_stack_redis(account: C4Account):
     """ Builds the Redis stack """
     return create_c4_alpha_stack(name='redis', account=account)
+
+
+@register_stack_creator(name='srce-network', kind='alpha',
+                        implementation_class=srce_network.C4SRCENetwork)
+def c4_alpha_stack_srce_network(account: C4Account):
+    """ SRCE network stack: security groups + subnet/VPC exports for the Application VPC
+        (ECS portal + foursight). Configure via vpc.id / vpc.cidr / private.subnets in config.json.
+    """
+    return create_c4_alpha_stack(name='srce-network', account=account)
+
+
+@register_stack_creator(name='srce-network-db', kind='alpha',
+                        implementation_class=srce_network.C4SRCEDBNetwork)
+def c4_alpha_stack_srce_network_db(account: C4Account):
+    """ SRCE Database network stack: security groups + subnet/VPC exports for the Database VPC
+        (RDS, OpenSearch, Redis). Configure via db.vpc.id / db.vpc.cidr / db.private.subnets.
+    """
+    return create_c4_alpha_stack(name='srce-network-db', account=account)
+
+
+@register_stack_creator(name='srce-network-compute', kind='alpha',
+                        implementation_class=srce_network.C4SRCEComputeNetwork)
+def c4_alpha_stack_srce_network_compute(account: C4Account):
+    """ SRCE Compute network stack: security groups + subnet/VPC exports for the Compute VPC
+        (Sentieon, JupyterHub, Higlass). Configure via compute.vpc.id / compute.vpc.cidr /
+        compute.private.subnets in config.json.
+    """
+    return create_c4_alpha_stack(name='srce-network-compute', account=account)
+
+
+@register_stack_creator(name='srce-datastore', kind='alpha',
+                        implementation_class=srce_datastore.C4SRCEDatastore)
+def c4_alpha_stack_srce_datastore(account: C4Account):
+    """ SRCE datastore stack: creates RDS, OpenSearch, S3, and SQS inside an IT-provided VPC. """
+    return create_c4_alpha_stack(name='srce-datastore', account=account)
+
+
+@register_stack_creator(name='srce-ecs', kind='alpha',
+                        implementation_class=srce_ecs.C4SRCEECSApplication)
+def c4_alpha_stack_srce_ecs(account: C4Account):
+    """ SRCE ECS stack: creates ECS cluster, services, and load balancer inside an IT-provided VPC. """
+    return create_c4_alpha_stack(name='srce-ecs', account=account)
+
+
+@register_stack_creator(name='srce-ecs-blue-green', kind='alpha',
+                        implementation_class=srce_ecs_blue_green.SRCEECSBlueGreen)
+def c4_alpha_stack_srce_ecs_blue_green(account: C4Account):
+    """ SRCE blue/green ECS stack: dual-cluster deployment inside an IT-provided VPC. """
+    return create_c4_alpha_stack(name='srce-ecs-blue-green', account=account)
+
+
+@register_stack_creator(name='srce-sentieon', kind='alpha',
+                        implementation_class=srce_sentieon.C4SRCESentieonSupport)
+def c4_alpha_stack_srce_sentieon(account: C4Account):
+    """ SRCE Sentieon stack: license server EC2 in an App VPC private subnet, reachable from the
+        App VPC and the Compute VPC. Requires sentieon.ami_id (and sentieon.ssh_key) in config.json.
+    """
+    return create_c4_alpha_stack(name='srce-sentieon', account=account)
+
+
+@register_stack_creator(name='srce-redis', kind='alpha',
+                        implementation_class=srce_redis.C4SRCERedis)
+def c4_alpha_stack_srce_redis(account: C4Account):
+    """ SRCE Redis stack: Redis replication group inside an IT-provided VPC. """
+    return create_c4_alpha_stack(name='srce-redis', account=account)

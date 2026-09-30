@@ -16,6 +16,10 @@ poetry install
 
 To make stack changes, see `docs/making_stack_changes.rst`. To create a new stack, see `docs/create_new_stack.rst`.
 To deploy from scratch, see `docs/deploy_new_account.rst`.
+To deploy into IT-provided VPCs (a Secure Research Collaborative Environment / secure enclave),
+see `docs/deploy_srce.rst`.
+To attach the CrowdStrike Falcon container sensor to the ECS tasks (off by default), see
+`docs/crowdstrike.rst`.
 
 Validate Legacy Configuration:
     

@@ -8,7 +8,7 @@ from awacs.ecr import (
 from troposphere import Region, AccountId, Template, Ref, Output, Join
 from troposphere.iam import Role, InstanceProfile, Policy, User, AccessKey
 from ..base import ConfigManager
-from ..constants import C4IAMBase
+from ..constants import C4IAMBase, C4SRCEDatastoreBase, Settings
 from ..part import C4Part
 from ..exports import C4Exports, exportify
 from ..names import Names
@@ -431,6 +431,9 @@ class C4IAM(C4IAMBase, C4Part):
             self.ecs_web_service_policy(),  # permissions for service,
             self.kms_policy(),  # permission to use KMS keys to decrypt
         ]
+        upload_assume_policy = self.srce_s3_upload_assume_policy()
+        if upload_assume_policy:
+            policies.append(upload_assume_policy)
         return Role(
             self.ROLE_NAME,
             # IMPORTANT: BOTH ECS and EC2 need AssumeRole
@@ -455,6 +458,25 @@ class C4IAM(C4IAMBase, C4Part):
                         ],
                         Principal=Principal('Service', 'ecs-tasks.amazonaws.com'))]),
             Policies=policies
+        )
+
+    def srce_s3_upload_assume_policy(self) -> Policy:
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME, default='')
+        if (ConfigManager.get_config_setting(Settings.APP_KIND) != 'smaht' or
+                not isinstance(env_name, str) or not env_name.endswith('-srce')):
+            return None
+        role_name = f'{C4SRCEDatastoreBase.S3_UPLOAD_ROLE_PREFIX}{env_name}'
+        return Policy(
+            self.name.logical_id('SRCEFileUploadAssumeRole'),
+            PolicyName=f'{env_name}-AssumeSRCEFileUploadRole',
+            PolicyDocument={
+                'Version': '2012-10-17',
+                'Statement': [{
+                    'Effect': 'Allow',
+                    'Action': 'sts:AssumeRole',
+                    'Resource': Join('', ['arn:aws:iam::', AccountId, ':role/', role_name]),
+                }],
+            },
         )
 
     def ecs_autoscaling_role(self) -> Role:
@@ -488,6 +510,9 @@ class C4IAM(C4IAMBase, C4Part):
             # kms access
             self.kms_policy()
         ]
+        sentieon_deploy_policy = self.srce_sentieon_deploy_policy()
+        if sentieon_deploy_policy:
+            policies.append(sentieon_deploy_policy)
         return Role(
             self.DEV_ROLE,
             AssumeRolePolicyDocument=PolicyDocument(
@@ -515,6 +540,93 @@ class C4IAM(C4IAMBase, C4Part):
                 'arn:aws:iam::aws:policy/AmazonEC2FullAccess'  # full access to EC2 (tibanna)
             ],
             Policies=policies
+        )
+
+    def srce_sentieon_deploy_policy(self) -> Policy:
+        env_name = ConfigManager.get_config_setting(Settings.ENV_NAME, default='')
+        if (ConfigManager.get_config_setting(Settings.APP_KIND) != 'smaht' or
+                not isinstance(env_name, str) or not env_name.endswith('-srce')):
+            return None
+
+        stack_name = Names.srce_sentieon_stack_name_object(env_name).stack_name
+        stack_arn = Join(':', [
+            'arn:aws:cloudformation', Region, AccountId,
+            Join('/', ['stack', stack_name, '*']),
+        ])
+        role_arn = Join('', [
+            'arn:aws:iam::', AccountId, ':role/',
+            Names.srce_sentieon_instance_role_name(env_name),
+        ])
+        profile_arn = Join('', [
+            'arn:aws:iam::', AccountId, ':instance-profile/',
+            Names.srce_sentieon_instance_profile_name(env_name),
+        ])
+        return Policy(
+            self.name.logical_id('SRCESentieonStackDeployAccess'),
+            PolicyName=f'{env_name}-SRCESentieonStackDeployAccess',
+            PolicyDocument={
+                'Version': '2012-10-17',
+                'Statement': [
+                    {
+                        'Effect': 'Allow',
+                        'Action': [
+                            'cloudformation:CreateChangeSet',
+                            'cloudformation:DeleteChangeSet',
+                            'cloudformation:ExecuteChangeSet',
+                            'cloudformation:CreateStack',
+                            'cloudformation:UpdateStack',
+                            'cloudformation:DeleteStack',
+                            'cloudformation:ContinueUpdateRollback',
+                            'cloudformation:CancelUpdateStack',
+                            'cloudformation:RollbackStack',
+                        ],
+                        'Resource': stack_arn,
+                    },
+                    {
+                        'Effect': 'Allow',
+                        'Action': [
+                            'iam:CreateRole',
+                            'iam:DeleteRole',
+                            'iam:GetRole',
+                            'iam:UpdateAssumeRolePolicy',
+                            'iam:TagRole',
+                            'iam:UntagRole',
+                        ],
+                        'Resource': role_arn,
+                    },
+                    {
+                        'Effect': 'Allow',
+                        'Action': ['iam:AttachRolePolicy', 'iam:DetachRolePolicy'],
+                        'Resource': role_arn,
+                        'Condition': {
+                            'ArnEquals': {
+                                'iam:PolicyARN': 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore',
+                            },
+                        },
+                    },
+                    {
+                        'Effect': 'Allow',
+                        'Action': [
+                            'iam:CreateInstanceProfile',
+                            'iam:DeleteInstanceProfile',
+                            'iam:GetInstanceProfile',
+                            'iam:AddRoleToInstanceProfile',
+                            'iam:RemoveRoleFromInstanceProfile',
+                            'iam:TagInstanceProfile',
+                            'iam:UntagInstanceProfile',
+                        ],
+                        'Resource': [role_arn, profile_arn],
+                    },
+                    {
+                        'Effect': 'Allow',
+                        'Action': 'iam:PassRole',
+                        'Resource': role_arn,
+                        'Condition': {
+                            'StringEquals': {'iam:PassedToService': 'ec2.amazonaws.com'},
+                        },
+                    },
+                ],
+            },
         )
 
     def ecs_instance_profile(self) -> InstanceProfile:

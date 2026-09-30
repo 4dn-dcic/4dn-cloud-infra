@@ -73,7 +73,7 @@ from ...constants import Settings
 from ...names import Names
 from ..utils.args_utils import add_aws_credentials_args, validate_aws_credentials_args
 from ..utils.aws import Aws
-from ..utils.paths import (InfraDirectories)
+from ..utils.paths import (InfraDirectories, InfraFiles)
 from ..utils.misc_utils import (get_json_config_file_value,
                                 exit_with_no_action,
                                 obfuscate,
@@ -82,7 +82,7 @@ from ..utils.misc_utils import (get_json_config_file_value,
                                 should_obfuscate)
 from ..utils.validate_utils import (validate_and_get_aws_credentials,
                                     validate_and_get_s3_encrypt_key_id)
-from .defs import (GacSecretKeyName, RdsSecretKeyName)
+from .defs import (GacSecretKeyName, RdsSecretKeyName, LocalSecretsKey, AuxSecretSuffix)
 
 
 def validate_and_get_gac_secret_name(gac_secret_name: str, aws_credentials_name: str) -> str:
@@ -106,7 +106,8 @@ def validate_and_get_gac_secret_name(gac_secret_name: str, aws_credentials_name:
     return gac_secret_name
 
 
-def validate_and_get_rds_secret_name(rds_secret_name: str, aws_credentials_name: str) -> str:
+def validate_and_get_rds_secret_name(rds_secret_name: str, aws_credentials_name: str,
+                                     config_file: str = None) -> str:
     """
     Validates the given RDS secret name and returns its value. If not set gets it using
     the same code that 4dn-cloud-infra code does, using the given AWS credentials
@@ -115,11 +116,19 @@ def validate_and_get_rds_secret_name(rds_secret_name: str, aws_credentials_name:
 
     :param rds_secret_name: Explicitly specified AWS secret name for the RDS secrets.
     :param aws_credentials_name: AWS credentials name (e.g. cgap-supertest).
+    :param config_file: Full path to the JSON config file (used to detect SRCE deployments).
     :return: RDS secret name as gotten from the main 4dn-cloud-infra code.
     """
     if not rds_secret_name:
         try:
-            rds_secret_name = Names.rds_secret_logical_id(aws_credentials_name)
+            # SRCE deployments use a different datastore stack prefix (srce-datastore vs datastore),
+            # which changes the RDS secret logical ID. Detect via 'vpc.id' in config.
+            is_srce = bool(get_json_config_file_value(Settings.VPC_ID, config_file, None)) if config_file else False
+            if is_srce:
+                c4name = Names.srce_datastore_stack_name_object(aws_credentials_name)
+                rds_secret_name = Names.rds_secret_logical_id(aws_credentials_name, c4name)
+            else:
+                rds_secret_name = Names.rds_secret_logical_id(aws_credentials_name)
         except Exception:
             rds_secret_name = None
         if not rds_secret_name:
@@ -262,7 +271,8 @@ def gather_secrets_to_update(
 
     # Get the relevant AWS secret names.
     gac_secret_name = validate_and_get_gac_secret_name(gac_secret_name, aws.credentials_name)
-    rds_secret_name = validate_and_get_rds_secret_name(rds_secret_name, aws.credentials_name)
+    rds_secret_name = validate_and_get_rds_secret_name(rds_secret_name, aws.credentials_name,
+                                                       config_file=aws.custom_config_file)
 
     # Print the relevant AWS secret names we are dealing with.
     PRINT(f"AWS global application config secret to update: {gac_secret_name}")
@@ -351,6 +361,78 @@ def update_secrets(gac_secret_name: str, secrets_to_update: dict, aws: Aws, show
         aws.update_secret_key_value(gac_secret_name, secret_key_name, secret_key_value, show)
 
 
+def _aux_secret_name(aws_credentials_name: str, suffix: str) -> str:
+    """ Build the AWS Secrets Manager name for one of the appconfig-owned Falcon secrets
+        (FALCON_CID, FALCON_CLIENT_ID, FALCON_CLIENT_SECRET).
+        Mirrors the logical-id construction in C4AppConfig: <appconfig-stack-prefix> + suffix. """
+    return Names.application_configuration_secret(aws_credentials_name) + suffix
+
+
+def gather_aux_secrets_to_update(aws: Aws) -> dict:
+    """
+    Reads the optional CrowdStrike Falcon credentials from the local custom/secrets.json and
+    builds a plan keyed by AWS secret name (Falcon CID / Client ID / Client Secret, each a
+    plain-string secret holding one value). Keys missing from secrets.json are skipped silently,
+    so a deployment that does not run the Falcon sidecar needs no changes here.
+
+    Returns a dict shaped like:
+        {"<falcon-cid-secret-name>": {"kind": "plain", "value": "..."}, ...}
+    """
+    secrets_file = InfraFiles.get_secrets_file(aws.custom_dir)
+    aws_credentials_name = aws.credentials_name
+
+    # Falcon secrets are scoped to the appconfig stack (env-suffixed).
+    falcon_cid_name = _aux_secret_name(aws_credentials_name, AuxSecretSuffix.FALCON_CID)
+    falcon_client_id_name = _aux_secret_name(aws_credentials_name, AuxSecretSuffix.FALCON_CLIENT_ID)
+    falcon_client_secret_name = _aux_secret_name(aws_credentials_name, AuxSecretSuffix.FALCON_CLIENT_SECRET)
+
+    falcon_cid = get_json_config_file_value(LocalSecretsKey.FALCON_CID, secrets_file, None)
+    falcon_client_id = get_json_config_file_value(LocalSecretsKey.FALCON_CLIENT_ID, secrets_file, None)
+    falcon_client_secret = get_json_config_file_value(LocalSecretsKey.FALCON_CLIENT_SECRET, secrets_file, None)
+
+    plan = {}
+    if falcon_cid:
+        plan[falcon_cid_name] = {"kind": "plain", "value": falcon_cid}
+    if falcon_client_id:
+        plan[falcon_client_id_name] = {"kind": "plain", "value": falcon_client_id}
+    if falcon_client_secret:
+        plan[falcon_client_secret_name] = {"kind": "plain", "value": falcon_client_secret}
+    return plan
+
+
+def summarize_aux_secrets_to_update(aux_plan: dict, show: bool = False) -> None:
+    """ Print a per-secret summary table of the aux secrets we plan to write. """
+    if not aux_plan:
+        PRINT()
+        PRINT("No auxiliary secrets to update (no Falcon* keys found in secrets.json).")
+        return
+    for secret_name, spec in aux_plan.items():
+        PRINT()
+        PRINT(f"Auxiliary secret keys/values to be set in AWS secrets manager for secret: {secret_name}")
+        if spec["kind"] == "json":
+            entries = spec["values"]
+        else:
+            entries = {"<entire SecretString>": spec["value"]}
+
+        def secret_key_display_value(key, value):
+            if value is None:
+                return "<no value>"
+            return value if not should_obfuscate(key) or show else obfuscate(value, show)
+        print_dictionary_as_table("Secret Key Name", "Secret Key Value", entries, secret_key_display_value)
+
+
+def update_aux_secrets(aux_plan: dict, aws: Aws, show: bool = False) -> None:
+    """ Walk the gather_aux_secrets_to_update() plan and write each secret in AWS. """
+    if not aux_plan:
+        return
+    for secret_name, spec in aux_plan.items():
+        if spec["kind"] == "json":
+            for key, value in spec["values"].items():
+                aws.update_secret_key_value(secret_name, key, value, show)
+        else:
+            aws.update_plain_secret_value(secret_name, spec["value"], show)
+
+
 def setup_remaining_secrets(
         aws_access_key_id: str,
         aws_account_number: str,
@@ -397,10 +479,15 @@ def setup_remaining_secrets(
                                                                            s3_encrypt_key_id,
                                                                            s3_secret_access_key,
                                                                            show)
+        # Bundle the appconfig-owned Falcon secrets into the same flow — values are sourced
+        # from custom/secrets.json so they aren't typed at the terminal.
+        aux_plan = gather_aux_secrets_to_update(aws)
         setup_and_action_state.note_action_start()
 
         # Summarize secrets to update, confirm with user, and actually update the secrets.
+        summarize_aux_secrets_to_update(aux_plan, show)
         update_secrets(gac_secret_name, secrets_to_update, aws, show)
+        update_aux_secrets(aux_plan, aws, show)
 
 
 def main(override_argv: Optional[list] = None) -> None:

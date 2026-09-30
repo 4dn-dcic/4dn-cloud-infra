@@ -23,6 +23,10 @@ def configure_env_utils_ecosystem(env=None, url_override=None):
     s3 = boto3.client('s3')
     env = env or ConfigManager.get_config_setting(Settings.ENV_NAME)
     full_url = url_override if url_override else C4ECSApplicationExports.get_application_url(env_name=env)
+    # Drive orchestrated_app / full_env_prefix from app.kind so SMaHT/Fourfront deploys
+    # don't get hardcoded as 'cgap'. EnvUtils expects 'cgap' / 'fourfront' / 'smaht'.
+    orchestrated_app = ConfigManager.app_case(if_cgap='cgap', if_ff='fourfront', if_smaht='smaht')
+    full_env_prefix = ConfigManager.app_case(if_cgap='cgap-', if_ff='fourfront-', if_smaht='smaht-')
     content = {
         "default_workflow_env": env,
         "dev_data_set_table": {
@@ -36,10 +40,10 @@ def configure_env_utils_ecosystem(env=None, url_override=None):
             }
         },
         "foursight_url_prefix": '',  # TODO: this value must be filled in
-        "full_env_prefix": "cgap-",
+        "full_env_prefix": full_env_prefix,
         "hotseat_envs": [],
         "is_legacy": False,
-        "orchestrated_app": "cgap",
+        "orchestrated_app": orchestrated_app,
         "prd_env_name": env,
         "public_url_table": [
             {
