@@ -211,9 +211,35 @@ class C4Client:
         cls.run_command(cmd_deploy)
 
     @classmethod
+    def warn_appconfig_update(cls, *, stack_name, creds_dir):
+        """Warn before preparing an update, using the deployment's mounted credentials.
+
+        A failed read must still show the warning; this is advisory, not a deploy gate.
+        Only CloudFormation's explicit missing-stack response identifies initial creation.
+        """
+        probe = ['docker', 'run', '--rm', '-v', f'{creds_dir}:/root/.aws',
+                 'amazon/aws-cli', 'cloudformation', 'describe-stacks',
+                 '--stack-name', stack_name, '--query', 'Stacks[0].StackStatus', '--output', 'text']
+        try:
+            result = subprocess.run(probe, capture_output=True, text=True, check=False, timeout=30)
+            if (result.returncode != 0 and 'ValidationError' in result.stderr
+                    and f'Stack with id {stack_name} does not exist' in result.stderr):
+                return
+        except (OSError, subprocess.TimeoutExpired):
+            pass  # Unable to distinguish creation from update: warn conservatively.
+        logger.warning(
+            'WARNING: Updating AppConfig stack %s may overwrite the entire existing portal and '
+            'Foursight configuration in Secrets Manager with stale template values and BREAK THE '
+            'EXISTING PORTAL. Update existing configuration values DIRECTLY in Secrets Manager '
+            'instead of updating the AppConfig stack. This warning does not block deployment.',
+            stack_name)
+
+    @classmethod
     def upload_cloudformation_template(cls, *, stack, file_path):
 
         creds_dir = ConfigManager.get_aws_creds_dir()
+        if stack.name.stack_name.startswith('c4-appconfig-'):
+            cls.warn_appconfig_update(stack_name=stack.name.stack_name, creds_dir=creds_dir)
 
         # NOTE: We don't want to consider the legacy case any more. -kmp&will 28-Jul-2021
 

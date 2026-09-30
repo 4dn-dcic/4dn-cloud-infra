@@ -30,6 +30,14 @@ non-SRCE deployment — only the ``*NetworkStackNameParameter`` differs.
 See ``src/parts/srce_network.py`` for the network shells and ``src/parts/srce_*.py`` for the SRCE
 variants of each application stack.
 
+.. warning::
+
+   Updating an existing AppConfig stack may overwrite the entire portal and Foursight
+   configuration in Secrets Manager with stale template values and break the existing portal.
+   Update existing configuration values directly in Secrets Manager instead. The CLI warns
+   before preparing an AppConfig update change set; this warning does not block deployment.
+   Initial creation is exempt when CloudFormation confirms the stack does not exist.
+
 Required configuration keys
 ----------------------------
 
