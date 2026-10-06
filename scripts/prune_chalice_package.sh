@@ -131,15 +131,10 @@ archive_size() {
     wc -c < "$1" | tr -d ' '
 }
 
+# Total bytes of regular files under a path (symlinks are not followed). Streaming every file
+# through a single wc keeps this portable across BSD/GNU tools without one process per file.
 tree_size() {
-    local tree="$1"
-    local total=0
-    local file bytes
-    while IFS= read -r -d '' file; do
-        bytes="$(wc -c < "$file" | tr -d ' ')"
-        total=$((total + bytes))
-    done < <(find "$tree" -type f -print0)
-    echo "$total"
+    find "$1" -type f -print0 | xargs -0 cat -- | wc -c | tr -d ' '
 }
 
 validate_archive() {
@@ -299,7 +294,12 @@ if [[ "$VARIANT" != "all" ]]; then
 fi
 
 check_protected_packages
-FINAL_TREE_BYTES="$(tree_size "$WORK_DIR")"
+# Removed paths are disjoint in a real run (each is deleted before the next is found), so the
+# final size follows from the original scan without walking the whole tree again.
+FINAL_TREE_BYTES="$ORIGINAL_TREE_BYTES"
+if ((DRY_RUN == 0)); then
+    FINAL_TREE_BYTES=$((ORIGINAL_TREE_BYTES - REMOVED_BYTES))
+fi
 
 if ((DRY_RUN)); then
     echo "Dry run: archive unchanged."
