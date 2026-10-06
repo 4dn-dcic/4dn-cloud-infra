@@ -236,7 +236,8 @@ assert_protected_packages() {
     # These are runtime packages commonly shared by Foursight and its dependencies. If an input
     # archive contains one, it must still contain the same root after pruning. Missing packages
     # are not invented here so synthetic/minimal archives remain useful for testing.
-    local protected_packages=(boto3 botocore dcicutils cffi requests urllib3 jmespath s3transfer)
+    local protected_packages=(boto3 botocore dcicutils cffi requests urllib3 jmespath s3transfer chalice awscli
+        awscli_customizations tibanna tibanna_ff)
     for package_name in "${protected_packages[@]}"; do
         if path="$(root_path "$package_name")"; then
             PROTECTED_PATHS+=("$path")
@@ -283,11 +284,7 @@ done < <(find "$WORK_DIR" -type d \( -name examples -o -name tests -o -name test
 # handler. Do not add transitive dependencies here merely because they look large: many are shared
 # by Foursight and removing them is not safe without runtime evidence.
 remove_deployment_package "awacs" "awacs"
-remove_deployment_package "awscli" "awscli awscli_customizations"
-remove_deployment_package "chalice" "chalice"
 remove_deployment_package "troposphere" "troposphere"
-remove_deployment_package "tibanna" "tibanna"
-remove_deployment_package "tibanna-ff" "tibanna_ff"
 
 if [[ "$VARIANT" != "all" ]]; then
     selected="chalicelib_$VARIANT"

@@ -13,9 +13,15 @@ def make_archive(path):
         "boto3-1.0.dist-info/METADATA": b"Name: boto3\n",
         "awacs/__init__.py": b"# deployment only\n",
         "awacs-1.0.dist-info/METADATA": b"Name: awacs\n",
-        "awscli/__init__.py": b"# deployment only\n",
-        "awscli_customizations/__init__.py": b"# deployment only\n",
+        "troposphere/__init__.py": b"# deployment only\n",
+        "awscli/__init__.py": b"# foursight-smaht runtime\n",
+        "awscli_customizations/__init__.py": b"# foursight-smaht runtime\n",
         "awscli-1.0.dist-info/METADATA": b"Name: awscli\n",
+        "chalice/__init__.py": b"# chalice runtime\n",
+        "chalice/app.py": b"# chalice runtime\n",
+        "tibanna/__init__.py": b"# foursight runtime\n",
+        "tibanna_ff/__init__.py": b"# foursight runtime\n",
+        "tibanna_ff-1.0.dist-info/METADATA": b"Name: tibanna-ff\n",
         "chalicelib_smaht/app_utils.py": b"# selected\n",
         "chalicelib_fourfront/app_utils.py": b"# unselected\n",
         "library/tests/test_example.py": b"# test\n",
@@ -51,8 +57,15 @@ def test_default_pruning_keeps_runtime_and_variant_packages(tmp_path):
     archive_names = names(archive)
     assert "awacs/__init__.py" not in archive_names
     assert "awacs-1.0.dist-info/METADATA" not in archive_names
-    assert "awscli/__init__.py" not in archive_names
-    assert "awscli_customizations/__init__.py" not in archive_names
+    assert "troposphere/__init__.py" not in archive_names
+    assert "awscli/__init__.py" in archive_names
+    assert "awscli_customizations/__init__.py" in archive_names
+    assert "awscli-1.0.dist-info/METADATA" in archive_names
+    assert "chalice/__init__.py" in archive_names
+    assert "chalice/app.py" in archive_names
+    assert "tibanna/__init__.py" in archive_names
+    assert "tibanna_ff/__init__.py" in archive_names
+    assert "tibanna_ff-1.0.dist-info/METADATA" in archive_names
     assert "boto3/__init__.py" in archive_names
     assert ".chalice/config.json" in archive_names
     assert "chalicelib_fourfront/app_utils.py" in archive_names
