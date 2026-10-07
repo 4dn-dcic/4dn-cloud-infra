@@ -1,3 +1,5 @@
+import os
+import re
 import subprocess
 import zipfile
 
@@ -14,6 +16,7 @@ def make_archive(path):
         "awacs/__init__.py": b"# deployment only\n",
         "awacs-1.0.dist-info/METADATA": b"Name: awacs\n",
         "troposphere/__init__.py": b"# deployment only\n",
+        "troposphere-4.0.dist-info/METADATA": b"Name: troposphere\n",
         "awscli/__init__.py": b"# foursight-smaht runtime\n",
         "awscli_customizations/__init__.py": b"# foursight-smaht runtime\n",
         "awscli-1.0.dist-info/METADATA": b"Name: awscli\n",
@@ -40,12 +43,16 @@ def names(path):
         return set(archive.namelist())
 
 
-def run_script(*args):
+def run_script(*args, env=None):
+    environment = os.environ.copy()
+    if env:
+        environment.update(env)
     return subprocess.run(
         [SCRIPT, *args],
         check=False,
         text=True,
         capture_output=True,
+        env=environment,
     )
 
 
@@ -60,6 +67,7 @@ def test_default_pruning_keeps_runtime_and_variant_packages(tmp_path):
     assert "awacs/__init__.py" not in archive_names
     assert "awacs-1.0.dist-info/METADATA" not in archive_names
     assert "troposphere/__init__.py" not in archive_names
+    assert "troposphere-4.0.dist-info/METADATA" not in archive_names
     assert "awscli/__init__.py" in archive_names
     assert "awscli_customizations/__init__.py" in archive_names
     assert "awscli-1.0.dist-info/METADATA" in archive_names
@@ -89,9 +97,47 @@ def test_dry_run_reports_removals_without_changing_archive(tmp_path):
     assert result.returncode == 0, result.stderr
     assert archive.read_bytes() == before
     assert "Dry run: archive unchanged." in result.stdout
+    projected = re.search(r"Projected archive: (\d+) bytes \(delta (-?\d+) bytes;", result.stdout)
+    assert projected
+    assert int(projected.group(2)) == int(projected.group(1)) - len(before)
+    assert "approximate compressed size from temporary rebuild" in result.stdout
+    assert "Uncompressed package:" in result.stdout
+    assert "Variant: smaht" in result.stdout
     assert "awacs" in result.stdout
     assert "chalicelib_fourfront" in result.stdout
     assert "chalicelib_smaht/app_utils.py" in names(archive)
+
+
+def test_variant_pruning_keeps_only_selected_application(tmp_path):
+    archive = tmp_path / "package.zip"
+    make_archive(archive)
+
+    result = run_script("--variant", "smaht", "--report", str(archive))
+
+    assert result.returncode == 0, result.stderr
+    archive_names = names(archive)
+    assert "chalicelib_smaht/app_utils.py" in archive_names
+    assert "chalicelib_fourfront/app_utils.py" not in archive_names
+    assert "Archive:" in result.stdout
+    assert "Variant: smaht" in result.stdout
+
+
+def test_dry_run_rebuild_failure_is_reported_and_preserves_archive(tmp_path):
+    archive = tmp_path / "package.zip"
+    make_archive(archive)
+    before = archive.read_bytes()
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    failing_zip = fake_bin / "zip"
+    failing_zip.write_text("#!/bin/sh\nexit 17\n")
+    failing_zip.chmod(0o755)
+
+    result = run_script("--dry-run", str(archive), env={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
+
+    assert result.returncode != 0
+    assert "failed to rebuild temporary archive" in result.stderr
+    assert "Dry run: archive unchanged." not in result.stdout
+    assert archive.read_bytes() == before
 
 
 def test_variant_requires_selected_application_package(tmp_path):

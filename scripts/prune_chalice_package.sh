@@ -107,6 +107,7 @@ CHALICE_PACKAGE_ZIP_FILE="$INPUT_DIR/$(basename -- "$INPUT")"
 # directory is the only path ever passed to rm -rf, and it is checked before cleanup/deletion.
 TMP_ROOT="/tmp"
 WORK_DIR=""
+TMP_ARCHIVE_DIR=""
 TMP_CHALICE_PACKAGE_FILE=""
 TMP_LOG_FILE=""
 
@@ -118,6 +119,16 @@ cleanup() {
                 ;;
             *)
                 echo "$SCRIPT_NAME: refusing to clean unexpected directory: $WORK_DIR" >&2
+                ;;
+        esac
+    fi
+    if [[ -n "$TMP_ARCHIVE_DIR" && -d "$TMP_ARCHIVE_DIR" ]]; then
+        case "$TMP_ARCHIVE_DIR" in
+            "$TMP_ROOT"/.chalice_package_prune.*)
+                rm -rf -- "$TMP_ARCHIVE_DIR"
+                ;;
+            *)
+                echo "$SCRIPT_NAME: refusing to clean unexpected directory: $TMP_ARCHIVE_DIR" >&2
                 ;;
         esac
     fi
@@ -189,16 +200,14 @@ remove_path() {
     if ((REPORT)); then
         echo "  remove: $label ($size uncompressed bytes)"
     fi
-    if ((DRY_RUN == 0)); then
-        case "$path" in
-            "$WORK_DIR"/*)
-                rm -rf -- "$path"
-                ;;
-            *)
-                error "refusing to remove path outside extracted package: $path"
-                ;;
-        esac
-    fi
+    case "$path" in
+        "$WORK_DIR"/*)
+            rm -rf -- "$path"
+            ;;
+        *)
+            error "refusing to remove path outside extracted package: $path"
+            ;;
+    esac
 }
 
 # Rules are explicit package roots, not a static-import or transitive-dependency analysis. The
@@ -249,11 +258,16 @@ check_protected_packages() {
 
 validate_archive
 WORK_DIR="$(mktemp -d "$TMP_ROOT/.chalice_package_prune.XXXXXX")"
-TMP_CHALICE_PACKAGE_FILE="$TMP_ROOT/.chalice_package_prune.$$.zip"
-TMP_LOG_FILE="$TMP_ROOT/.chalice_package_prune.$$.log"
+TMP_ARCHIVE_DIR="$(mktemp -d "$TMP_ROOT/.chalice_package_prune.XXXXXX")"
+TMP_CHALICE_PACKAGE_FILE="$TMP_ARCHIVE_DIR/rebuilt.zip"
+TMP_LOG_FILE="$(mktemp "$TMP_ROOT/.chalice_package_prune.XXXXXX")"
 case "$WORK_DIR" in
     "$TMP_ROOT"/.chalice_package_prune.*) ;;
     *) error "unexpected extraction directory: $WORK_DIR" ;;
+esac
+case "$TMP_ARCHIVE_DIR" in
+    "$TMP_ROOT"/.chalice_package_prune.*) ;;
+    *) error "unexpected temporary archive directory: $TMP_ARCHIVE_DIR" ;;
 esac
 
 unzip -q "$CHALICE_PACKAGE_ZIP_FILE" -d "$WORK_DIR" >"$TMP_LOG_FILE" 2>&1
@@ -296,30 +310,39 @@ if [[ "$VARIANT" != "all" ]]; then
 fi
 
 check_protected_packages
-# Removed paths are disjoint in a real run (each is deleted before the next is found), so the
-# final size follows from the original scan without walking the whole tree again.
-FINAL_TREE_BYTES="$ORIGINAL_TREE_BYTES"
-if ((DRY_RUN == 0)); then
-    FINAL_TREE_BYTES=$((ORIGINAL_TREE_BYTES - REMOVED_BYTES))
+# Re-scan the temporary tree after removals in both modes. This is the authoritative projected
+# uncompressed size; it avoids relying on the removal accounting if rules overlap in the future.
+FINAL_TREE_BYTES="$(tree_size "$WORK_DIR")"
+
+# Always rebuild and validate a temporary archive. Dry-run deliberately exercises the same
+# extraction/removal/rebuild path as production, but the original is replaced only below when
+# dry-run is disabled. Compression and archive metadata can differ from production, so the dry-run
+# archive size is explicitly reported as approximate.
+if ! (cd "$WORK_DIR" && zip -q -r "$TMP_CHALICE_PACKAGE_FILE" .) >"$TMP_LOG_FILE" 2>&1; then
+    error "failed to rebuild temporary archive; see $TMP_LOG_FILE"
+fi
+if ! unzip -tqq "$TMP_CHALICE_PACKAGE_FILE" >/dev/null; then
+    error "rebuilt archive failed validation; see $TMP_LOG_FILE"
 fi
 
+PROJECTED_ARCHIVE_BYTES="$(archive_size "$TMP_CHALICE_PACKAGE_FILE")"
 if ((DRY_RUN)); then
+    ARCHIVE_DELTA=$((PROJECTED_ARCHIVE_BYTES - ORIGINAL_ARCHIVE_BYTES))
+    echo "Projected archive: $PROJECTED_ARCHIVE_BYTES bytes (delta $ARCHIVE_DELTA bytes; approximate compressed size from temporary rebuild)."
     echo "Dry run: archive unchanged."
+    rm -f -- "$TMP_CHALICE_PACKAGE_FILE"
 else
-    # Rebuild in a separate file and verify it before replacing the input archive.
-    (cd "$WORK_DIR" && zip -q -r "$TMP_CHALICE_PACKAGE_FILE" .) >"$TMP_LOG_FILE" 2>&1
-    unzip -tqq "$TMP_CHALICE_PACKAGE_FILE" >/dev/null || error "rebuilt archive failed validation"
     mv -f -- "$TMP_CHALICE_PACKAGE_FILE" "$CHALICE_PACKAGE_ZIP_FILE"
 fi
 
 FINAL_ARCHIVE_BYTES="$ORIGINAL_ARCHIVE_BYTES"
 if ((DRY_RUN == 0)); then
     FINAL_ARCHIVE_BYTES="$(archive_size "$CHALICE_PACKAGE_ZIP_FILE")"
+    echo "Archive: $ORIGINAL_ARCHIVE_BYTES -> $FINAL_ARCHIVE_BYTES bytes."
 fi
 
 echo "Removed $REMOVED_COUNT item(s), $REMOVED_BYTES uncompressed bytes."
 echo "Uncompressed package: $ORIGINAL_TREE_BYTES -> $FINAL_TREE_BYTES bytes."
-echo "Archive: $ORIGINAL_ARCHIVE_BYTES -> $FINAL_ARCHIVE_BYTES bytes."
 if ((REPORT)) && ((${#REMOVED_LABELS[@]})); then
     echo "Removal report:"
     printf '  %s\n' "${REMOVED_LABELS[@]}"

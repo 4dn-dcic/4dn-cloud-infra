@@ -10,9 +10,12 @@ The original one-argument invocation remains supported::
 
     scripts/prune_chalice_package.sh path/to/deployment.zip
 
-Use ``--dry-run --report`` to inspect the proposed removals without changing the archive. Use
-``--variant cgap``, ``--variant fourfront``, or ``--variant smaht`` only when the archive is known
-to contain the selected ``chalicelib_*`` implementation. A variant removes the other
+Use ``--dry-run --report`` to inspect the proposed removals without changing the archive. Dry-run
+performs the removals and rebuilds a temporary archive in the extracted workspace, then reports the
+post-removal uncompressed size and a projected compressed size/delta. The projected compressed size
+is approximate because temporary rebuild metadata and compression can differ from production.
+Use ``--variant cgap``, ``--variant fourfront``, or ``--variant smaht`` only when the archive is
+known to contain the selected ``chalicelib_*`` implementation. A variant removes the other
 ``chalicelib_*`` roots; without a variant, all application variants are retained for compatibility
 with the runtime selection in ``app.py``.
 
