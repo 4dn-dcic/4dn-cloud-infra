@@ -16,6 +16,10 @@ to contain the selected ``chalicelib_*`` implementation. A variant removes the o
 ``chalicelib_*`` roots; without a variant, all application variants are retained for compatibility
 with the runtime selection in ``app.py``.
 
+The ``chalice`` and ``tibanna`` runtime roots, including their distribution metadata, are kept.
+The current package-removal allow-list is limited to ``awacs`` and ``troposphere``; extend it only
+after confirming the package is not needed by either deployed Foursight variant.
+
 Runtime-risk assumptions
 -------------------------
 

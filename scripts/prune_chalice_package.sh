@@ -276,8 +276,10 @@ while IFS= read -r -d '' path; do
 done < <(find "$WORK_DIR" -type d \( -name examples -o -name tests -o -name test \) -prune -print0)
 
 # These are packages used to build/provision 4dn-cloud-infra, not by the deployed Foursight
-# handler. Do not add transitive dependencies here merely because they look large: many are shared
-# by Foursight and removing them is not safe without runtime evidence.
+# handler. Chalice and Tibanna are deliberately not listed: their roots and distribution metadata
+# are runtime content in deployed packages. Do not add transitive dependencies here merely because
+# they look large: many are shared by Foursight and removing them is not safe without runtime
+# evidence.
 remove_deployment_package "awacs" "awacs"
 remove_deployment_package "troposphere" "troposphere"
 

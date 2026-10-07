@@ -19,7 +19,9 @@ def make_archive(path):
         "awscli-1.0.dist-info/METADATA": b"Name: awscli\n",
         "chalice/__init__.py": b"# chalice runtime\n",
         "chalice/app.py": b"# chalice runtime\n",
+        "chalice-1.0.dist-info/METADATA": b"Name: chalice\n",
         "tibanna/__init__.py": b"# foursight runtime\n",
+        "tibanna-1.0.dist-info/METADATA": b"Name: tibanna\n",
         "tibanna_ff/__init__.py": b"# foursight runtime\n",
         "tibanna_ff-1.0.dist-info/METADATA": b"Name: tibanna-ff\n",
         "chalicelib_smaht/app_utils.py": b"# selected\n",
@@ -63,7 +65,9 @@ def test_default_pruning_keeps_runtime_and_variant_packages(tmp_path):
     assert "awscli-1.0.dist-info/METADATA" in archive_names
     assert "chalice/__init__.py" in archive_names
     assert "chalice/app.py" in archive_names
+    assert "chalice-1.0.dist-info/METADATA" in archive_names
     assert "tibanna/__init__.py" in archive_names
+    assert "tibanna-1.0.dist-info/METADATA" in archive_names
     assert "tibanna_ff/__init__.py" in archive_names
     assert "tibanna_ff-1.0.dist-info/METADATA" in archive_names
     assert "boto3/__init__.py" in archive_names
