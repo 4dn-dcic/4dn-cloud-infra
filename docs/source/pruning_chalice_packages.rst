@@ -1,5 +1,25 @@
-Pruning Chalice deployment packages
-===================================
+Chalice package pruning controls and deployment rules
+=====================================================
+
+Foursight provisioning keeps its historical pruning behavior by default. The optional
+``provision`` controls below are useful when investigating package contents::
+
+    poetry run cli provision foursight --prune-dry-run --prune-report \
+        --prune-variant cgap
+
+``--prune-dry-run`` previews pruning without replacing ``deployment.zip``. It also prevents
+package upload and CloudFormation change-set creation, even if ``--upload-change-set`` was
+supplied. Use ``--prune-report`` for one line per removal candidate. ``--prune-variant`` accepts
+``all``, ``cgap``, ``fourfront``, or ``smaht``; selecting a variant permits the packager to remove
+the other application roots. ``--no-prune`` bypasses pruning for troubleshooting. Dry-run and
+no-prune are mutually exclusive.
+
+When a pruning control is selected, cloud-infra forwards direct ``dry_run``, ``report``,
+``variant``, and ``skip_prune`` keyword arguments to the compatible foursight-core packaging API.
+The normal path passes no pruning keywords, preserving its existing call shape and defaults.
+
+Script behavior
+---------------
 
 ``scripts/prune_chalice_package.sh`` removes known build/provisioning packages from a Chalice
 deployment archive after the archive has been built. The existing removal of nested ``test``,
@@ -24,7 +44,7 @@ The current package-removal allow-list is limited to ``awacs`` and ``troposphere
 after confirming the package is not needed by either deployed Foursight variant.
 
 Runtime-risk assumptions
--------------------------
+------------------------
 
 * ``app.py`` selects a Foursight implementation at runtime, and Foursight may use dynamic imports.
   The package allow-list must therefore be reviewed when runtime configuration or plugin loading
