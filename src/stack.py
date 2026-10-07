@@ -104,14 +104,14 @@ class BaseC4FoursightStack(BaseC4Stack, StackNameMixin):
 
     @staticmethod
     def pruning_kwargs(args):
-        """Return the optional foursight-core pruning contract arguments.
+        """Return the optional direct foursight-core pruning keyword arguments.
 
-        foursight-core accepts ``prune_options`` with ``enabled``, ``dry_run``,
-        ``report``, and ``variant`` keys.  No argument is supplied for the normal
-        path, preserving the older API's defaults and call shape.
+        No argument is supplied for the normal path, preserving the older API's
+        defaults and call shape.  Explicit CLI controls are translated by the
+        CLI into the published ``dry_run``, ``report``, ``variant``, and
+        ``skip_prune`` keywords.
         """
-        prune_options = getattr(args, 'prune_options', None)
-        return {'prune_options': prune_options} if prune_options is not None else {}
+        return getattr(args, 'prune_kwargs', None) or {}
 
     @classmethod
     def suggest_stack_name(cls, name=None):

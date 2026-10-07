@@ -28,12 +28,18 @@ def test_explicit_controls_build_core_contract():
         'dry_run': True,
         'report': True,
         'variant': 'cgap',
+        'skip_prune': False,
     }
 
 
 def test_no_prune_is_explicit_bypass():
     args = parser().parse_args(['--no-prune'])
-    assert pruning_options_from_args(args) == {'enabled': False}
+    assert pruning_options_from_args(args) == {
+        'dry_run': False,
+        'report': False,
+        'variant': None,
+        'skip_prune': True,
+    }
 
 
 def test_dry_run_and_no_prune_are_mutually_exclusive():

@@ -9,7 +9,12 @@ PRUNING_VARIANTS = ('all', 'cgap', 'fourfront', 'smaht')
 
 
 def pruning_options_from_args(args):
-    """Return pruning options, or ``None`` when no opt-in control was selected."""
+    """Return direct foursight-core pruning kwargs, or ``None`` by default.
+
+    The ``enabled=False`` CLI meaning is represented by foursight-core's
+    ``skip_prune=True`` keyword.  Returning no kwargs for the default path
+    preserves the historical packaging call and its defaults.
+    """
     options = {}
     if getattr(args, 'no_prune', False):
         options['enabled'] = False
@@ -20,7 +25,14 @@ def pruning_options_from_args(args):
     variant = getattr(args, 'prune_variant', None)
     if variant is not None:
         options['variant'] = variant
-    return options or None
+    if not options:
+        return None
+    return {
+        'dry_run': options.get('dry_run', False),
+        'report': options.get('report', False),
+        'variant': options.get('variant'),
+        'skip_prune': options.get('enabled') is False,
+    }
 
 
 def should_upload_after_pruning(upload_change_set, prune_dry_run):
