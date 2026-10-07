@@ -102,6 +102,17 @@ class BaseC4FoursightStack(BaseC4Stack, StackNameMixin):
         class_name = full_class_name(self)
         raise NotImplementedError(f"{class_name} does not implement required method 'package_foursight_stack'.")
 
+    @staticmethod
+    def pruning_kwargs(args):
+        """Return the optional foursight-core pruning contract arguments.
+
+        foursight-core accepts ``prune_options`` with ``enabled``, ``dry_run``,
+        ``report``, and ``variant`` keys.  No argument is supplied for the normal
+        path, preserving the older API's defaults and call shape.
+        """
+        prune_options = getattr(args, 'prune_options', None)
+        return {'prune_options': prune_options} if prune_options is not None else {}
+
     @classmethod
     def suggest_stack_name(cls, name=None):
         """ Overriden so you can change the sharing qualifier by passing foursight.app_name in
@@ -178,11 +189,13 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
             global_env_bucket=self.global_env_bucket,
             security_ids=self.security_ids,
             subnet_ids=self.subnet_ids,
-            trial_creds=self.trial_creds
-            # No longer need to set check_runner as it is determined dynamically at runtime in Foursight. dmichaels/2022-11-01.
+            trial_creds=self.trial_creds,
+            **self.pruning_kwargs(args)
+            # No longer need to set check_runner: it is determined dynamically at runtime
+            # in Foursight. dmichaels/2022-11-01.
             # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
             # On the second attempt to create the stack, the physical resource ID will be used.
-            #check_runner=(ConfigManager.find_stack_resource(f'foursight-fourfront-{args.stage}',
+            # check_runner=(ConfigManager.find_stack_resource(f'foursight-fourfront-{args.stage}',
             #                                                'CheckRunner', 'physical_resource_id')
             #             or "c4-foursight-fourfront-production-stac-CheckRunner-MW4VHuCIsDXc")
         )
@@ -243,8 +256,10 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
             global_env_bucket=self.global_env_bucket,
             security_ids=self.security_ids,
             subnet_ids=self.subnet_ids,
-            trial_creds=self.trial_creds
-            # No longer need to set check_runner as it is determined dynamically at runtime in Foursight. dmichaels/2022-11-01.
+            trial_creds=self.trial_creds,
+            **self.pruning_kwargs(args)
+            # No longer need to set check_runner: it is determined dynamically at runtime
+            # in Foursight. dmichaels/2022-11-01.
             # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
             # On the second attempt to create the stack, the physical resource ID will be used.
             # check_runner=(ConfigManager.get_config_setting(Settings.FOURSIGHT_CHECK_RUNNER))
@@ -303,7 +318,8 @@ class C4FoursightSMAHTStack(C4FoursightCGAPStack):
             global_env_bucket=self.global_env_bucket,
             security_ids=self.security_ids,
             subnet_ids=self.subnet_ids,
-            trial_creds=self.trial_creds
+            trial_creds=self.trial_creds,
+            **self.pruning_kwargs(args)
         )
 
     class PackageDeploy(PackageDeploy_from_core):
