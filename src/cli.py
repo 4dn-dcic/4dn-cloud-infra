@@ -298,12 +298,12 @@ class C4Client:
         use_stdout_and_exit = args.stdout
         validate = args.validate
         view_changes = args.view_changes
-        prune_options = cls.pruning_options_from_args(args)
+        prune_kwargs = cls.pruning_options_from_args(args)
         prune_dry_run = bool(getattr(args, 'prune_dry_run', False))
-        # Stack packaging receives this only when a user explicitly selected a
+        # Stack packaging receives these only when a user explicitly selected a
         # pruning control. This keeps the existing call byte-for-byte compatible.
-        if prune_options is not None:
-            args.prune_options = prune_options
+        if prune_kwargs is not None:
+            args.prune_kwargs = prune_kwargs
 
         with ConfigManager.validate_and_source_configuration():
 
@@ -351,7 +351,7 @@ class C4Client:
                             print(line, end='')
                     shutil.rmtree(output_file)
             else:
-                if prune_options is not None:
+                if prune_kwargs is not None:
                     raise CLIException('Pruning controls are only supported for Foursight stacks.')
                 # Handle 4dn-cloud-infra stacks
                 file_path = cls.write_and_validate_template(stack=stack,
