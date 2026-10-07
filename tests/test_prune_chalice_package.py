@@ -14,6 +14,7 @@ def make_archive(path):
         "boto3/__init__.py": b"# protected\n",
         "boto3-1.0.dist-info/METADATA": b"Name: boto3\n",
         "awacs/__init__.py": b"# deployment only\n",
+        "awacs/tests/test_nested.py": b"nested test\n",
         "awacs-1.0.dist-info/METADATA": b"Name: awacs\n",
         "troposphere/__init__.py": b"# deployment only\n",
         "troposphere-4.0.dist-info/METADATA": b"Name: troposphere\n",
@@ -120,6 +121,19 @@ def test_variant_pruning_keeps_only_selected_application(tmp_path):
     assert "chalicelib_fourfront/app_utils.py" not in archive_names
     assert "Archive:" in result.stdout
     assert "Variant: smaht" in result.stdout
+
+
+def test_dry_run_removal_bytes_match_rescanned_tree_with_nested_rules(tmp_path):
+    archive = tmp_path / "package.zip"
+    make_archive(archive)
+
+    result = run_script("--dry-run", "--report", str(archive))
+
+    assert result.returncode == 0, result.stderr
+    removed = re.search(r"Removed \d+ item\(s\), (\d+) uncompressed bytes\.", result.stdout)
+    uncompressed = re.search(r"Uncompressed package: (\d+) -> (\d+) bytes\.", result.stdout)
+    assert removed and uncompressed
+    assert int(uncompressed.group(1)) - int(uncompressed.group(2)) == int(removed.group(1))
 
 
 def test_dry_run_rebuild_failure_is_reported_and_preserves_archive(tmp_path):
