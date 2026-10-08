@@ -6,12 +6,18 @@
 Change Log
 ----------
 
+4.4.2
+=====
+
+* Add opt-in Foursight Chalice pruning controls to ``provision`` for dry-run
+  previews, detailed reports, application-variant selection, and troubleshooting
+  bypasses. Dry runs do not upload packages or create change sets.
+
 4.4.1
 =====
 
 * Update some versions. Relock.
 * commented out cgap foursight and submitr to allow lock
-* 
 
 4.4.0
 =====
