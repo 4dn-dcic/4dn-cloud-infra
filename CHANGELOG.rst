@@ -6,6 +6,13 @@
 Change Log
 ----------
 
+4.4.1
+=====
+
+* Update some versions. Relock.
+* commented out cgap foursight and submitr to allow lock
+* 
+
 4.4.0
 =====
 
