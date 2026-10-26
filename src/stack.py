@@ -357,6 +357,10 @@ class C4FoursightSMAHTSRCEStack(C4FoursightSMAHTStack):
     class PackageDeploy(PackageDeploy_from_core):
 
         CONFIG_BASE = foursight_config_base('foursight-smaht')
+        # foursight-core 5.10.x defaults `layers` to the Amazon Linux 2023 git layer, but chalice
+        # packages these functions for the python3.11 runtime (Amazon Linux 2). Keep the git layer
+        # the deployed SRCE Lambdas already carry so a core bump does not silently swap it.
+        CONFIG_BASE['layers'] = ['arn:aws:lambda:us-east-1:553035198032:layer:git:11']
 
         config_dir = dirname(dirname(__file__))
         PRINT(f"Config dir: {config_dir}")
