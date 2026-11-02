@@ -1,0 +1,44 @@
+# Merged into the chalice-generated sam.yaml for every Foursight stack (chalice package --merge-template).
+# CheckRunner intentionally re-invokes itself to drain the SQS check queue
+# (foursight_core/sqs_utils.py invoke_check_runner), so Lambda recursive loop detection must not stop it.
+# With detection off, the concurrency cap, async invoke limits, and alarms below bound a runaway loop.
+# Sized from prod metrics (2026-11): Fourfront 30-day peak concurrency 11, 153 invocations/h; SMaHT 15-month
+# peak concurrency 17 typical, 34 once (2025-10-20), 119 invocations/h. The alarms have no actions yet (console only).
+Resources:
+  CheckRunner:
+    Properties:
+      RecursiveLoop: Allow
+      ReservedConcurrentExecutions: 60
+      EventInvokeConfig:
+        MaximumRetryAttempts: 1
+        MaximumEventAgeInSeconds: 3600  # matches the check queue's 1h message retention
+  CheckRunnerInvocationsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Foursight CheckRunner invocations far above normal (possible runaway self-invoke loop)
+      Namespace: AWS/Lambda
+      MetricName: Invocations
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref CheckRunner
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 600
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+  CheckRunnerConcurrencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Foursight CheckRunner concurrency near its reserved concurrency cap
+      Namespace: AWS/Lambda
+      MetricName: ConcurrentExecutions
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref CheckRunner
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 48  # 80% of ReservedConcurrentExecutions
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching

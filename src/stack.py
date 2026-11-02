@@ -12,6 +12,7 @@ from troposphere import Template
 from .parts.application_configuration_secrets import ApplicationConfigurationSecrets
 from .base import ConfigManager
 from .constants import Secrets, Settings
+from .foursight_merge_template import resolve_merge_template
 from .names import Names
 from .part import C4Name, C4Tags, C4Account, C4Part, StackNameMixin
 from .parts.datastore import C4DatastoreExports
@@ -113,6 +114,15 @@ class BaseC4FoursightStack(BaseC4Stack, StackNameMixin):
         """
         return getattr(args, 'prune_kwargs', None) or {}
 
+    @staticmethod
+    def merge_template(args):
+        """Return the chalice merge template for this package.
+
+        The default template (sets RecursiveLoop: Allow on CheckRunner) is always applied;
+        a user-supplied --merge-template is merged over it.
+        """
+        return resolve_merge_template(args.merge_template, output_dir=args.output_file)
+
     @classmethod
     def suggest_stack_name(cls, name=None):
         """ Overriden so you can change the sharing qualifier by passing foursight.app_name in
@@ -182,7 +192,7 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
             args,  # this should not be needed any more, but we didn't quite write the code that way
             identity=identity,
             stack_name=self.name.stack_name,
-            merge_template=args.merge_template,
+            merge_template=self.merge_template(args),
             output_file=args.output_file,
             stage=args.stage,
             trial=args.trial,
@@ -249,7 +259,7 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
             # dmichaels/2022-08-15: Added next two lines for C4-826.
             identity=identity,
             stack_name=self.name.stack_name,
-            merge_template=args.merge_template,
+            merge_template=self.merge_template(args),
             output_file=args.output_file,
             stage=args.stage,
             trial=args.trial,
@@ -311,7 +321,7 @@ class C4FoursightSMAHTStack(C4FoursightCGAPStack):
             args,  # this should not be needed any more, but we didn't quite write the code that way
             identity=identity,
             stack_name=self.name.stack_name,
-            merge_template=args.merge_template,
+            merge_template=self.merge_template(args),
             output_file=args.output_file,
             stage=args.stage,
             trial=args.trial,

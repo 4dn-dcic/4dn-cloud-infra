@@ -54,12 +54,19 @@ This difference translates to additional command-line configuration:
                         (foursight only)
     --merge_template MERGE_TEMPLATE
                         Location of a YAML template to be merged into the
-                        generated template (foursight only)
+                        generated template, on top of the default
+                        foursight_merge_template.yaml (foursight only)
     --output_file OUTPUT_FILE
                         Location of a directory for output cloudformation
                         (foursight only)
     --trial             Use TRIAL creds when building the config (foursight
                         only; experimental)
+
+The default merge template, ``foursight_merge_template.yaml`` at the repository root, is always applied. It sets
+``RecursiveLoop: Allow`` on the ``CheckRunner`` function, which intentionally re-invokes itself to drain the SQS check
+queue; without it, AWS Lambda recursive loop detection would stop long check-runner chains. Because detection is then
+off for ``CheckRunner``, the template also bounds a runaway loop: a reserved concurrency cap, limited async retries and
+event age, and CloudWatch alarms on ``CheckRunner`` invocations and concurrency (no alarm actions are configured yet).
 
 -----------------------------------
 Notes Towards Continued Development
