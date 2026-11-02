@@ -325,17 +325,17 @@ docs = ["Pillow", "Sphinx (>3)", "sphinx-paramlinks", "sphinx_rtd_theme", "sphin
 
 [[package]]
 name = "boto3"
-version = "1.43.108"
+version = "1.43.113"
 description = "The AWS SDK for Python (Boto3)"
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "boto3-1.43.108-py3-none-any.whl", hash = "sha256:19e9da95ef0c494e27052049a42137550e66730509bb613e76eaa30ddf9a7170"},
-    {file = "boto3-1.43.108.tar.gz", hash = "sha256:03341f089158368acf83e921aca98b706095322ca52bc4c039a616940aa5ad41"},
+    {file = "boto3-1.43.113-py3-none-any.whl", hash = "sha256:2e6fa2eef6decd7cbe5cf55b4ccc3218a3784630e54cb5e7e7f7074437dda281"},
+    {file = "boto3-1.43.113.tar.gz", hash = "sha256:5a3e7750325c22fab0957c41a500fe2f95a936c2bbcf5c18f58472ba5ffbb792"},
 ]
 
 [package.dependencies]
-botocore = ">=1.43.108,<1.44.0"
+botocore = ">=1.43.113,<1.44.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.19.0,<0.20.0"
 
@@ -801,13 +801,13 @@ xray = ["mypy-boto3-xray (>=1.43.0,<1.44.0)"]
 
 [[package]]
 name = "botocore"
-version = "1.43.108"
+version = "1.43.113"
 description = "Low-level, data-driven core of boto 3."
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "botocore-1.43.108-py3-none-any.whl", hash = "sha256:ab9d16c6b4350aaa54ed28202dfa2998b2d735fdbf3247eb60af469d8d48a5b8"},
-    {file = "botocore-1.43.108.tar.gz", hash = "sha256:ee4f75cf3bdbb0da7912e089950e8112f692016539d939312c771499958e6cfd"},
+    {file = "botocore-1.43.113-py3-none-any.whl", hash = "sha256:8908e4a5fe94a06801a7bf4c451717a38145cc4ffa41aaffa50665940b64b4fa"},
+    {file = "botocore-1.43.113.tar.gz", hash = "sha256:941d3f0e289540da7c49d5e2dc022f992e3638127a02a74a0c91df2661bd98ef"},
 ]
 
 [package.dependencies]
@@ -1421,13 +1421,13 @@ tzlocal = ">=5.1,<6.0"
 
 [[package]]
 name = "foursight-core"
-version = "5.10.3"
+version = "5.10.5.1b10"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
 python-versions = "<3.13,>=3.10"
 files = [
-    {file = "foursight_core-5.10.3-py3-none-any.whl", hash = "sha256:e44fdfadec7d951f8b7830ca40a8ac2e0a08b2d5f34694c78aba180251e20375"},
-    {file = "foursight_core-5.10.3.tar.gz", hash = "sha256:67b5416fab5bf02b29df9ff25031fcd280ff0098ab5383aaf29ae8b3c16961ea"},
+    {file = "foursight_core-5.10.5.1b10-py3-none-any.whl", hash = "sha256:7ec4c64a420ec4f6962de6db5be50dede8dd08f8ab518b4653c774a724f2254a"},
+    {file = "foursight_core-5.10.5.1b10.tar.gz", hash = "sha256:6f2f9792e328fc9521a38d1355d9bec9c830962dfbb9a376a08facc0af2551dd"},
 ]
 
 [package.dependencies]
@@ -1455,25 +1455,25 @@ tzlocal = ">=5.0.1,<6.0.0"
 
 [[package]]
 name = "foursight-smaht"
-version = "0.9.6"
+version = "0.9.7"
 description = "Serverless Chalice Application for Monitoring"
 optional = false
 python-versions = "<3.13,>=3.10"
 files = [
-    {file = "foursight_smaht-0.9.6-py3-none-any.whl", hash = "sha256:0c389547b3c3260f143a953bd7f782e2e6090372ac96cbc096ad2bac305d6221"},
-    {file = "foursight_smaht-0.9.6.tar.gz", hash = "sha256:31a1d95420b1711087beda24135bf669af85cce1e83504c8e66b721197959534"},
+    {file = "foursight_smaht-0.9.7-py3-none-any.whl", hash = "sha256:2c25041797050ec9ffbd453d9cfae2bc7e5d8cb14102acf839d0e1f926f9df1d"},
+    {file = "foursight_smaht-0.9.7.tar.gz", hash = "sha256:09431dd6049acd593bfdf41fd5b8b2a8a5d36cb1a45c5da17f7549845f678192"},
 ]
 
 [package.dependencies]
-awscli = ">=1.33.18,<2.0.0"
+awscli = ">=1.46.1,<2.0.0"
 click = ">=7.1.2,<8.0.0"
 cron-descriptor = ">=1.4.0,<2.0.0"
 dcicutils = ">=8.19.0,<9.0.0"
 elasticsearch = "7.13.4"
 elasticsearch-dsl = ">=7.0.0,<8.0.0"
-foursight-core = ">=5.10.2,<6.0.0"
+foursight-core = ">=5.10.5,<6.0.0"
 geocoder = "1.38.1"
-gitpython = ">=3.1.2,<4.0.0"
+gitpython = ">=3.2.0,<4.0.0"
 google-api-python-client = ">=1.12.5,<2.0.0"
 Jinja2 = ">=3.1.2,<4.0.0"
 magma-suite = ">=3.6.0,<4.0.0"
@@ -1545,13 +1545,13 @@ smmap = ">=3.0.1,<6"
 
 [[package]]
 name = "gitpython"
-version = "3.2.0"
+version = "3.2.1"
 description = "GitPython is a Python library used to interact with Git repositories"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "gitpython-3.2.0-py3-none-any.whl", hash = "sha256:bd70c5ec05cd2b797423e7eb312147d2458d3cca92085888fba2213f85905537"},
-    {file = "gitpython-3.2.0.tar.gz", hash = "sha256:fb92310af6844d96adc95ca066ed2e617c00e1dbd146a326626c81e72e18cc2e"},
+    {file = "gitpython-3.2.1-py3-none-any.whl", hash = "sha256:d66b0832aa8755c1a84892937282df0befb16c97e5a64aeebd68be9c5e323f53"},
+    {file = "gitpython-3.2.1.tar.gz", hash = "sha256:0f1229ec5c057bdabdeeda8bda4f17bda679ab33dbccc00f24e6a480553c8613"},
 ]
 
 [package.dependencies]
@@ -1644,13 +1644,13 @@ uritemplate = ">=3.0.0,<4dev"
 
 [[package]]
 name = "google-auth"
-version = "2.60.0"
+version = "2.62.0"
 description = "Google Authentication Library"
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "google_auth-2.60.0-py3-none-any.whl", hash = "sha256:e78414cd2e22cc02884768707def024ca32da17695f2c0e6194cdbe1316c4cd4"},
-    {file = "google_auth-2.60.0.tar.gz", hash = "sha256:34aa0283ef72c99cd410e35db4417211fa3e6aaa5399183227bbe3b82bd15192"},
+    {file = "google_auth-2.62.0-py3-none-any.whl", hash = "sha256:4ff4319aeb4ad128409759d397a9fcafad126d0031d241cc0dd6b9a00b43e3f3"},
+    {file = "google_auth-2.62.0.tar.gz", hash = "sha256:0bef0ce54bdf9ce226c5d66e4264413bd918141c31bbe49fb52eac882f513d69"},
 ]
 
 [package.dependencies]
@@ -1666,7 +1666,6 @@ pyjwt = ["pyjwt (>=2.0)"]
 pyopenssl = ["cryptography (>=38.0.3)", "cryptography (>=41.0.5)"]
 reauth = ["pyu2f (>=0.1.5)"]
 requests = ["requests (>=2.30.0,<3.0.0)"]
-rsa = ["rsa (>=4.0.0,<5)"]
 testing = ["aiohttp (>=3.8.0,<4.0.0)", "aiohttp (>=3.9.0,<4.0.0)", "aioresponses", "flask", "freezegun", "grpcio (>=1.59.0,<2.0.0)", "grpcio (>=1.75.1,<2.0.0)", "packaging (>=20.0)", "pyjwt (>=2.0)", "pytest", "pytest-asyncio", "pytest-cov", "pytest-localserver", "pyu2f (>=0.1.5)", "requests (>=2.30.0,<3.0.0)", "responses", "urllib3 (>=1.26.15,<3.0.0)"]
 urllib3 = ["packaging (>=20.0)", "urllib3 (>=1.26.15,<3.0.0)"]
 
@@ -1872,13 +1871,13 @@ all = ["coverage (>=7.10.0)", "hypothesis (>=6.141.1)", "mypy (>=1.11.2)", "pyte
 
 [[package]]
 name = "iniconfig"
-version = "2.3.0"
+version = "2.3.1"
 description = "brain-dead simple config-ini parsing"
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12"},
-    {file = "iniconfig-2.3.0.tar.gz", hash = "sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730"},
+    {file = "iniconfig-2.3.1-py3-none-any.whl", hash = "sha256:9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7"},
+    {file = "iniconfig-2.3.1.tar.gz", hash = "sha256:67f4b9c50da0dedf52af349e7749a80a9057a5031199791b906c3bb3ae878960"},
 ]
 
 [[package]]
@@ -3229,13 +3228,13 @@ files = [
 
 [[package]]
 name = "pycparser"
-version = "3.0"
+version = "3.11"
 description = "C parser in Python"
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "pycparser-3.0-py3-none-any.whl", hash = "sha256:b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992"},
-    {file = "pycparser-3.0.tar.gz", hash = "sha256:600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29"},
+    {file = "pycparser-3.11-py3-none-any.whl", hash = "sha256:51d5a8ba2be0bbe440b99d2112604c95bbbc3c2748a64260186c541e1729cd80"},
+    {file = "pycparser-3.11.tar.gz", hash = "sha256:d875f09c3507d00e1aba0eecc6dcadc1352f30fff09dc6bff2f1c2935e97c2bc"},
 ]
 
 [[package]]
@@ -5095,4 +5094,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.13"
-content-hash = "eae5071478a41ad459e1a065265e391da10923b33ef510ef9826edebedfd45c4"
+content-hash = "8188c7471a0b3a19326fe42d94b63ed03f52eabf5f45ebca84d866a332a140c1"
