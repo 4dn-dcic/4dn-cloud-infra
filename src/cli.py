@@ -16,6 +16,7 @@ from .part import C4Account
 from .stack import BaseC4FoursightStack  # , C4FoursightCGAPStack
 # from .stacks.trial import c4_stack_trial_network_metadata, c4_stack_trial_tibanna
 from .stacks.alpha_stacks import c4_alpha_stack_metadata
+from .pruning import add_pruning_arguments, pruning_options_from_args, should_upload_after_pruning
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -282,6 +283,11 @@ class C4Client:
     def is_foursight_stack(cls, stack):
         return isinstance(stack, BaseC4FoursightStack)
 
+    @staticmethod
+    def pruning_options_from_args(args):
+        """Translate explicit provision flags to the foursight-core contract."""
+        return pruning_options_from_args(args)
+
     @classmethod
     def provision_stack(cls, args):
         """ Implements 'provision' command. """
@@ -292,6 +298,12 @@ class C4Client:
         use_stdout_and_exit = args.stdout
         validate = args.validate
         view_changes = args.view_changes
+        prune_kwargs = cls.pruning_options_from_args(args)
+        prune_dry_run = bool(getattr(args, 'prune_dry_run', False))
+        # Stack packaging receives these only when a user explicitly selected a
+        # pruning control. This keeps the existing call byte-for-byte compatible.
+        if prune_kwargs is not None:
+            args.prune_kwargs = prune_kwargs
 
         with ConfigManager.validate_and_source_configuration():
 
@@ -328,15 +340,19 @@ class C4Client:
                     args.output_file = output_file
 
                 stack.package_foursight_stack(args)  # <-- this will implicitly use args.stage, among others
-                if upload_change_set:
+                if should_upload_after_pruning(upload_change_set, prune_dry_run):
                     bucket = ConfigManager.get_config_setting(Settings.FOURSIGHT_APP_VERSION_BUCKET, default=None)
                     cls.upload_chalice_package(output_file=output_file, stack=stack, bucket=bucket)
+                elif upload_change_set:
+                    PRINT("Pruning dry run requested; skipping package upload and change-set creation.")
                 if use_stdout_and_exit:
                     with io.open(os.path.join(output_file, "sam.yaml"), "r") as output_file_fp:
                         for line in output_file_fp.readlines():
                             print(line, end='')
                     shutil.rmtree(output_file)
             else:
+                if prune_kwargs is not None:
+                    raise CLIException('Pruning controls are only supported for Foursight stacks.')
                 # Handle 4dn-cloud-infra stacks
                 file_path = cls.write_and_validate_template(stack=stack,
                                                             # NOTE: This function will exit without continuing
@@ -442,6 +458,7 @@ def cli():
                                   dest="upload_change_set",
                                   action='store_true',
                                   help='Uploads template and provisions change set')
+    add_pruning_arguments(parser_provision)
     # TODO: For this and (any/all) other args, we should probably pass the arg values around explicitly
     # rather than treating the args as a sort of global bucket anyone can pick anything from anywhere.
     parser_provision.add_argument("--foursight-identity", dest="foursight_identity", type=str,

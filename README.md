@@ -33,6 +33,11 @@ To get help:
 
     poetry run cli -h
 
+For Foursight Chalice package inspection and pruning controls, see
+`docs/source/pruning_chalice_packages.rst`. The normal provision command is unchanged;
+use `--prune-dry-run`, `--prune-report`, `--prune-variant`, or `--no-prune` only when
+needed.
+
 ## Documentation
 
 See `docs/`.
