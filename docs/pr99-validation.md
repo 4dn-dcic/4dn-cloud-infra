@@ -123,13 +123,22 @@ Validation used a fresh Python 3.10 environment installed from that `poetry.lock
 1.43.108, awscli 1.46.1, foursight-core 5.10.3, cfn-lint 0.86.4), fake credentials, metadata
 disabled, and sockets plus botocore HTTP sends blocked.
 
-- **337 tests passed** (`tests src/tests`, also in reverse order); changed Python files pass flake8;
-  the operator reStructuredText parses without messages.
+- **348 tests passed** (`tests src/tests`, also in reverse order); changed Python files pass flake8
+  (including a pre-existing unused import removed from `datastore.py`); the operator
+  reStructuredText parses without messages.
 - **102 existing-stack templates** (CGAP/Fourfront/SMaHT x standalone/blue-green x S3 encryption
   off/default) are byte-identical before and after the change. Blue/green synthesized here by
   setting `app.deploy` before import.
 - **12 IAM templates** (three apps x disabled, deploy, deploy with SSO settings, all three roles)
-  pass cfn-lint with no findings. Rendered managed policies are 5351/4907/5641 characters (limit
+  pass cfn-lint with no findings. Datastore templates with the deploy role configured (three apps)
+  give exactly the same legacy cfn-lint warnings as the unchanged datastore (10 W3045, 1 W3010)
+  and no errors.
+- Datastore key policy: with the deploy role configured, it adds two statements naming the role
+  (via the IAM stack's `HumanDeployRoleArn` export) and leaves the existing ones unchanged.
+  Every `AWS::KMS::Key` create/read/update action the role performs is allowed by both its IAM
+  policy and the generated key policy, including the `PutKeyPolicy` that the CreateKey lockout
+  check requires. Deletion, disabling, grants and direct encrypt/re-encrypt are not granted. A
+  flag without principals leaves the key policy unchanged. Rendered managed policies are 5351/4907/5641 characters (limit
   6144); the inline guardrail is 3767.
 - Coverage is checked against official AWS data in `tests/data/aws_iam_deploy_reference.json`:
   CloudFormation resource-provider handler permissions for all 47 resource types in the

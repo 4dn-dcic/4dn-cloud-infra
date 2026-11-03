@@ -1,4 +1,3 @@
-import json
 import re
 
 from dcicutils.cloudformation_utils import camelize
@@ -35,7 +34,7 @@ from ..exports import C4DatastoreExportsMixin, C4Exports
 from ..part import C4Part
 from .application_configuration_secrets import ApplicationConfigurationSecrets
 from .network import C4NetworkExports
-from .iam import C4IAMExports
+from .iam import C4IAM, C4IAMExports
 from ..names import Names
 
 
@@ -450,45 +449,51 @@ class C4Datastore(C4DatastoreBase, C4Part):
         """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         logical_id = self.name.logical_id(camelize(env_name) + 'S3EncryptKey')
+        key_policy = {
+            'Version': '2012-10-17',
+            'Statement': [
+                {
+                    'Sid': 'Enable Admin IAM Policies',
+                    'Effect': 'Allow',
+                    'Principal': {
+                        'AWS': [
+                            ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER)
+                        ]
+                    },
+                    'Action': 'kms:*',  # Admins get full access
+                    'Resource': '*'
+                },
+                {
+                    'Sid': 'Allow use of the key',  # NOTE: this identifier must stay the same for tibanna
+                    'Effect': 'Allow',
+                    'Principal': {'AWS': [
+                        Join('', ['arn:aws:iam::', AccountId, ':user/',
+                                  self.IAM_EXPORTS.import_value(C4IAMExports.S3_IAM_USER)]),
+                        # dmichaels/2022-06-17:
+                        # Added to ECS_ASSUMED_IAM_ROLE to allow access to S3 with encrypted account.
+                        Join('', ['arn:aws:iam::', AccountId, ':role/',
+                                  self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)])
+                    ]},
+                    'Action': [
+                        'kms:Encrypt',
+                        'kms:Decrypt',
+                        'kms:ReEncrypt*',
+                        'kms:GenerateDataKey*',
+                        'kms:DescribeKey'
+                    ],
+                    'Resource': '*'
+                }
+            ]
+        }
+        if C4IAM.human_deploy_role_requested():
+            # Opt-in (human_access.deploy.*): name the deployment role so it can create, maintain
+            # and use this key; without it the role's IAM permissions alone are not honoured.
+            key_policy['Statement'].extend(C4IAM.human_deploy_key_policy_statements(
+                self.IAM_EXPORTS.import_value(C4IAMExports.HUMAN_DEPLOY_ROLE_ARN)))
         return Key(
             logical_id,
             Description=f'Key for encrypting sensitive S3 files for {env_name} environment',
-            KeyPolicy={
-                'Version': '2012-10-17',
-                'Statement': [
-                    {
-                        'Sid': 'Enable Admin IAM Policies',
-                        'Effect': 'Allow',
-                        'Principal': {
-                            'AWS': [
-                                ConfigManager.get_config_setting(Settings.DEPLOYING_IAM_USER)
-                            ]
-                        },
-                        'Action': 'kms:*',  # Admins get full access
-                        'Resource': '*'
-                    },
-                    {
-                        'Sid': 'Allow use of the key',  # NOTE: this identifier must stay the same for tibanna
-                        'Effect': 'Allow',
-                        'Principal': {'AWS': [
-                            Join('', ['arn:aws:iam::', AccountId, ':user/',
-                                      self.IAM_EXPORTS.import_value(C4IAMExports.S3_IAM_USER)]),
-                            # dmichaels/2022-06-17:
-                            # Added to ECS_ASSUMED_IAM_ROLE to allow access to S3 with encrypted account.
-                            Join('', ['arn:aws:iam::', AccountId, ':role/',
-                                      self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE)])
-                        ]},
-                        'Action': [
-                            'kms:Encrypt',
-                            'kms:Decrypt',
-                            'kms:ReEncrypt*',
-                            'kms:GenerateDataKey*',
-                            'kms:DescribeKey'
-                        ],
-                        'Resource': '*'
-                    }
-                ]
-            },
+            KeyPolicy=key_policy,
             KeySpec='SYMMETRIC_DEFAULT',  # (AES-256-GCM)
             Tags=self.tags.cost_tag_array()
         )

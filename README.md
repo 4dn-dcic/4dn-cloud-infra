@@ -869,8 +869,9 @@ CloudFormation service role); create and update the resources those templates co
 IAM roles, users and instance profiles whose CloudFormation-generated names start with `c4-`;
 attach only the four AWS managed policies the CodeBuild roles use; pass `c4-*` roles only to
 ECS tasks, EC2, Lambda and CodeBuild (where AWS supplies `iam:PassedToService`); create the
-ECS/ELB/OpenSearch/ElastiCache/RDS service-linked roles; and upload packaged artifacts to
-`*application-versions` buckets in this account.
+ECS/ELB/OpenSearch/ElastiCache/RDS service-linked roles; create and maintain (but not delete or
+disable) the datastore KMS key; and upload packaged artifacts to `*application-versions` buckets
+in this account.
 
 What it cannot do: modify or pass itself, the other human-access roles, `*DevRole` or their
 policies; manage access keys, login profiles, MFA, identity providers, groups, customer managed
@@ -889,15 +890,22 @@ destructive teardown; they do not make deployment low-trust. The deployer can al
 `C4*` secrets, because CloudFormation resolves secret references and secret resources with the
 caller's credentials.
 
-Prerequisites an administrator completes once, because the role cannot grant them to itself:
+Encrypted datastores (the default): KMS requires both the IAM permission and a key-policy grant,
+and the datastore key policy has no account-root statement. When the deploy role is configured,
+the datastore template therefore adds two key-policy statements naming it, imported from the IAM
+stack's `HumanDeployRoleArn` export. One covers key creation and maintenance, including the
+`kms:PutKeyPolicy` that KMS's CreateKey lockout check requires. The other covers data-key use
+through S3 only. Neither grants deletion, disabling or grants, and the `deploying_iam_user`
+statement is unchanged. The role can therefore create a new encrypted datastore once the IAM stack
+is applied.
+
+Prerequisites an administrator completes, because the role cannot grant them to itself:
 
 * Apply the IAM stack with `human_access.deploy.*` enabled, using administrator credentials.
-* KMS needs both IAM and the key policy. The datastore key policy grants `kms:*` only to the
-  `deploying_iam_user` principal (it has no account-root statement). Add the deploy role's ARN
-  to that key's `Enable Admin IAM Policies` statement out of band before the role updates an
-  encrypted datastore or uploads SSE-KMS packages; IAM permissions alone do not suffice.
-* Creating a new encrypted datastore, filling application-configuration secrets
-  (`setup-remaining-secrets`), and the other bootstrap commands are administrator steps.
+* For a datastore key created **before** the role existed, apply one datastore stack update as the
+  key's existing `deploying_iam_user`, to add the statements above.
+* Fill application-configuration secrets (`setup-remaining-secrets`) and run the other bootstrap
+  commands, and clean up after a failed first creation (see the operator guide).
 
 Use `cli provision <stack>` **without** `--upload-change-set` or `--validate` (both run the AWS
 CLI in Docker with only `custom/aws_creds` mounted, so they never see an assumed-role session),

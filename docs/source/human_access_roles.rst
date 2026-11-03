@@ -226,12 +226,29 @@ secret resource handlers with the caller's credentials.
 Teardown, rollback and replacement
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Because those deletes are denied, a change that would replace or remove a data-bearing resource
-cannot destroy it: the replacement fails, or the old resource is left behind and reported as a
-failed cleanup delete. A failed *first* creation leaves ``ROLLBACK_COMPLETE`` or ``ROLLBACK_FAILED``
-stacks that an administrator must delete. ``ContinueUpdateRollback`` is available for an update
-whose rollback stalled. ECS services, EC2 instances, load balancers, network and IAM resources are
-replaced or removed normally.
+*Top-level teardown* is not deployment: ``DeleteStack`` is denied, and deleting a stack is an
+administrator operation. *Resource operations inside a change set* are deployment: CloudFormation
+creates, updates, replaces and, when an operation fails, rolls back resources with the role's
+session. For ECS, EC2, load balancing, network, IAM, CodeBuild, Lambda/API Gateway, alarms and
+RDS/ElastiCache parameter and subnet groups those deletes are allowed, so replacement and rollback
+work normally.
+
+The delete APIs of data-bearing resources are denied even inside rollback. These are RDS instances,
+OpenSearch/Elasticsearch domains, buckets and objects, queues, secrets, the KMS key (deletion and
+disabling), ECR repositories, log groups and Redis replication groups. This deliberately favours
+data retention over automatic cleanup, and leaves these administrator steps:
+
+* An update that replaces or removes one of them creates the new resource. The old one's cleanup
+  delete then fails and the old resource remains.
+* An update that fails after creating a new one cannot roll it back. Use
+  ``ContinueUpdateRollback`` with ``--resources-to-skip`` and have an administrator remove the
+  orphan.
+* A failed *first* creation of a stack containing them (typically the datastore) ends in
+  ``ROLLBACK_FAILED``. An administrator deletes the leftovers (scheduling deletion of a new KMS
+  key) and the stack before retrying.
+
+Successful creates and updates of every supported stack are within the role. Cleanup after these
+failures is not.
 
 Secrets: initial bootstrap versus ordinary deployment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -247,21 +264,39 @@ and deliberate secret-definition changes are administrator operations outside or
 KMS: identity policy and key policy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-KMS requires both an IAM permission and a key-policy grant. The datastore key policy grants
-``kms:*`` only to ``deploying_iam_user`` and has no account-root statement, so the deployment
-role's IAM permissions alone **do not** let it use or manage that key. Before the role updates an
-encrypted datastore stack or uploads SSE-KMS packages, an administrator adds the role's ARN to the
-key's ``Enable Admin IAM Policies`` statement, keeping the existing principals::
+KMS requires both an IAM permission and a key-policy grant, and the datastore key policy has no
+account-root statement (it grants ``kms:*`` only to ``deploying_iam_user``). So when
+``human_access.deploy.*`` builds the role, the IAM stack also exports its ARN
+(``<IAM stack>-HumanDeployRoleArn``). The datastore template then adds two key-policy statements
+naming it:
 
-    aws kms get-key-policy --key-id <s3.encrypt_key_id> --policy-name default --output text > policy.json
-    # add arn:aws:iam::<account-id>:role/<deploy role name> to that statement's Principal.AWS
-    aws kms put-key-policy --key-id <s3.encrypt_key_id> --policy-name default --policy file://policy.json
+``Allow the deployment role to create and maintain the key``
+    ``DescribeKey``, ``GetKeyPolicy``, ``PutKeyPolicy``, ``GetKeyRotationStatus``,
+    ``ListResourceTags``, ``TagResource``, ``UntagResource``, ``UpdateKeyDescription``: what
+    CloudFormation's key handlers call. KMS's lockout safety check requires the principal calling
+    ``CreateKey``, or replacing the policy later, to hold ``PutKeyPolicy`` under the new policy.
+    The template never sets ``BypassPolicyLockoutSafetyCheck``.
+``Allow the deployment role to use the key through S3``
+    ``GenerateDataKey`` and ``Decrypt`` with ``kms:ViaService`` = ``s3.<region>.amazonaws.com``,
+    for SSE-KMS buckets and packaged-artifact uploads/reads.
 
-Leave ``deploying_iam_user`` unchanged: CloudFormation then leaves the key policy alone. A later
-template change to the key policy would replace it, and KMS rejects a policy that locks out its
-caller, so such a change set fails and rolls back. Creating a **new** encrypted datastore (a new
-key) is an administrator bootstrap step for the same reason. ``update-kms-policy`` adds Foursight
-roles to the key's use statement; it does not grant the deployment role.
+They grant no deletion, disabling, grants, rotation changes, or direct encrypt/re-encrypt; the IAM
+policy also denies deletion and disabling. The ``deploying_iam_user`` and ``Allow use of the key``
+statements are unchanged. Without the deploy role, the key policy and every template are byte-for-byte
+unchanged.
+
+* **New encrypted datastore:** apply the IAM stack first. The deploy role can then create the
+  datastore, because the new key policy names it.
+* **Key created before the role existed:** its policy does not name the role, so the role cannot
+  add itself. After enabling the role, the key's ``deploying_iam_user`` applies the datastore stack
+  once; that administrator remains in the policy, so the update passes the lockout check. Later
+  datastore updates can use the role.
+* **Removing the role later:** the datastore imports the export. Have the ``deploying_iam_user``
+  apply the datastore without ``human_access.deploy.*`` first, then the IAM stack. The role cannot
+  remove itself, again because of the lockout check.
+
+``update-kms-policy`` adds Foursight roles to the key's use statement; it does not grant the
+deployment role.
 
 Bootstrap (administrator, once)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -272,7 +307,7 @@ Bootstrap (administrator, once)
    ``arn:aws:iam::<account-id>:role/<that name>``.
 #. Grant each trusted principal ``sts:AssumeRole`` and ``sts:SetSourceIdentity`` on that ARN in its
    own account/permission set.
-#. Complete the KMS prerequisite above if the datastore is encrypted (the default).
+#. If an encrypted datastore already exists, apply it once as its ``deploying_iam_user`` (see KMS).
 #. Changes to ``*DevRole``, the human-access roles or their policies remain administrator operations.
 
 Deploying with the role
@@ -331,10 +366,11 @@ and uses the environment session. The tests pin both behaviours.
 Not covered by the deployment role
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Applying the IAM stack's human-access roles, creating new encrypted datastores, filling secrets,
+Applying the IAM stack's human-access roles, onboarding a pre-existing datastore key, filling secrets,
 ``assure-global-env-bucket`` (writes the env bucket), ``update-kms-policy``, ``update-cors-policy``,
 ``update-sentieon-security``, Tibanna deployment, CodeBuild/ECS deployment-task runs, reference-file
-copies and stack deletion. Those need administrator or runtime credentials. Validate any role
+copies, stack deletion, and cleanup after the failures described under teardown. Those need
+administrator or runtime credentials. Validate any role
 before relying on it: the tests are static, and no live role-based deployment has been run. In
 particular, CloudFormation documents that it uses a temporary session generated from the caller's
 credentials, but not how that interacts with a role session expiring during a long operation such as

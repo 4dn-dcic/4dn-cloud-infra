@@ -295,12 +295,16 @@ def test_older_role_templates_are_unchanged_when_deploy_is_enabled_alongside():
         assert with_deploy['Resources'][logical_id] == resource
 
 
-def test_enabling_deploy_adds_exactly_the_role_its_policies_and_an_unexported_output():
+def test_enabling_deploy_adds_exactly_the_role_its_policies_and_its_outputs():
     template = _deploy_template()
     assert set(template['Resources']) - PRE_EXISTING_RESOURCES == {C4IAM.DEPLOY_ROLE, *DEPLOY_POLICY_IDS}
     added_outputs = set(template['Outputs']) - PRE_EXISTING_OUTPUTS
-    assert added_outputs == {f'C4IAMMain{C4IAM.DEPLOY_ROLE}Name'}
+    assert added_outputs == {f'C4IAMMain{C4IAM.DEPLOY_ROLE}Name', 'C4IAMMainHumanDeployRoleArn'}
     assert 'Export' not in template['Outputs'][f'C4IAMMain{C4IAM.DEPLOY_ROLE}Name']
+    # The ARN is exported for exactly one consumer: the datastore key policy.
+    arn_output = template['Outputs']['C4IAMMainHumanDeployRoleArn']
+    assert arn_output['Value'] == {'Fn::GetAtt': [C4IAM.DEPLOY_ROLE, 'Arn']}
+    assert arn_output['Export'] == {'Name': {'Fn::Sub': '${AWS::StackName}-HumanDeployRoleArn'}}
     # The deploy role does not share (or require) the diagnose/remediate boundary.
     assert 'C4IAMMainHumanAccessBoundary' not in template['Resources']
     assert 'PermissionsBoundary' not in _role(template, C4IAM.DEPLOY_ROLE)
@@ -615,6 +619,109 @@ def test_roles_passed_by_the_templates_go_only_to_the_permitted_services(synthes
     used = {'codebuild.amazonaws.com', 'ec2.amazonaws.com', 'ecs-tasks.amazonaws.com'}
     assert used <= trusted
     assert set(C4IAM.DEPLOY_PASS_ROLE_SERVICES) == used | {'lambda.amazonaws.com'}
+
+
+# ---------------------------------------------------------------------------------------------
+# 4b. The datastore KMS key policy (dual authorization for a new encrypted datastore)
+# ---------------------------------------------------------------------------------------------
+
+DEPLOY_ROLE_ARN = f'arn:aws:iam::{ACCOUNT}:role/c4-iam-main-stack-CGAPInfraDeployRole-1A2B3C4D5E6F7'
+DEPLOYING_IAM_USER = f'arn:aws:iam::{ACCOUNT}:user/administrator'
+
+
+def _datastore_template(**overrides) -> dict:
+    """ The real datastore stack (encryption on, the default) under the CI config plus overrides. """
+    config = dict(ConfigManager.singleton()._get_config(), **SYNTHESIS_EXTRAS,
+                  **{Settings.DEPLOYING_IAM_USER: DEPLOYING_IAM_USER}, **overrides)
+    config.pop(Settings.S3_BUCKET_ENCRYPTION, None)
+    with _registered_stacks(), \
+            mock.patch.object(ConfigManager.singleton(), '_CACHED_CONFIG', config), \
+            mock.patch.object(ConfigManager, 'find_stack_output', return_value='offline-value'), \
+            mock.patch.object(ApplicationConfigurationSecrets, 'get_es_url',
+                              return_value='offline.example.invalid'):
+        creator = base.REGISTERED_STACKS['alpha']['datastore']
+        return creator(account=C4Account(account_number=ACCOUNT, creds_file='/dev/null')).template.to_dict()
+
+
+def _key(template: dict) -> dict:
+    [key] = [r['Properties'] for r in template['Resources'].values() if r['Type'] == 'AWS::KMS::Key']
+    return key
+
+
+def _key_policy_for(principal_arn: str, key: dict) -> list:
+    """ Key-policy statements naming the principal, with the IAM-stack import resolved to it. """
+    import_value = {'Fn::ImportValue': {'Fn::Sub': '${IAMStackNameParameter}-HumanDeployRoleArn'}}
+    statements = []
+    for statement in key['KeyPolicy']['Statement']:
+        principals = [principal_arn if p == import_value else p
+                      for p in _as_list(statement['Principal']['AWS'])]
+        if principal_arn in principals:
+            statements.append({k: v for k, v in statement.items() if k != 'Principal'})
+    return statements
+
+
+def _datastore_deploy_config():
+    """ ENABLED_DEPLOY as config.json values (ConfigManager stringifies JSON values). """
+    return {key: str(value).lower() if isinstance(value, bool) else value
+            for key, value in ENABLED_DEPLOY.items()}
+
+
+def test_datastore_key_policy_is_unchanged_unless_the_deploy_role_is_built():
+    baseline = _key(_datastore_template())
+    assert [s['Sid'] for s in baseline['KeyPolicy']['Statement']] == [
+        'Enable Admin IAM Policies', 'Allow use of the key']
+    # A flag without principals builds no role, so the key policy must not import one either.
+    assert _key(_datastore_template(**{Settings.HUMAN_ACCESS_DEPLOY_ENABLED: 'true'})) == baseline
+    assert _key(_datastore_template(**{Settings.HUMAN_ACCESS_DEPLOY_PRINCIPALS: DEPLOYERS})) == baseline
+
+
+def test_datastore_key_policy_names_the_deploy_role_and_keeps_existing_principals():
+    baseline = _key(_datastore_template())
+    template = _datastore_template(**_datastore_deploy_config())
+    key = _key(template)
+    statements = key['KeyPolicy']['Statement']
+    assert statements[:2] == baseline['KeyPolicy']['Statement']  # deploying_iam_user etc. untouched
+    assert statements[0]['Principal'] == {'AWS': [DEPLOYING_IAM_USER]} and statements[0]['Action'] == 'kms:*'
+    assert len(statements) == 4
+    # The import resolves to the export the IAM stack creates for the role.
+    assert 'IAMStackNameParameter' in template['Parameters']
+    iam_export = _deploy_template()['Outputs']['C4IAMMainHumanDeployRoleArn']['Export']['Name']['Fn::Sub']
+    for statement in statements[2:]:
+        assert statement['Principal']['AWS'] == [
+            {'Fn::ImportValue': {'Fn::Sub': iam_export.replace('AWS::StackName', 'IAMStackNameParameter')}}]
+    # No lockout bypass: KMS's safety check stays in force for every caller.
+    assert 'BypassPolicyLockoutSafetyCheck' not in key
+
+
+def test_new_datastore_key_is_creatable_and_maintainable_by_the_deploy_role():
+    """ Every AWS::KMS::Key handler action the role is meant to perform must be allowed by BOTH its
+        IAM policy and the generated key policy. PutKeyPolicy is what KMS's CreateKey lockout check
+        requires the creating principal to hold under the new policy.
+    """
+    key_statements = _key_policy_for(DEPLOY_ROLE_ARN, _key(_datastore_template(**_datastore_deploy_config())))
+    key_arn = f'arn:aws:kms:{REGION}:{ACCOUNT}:key/abcd'
+    handlers = REFERENCE['handler_permissions']['AWS::KMS::Key']
+    needed = {a for operation in ('create', 'read', 'update') for a in handlers[operation]
+              if not _not_granted_reason(a)}
+    assert 'kms:PutKeyPolicy' in needed and 'kms:CreateKey' in needed
+    for action in sorted(needed - {'kms:CreateKey'}):  # CreateKey is IAM-only: no key exists yet
+        assert _decide(action, key_arn, statements=key_statements) == 'allow', f'key policy: {action}'
+        assert _decide(action, key_arn) == 'allow', f'IAM: {action}'
+    assert _decide('kms:CreateKey', '*') == 'allow'
+    via_s3 = {'kms:ViaService': f's3.{REGION}.amazonaws.com'}
+    for action in ('kms:GenerateDataKey', 'kms:Decrypt'):
+        assert _decide(action, key_arn, via_s3, statements=key_statements) == 'allow'
+        assert _decide(action, key_arn, via_s3) == 'allow'
+        assert _decide(action, key_arn, statements=key_statements) == 'implicit-deny'
+
+
+@pytest.mark.parametrize('action', ['kms:ScheduleKeyDeletion', 'kms:DisableKey', 'kms:CreateGrant',
+                                    'kms:Encrypt', 'kms:ReEncryptFrom', 'kms:ReplicateKey',
+                                    'kms:ImportKeyMaterial', 'kms:CancelKeyDeletion'])
+def test_key_policy_grants_the_deploy_role_no_key_administration_beyond_deployment(action):
+    key_statements = _key_policy_for(DEPLOY_ROLE_ARN, _key(_datastore_template(**_datastore_deploy_config())))
+    assert _decide(action, f'arn:aws:kms:{REGION}:{ACCOUNT}:key/abcd',
+                   {'kms:ViaService': f's3.{REGION}.amazonaws.com'}, statements=key_statements) != 'allow'
 
 
 # ---------------------------------------------------------------------------------------------

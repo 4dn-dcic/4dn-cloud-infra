@@ -10,7 +10,7 @@ from awacs.ecr import (
     BatchGetImage,
     BatchCheckLayerAvailability,
 )
-from troposphere import Region, AccountId, Template, Ref, Output, Join
+from troposphere import Region, AccountId, Template, Ref, Output, Join, GetAtt
 from troposphere.iam import Role, InstanceProfile, ManagedPolicy, Policy, User, AccessKey
 from ..base import ConfigManager, Settings
 from ..constants import C4IAMBase, COMMON_STACK_PREFIX
@@ -32,6 +32,8 @@ class C4IAMExports(C4Exports):
     AUTOSCALING_IAM_ROLE = exportify('ECSAutoscalingIAMRole')  # was 'ExportECSAutoscalingIAMRole'
     DEV_IAM_ROLE = exportify('ECSDevUserRole')
     S3_IAM_USER = exportify('ECSS3IAMUser')  # was 'ExportECSS3IAMUser'
+    # Only exported when the opt-in deployment role is built; the datastore key policy imports it.
+    HUMAN_DEPLOY_ROLE_ARN = exportify('HumanDeployRoleArn')
 
     def __init__(self):
         parameter = 'IAMStackNameParameter'
@@ -1838,9 +1840,9 @@ class C4IAM(C4IAMBase, C4Part):
                     'Resource': cls._service_arn('codebuild', 'project/*'),
                 },
                 {
-                    # KMS keys also require their key policy to name this role: the datastore
-                    # key's policy grants kms:* only to `deploying_iam_user`. IAM alone is not
-                    # sufficient (see docs/source/human_access_roles.rst).
+                    # KMS also requires the key policy to name this role. The datastore key
+                    # policy does so when this role is configured (human_deploy_key_policy_
+                    # statements); keys created before that need one administrator update.
                     'Sid': 'MaintainDatastoreKeys',
                     'Effect': 'Allow',
                     'Action': [
@@ -2042,14 +2044,13 @@ class C4IAM(C4IAMBase, C4Part):
             is on and human_access.deploy.trusted_principals is non-empty. Independent of the
             diagnose/remediate switches and principal lists.
         """
-        if not self._human_access_flag(Settings.HUMAN_ACCESS_DEPLOY_ENABLED):
+        if not self.human_deploy_role_requested():
+            if self._human_access_flag(Settings.HUMAN_ACCESS_DEPLOY_ENABLED):
+                logger.warning(f'{Settings.HUMAN_ACCESS_DEPLOY_ENABLED} is on but'
+                               f' {Settings.HUMAN_ACCESS_DEPLOY_PRINCIPALS} is empty;'
+                               f' not creating {self.DEPLOY_ROLE}.')
             return template
         principals = self._human_access_list(Settings.HUMAN_ACCESS_DEPLOY_PRINCIPALS)
-        if not principals:
-            logger.warning(f'{Settings.HUMAN_ACCESS_DEPLOY_ENABLED} is on but'
-                           f' {Settings.HUMAN_ACCESS_DEPLOY_PRINCIPALS} is empty;'
-                           f' not creating {self.DEPLOY_ROLE}.')
-            return template
         self.check_protected_names_fit(self.name.stack_name)
         policies = self.human_deploy_managed_policies()
         for policy in policies:
@@ -2057,7 +2058,59 @@ class C4IAM(C4IAMBase, C4Part):
         role = self.human_deploy_role(principals, policies)
         template.add_resource(role)
         template.add_output(self.output_human_access_role(role))
+        # Exported (unlike the other human-access outputs) because the datastore stack's KMS key
+        # policy must name this role; see human_deploy_key_policy_statements.
+        template.add_output(Output(
+            self.name.logical_id(C4IAMExports.HUMAN_DEPLOY_ROLE_ARN),
+            Description=f'ARN of the {role.title} deployment role, for the datastore key policy',
+            Value=GetAtt(role, 'Arn'),
+            Export=self.EXPORTS.export(C4IAMExports.HUMAN_DEPLOY_ROLE_ARN),
+        ))
         return template
+
+    @classmethod
+    def human_deploy_role_requested(cls) -> bool:
+        """ True when config builds the deployment role: its flag is on and its own principal
+            list is non-empty. Other stacks (the datastore key policy) use the same predicate.
+        """
+        return (cls._human_access_flag(Settings.HUMAN_ACCESS_DEPLOY_ENABLED)
+                and bool(cls._human_access_list(Settings.HUMAN_ACCESS_DEPLOY_PRINCIPALS)))
+
+    # KMS key-policy grants for the deployment role on the datastore key. Deliberately not kms:*:
+    # what CloudFormation's AWS::KMS::Key handlers call to create and update the key - PutKeyPolicy
+    # is what KMS's lockout safety check requires of the caller of CreateKey - plus envelope
+    # encryption through S3 for SSE-KMS buckets and packaged artifacts. Deletion, disabling, grants
+    # and direct encrypt/re-encrypt are absent (and deletion/disabling are denied in IAM too).
+    DEPLOY_KEY_MAINTENANCE_ACTIONS = (
+        'kms:DescribeKey', 'kms:GetKeyPolicy', 'kms:PutKeyPolicy', 'kms:GetKeyRotationStatus',
+        'kms:ListResourceTags', 'kms:TagResource', 'kms:UntagResource', 'kms:UpdateKeyDescription',
+    )
+    DEPLOY_KEY_USE_ACTIONS = ('kms:GenerateDataKey', 'kms:Decrypt')
+
+    @classmethod
+    def human_deploy_key_policy_statements(cls, deploy_role_arn) -> list:
+        """ Statements added to a datastore key policy when the deployment role is configured.
+            The key policy has no account-root statement, so the role needs these in addition to
+            its IAM permissions (KMS dual authorization).
+        """
+        return [
+            {
+                'Sid': 'Allow the deployment role to create and maintain the key',
+                'Effect': 'Allow',
+                'Principal': {'AWS': [deploy_role_arn]},
+                'Action': list(cls.DEPLOY_KEY_MAINTENANCE_ACTIONS),
+                'Resource': '*',
+            },
+            {
+                'Sid': 'Allow the deployment role to use the key through S3',
+                'Effect': 'Allow',
+                'Principal': {'AWS': [deploy_role_arn]},
+                'Action': list(cls.DEPLOY_KEY_USE_ACTIONS),
+                'Resource': '*',
+                'Condition': {'StringEquals': {
+                    'kms:ViaService': Join('.', ['s3', Region, 'amazonaws.com'])}},
+            },
+        ]
 
     def output_human_access_role(self, role: Role) -> Output:
         """ Outputs a human-access role name. Not exported: no other stack consumes these, and an
