@@ -10,10 +10,13 @@ are introduced; outputs contain generated role names, not credentials.
 This is a direct-API permission model, **not a sandbox or an information-flow boundary**.
 Review the retained delegation and credential-exposure risks below before enabling it.
 
+A third, independently enabled role, ``*InfraDeployRole``, deploys the stacks themselves; see
+`Deployment role`_. The sections before it describe the diagnosis and remediation roles.
+
 Configuration and trust
 -----------------------
 
-Set these in ``template.config.json`` (replace placeholders before use)::
+Set these in ``custom/config.json`` (replace placeholders before use)::
 
     "human_access.diagnose.enabled": true,
     "human_access.diagnose.trusted_principals": "arn:aws:iam::<account-id>:user/alice",
@@ -140,3 +143,203 @@ Use the mock config from ``.github/workflows/main.yml`` and locked dependencies 
 Run ``pytest tests src/tests`` and local ``cfn-lint`` on synthesized templates without AWS
 credentials/network access. **Do not use ``make alpha`` for offline validation**: it invokes
 CloudFormation validation against AWS. No infrastructure is applied by these tests.
+
+Deployment role
+---------------
+
+``*InfraDeployRole`` deploys the infrastructure this repository defines: the ``c4-*`` stacks
+that ``cli provision <stack>`` synthesizes and the Foursight package ``cli provision foursight*``
+builds, through reviewed CloudFormation change sets. It is a separate trust decision, so it has
+its own switches and never reuses the diagnose/remediate principals::
+
+    "human_access.deploy.enabled": true,
+    "human_access.deploy.trusted_principals": "arn:aws:iam::<account-id>:role/<ApprovedDeployers>"
+
+Without both, nothing is added. Trust, MFA, source identity and ``human_access.require_mfa`` /
+``human_access.source_identity_pattern`` behave as described above. The session ceiling is one hour.
+The role's allows are three customer managed policies created alongside it (the documents exceed a
+role's inline-policy quota); its denies are an inline policy. It has no permissions boundary and
+does not use the diagnose/remediate boundary, which denies the CloudFormation and IAM writes that
+deployment needs. ``tests/test_human_deploy_role.py`` documents every decision below.
+
+Scope and rationale
+~~~~~~~~~~~~~~~~~~~
+
+Synthesis (``cli provision <stack>``)
+    ``cloudformation:DescribeStacks`` for the exported outputs the templates read.
+Change set (``aws cloudformation deploy --no-execute-changeset``)
+    ``DescribeStacks``, ``GetTemplateSummary``, ``CreateChangeSet`` on ``c4-*`` stacks and the
+    ``Serverless-2016-10-31`` transform (a CloudFormation service role is refused), ``DescribeChangeSet``.
+Review, execute, recover
+    ``ExecuteChangeSet``, ``DeleteChangeSet``, ``CancelUpdateStack``, ``ContinueUpdateRollback``.
+Foursight package upload (``aws cloudformation package``/``deploy --s3-bucket``)
+    ``s3:PutObject``/``GetObject`` on ``*application-versions`` buckets in this account;
+    ``kms:GenerateDataKey``/``Decrypt`` only through S3.
+Resources in the templates
+    The create/read/update actions each resource type's CloudFormation handler declares, limited
+    to the properties these templates set.
+Generated identities
+    IAM roles, users and instance profiles named ``c4-*``; the four AWS managed policies the
+    CodeBuild roles attach; ``iam:PassRole`` of ``c4-*`` roles to ECS tasks, EC2, Lambda and
+    CodeBuild; six service-linked roles.
+
+Every CloudFormation handler permission for every resource type in the synthesized templates (plus
+the Foursight SAM resources) is either granted or explicitly excluded in the tests, with a reason:
+an invalid name in AWS's own handler metadata, a feature the templates never set, a destructive
+delete, or identity administration. The handler and action data are official AWS downloads stored
+in ``tests/data/aws_iam_deploy_reference.json``.
+
+Resource-authorized actions use account/region service ARNs, as for the other roles. Two
+scopes are narrower because the CLI's naming allows it: CloudFormation writes are limited to
+``c4-*`` stacks, and IAM writes to ``c4-*`` generated names. Buckets have no account in their ARN, so
+bucket configuration applies to any bucket the account can reach; package objects additionally
+require ``s3:ResourceAccount``. Inventory/discovery reads and the few writes AWS authorizes only
+against ``*`` (``kms:CreateKey``/``TagResource``, ``secretsmanager:GetRandomPassword``, CodeBuild
+source credentials, ECS task-definition registration) are region-pinned. This is a deliberately
+small action set for this repository's templates, **not** a proven minimum: the tests are static,
+and a property you add later may need a handler permission that was excluded as unused.
+
+Escalation and what the guardrail does and does not stop
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Deployment writes IAM roles with arbitrary inline policies and hands them to services that run
+code; the Foursight Lambda role (``.chalice/policy-*.json``) is itself very broad. **Anyone who can
+deploy can obtain any permission a ``c4-*`` runtime role can be given.** Treat deployers as
+account administrators for application resources. The inline guardrail denies:
+
+* changes to, or passing of, this role, ``*DevDiagnoseRole``, ``*PowerRemediateRole``, ``*DevRole``,
+  the human-access boundary and the ``InfraDeploy`` policies (generated names are matched by their
+  logical-id token; synthesis refuses an IAM stack name long enough to truncate it);
+* access keys, login profiles, MFA, identity providers, groups, customer managed policies,
+  permissions boundaries, SSO, Organizations, billing, and ``sts:AssumeRole``/``GetFederationToken``;
+* running workloads directly: Lambda invocation, ECS run/exec, CodeBuild/Step Functions starts,
+  SSM sessions/commands, image pushes, search-index HTTP and queue message APIs;
+* teardown: ``DeleteStack`` and deletion of RDS instances, OpenSearch/Elasticsearch domains, buckets
+  and objects, queues, secrets, KMS keys (and disabling them), ECR repositories, log groups and Redis
+  replication groups;
+* secret writes other than the RDS secret's endpoint attachment, and every secret payload rewrite;
+* requests outside the deployment region (global services excepted, as for the other roles).
+
+Deployers can read the ``C4*`` secrets: CloudFormation resolves secret references and runs the
+secret resource handlers with the caller's credentials.
+
+Teardown, rollback and replacement
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Because those deletes are denied, a change that would replace or remove a data-bearing resource
+cannot destroy it: the replacement fails, or the old resource is left behind and reported as a
+failed cleanup delete. A failed *first* creation leaves ``ROLLBACK_COMPLETE`` or ``ROLLBACK_FAILED``
+stacks that an administrator must delete. ``ContinueUpdateRollback`` is available for an update
+whose rollback stalled. ECS services, EC2 instances, load balancers, network and IAM resources are
+replaced or removed normally.
+
+Secrets: initial bootstrap versus ordinary deployment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+CloudFormation owns a secret's whole ``SecretString``. Updating it replaces the payload, wiping
+values operators filled in after creation. The deployment role may *create* the application
+configuration secret (initial bootstrap, with ``XXX: ENTER VALUE`` placeholders) and the RDS secret
+with its generated password and endpoint attachment. It cannot call ``UpdateSecret``, so any later
+change set that would rewrite a secret's payload or description fails at that resource and rolls
+back, leaving the filled values intact. Filling values (``setup-remaining-secrets``, the console)
+and deliberate secret-definition changes are administrator operations outside ordinary deployment.
+
+KMS: identity policy and key policy
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+KMS requires both an IAM permission and a key-policy grant. The datastore key policy grants
+``kms:*`` only to ``deploying_iam_user`` and has no account-root statement, so the deployment
+role's IAM permissions alone **do not** let it use or manage that key. Before the role updates an
+encrypted datastore stack or uploads SSE-KMS packages, an administrator adds the role's ARN to the
+key's ``Enable Admin IAM Policies`` statement, keeping the existing principals::
+
+    aws kms get-key-policy --key-id <s3.encrypt_key_id> --policy-name default --output text > policy.json
+    # add arn:aws:iam::<account-id>:role/<deploy role name> to that statement's Principal.AWS
+    aws kms put-key-policy --key-id <s3.encrypt_key_id> --policy-name default --policy file://policy.json
+
+Leave ``deploying_iam_user`` unchanged: CloudFormation then leaves the key policy alone. A later
+template change to the key policy would replace it, and KMS rejects a policy that locks out its
+caller, so such a change set fails and rolls back. Creating a **new** encrypted datastore (a new
+key) is an administrator bootstrap step for the same reason. ``update-kms-policy`` adds Foursight
+roles to the key's use statement; it does not grant the deployment role.
+
+Bootstrap (administrator, once)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#. Set the two ``human_access.deploy.*`` values above, run ``poetry run cli provision iam``, and apply
+   the IAM stack with administrator credentials. The deploy role cannot create or change itself.
+#. Read the ``C4IAMMain<App>InfraDeployRoleName`` output; the role ARN is
+   ``arn:aws:iam::<account-id>:role/<that name>``.
+#. Grant each trusted principal ``sts:AssumeRole`` and ``sts:SetSourceIdentity`` on that ARN in its
+   own account/permission set.
+#. Complete the KMS prerequisite above if the datastore is encrypted (the default).
+#. Changes to ``*DevRole``, the human-access roles or their policies remain administrator operations.
+
+Deploying with the role
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Assume the role with MFA and a source identity, export the session, and confirm it::
+
+    aws sts assume-role --role-arn arn:aws:iam::<account-id>:role/<deploy role name> \
+        --role-session-name <you>-deploy --source-identity <you@example.org> \
+        --serial-number <mfa device arn> --token-code <code> --duration-seconds 3600
+    export AWS_ACCESS_KEY_ID=<AccessKeyId> AWS_SECRET_ACCESS_KEY=<SecretAccessKey> \
+        AWS_SESSION_TOKEN=<SessionToken> AWS_DEFAULT_REGION=<region>
+    unset AWS_PROFILE
+    aws sts get-caller-identity    # must show assumed-role/<deploy role name>/...
+
+Do not source a ``custom/aws_creds/test_creds.sh`` that exports other keys afterwards. Then, for a
+``c4-*`` stack::
+
+    poetry run cli provision <stack>          # no --upload-change-set, no --validate
+    # prints: Wrote template to .../out/templates/<stack name>-<timestamp>-<md5>.yml
+    poetry run aws cloudformation deploy --no-execute-changeset \
+        --template-file out/templates/<file>.yml --stack-name <stack name> --capabilities CAPABILITY_IAM \
+        --parameter-overrides NetworkStackNameParameter=<network stack> \
+            ECRStackNameParameter=c4-ecr-main-stack IAMStackNameParameter=c4-iam-main-stack \
+            LoggingStackNameParameter=c4-logging-main-stack
+    aws cloudformation describe-change-set --change-set-name <change set ARN printed above>
+    aws cloudformation execute-change-set --change-set-name <change set ARN>
+
+These are the overrides ``--upload-change-set`` passes; ``aws cloudformation deploy`` ignores those
+a template does not declare. The network stack is ``c4-network-main-stack`` for every app kind.
+
+For Foursight, package without uploading, then upload and create the change set with the session.
+Use the ``*application-versions`` bucket and, when encryption is on, ``s3.encrypt_key_id`` (the
+bucket policy rejects uploads without SSE-KMS)::
+
+    poetry run cli provision <foursight stack> --stage prod --output-file out/foursight-prod-tmp/ \
+        [--foursight-identity <GAC name>]
+    poetry run aws cloudformation package --template-file out/foursight-prod-tmp/sam.yaml \
+        --s3-bucket <...-application-versions> --kms-key-id <s3.encrypt_key_id> \
+        --output-template-file out/foursight-prod-tmp/sam-packaged.yaml
+    poetry run aws cloudformation deploy --no-execute-changeset \
+        --template-file out/foursight-prod-tmp/sam-packaged.yaml --stack-name <foursight stack name> \
+        --s3-bucket <...-application-versions> --kms-key-id <s3.encrypt_key_id> --capabilities CAPABILITY_IAM
+
+then review and execute the change set as above. A ``foursight.application_version_bucket`` whose
+name does not end in ``application-versions`` is outside the role's upload scope.
+
+Why not ``--upload-change-set``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``--upload-change-set`` and ``--validate`` run ``amazon/aws-cli`` in Docker with only
+``custom/aws_creds`` mounted and no environment forwarded, so they use whatever long-lived
+credentials that directory holds, never the assumed-role session. Synthesis itself runs in-process
+and uses the environment session. The tests pin both behaviours.
+
+Not covered by the deployment role
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Applying the IAM stack's human-access roles, creating new encrypted datastores, filling secrets,
+``assure-global-env-bucket`` (writes the env bucket), ``update-kms-policy``, ``update-cors-policy``,
+``update-sentieon-security``, Tibanna deployment, CodeBuild/ECS deployment-task runs, reference-file
+copies and stack deletion. Those need administrator or runtime credentials. Validate any role
+before relying on it: the tests are static, and no live role-based deployment has been run. In
+particular, CloudFormation documents that it uses a temporary session generated from the caller's
+credentials, but not how that interacts with a role session expiring during a long operation such as
+datastore creation; start long change sets early in a fresh session.
+
+Operator checks before use: ``aws iam simulate-principal-policy --policy-source-arn <deploy role ARN>
+--action-names cloudformation:CreateChangeSet iam:CreateRole --resource-arns <arns>`` for the
+operations you plan, and a first change set on a non-production stack.

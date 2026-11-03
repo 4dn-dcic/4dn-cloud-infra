@@ -135,11 +135,12 @@ class Settings:
     # Human direct-AWS-access role options (see C4IAM.human_diagnose_role/human_remediate_role).
     #
     # Every setting in this block is off or empty by default: with none of them present in
-    # template.config.json the IAM stack is byte-for-byte what it was before, so enabling any of
-    # this is always a deliberate act. Two independent roles can be turned on:
+    # custom/config.json the IAM stack is byte-for-byte what it was before, so enabling any of
+    # this is always a deliberate act. Three independent roles can be turned on:
     #
     #   diagnose  - read-only inspection of the running system
     #   remediate - the reversible operational actions needed to remediate those services
+    #   deploy    - CloudFormation change-set deployment of this repository's stacks
     #
     # A role is only emitted when its enable flag is on AND its trusted-principal list is
     # non-empty; there is deliberately no account-root trust fallback.
@@ -169,6 +170,12 @@ class Settings:
     # SSE-KMS bucket. Off by default: at service scope this reaches any key in the account whose
     # key policy authorizes the role, including through delegation to account IAM policies.
     HUMAN_ACCESS_DIAGNOSE_ALLOW_KMS_DECRYPT = 'human_access.diagnose.allow_kms_decrypt'
+
+    # A third, separately opted-in role that can deploy this repository's CloudFormation stacks
+    # (see C4IAM.human_deploy_role). It has its own enable flag and its own principal list, so
+    # enabling diagnose/remediate - or reusing their principal lists - never grants deployment.
+    HUMAN_ACCESS_DEPLOY_ENABLED = 'human_access.deploy.enabled'
+    HUMAN_ACCESS_DEPLOY_PRINCIPALS = 'human_access.deploy.trusted_principals'
 
 
 # dmichaels/2022-06-06: Factored out from base.py.
@@ -215,6 +222,7 @@ class C4IAMBase:
     # operators should request 1800 seconds for remediation, but that is guidance, not enforcement.
     HUMAN_ACCESS_DIAGNOSE_SESSION_DURATION = 3600
     HUMAN_ACCESS_REMEDIATE_SESSION_DURATION = 3600
+    HUMAN_ACCESS_DEPLOY_SESSION_DURATION = 3600
 
 
 # dmichaels/2022-07-05: Factored out from sentieon.py.

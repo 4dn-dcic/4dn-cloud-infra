@@ -115,3 +115,31 @@ current base after two fixture approaches. This is a documented synthetic-valida
 not evidence warranting a repository/guard change. Foursight packaging was not attempted
 because it requires deployed exports/infrastructure. Neither optional path is represented
 as validated by the supported IAM matrix or by the unit suite.
+
+## Deployment role (`*InfraDeployRole`) validation
+
+Branch reconciled with current `master` (`646d333`, Chalice pruning and lock update) by merge.
+Validation used a fresh Python 3.10 environment installed from that `poetry.lock` (boto3/botocore
+1.43.108, awscli 1.46.1, foursight-core 5.10.3, cfn-lint 0.86.4), fake credentials, metadata
+disabled, and sockets plus botocore HTTP sends blocked.
+
+- **337 tests passed** (`tests src/tests`, also in reverse order); changed Python files pass flake8;
+  the operator reStructuredText parses without messages.
+- **102 existing-stack templates** (CGAP/Fourfront/SMaHT x standalone/blue-green x S3 encryption
+  off/default) are byte-identical before and after the change. Blue/green synthesized here by
+  setting `app.deploy` before import.
+- **12 IAM templates** (three apps x disabled, deploy, deploy with SSO settings, all three roles)
+  pass cfn-lint with no findings. Rendered managed policies are 5351/4907/5641 characters (limit
+  6144); the inline guardrail is 3767.
+- Coverage is checked against official AWS data in `tests/data/aws_iam_deploy_reference.json`:
+  CloudFormation resource-provider handler permissions for all 47 resource types in the
+  synthesized templates and the Foursight SAM output, and the AWS Policy Generator action and
+  condition-key catalogue. Every handler permission is granted or excluded with a reason; 14
+  handler-declared names are not IAM actions at all and are recorded as such.
+- The AWS CLI's own change-set and S3-upload code was driven against stubbed clients with
+  role-shaped (`ASIA…` + session token) credentials; `--upload-change-set` was confirmed to use only
+  the Docker-mounted `custom/aws_creds` directory.
+
+Not validated: any live AWS call, role assumption or deployment; Foursight `chalice package`
+(needs deployed exports and package downloads; its resource types are listed from Chalice/SAM);
+behaviour of CloudFormation when a role session expires during a long stack operation.
