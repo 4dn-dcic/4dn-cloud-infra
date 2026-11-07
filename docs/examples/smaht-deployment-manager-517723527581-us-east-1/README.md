@@ -51,6 +51,21 @@ holding it any change to `policy/*InfraDeploy*`, so a deployer cannot rewrite th
 Nothing here applies itself. This guide creates no IAM role, trust policy or assignment, and you
 must not edit the `AWSReservedSSO_SMaHT-Deployment-Manager_*` role directly; Identity Center owns it.
 
+## Credentials and Region for the commands below
+
+Every command below names `--region us-east-1` explicitly; don't rely on a profile's default
+Region. Run each one with credentials for the account it targets:
+
+- **Member-account IAM steps:** account 517723527581.
+- **`sso-admin` steps:** the Identity Center management or delegated administrator account.
+  us-east-1 is the Identity Center Region here: the role's ARN path has no Region segment, which
+  per AWS means the identity source is hosted in us-east-1.
+
+Get credentials the way you already do, for example by copying fresh credentials for the right
+account and permission set from the AWS access portal into your shell. `aws sso login --profile
+<profile>` is an option only if that local profile is already configured for IAM Identity Center.
+The policy files themselves don't depend on any local CLI setup, and the console steps need none.
+
 ## Step 0 - confirm the permission set is used only in this account
 
 In the IAM Identity Center console, open **Multi-account permissions → Permission sets →
@@ -67,13 +82,13 @@ In the IAM Identity Center console, open **Multi-account permissions → Permiss
 Run these as an IAM administrator in account 517723527581, from this directory:
 
 ```bash
-aws iam create-policy --path / --policy-name SMaHTInfraDeployStackPolicy \
+aws iam create-policy --region us-east-1 --path / --policy-name SMaHTInfraDeployStackPolicy \
     --policy-document file://SMaHTInfraDeployStackPolicy.json \
     --description "Deployment role: CloudFormation change sets and generated runtime identities."
-aws iam create-policy --path / --policy-name SMaHTInfraDeployComputePolicy \
+aws iam create-policy --region us-east-1 --path / --policy-name SMaHTInfraDeployComputePolicy \
     --policy-document file://SMaHTInfraDeployComputePolicy.json \
     --description "Deployment role: network, instances, load balancing, ECS, Foursight serverless."
-aws iam create-policy --path / --policy-name SMaHTInfraDeployDataPolicy \
+aws iam create-policy --region us-east-1 --path / --policy-name SMaHTInfraDeployDataPolicy \
     --policy-document file://SMaHTInfraDeployDataPolicy.json \
     --description "Deployment role: datastores, keys, secrets, buckets, artifacts, registries, builds."
 ```
@@ -84,7 +99,7 @@ exactly these names, with path `/`.
 To update a policy later, regenerate the bundle, then run:
 
 ```bash
-aws iam create-policy-version --set-as-default \
+aws iam create-policy-version --region us-east-1 --set-as-default \
     --policy-arn arn:aws:iam::517723527581:policy/SMaHTInfraDeployStackPolicy \
     --policy-document file://SMaHTInfraDeployStackPolicy.json
 ```
@@ -119,13 +134,13 @@ To do this from the API, look up the identifiers instead of typing them; this gu
 assume them:
 
 ```bash
-INSTANCE_ARN=$(aws sso-admin list-instances --query 'Instances[0].InstanceArn' --output text)
-for ps in $(aws sso-admin list-permission-sets --instance-arn "$INSTANCE_ARN" --query 'PermissionSets[]' --output text); do
-  name=$(aws sso-admin describe-permission-set --instance-arn "$INSTANCE_ARN" --permission-set-arn "$ps" \
+INSTANCE_ARN=$(aws sso-admin list-instances --region us-east-1 --query 'Instances[0].InstanceArn' --output text)
+for ps in $(aws sso-admin list-permission-sets --region us-east-1 --instance-arn "$INSTANCE_ARN" --query 'PermissionSets[]' --output text); do
+  name=$(aws sso-admin describe-permission-set --region us-east-1 --instance-arn "$INSTANCE_ARN" --permission-set-arn "$ps" \
          --query 'PermissionSet.Name' --output text)
   [ "$name" = "SMaHT-Deployment-Manager" ] && PERMISSION_SET_ARN=$ps
 done
-aws sso-admin provision-permission-set --instance-arn "$INSTANCE_ARN" \
+aws sso-admin provision-permission-set --region us-east-1 --instance-arn "$INSTANCE_ARN" \
     --permission-set-arn "$PERMISSION_SET_ARN" --target-type AWS_ACCOUNT --target-id 517723527581
 ```
 
@@ -138,11 +153,12 @@ As the IAM administrator in 517723527581, list the role's policies. The role is 
 `/aws-reserved/sso.amazonaws.com/`.
 
 ```bash
-ROLE=$(aws iam list-roles --path-prefix /aws-reserved/sso.amazonaws.com/ \
+ROLE=$(aws iam list-roles --region us-east-1 --path-prefix /aws-reserved/sso.amazonaws.com/ \
        --query "Roles[?starts_with(RoleName, 'AWSReservedSSO_SMaHT-Deployment-Manager_')].RoleName" --output text)
-aws iam list-attached-role-policies --role-name "$ROLE"   # exactly the three SMaHTInfraDeploy* policies
-aws iam list-role-policies --role-name "$ROLE"            # AwsSSOInlinePolicy
-aws iam simulate-principal-policy --policy-source-arn "$(aws iam get-role --role-name "$ROLE" --query Role.Arn --output text)" \
+aws iam list-attached-role-policies --region us-east-1 --role-name "$ROLE"   # exactly the three SMaHTInfraDeploy* policies
+aws iam list-role-policies --region us-east-1 --role-name "$ROLE"            # AwsSSOInlinePolicy
+aws iam simulate-principal-policy --region us-east-1 \
+    --policy-source-arn "$(aws iam get-role --region us-east-1 --role-name "$ROLE" --query Role.Arn --output text)" \
     --action-names cloudformation:CreateChangeSet cloudformation:DeleteStack \
     --resource-arns arn:aws:cloudformation:us-east-1:517723527581:stack/c4-iam-main-stack/x
 ```
@@ -174,7 +190,8 @@ and use it, set this before the first datastore creation:
 ```
 
 - **Where the ARN comes from:** a read-only audit of this account on 2026-11-06. Confirm the
-  current suffix from a session of this permission set with `aws sts get-caller-identity`
+  current suffix from a session of this permission set with
+  `aws sts get-caller-identity --region us-east-1`
   (`assumed-role/AWSReservedSSO_SMaHT-Deployment-Manager_<suffix>/...`) before writing the config.
 - **What it grants:** the role becomes the key's administrator through the key policy. The inline
   policy still denies `kms:ScheduleKeyDeletion` and `kms:DisableKey`, because an explicit IAM deny

@@ -198,3 +198,6 @@ def test_setup_guide_names_every_component_and_the_exact_target():
         assert needle in guide, needle
     for entry in MANAGED:
         assert f'--policy-name {entry["name"]}' in guide and entry['description'] in guide
+    # Commands name the Region explicitly instead of relying on a local profile default.
+    commands = re.findall(r'\baws (?:iam|sso-admin|sts) [a-z-]+[^`\n]*', guide)
+    assert commands and all('--region us-east-1' in command for command in commands), commands
