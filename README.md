@@ -55,7 +55,7 @@ Three **optional, disabled-by-default** IAM roles let people work directly in AW
 |---|---|
 | `*DevDiagnoseRole` | Read-only inspection of the running system |
 | `*PowerRemediateRole` | Operational API access, including privileged build/workflow delegation |
-| `*InfraDeployRole` | CloudFormation change-set deployment of this repository's `c4-*` stacks |
+| `*InfraDeployRole` | Change-set deployment, image builds/pushes and cleanup of this repository's `c4-*` stacks |
 
 They are built by `C4IAM` in `src/parts/iam.py` and live in the IAM stack. With none of the
 `human_access.*` settings present in `custom/config.json` the IAM template is byte-for-byte what
@@ -870,25 +870,47 @@ IAM roles, users and instance profiles whose CloudFormation-generated names star
 attach only the four AWS managed policies the CodeBuild roles use; pass `c4-*` roles only to
 ECS tasks, EC2, Lambda and CodeBuild (where AWS supplies `iam:PassedToService`); create the
 ECS/ELB/OpenSearch/ElastiCache/RDS service-linked roles; create and maintain (but not delete or
-disable) the datastore KMS key; and upload packaged artifacts to `*application-versions` buckets
-in this account.
+disable) the datastore KMS key; upload packaged artifacts to `*application-versions` buckets
+in this account; start, watch and stop builds of the CodeBuild image projects; push and retag
+images in this account's ECR repositories (`docker push`, `add-image-tag`,
+`unrelease-most-recent-image`); and continue, force or roll back a failed `c4-*` stack update and
+delete `c4-*` stacks (again never with a service role).
 
 What it cannot do: modify or pass itself, the other human-access roles, `*DevRole` or their
 policies; manage access keys, login profiles, MFA, identity providers, groups, customer managed
 policies or permissions boundaries; touch SSO, Organizations or billing; assume other roles;
-invoke Lambda, run or exec into ECS tasks, start builds or workflows, open SSM sessions or push
-images; delete stacks or the data-bearing resources (RDS instances, OpenSearch/Elasticsearch
-domains, buckets and objects, queues, secrets, KMS keys, ECR repositories, log groups, Redis
-replication groups); write any secret value except the RDS secret's endpoint attachment, or
+invoke Lambda, run or exec into ECS tasks, retry or batch builds, start workflows, open SSM
+sessions or delete images; delete stacks other than `c4-*`, stack sets, or administrator-set
+termination protection and stack policies; delete the data-bearing resources (RDS instances,
+OpenSearch/Elasticsearch domains, buckets and objects, queues, secrets, KMS keys, ECR
+repositories, log groups, Redis replication groups), whether directly, through a change set or
+through `DeleteStack`; write any secret value except the RDS secret's endpoint attachment, or
 rewrite a secret's payload; or act outside the deployment region.
 
 **This is not a low-privilege role.** Deploying this system means writing IAM roles with inline
 policies and handing them to services that run code (Foursight's Lambda role alone carries
 `cloudformation:*`, `ec2:*`, `lambda:*` and more). Anyone who can deploy can therefore obtain any
 permission a `c4-*` runtime role can be given. The denies stop direct self-escalation and
-destructive teardown; they do not make deployment low-trust. The deployer can also read the
+data destruction; they do not make deployment low-trust. The deployer can also read the
 `C4*` secrets, because CloudFormation resolves secret references and secret resources with the
 caller's credentials.
+
+Builds and images delegate authority too. `StartBuild` runs a project as its CodeBuild service
+role (`AWSCodeBuildAdminAccess`, `AmazonS3FullAccess`, `AmazonEC2ContainerRegistryPowerUser`,
+`CloudWatchFullAccess`), with the GitHub source credential, in the VPC, in privileged mode.
+Per-build overrides (buildspec, source, image, environment) are not restricted, and the deployer
+can also change the project, so a build can do anything that role can, including deleting S3
+objects and ECR images that this role itself may not delete. Scope is every CodeBuild project and
+ECR repository in this account and region (their names come from the environment name, not
+`c4-`). A pushed or retagged image runs when ECS next deploys it.
+
+`DeleteStack` removes a stack's other resources but never its data: CloudFormation deletes each
+resource with this role's session, so the data-bearing types above (and the S3 federator IAM
+user, whose access key this role cannot delete) fail to delete. The stack ends in `DELETE_FAILED`
+and is removed by deleting it again with `--retain-resources`; the retained resources stay in the
+account until an administrator removes them, and a re-create that reuses their fixed names
+collides with them. CloudFormation also refuses to delete a stack whose exports another stack
+imports. Deleting an application stack takes that application offline.
 
 Encrypted datastores (the default): KMS requires both the IAM permission and a key-policy grant,
 and the datastore key policy has no account-root statement. When the deploy role is configured,
@@ -905,7 +927,10 @@ Prerequisites an administrator completes, because the role cannot grant them to 
 * For a datastore key created **before** the role existed, apply one datastore stack update as the
   key's existing `deploying_iam_user`, to add the statements above.
 * Fill application-configuration secrets (`setup-remaining-secrets`) and run the other bootstrap
-  commands, and clean up after a failed first creation (see the operator guide).
+  commands, and remove resources retained by a failed creation or stack deletion (see the
+  operator guide).
+* Optionally enable termination protection on stacks that must never be deleted (for example the
+  datastore and IAM stacks); this role cannot turn it off.
 
 Use `cli provision <stack>` **without** `--upload-change-set` or `--validate` (both run the AWS
 CLI in Docker with only `custom/aws_creds` mounted, so they never see an assumed-role session),
@@ -974,6 +999,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "elasticloadbalancing:DescribeTargetGroups",
         "elasticloadbalancing:DescribeTargetHealth",
         "ecs:DescribeTaskDefinition",
+        "codebuild:ListProjects",
         "rds:DescribeDBEngineVersions",
         "rds:DescribeEngineDefaultParameters",
         "rds:DescribeEvents",
@@ -1000,7 +1026,8 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "codebuild:ListSourceCredentials",
         "codebuild:DeleteSourceCredentials",
         "ecs:RegisterTaskDefinition",
-        "ecs:DeregisterTaskDefinition"
+        "ecs:DeregisterTaskDefinition",
+        "ecr:GetAuthorizationToken"
       ],
       "Resource": "*",
       "Condition": {
@@ -1034,13 +1061,30 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
       "Action": [
         "cloudformation:ExecuteChangeSet",
         "cloudformation:DeleteChangeSet",
-        "cloudformation:CancelUpdateStack",
-        "cloudformation:ContinueUpdateRollback"
+        "cloudformation:CancelUpdateStack"
       ],
       "Resource": "arn:aws:cloudformation:<region>:<account-id>:stack/c4-*/*",
       "Condition": {
         "StringEquals": {
           "aws:RequestedRegion": "<region>"
+        }
+      }
+    },
+    {
+      "Sid": "RecoverOrDeleteC4Stacks",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:ContinueUpdateRollback",
+        "cloudformation:RollbackStack",
+        "cloudformation:DeleteStack"
+      ],
+      "Resource": "arn:aws:cloudformation:<region>:<account-id>:stack/c4-*/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "<region>"
+        },
+        "Null": {
+          "cloudformation:RoleArn": "true"
         }
       }
     },
@@ -1242,6 +1286,31 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "ecs:ListTagsForResource"
       ],
       "Resource": "arn:aws:ecs:<region>:<account-id>:*"
+    },
+    {
+      "Sid": "StartWatchAndStopImageBuilds",
+      "Effect": "Allow",
+      "Action": [
+        "codebuild:StartBuild",
+        "codebuild:StopBuild",
+        "codebuild:BatchGetBuilds",
+        "codebuild:ListBuildsForProject"
+      ],
+      "Resource": "arn:aws:codebuild:<region>:<account-id>:project/*"
+    },
+    {
+      "Sid": "PushAndRetagImages",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload",
+        "ecr:PutImage",
+        "ecr:BatchGetImage",
+        "ecr:DescribeImages"
+      ],
+      "Resource": "arn:aws:ecr:<region>:<account-id>:repository/*"
     },
     {
       "Sid": "ManageLogGroupsAndAlarms",
@@ -1628,18 +1697,14 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "ecs:RunTask",
         "ecs:StartTask",
         "ecs:ExecuteCommand",
-        "codebuild:StartBuild",
         "codebuild:RetryBuild",
         "codebuild:StartBuildBatch",
+        "codebuild:RetryBuildBatch",
         "states:StartExecution",
         "states:StartSyncExecution",
         "ssm:SendCommand",
         "ssm:StartSession",
         "ec2-instance-connect:SendSSHPublicKey",
-        "ecr:PutImage",
-        "ecr:InitiateLayerUpload",
-        "ecr:UploadLayerPart",
-        "ecr:CompleteLayerUpload",
         "ecr:BatchDeleteImage",
         "es:ESHttp*",
         "sqs:SendMessage",
@@ -1652,8 +1717,6 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
       "Sid": "NeverDestroyDataBearingResources",
       "Effect": "Deny",
       "Action": [
-        "cloudformation:DeleteStack",
-        "cloudformation:DeleteStackSet",
         "rds:DeleteDBInstance",
         "rds:DeleteDBCluster",
         "rds:DeleteDBSnapshot",
@@ -1672,6 +1735,25 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "logs:DeleteLogGroup",
         "elasticache:DeleteReplicationGroup",
         "elasticache:DeleteSnapshot"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "NeverDeleteOtherStacksOrRemoveStackProtections",
+      "Effect": "Deny",
+      "Action": [
+        "cloudformation:DeleteStack",
+        "cloudformation:RollbackStack"
+      ],
+      "NotResource": "arn:aws:cloudformation:<region>:<account-id>:stack/c4-*/*"
+    },
+    {
+      "Sid": "NeverAdministerStackSetsOrStackProtections",
+      "Effect": "Deny",
+      "Action": [
+        "cloudformation:DeleteStackSet",
+        "cloudformation:UpdateTerminationProtection",
+        "cloudformation:SetStackPolicy"
       ],
       "Resource": "*"
     },

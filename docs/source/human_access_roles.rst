@@ -149,7 +149,8 @@ Deployment role
 
 ``*InfraDeployRole`` deploys the infrastructure this repository defines: the ``c4-*`` stacks
 that ``cli provision <stack>`` synthesizes and the Foursight package ``cli provision foursight*``
-builds, through reviewed CloudFormation change sets. It is a separate trust decision, so it has
+builds, through reviewed CloudFormation change sets. It also starts the CodeBuild image builds,
+pushes and retags images, and recovers or deletes failed ``c4-*`` stacks. It is a separate trust decision, so it has
 its own switches and never reuses the diagnose/remediate principals::
 
     "human_access.deploy.enabled": true,
@@ -170,8 +171,17 @@ Synthesis (``cli provision <stack>``)
 Change set (``aws cloudformation deploy --no-execute-changeset``)
     ``DescribeStacks``, ``GetTemplateSummary``, ``CreateChangeSet`` on ``c4-*`` stacks and the
     ``Serverless-2016-10-31`` transform (a CloudFormation service role is refused), ``DescribeChangeSet``.
-Review, execute, recover
-    ``ExecuteChangeSet``, ``DeleteChangeSet``, ``CancelUpdateStack``, ``ContinueUpdateRollback``.
+Review and execute
+    ``ExecuteChangeSet``, ``DeleteChangeSet``, ``CancelUpdateStack``.
+Recover or delete a stack (``aws cloudformation continue-update-rollback``/``rollback-stack``/``delete-stack``)
+    ``ContinueUpdateRollback``, ``RollbackStack``, ``DeleteStack`` on ``c4-*`` stacks, with no
+    CloudFormation service role. See `Stack deletion, rollback and replacement`_.
+Image builds (CodeBuild console or ``aws codebuild start-build``)
+    ``StartBuild``, ``StopBuild``, ``BatchGetBuilds``, ``ListBuildsForProject``, ``ListProjects``.
+Image push and retag (``docker push``, ``add-image-tag``, ``unrelease-most-recent-image``)
+    ``ecr:GetAuthorizationToken``; AWS's documented push set (``BatchCheckLayerAvailability``,
+    ``InitiateLayerUpload``, ``UploadLayerPart``, ``CompleteLayerUpload``, ``PutImage``,
+    ``BatchGetImage``); ``DescribeImages`` for the retag commands.
 Foursight package upload (``aws cloudformation package``/``deploy --s3-bucket``)
     ``s3:PutObject``/``GetObject`` on ``*application-versions`` buckets in this account;
     ``kms:GenerateDataKey``/``Decrypt`` only through S3.
@@ -193,9 +203,13 @@ Resource-authorized actions use account/region service ARNs, as for the other ro
 scopes are narrower because the CLI's naming allows it: CloudFormation writes are limited to
 ``c4-*`` stacks, and IAM writes to ``c4-*`` generated names. Buckets have no account in their ARN, so
 bucket configuration applies to any bucket the account can reach; package objects additionally
-require ``s3:ResourceAccount``. Inventory/discovery reads and the few writes AWS authorizes only
+require ``s3:ResourceAccount``. CodeBuild projects and ECR repositories are named from the
+environment name (``<env>``, ``<env>-blue``, ``<env>-pipeline-builder``, ``tibanna-awsf`` and the
+pipeline images), not ``c4-``, so builds and image writes cover every project and repository in
+the account and region. Inventory/discovery reads and the few actions AWS authorizes only
 against ``*`` (``kms:CreateKey``/``TagResource``, ``secretsmanager:GetRandomPassword``, CodeBuild
-source credentials, ECS task-definition registration) are region-pinned. This is a deliberately
+source credentials, ECS task-definition registration, ``ecr:GetAuthorizationToken``) are
+region-pinned. This is a deliberately
 small action set for this repository's templates, **not** a proven minimum: the tests are static,
 and a property you add later may need a handler permission that was excluded as unused.
 
@@ -212,43 +226,74 @@ account administrators for application resources. The inline guardrail denies:
   logical-id token; synthesis refuses an IAM stack name long enough to truncate it);
 * access keys, login profiles, MFA, identity providers, groups, customer managed policies,
   permissions boundaries, SSO, Organizations, billing, and ``sts:AssumeRole``/``GetFederationToken``;
-* running workloads directly: Lambda invocation, ECS run/exec, CodeBuild/Step Functions starts,
-  SSM sessions/commands, image pushes, search-index HTTP and queue message APIs;
-* teardown: ``DeleteStack`` and deletion of RDS instances, OpenSearch/Elasticsearch domains, buckets
-  and objects, queues, secrets, KMS keys (and disabling them), ECR repositories, log groups and Redis
-  replication groups;
+* running workloads directly: Lambda invocation, ECS run/exec, CodeBuild retries and batch builds,
+  Step Functions starts, SSM sessions/commands, image deletion, search-index HTTP and queue message
+  APIs;
+* data destruction: deletion of RDS instances, OpenSearch/Elasticsearch domains, buckets and
+  objects, queues, secrets, KMS keys (and disabling them), ECR repositories, log groups and Redis
+  replication groups, whether called directly or by CloudFormation on the role's behalf;
+* ``DeleteStack``/``RollbackStack`` on stacks not named ``c4-*``, stack-set deletion, and changes to
+  termination protection or stack policies;
 * secret writes other than the RDS secret's endpoint attachment, and every secret payload rewrite;
 * requests outside the deployment region (global services excepted, as for the other roles).
 
 Deployers can read the ``C4*`` secrets: CloudFormation resolves secret references and runs the
 secret resource handlers with the caller's credentials.
 
-Teardown, rollback and replacement
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Builds and images: delegated authority
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-*Top-level teardown* is not deployment: ``DeleteStack`` is denied, and deleting a stack is an
-administrator operation. *Resource operations inside a change set* are deployment: CloudFormation
-creates, updates, replaces and, when an operation fails, rolls back resources with the role's
-session. For ECS, EC2, load balancing, network, IAM, CodeBuild, Lambda/API Gateway, alarms and
-RDS/ElastiCache parameter and subnet groups those deletes are allowed, so replacement and rollback
-work normally.
+A build runs as its project's CodeBuild service role, not as the deployer. That role (in the
+CodeBuild stack) has ``AWSCodeBuildAdminAccess``, ``AmazonS3FullAccess``,
+``AmazonEC2ContainerRegistryPowerUser`` and ``CloudWatchFullAccess``, runs in the VPC in privileged
+mode, and clones with the GitHub personal access token. ``StartBuild`` accepts per-build overrides
+(buildspec, source and version, image, environment variables, service role), which the repository's
+build commands may use and which this role does not restrict; the role can also update the project
+itself. A build can therefore do anything the CodeBuild role can, **including deleting S3 objects
+and buckets and ECR images that the deployment role's own guardrail denies**. This is the same
+trusted-deployer model as above, not a sandbox.
 
-The delete APIs of data-bearing resources are denied even inside rollback. These are RDS instances,
-OpenSearch/Elasticsearch domains, buckets and objects, queues, secrets, the KMS key (deletion and
-disabling), ECR repositories, log groups and Redis replication groups. This deliberately favours
-data retention over automatic cleanup, and leaves these administrator steps:
+Image pushes and retags (``PutImage``) change what runs: ECS starts the image tag its task
+definition names (for example ``latest``/``released``) on its next deployment or task replacement.
+Images cannot be deleted by the role; repository policies and image deletion stay administrator
+operations.
 
-* An update that replaces or removes one of them creates the new resource. The old one's cleanup
-  delete then fails and the old resource remains.
-* An update that fails after creating a new one cannot roll it back. Use
-  ``ContinueUpdateRollback`` with ``--resources-to-skip`` and have an administrator remove the
-  orphan.
-* A failed *first* creation of a stack containing them (typically the datastore) ends in
-  ``ROLLBACK_FAILED``. An administrator deletes the leftovers (scheduling deletion of a new KMS
-  key) and the stack before retrying.
+Stack deletion, rollback and replacement
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Successful creates and updates of every supported stack are within the role. Cleanup after these
-failures is not.
+CloudFormation performs every resource operation - create, update, replace, roll back, delete -
+with the role's session. The role may delete ``c4-*`` stacks, finish (``ContinueUpdateRollback``) or
+force (``RollbackStack``) a rollback, and cancel an update. For ECS, EC2, load balancing, network,
+IAM roles and instance profiles, CodeBuild, Lambda/API Gateway, alarms and RDS/ElastiCache parameter
+and subnet groups, deletes are allowed, so replacement, rollback and stack deletion remove them
+normally. Deleting an application stack takes that application offline. CloudFormation refuses to
+delete a stack whose exports another stack still imports, so shared stacks go last.
+
+The delete APIs of data-bearing resources stay denied, including when CloudFormation calls them:
+RDS instances, OpenSearch/Elasticsearch domains, buckets and objects, queues, secrets, the KMS key
+(deletion and disabling), ECR repositories, log groups and Redis replication groups. The S3
+federator IAM user is also kept, because deleting its access key is credential administration. The
+tests derive this list from AWS's delete-handler permissions. Data retention wins over automatic
+cleanup:
+
+* **Stack deletion:** the stack ends in ``DELETE_FAILED`` with those resources still present. Delete
+  it again with ``aws cloudformation delete-stack --retain-resources <logical ids>``; the stack is
+  then gone and the resources remain, no longer managed by CloudFormation.
+* **Failed first creation** (typically the datastore): the rollback cannot delete them, so the stack
+  ends in ``ROLLBACK_FAILED``. Delete it as above. A retry that reuses fixed physical names (bucket
+  names, the RDS identifier, search domain names, secret names) collides with the retained
+  resources until an administrator deletes them or imports them into the new stack. A retained new
+  KMS key needs an administrator to schedule its deletion.
+* **Replacement or removal in an update:** the new resource is created; the old one's cleanup delete
+  fails and it remains.
+* **Failed update that created one:** the rollback cannot remove it. Use ``ContinueUpdateRollback``
+  with ``--resources-to-skip``, then an administrator removes the orphan.
+
+Successful creates and updates of every supported stack, and deletion of everything except the
+resources above, are within the role. Removing retained data-bearing resources is not. As an extra
+guard, an administrator can enable termination protection on stacks that must never be deleted
+(``aws cloudformation update-termination-protection --enable-termination-protection``); the role
+cannot turn it off.
 
 Secrets: initial bootstrap versus ordinary deployment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -308,6 +353,7 @@ Bootstrap (administrator, once)
 #. Grant each trusted principal ``sts:AssumeRole`` and ``sts:SetSourceIdentity`` on that ARN in its
    own account/permission set.
 #. If an encrypted datastore already exists, apply it once as its ``deploying_iam_user`` (see KMS).
+#. Optionally enable termination protection on the datastore and IAM stacks.
 #. Changes to ``*DevRole``, the human-access roles or their policies remain administrator operations.
 
 Deploying with the role
@@ -355,6 +401,29 @@ bucket policy rejects uploads without SSE-KMS)::
 then review and execute the change set as above. A ``foursight.application_version_bucket`` whose
 name does not end in ``application-versions`` is outside the role's upload scope.
 
+Builds, image pushes and retags, in the same session::
+
+    aws codebuild start-build --project-name <env>        # or the CodeBuild console
+    aws codebuild batch-get-builds --ids <build id>       # status; stop-build --id <build id> cancels
+    aws ecr get-login-password | docker login --username AWS --password-stdin <account-id>.dkr.ecr.<region>.amazonaws.com
+    docker push <account-id>.dkr.ecr.<region>.amazonaws.com/<repository>:<tag>   # e.g. scripts/upload_tibanna_awsf
+    poetry run add-image-tag --account-number <account-id> --ecs-repository <env> <sha256 digest> <tag>
+    poetry run unrelease-most-recent-image --account-number <account-id> --ecs-repository <env>
+
+(``add-image-tag``/``unrelease-most-recent-image`` also expect ``ACCOUNT_NUMBER`` in the environment.)
+Build logs are in CloudWatch Logs, which this role does not read; use ``*DevDiagnoseRole`` or the
+build status.
+
+Recovering or deleting a ``c4-*`` stack::
+
+    aws cloudformation continue-update-rollback --stack-name <stack> [--resources-to-skip <ids>]
+    aws cloudformation rollback-stack --stack-name <stack>      # a failed stack with rollback disabled
+    aws cloudformation delete-stack --stack-name <stack>
+    aws cloudformation wait stack-delete-complete --stack-name <stack>   # fails on DELETE_FAILED
+    aws cloudformation delete-stack --stack-name <stack> --retain-resources <logical ids>
+
+Never pass ``--role-arn``; the role refuses it.
+
 Why not ``--upload-change-set``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -368,8 +437,10 @@ Not covered by the deployment role
 
 Applying the IAM stack's human-access roles, onboarding a pre-existing datastore key, filling secrets,
 ``assure-global-env-bucket`` (writes the env bucket), ``update-kms-policy``, ``update-cors-policy``,
-``update-sentieon-security``, Tibanna deployment, CodeBuild/ECS deployment-task runs, reference-file
-copies, stack deletion, and cleanup after the failures described under teardown. Those need
+``update-sentieon-security``, Tibanna deployment, ECS deployment-task runs, ``deploy-ecs`` and
+``identity-swap`` (they need ECS list APIs, Application Auto Scaling and env-bucket writes this
+role does not have), CodeBuild retries and batch builds, image deletion, reference-file copies, and
+removal of the data-bearing resources retained after a failure or stack deletion. Those need
 administrator or runtime credentials. Validate any role
 before relying on it: the tests are static, and no live role-based deployment has been run. In
 particular, CloudFormation documents that it uses a temporary session generated from the caller's

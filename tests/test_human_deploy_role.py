@@ -751,7 +751,25 @@ PROTECTED_POLICIES = [_iam('policy/' + _generated_name('c4-iam-main-stack', logi
      f'arn:aws:cloudformation:{REGION}:aws:transform/Serverless-2016-10-31', {}),
     ('cloudformation:ExecuteChangeSet', _cfn('c4-datastore-cgap-build-stack'), {}),
     ('cloudformation:ContinueUpdateRollback', _cfn('c4-network-main-stack'), {}),
+    ('cloudformation:RollbackStack', _cfn('c4-ecs-cgap-build-stack'), {}),
+    ('cloudformation:DeleteStack', _cfn('c4-ecs-cgap-build-stack'), {}),
+    ('cloudformation:CancelUpdateStack', _cfn('c4-datastore-cgap-build-stack'), {}),
     ('cloudformation:DescribeStacks', '*', {}),
+    # Image builds: CodeBuild projects are named after the environment, not c4-*.
+    ('codebuild:StartBuild', f'arn:aws:codebuild:{REGION}:{ACCOUNT}:project/cgap-build', {}),
+    ('codebuild:StartBuild', f'arn:aws:codebuild:{REGION}:{ACCOUNT}:project/cgap-build-tibanna-awsf-builder', {}),
+    ('codebuild:StopBuild', f'arn:aws:codebuild:{REGION}:{ACCOUNT}:project/cgap-build-blue', {}),
+    ('codebuild:BatchGetBuilds', f'arn:aws:codebuild:{REGION}:{ACCOUNT}:project/cgap-build', {}),
+    ('codebuild:ListBuildsForProject', f'arn:aws:codebuild:{REGION}:{ACCOUNT}:project/cgap-build', {}),
+    ('codebuild:ListProjects', '*', {}),
+    # Image push (registry login, then docker push) to the portal and Tibanna repositories.
+    ('ecr:GetAuthorizationToken', '*', {}),
+    ('ecr:BatchCheckLayerAvailability', f'arn:aws:ecr:{REGION}:{ACCOUNT}:repository/cgap-build', {}),
+    ('ecr:InitiateLayerUpload', f'arn:aws:ecr:{REGION}:{ACCOUNT}:repository/tibanna-awsf', {}),
+    ('ecr:UploadLayerPart', f'arn:aws:ecr:{REGION}:{ACCOUNT}:repository/tibanna-awsf', {}),
+    ('ecr:CompleteLayerUpload', f'arn:aws:ecr:{REGION}:{ACCOUNT}:repository/tibanna-awsf', {}),
+    ('ecr:PutImage', f'arn:aws:ecr:{REGION}:{ACCOUNT}:repository/cgap-build', {}),
+    ('ecr:BatchGetImage', f'arn:aws:ecr:{REGION}:{ACCOUNT}:repository/cgap-build', {}),
     ('iam:CreateRole', ECS_ROLE, {}),
     ('iam:PutRolePolicy', FOURSIGHT_ROLE, {}),
     ('iam:DeleteRole', CODEBUILD_ROLE, {}),
@@ -794,7 +812,19 @@ def test_deployment_operations_are_allowed(action, resource, context):
      {'aws:RequestedRegion': 'us-west-2'}, 'deny'),
     ('cloudformation:CreateStack', _cfn('c4-ecs-cgap-build-stack'), {}, 'implicit-deny'),
     ('cloudformation:UpdateStack', _cfn('c4-ecs-cgap-build-stack'), {}, 'implicit-deny'),
-    ('cloudformation:DeleteStack', _cfn('c4-ecs-cgap-build-stack'), {}, 'deny'),
+    # Stack deletion/rollback: c4-* stacks only, home region only, never via a service role,
+    # and no removal of administrator-set protections.
+    ('cloudformation:DeleteStack', _cfn('someone-elses-stack'), {}, 'deny'),
+    ('cloudformation:RollbackStack', _cfn('StackSet-landing-zone-baseline'), {}, 'deny'),
+    ('cloudformation:DeleteStack', _cfn('c4-ecs-cgap-build-stack'),
+     {'cloudformation:RoleArn': _iam('role/c4-x')}, 'implicit-deny'),
+    ('cloudformation:ContinueUpdateRollback', _cfn('c4-ecs-cgap-build-stack'),
+     {'cloudformation:RoleArn': _iam('role/c4-x')}, 'implicit-deny'),
+    ('cloudformation:DeleteStack', _cfn('c4-ecs-cgap-build-stack'),
+     {'aws:RequestedRegion': 'us-west-2'}, 'deny'),
+    ('cloudformation:DeleteStackSet', '*', {}, 'deny'),
+    ('cloudformation:UpdateTerminationProtection', _cfn('c4-datastore-cgap-build-stack'), {}, 'deny'),
+    ('cloudformation:SetStackPolicy', _cfn('c4-datastore-cgap-build-stack'), {}, 'deny'),
     # IAM outside the generated namespace, or on the protected identities.
     ('iam:CreateRole', _iam('role/Admin'), {}, 'implicit-deny'),
     ('iam:PutRolePolicy', _iam('role/OrganizationAccountAccessRole'), {}, 'implicit-deny'),
@@ -814,9 +844,18 @@ def test_deployment_operations_are_allowed(action, resource, context):
     ('lambda:InvokeFunction', f'arn:aws:lambda:{REGION}:{ACCOUNT}:function:c4-foursight-x', {}, 'deny'),
     ('ecs:RunTask', '*', {}, 'deny'),
     ('ecs:ExecuteCommand', '*', {}, 'deny'),
-    ('codebuild:StartBuild', f'arn:aws:codebuild:{REGION}:{ACCOUNT}:project/cgap-build', {}, 'deny'),
+    ('codebuild:RetryBuild', f'arn:aws:codebuild:{REGION}:{ACCOUNT}:project/cgap-build', {}, 'deny'),
+    ('codebuild:StartBuildBatch', f'arn:aws:codebuild:{REGION}:{ACCOUNT}:project/cgap-build', {}, 'deny'),
+    ('codebuild:StartBuild', f'arn:aws:codebuild:{REGION}:{OTHER_ACCOUNT}:project/cgap-build', {},
+     'implicit-deny'),
+    ('codebuild:StartBuild', f'arn:aws:codebuild:us-west-2:{ACCOUNT}:project/cgap-build',
+     {'aws:RequestedRegion': 'us-west-2'}, 'deny'),
     ('ssm:StartSession', '*', {}, 'deny'),
-    ('ecr:PutImage', f'arn:aws:ecr:{REGION}:{ACCOUNT}:repository/cgap-build', {}, 'deny'),
+    # Images can be pushed and retagged in this account's repositories, never deleted.
+    ('ecr:BatchDeleteImage', f'arn:aws:ecr:{REGION}:{ACCOUNT}:repository/cgap-build', {}, 'deny'),
+    ('ecr:PutImage', f'arn:aws:ecr:{REGION}:{OTHER_ACCOUNT}:repository/cgap-build', {}, 'implicit-deny'),
+    ('ecr:SetRepositoryPolicy', f'arn:aws:ecr:{REGION}:{OTHER_ACCOUNT}:repository/cgap-build', {},
+     'implicit-deny'),
     ('es:ESHttpPost', f'arn:aws:es:{REGION}:{ACCOUNT}:domain/os-cgap-build/*', {}, 'deny'),
     # Data-bearing teardown.
     ('rds:DeleteDBInstance', f'arn:aws:rds:{REGION}:{ACCOUNT}:db:rds-cgap-build', {}, 'deny'),
@@ -955,6 +994,140 @@ def test_aws_cli_package_upload_with_kms_is_allowed():
                    {'s3:ResourceAccount': ACCOUNT}) == 'allow'
     assert _decide('kms:GenerateDataKey', f'arn:aws:kms:{REGION}:{ACCOUNT}:key/abcd-key',
                    {'kms:ViaService': f's3.{REGION}.amazonaws.com'}) == 'allow'
+
+
+def _recording_client(service, responses: dict):
+    """ A real botocore client whose calls are answered locally (before any request is signed or
+        sent) and recorded by operation name, so a command's actual API calls can be checked.
+    """
+    session = botocore.session.get_session()
+    with mock.patch.dict(os.environ, ROLE_SESSION_ENV):
+        client = session.create_client(service, region_name=REGION)
+    calls = []
+
+    def answer(model, params, **_):
+        calls.append(model.name)
+        body = params.get('body')  # the serialized request; JSON-protocol services send JSON
+        api_params = json.loads(body) if isinstance(body, (bytes, str)) and body else {}
+        return mock.Mock(status_code=200), responses[model.name](api_params)
+    client.meta.events.register(f'before-call.{service}', answer)
+    return client, calls
+
+
+ECR_REPO_ARN = f'arn:aws:ecr:{REGION}:{ACCOUNT}:repository/cgap-build'
+NEW_DIGEST = 'sha256:' + 'a' * 64
+OLD_DIGEST = 'sha256:' + 'b' * 64
+
+
+def _image(digest, tags, day):
+    return {'imageDigest': digest, 'imageTags': tags, 'imagePushedAt': f'2026-11-0{day}T00:00:00Z'}
+
+
+def test_add_image_tag_and_unrelease_api_calls_are_all_allowed():
+    """ Drives dcicutils' add-image-tag / unrelease-most-recent-image (pyproject scripts) and
+        checks every ECR API they call for this account's repository.
+    """
+    from dcicutils.ecr_scripts import ECRCommandContext
+    images = [_image(NEW_DIGEST, ['released', 'latest'], 2), _image(OLD_DIGEST, ['v1'], 1)]
+    client, calls = _recording_client('ecr', {
+        'DescribeImages': lambda params: {'imageDetails': [
+            i for i in images if 'imageIds' not in params or any(
+                ids.get('imageDigest') == i['imageDigest'] or ids.get('imageTag') in i['imageTags']
+                for ids in params['imageIds'])]},
+        'BatchGetImage': lambda params: {'images': [{'imageManifest': '{"schemaVersion": 2}'}]},
+        'PutImage': lambda params: {'image': {'imageId': {'imageTag': params['imageTag']}}},
+    })
+    context = ECRCommandContext(account_number=ACCOUNT, image_repository='cgap-build', ecr_client=client)
+    with mock.patch('dcicutils.ecr_scripts.PRINT'):
+        context.add_image_tag(digest=OLD_DIGEST, tag='v1-hotfix')
+        context.unrelease_most_recent_image()  # moves 'released' via the same add_image_tag
+    assert set(calls) == {'DescribeImages', 'BatchGetImage', 'PutImage'}
+    for operation in set(calls):
+        assert _decide(f'ecr:{operation}', ECR_REPO_ARN) == 'allow', operation
+
+
+def test_documented_image_push_permissions_are_all_allowed():
+    """ `aws ecr get-login-password | docker login` then `docker push` (scripts/upload_tibanna_awsf,
+        portal Makefile, CodeBuild-less builds). The action list is AWS's documented push set
+        (Amazon ECR User Guide, "IAM permissions for pushing an image").
+    """
+    assert _decide('ecr:GetAuthorizationToken', '*') == 'allow'
+    for action in ('ecr:BatchCheckLayerAvailability', 'ecr:InitiateLayerUpload', 'ecr:UploadLayerPart',
+                   'ecr:CompleteLayerUpload', 'ecr:PutImage', 'ecr:BatchGetImage'):
+        for repository in ('cgap-build', 'tibanna-awsf'):
+            arn = f'arn:aws:ecr:{REGION}:{ACCOUNT}:repository/{repository}'
+            assert _decide(action, arn) == 'allow', (action, repository)
+
+
+def test_build_project_names_generated_by_the_codebuild_stack_can_be_started(synthesized_templates):
+    projects = [resource['Properties']['Name'] for _, template in synthesized_templates.values()
+                for resource in template['Resources'].values()
+                if resource['Type'] == 'AWS::CodeBuild::Project']
+    assert projects
+    for name in projects:
+        arn = f'arn:aws:codebuild:{REGION}:{ACCOUNT}:project/{name}'
+        for action in ('codebuild:StartBuild', 'codebuild:StopBuild', 'codebuild:BatchGetBuilds'):
+            assert _decide(action, arn) == 'allow', (action, name)
+        assert _decide('codebuild:RetryBuild', arn) == 'deny'
+
+
+def test_failed_stack_cleanup_sequence_is_allowed_for_c4_stacks():
+    """ The AWS CLI recovery path for a failed stack: continue or force the rollback, delete,
+        wait, and - when data-bearing resources fail to delete - delete again retaining them.
+    """
+    stack = 'c4-datastore-cgap-build-stack'
+    stack_id = _cfn(stack)
+    status = iter(['DELETE_FAILED', 'DELETE_COMPLETE'])
+    client, calls = _recording_client('cloudformation', {
+        'ContinueUpdateRollback': lambda params: {},
+        'RollbackStack': lambda params: {'StackId': stack_id},
+        'DeleteStack': lambda params: {},
+        'DescribeStacks': lambda params: {'Stacks': [{
+            'StackName': stack, 'StackId': stack_id, 'StackStatus': next(status),
+            'CreationTime': '2026-01-01T00:00:00Z'}]},
+    })
+    client.continue_update_rollback(StackName=stack)
+    client.rollback_stack(StackName=stack)
+    client.delete_stack(StackName=stack)
+    assert client.describe_stacks(StackName=stack)['Stacks'][0]['StackStatus'] == 'DELETE_FAILED'
+    client.delete_stack(StackName=stack, RetainResources=['RDS', 'ApplicationFilesBucket'])
+    assert client.describe_stacks(StackName=stack)['Stacks'][0]['StackStatus'] == 'DELETE_COMPLETE'
+    for operation in calls:
+        resource = '*' if operation == 'DescribeStacks' else stack_id
+        assert _decide(f'cloudformation:{operation}', resource) == 'allow', operation
+
+
+# Resource types whose CloudFormation delete handler needs an action the guardrail denies: a stack
+# deletion (or a change set removing/replacing them) leaves them in place, retained.
+RETAINED_ON_DELETE = {
+    'AWS::RDS::DBInstance', 'AWS::OpenSearchService::Domain', 'AWS::S3::Bucket',
+    'AWS::SQS::Queue', 'AWS::SecretsManager::Secret', 'AWS::KMS::Key', 'AWS::ECR::Repository',
+    'AWS::Logs::LogGroup', 'AWS::ElastiCache::ReplicationGroup',
+    # The S3 federator user: removing its access key or login profile is credential
+    # administration, which this role does not have.
+    'AWS::IAM::User',
+}
+
+
+def test_stack_deletion_can_remove_everything_except_the_data_bearing_resources(synthesized_templates):
+    """ What DeleteStack can and cannot clean up, from AWS's own delete-handler permissions:
+        everything except the data-bearing types, which fail to delete and must be retained
+        (and then removed, if at all, by an administrator).
+    """
+    statements = _deploy_statements()
+    types = _template_resource_types(synthesized_templates) | FOURSIGHT_RESOURCE_TYPES
+    retained = set()
+    for resource_type in types:
+        handlers = REFERENCE['handler_permissions'][resource_type]
+        if handlers is None:
+            continue  # legacy AWS::Elasticsearch::Domain: es:DeleteElasticsearchDomain is denied
+        blocked = [a for a in handlers.get('delete', [])
+                   if _not_granted_reason(a) not in (UNUSED, INVALID)
+                   and not _allowed_somewhere(a, statements)]
+        if blocked:
+            retained.add(resource_type)
+    assert retained == RETAINED_ON_DELETE & types
+    assert _decide('es:DeleteElasticsearchDomain', f'arn:aws:es:{REGION}:{ACCOUNT}:domain/x') == 'deny'
 
 
 # ---------------------------------------------------------------------------------------------
