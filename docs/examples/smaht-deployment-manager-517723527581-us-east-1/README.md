@@ -32,8 +32,8 @@ These are the quotas that apply:
 - **Managed policies per role:** IAM quotas apply to the role Identity Center provisions. Three
   customer managed policies and no AWS managed policies fit the default limit.
 
-The permissions only work with all four documents attached. The three allow documents grant
-nothing destructive by themselves, but without the inline policy the explicit denies are missing.
+The permissions only work with all four documents attached. The three allow documents are
+incomplete without the inline guardrail, which supplies the explicit denies.
 Do not merge them into one policy, and do not drop any of them.
 
 The customer managed policy names contain `InfraDeploy`. The inline policy denies every principal
