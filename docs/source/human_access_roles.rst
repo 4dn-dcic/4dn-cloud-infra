@@ -150,7 +150,8 @@ Deployment role
 ``*InfraDeployRole`` deploys the infrastructure this repository defines: the ``c4-*`` stacks
 that ``cli provision <stack>`` synthesizes and the Foursight package ``cli provision foursight*``
 builds, through reviewed CloudFormation change sets. It also starts the CodeBuild image builds,
-pushes and retags images, and recovers or deletes failed ``c4-*`` stacks. It is a separate trust decision, so it has
+pushes and retags images, runs the ECS release commands ``deploy-ecs`` and ``identity-swap``, and
+recovers or deletes failed ``c4-*`` stacks. It is a separate trust decision, so it has
 its own switches and never reuses the diagnose/remediate principals::
 
     "human_access.deploy.enabled": true,
@@ -182,6 +183,18 @@ Image push and retag (``docker push``, ``add-image-tag``, ``unrelease-most-recen
     ``ecr:GetAuthorizationToken``; AWS's documented push set (``BatchCheckLayerAvailability``,
     ``InitiateLayerUpload``, ``UploadLayerPart``, ``CompleteLayerUpload``, ``PutImage``,
     ``BatchGetImage``); ``DescribeImages`` for the retag commands.
+ECS redeploy (``deploy-ecs --list`` / ``--kick --env <cluster>``)
+    ``ecs:ListClusters``, ``ListServices`` (region-pinned) and ``UpdateService`` with
+    ``forceNewDeployment``.
+Blue/green swap (``identity-swap <blue> <green> [--mirror] [--do-legacy]``)
+    ECS ``ListClusters``/``ListServices``/``ListTaskDefinitions``/``DescribeServices`` and
+    ``UpdateService`` (new task definition); Application Auto Scaling ``RegisterScalableTarget``,
+    ``PutScalingPolicy``, ``DeleteScalingPolicy`` only for ``ecs`` / ``ecs:service:DesiredCount``
+    targets in this account and region, plus ``DescribeScalingPolicies``/``DescribeScalableTargets``
+    and the ``ecs.application-autoscaling`` service-linked role; CloudWatch ``DescribeAlarms`` and
+    ``PutMetricAlarm`` (already granted for the alarm resources); ``s3:GetObject`` on the global env
+    buckets and ``s3:PutObject`` on only the files the command rewrites (below), both limited by
+    ``s3:ResourceAccount`` to this account.
 Foursight package upload (``aws cloudformation package``/``deploy --s3-bucket``)
     ``s3:PutObject``/``GetObject`` on ``*application-versions`` buckets in this account;
     ``kms:GenerateDataKey``/``Decrypt`` only through S3.
@@ -208,8 +221,8 @@ environment name (``<env>``, ``<env>-blue``, ``<env>-pipeline-builder``, ``tiban
 pipeline images), not ``c4-``, so builds and image writes cover every project and repository in
 the account and region. Inventory/discovery reads and the few actions AWS authorizes only
 against ``*`` (``kms:CreateKey``/``TagResource``, ``secretsmanager:GetRandomPassword``, CodeBuild
-source credentials, ECS task-definition registration, ``ecr:GetAuthorizationToken``) are
-region-pinned. This is a deliberately
+source credentials, ECS task-definition registration, ``ecr:GetAuthorizationToken``, the ECS and
+Application Auto Scaling list/describe calls) are region-pinned. This is a deliberately
 small action set for this repository's templates, **not** a proven minimum: the tests are static,
 and a property you add later may need a handler permission that was excluded as unused.
 
@@ -239,6 +252,31 @@ account administrators for application resources. The inline guardrail denies:
 
 Deployers can read the ``C4*`` secrets: CloudFormation resolves secret references and runs the
 secret resource handlers with the caller's credentials.
+
+ECS release commands and the global env bucket
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``deploy-ecs`` forces a new deployment of every service in a cluster, and ``identity-swap``
+re-points the blue and green services to each other's task definitions. Both change what serves
+traffic immediately; they start no ad-hoc tasks (``RunTask``/``ExecuteCommand`` stay denied).
+``identity-swap`` also deletes and re-creates the indexer services' step-scaling policies and
+re-points the queue-depth alarms to them; the role can do that for ECS desired-count targets only.
+
+The env-bucket writes are object-exact. The command switches the live ecosystem by rewriting:
+
+* ``<env>-foursight-envs/main.ecosystem`` - the generated env bucket (``FSBucketTemplate.ENVS``;
+  SMaHT's ``smaht-production-foursight-envs``);
+* ``foursight-prod-envs/main.ecosystem`` - Fourfront's pre-existing env bucket;
+* with Fourfront ``--do-legacy`` only, ``main.ecosystem``, ``data``, ``staging``,
+  ``fourfront-production-blue`` and ``fourfront-production-green`` in the legacy ``foursight-envs``.
+
+No other object in those buckets can be written, nothing can be deleted, and object ACLs and bucket
+policies are untouched. The bucket names are the command's own constants and naming template, not
+configuration this role reads. SMaHT uploads with SSE-KMS (``SMAHT_KMS_KEY_ID``): the role's
+S3-only data-key permission covers the IAM side, and the key policy must name the role, which the
+datastore key policy does when this role is configured (a pre-existing key needs the onboarding
+update in KMS below). ``deploy-ecs`` uses ``us-east-1`` (``ECSUtils.REGION``) and the other
+commands the session region, so they work only when that is the role's deployment region.
 
 Builds and images: delegated authority
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -414,6 +452,13 @@ Builds, image pushes and retags, in the same session::
 Build logs are in CloudWatch Logs, which this role does not read; use ``*DevDiagnoseRole`` or the
 build status.
 
+ECS releases, in the same session (``identity-swap`` reads ``custom/config.json`` for the app kind)::
+
+    poetry run deploy-ecs --list
+    poetry run deploy-ecs --kick --env <cluster ARN or name>
+    poetry run identity-swap <blue env> <green env>             # SMaHT
+    poetry run identity-swap <blue env> <green env> [--mirror]  # Fourfront
+
 Recovering or deleting a ``c4-*`` stack::
 
     aws cloudformation continue-update-rollback --stack-name <stack> [--resources-to-skip <ids>]
@@ -437,10 +482,9 @@ Not covered by the deployment role
 
 Applying the IAM stack's human-access roles, onboarding a pre-existing datastore key, filling secrets,
 ``assure-global-env-bucket`` (writes the env bucket), ``update-kms-policy``, ``update-cors-policy``,
-``update-sentieon-security``, Tibanna deployment, ECS deployment-task runs, ``deploy-ecs`` and
-``identity-swap`` (they need ECS list APIs, Application Auto Scaling and env-bucket writes this
-role does not have), CodeBuild retries and batch builds, image deletion, reference-file copies, and
-removal of the data-bearing resources retained after a failure or stack deletion. Those need
+``update-sentieon-security``, Tibanna deployment, ECS deployment-task runs (``RunTask``), CodeBuild
+retries and batch builds, image deletion, reference-file copies, and removal of the data-bearing
+resources retained after a failure or stack deletion. Those need
 administrator or runtime credentials. Validate any role
 before relying on it: the tests are static, and no live role-based deployment has been run. In
 particular, CloudFormation documents that it uses a temporary session generated from the caller's

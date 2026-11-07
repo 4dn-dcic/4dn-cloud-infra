@@ -38,6 +38,7 @@ from src.part import C4Account
 from src.parts.application_configuration_secrets import ApplicationConfigurationSecrets
 from src.parts.iam import C4IAM
 from src.stack import BaseC4FoursightStack
+from src.commands.identity_swap import C4IdentitySwap
 from .test_human_access_roles import (
     ALICE, BOB, ENABLED_BOTH, PRE_EXISTING_OUTPUTS, PRE_EXISTING_RESOURCES, README,
     _actions, _as_list, _build_template, _flat, _role,
@@ -996,22 +997,33 @@ def test_aws_cli_package_upload_with_kms_is_allowed():
                    {'kms:ViaService': f's3.{REGION}.amazonaws.com'}) == 'allow'
 
 
-def _recording_client(service, responses: dict):
-    """ A real botocore client whose calls are answered locally (before any request is signed or
-        sent) and recorded by operation name, so a command's actual API calls can be checked.
+def _recording_client(service, responses: dict, boto3_session=False):
+    """ A real botocore (or boto3, for its S3 transfer methods) client whose calls are answered
+        locally, before any request is signed or sent. `calls` records each operation name with the
+        API parameters the command passed, so a command's actual calls can be checked.
     """
-    session = botocore.session.get_session()
     with mock.patch.dict(os.environ, ROLE_SESSION_ENV):
-        client = session.create_client(service, region_name=REGION)
+        if boto3_session:
+            import boto3
+            client = boto3.session.Session().client(service, region_name=REGION)
+        else:
+            client = botocore.session.get_session().create_client(service, region_name=REGION)
     calls = []
 
-    def answer(model, params, **_):
-        calls.append(model.name)
-        body = params.get('body')  # the serialized request; JSON-protocol services send JSON
-        api_params = json.loads(body) if isinstance(body, (bytes, str)) and body else {}
-        return mock.Mock(status_code=200), responses[model.name](api_params)
+    def remember(params, context, **_):
+        context['offline_api_params'] = dict(params)
+
+    def answer(model, context, **_):
+        api_params = context.get('offline_api_params', {})
+        calls.append((model.name, api_params))
+        return mock.Mock(status_code=200, headers={}), responses[model.name](api_params)
+    client.meta.events.register(f'before-parameter-build.{service}', remember)
     client.meta.events.register(f'before-call.{service}', answer)
     return client, calls
+
+
+def _names(calls):
+    return [name for name, _ in calls]
 
 
 ECR_REPO_ARN = f'arn:aws:ecr:{REGION}:{ACCOUNT}:repository/cgap-build'
@@ -1041,8 +1053,8 @@ def test_add_image_tag_and_unrelease_api_calls_are_all_allowed():
     with mock.patch('dcicutils.ecr_scripts.PRINT'):
         context.add_image_tag(digest=OLD_DIGEST, tag='v1-hotfix')
         context.unrelease_most_recent_image()  # moves 'released' via the same add_image_tag
-    assert set(calls) == {'DescribeImages', 'BatchGetImage', 'PutImage'}
-    for operation in set(calls):
+    assert set(_names(calls)) == {'DescribeImages', 'BatchGetImage', 'PutImage'}
+    for operation in set(_names(calls)):
         assert _decide(f'ecr:{operation}', ECR_REPO_ARN) == 'allow', operation
 
 
@@ -1092,7 +1104,7 @@ def test_failed_stack_cleanup_sequence_is_allowed_for_c4_stacks():
     assert client.describe_stacks(StackName=stack)['Stacks'][0]['StackStatus'] == 'DELETE_FAILED'
     client.delete_stack(StackName=stack, RetainResources=['RDS', 'ApplicationFilesBucket'])
     assert client.describe_stacks(StackName=stack)['Stacks'][0]['StackStatus'] == 'DELETE_COMPLETE'
-    for operation in calls:
+    for operation in _names(calls):
         resource = '*' if operation == 'DescribeStacks' else stack_id
         assert _decide(f'cloudformation:{operation}', resource) == 'allow', operation
 
@@ -1128,6 +1140,276 @@ def test_stack_deletion_can_remove_everything_except_the_data_bearing_resources(
             retained.add(resource_type)
     assert retained == RETAINED_ON_DELETE & types
     assert _decide('es:DeleteElasticsearchDomain', f'arn:aws:es:{REGION}:{ACCOUNT}:domain/x') == 'deny'
+
+
+# ECS release commands: deploy-ecs and identity-swap, driven through locally answered clients.
+
+def _ecs_cluster(name):
+    return f'arn:aws:ecs:{REGION}:{ACCOUNT}:cluster/{name}'
+
+
+def _ecs_service(cluster, name):
+    return f'arn:aws:ecs:{REGION}:{ACCOUNT}:service/{cluster}/{name}'
+
+
+def _request_decisions(service, calls):
+    """ (IAM action, resource, context) for each recorded call, then the policy's decision. """
+    decisions = []
+    for operation, params in calls:
+        context = {}
+        if service == 'ecs':
+            action = f'ecs:{operation}'
+            targets = (params.get('services') or [params['service']]
+                       if operation in ('DescribeServices', 'UpdateService') else ['*'])
+        elif service == 'application-autoscaling':
+            action = f'application-autoscaling:{operation}'
+            if operation.startswith('Describe'):
+                targets = ['*']
+            else:
+                targets = [f'arn:aws:application-autoscaling:{REGION}:{ACCOUNT}:scalable-target/0123abcd']
+                context = {'application-autoscaling:service-namespace': params['ServiceNamespace'],
+                           'application-autoscaling:scalable-dimension': params['ScalableDimension']}
+        elif service == 'cloudwatch':
+            action = f'cloudwatch:{operation}'
+            name = params.get('AlarmName') or params['AlarmNames'][0]
+            targets = [f'arn:aws:cloudwatch:{REGION}:{ACCOUNT}:alarm:{name}']
+        elif service == 's3':
+            action = {'HeadObject': 's3:GetObject'}.get(operation, f's3:{operation}')
+            targets = [f'arn:aws:s3:::{params["Bucket"]}/{params["Key"]}']
+            context = {'s3:ResourceAccount': ACCOUNT}
+        else:
+            raise AssertionError(service)
+        for target in targets:
+            decisions.append((action, target, _decide(action, target, context)))
+    return decisions
+
+
+def _ecs_responses(clusters, services_by_cluster, task_by_service, task_definitions=()):
+    return {
+        'ListClusters': lambda params: {'clusterArns': clusters},
+        'ListServices': lambda params: {'serviceArns': services_by_cluster[params['cluster']]},
+        'ListTaskDefinitions': lambda params: {'taskDefinitionArns': list(task_definitions)},
+        'DescribeServices': lambda params: {'services': [
+            {'serviceArn': arn, 'taskDefinition': task_by_service[arn]} for arn in params['services']],
+            'failures': []},
+        'UpdateService': lambda params: {'service': {'serviceArn': params['service']}},
+    }
+
+
+def test_deploy_ecs_api_calls_are_all_allowed():
+    """ `deploy-ecs --list` and `deploy-ecs --kick --env <cluster>` (src/commands/deploy_ecs.py). """
+    from src.commands import deploy_ecs
+    cluster = _ecs_cluster('c4-ecs-cgap-build-stack-CGAPDockerClusterBuild-AbC')
+    services = [_ecs_service(cluster.split('/')[-1], name) for name in ('Portal', 'Indexer', 'Ingester')]
+    client, calls = _recording_client('ecs', _ecs_responses([cluster], {cluster: services}, {}))
+    assert deploy_ecs.list_clusters(client) == [cluster]
+    deploy_ecs.kick_cluster_update(client, cluster)
+    assert _names(calls) == ['ListClusters', 'ListServices'] + ['UpdateService'] * 3
+    assert all(params['forceNewDeployment'] for name, params in calls if name == 'UpdateService')
+    denied = [d for d in _request_decisions('ecs', calls) if d[2] != 'allow']
+    assert not denied, denied
+
+
+@pytest.mark.parametrize('argv, expected_calls', [
+    (['--list'], ['ListClusters']),
+    (['--kick', '--env', 'CLUSTER'], ['ListServices', 'UpdateService']),
+])
+def test_deploy_ecs_command_runs_with_its_region_and_existing_interface(argv, expected_calls):
+    """ Regression: deploy_ecs imported CGAP_ECS_REGION, which the locked dcicutils (8.19.0) no
+        longer defines, so the command failed at import before making any call. It now takes the
+        region from ECSUtils.REGION (us-east-1, unchanged). Flags, output and exit codes are as before.
+    """
+    from dcicutils.ecs_utils import ECSUtils
+    from src.commands import deploy_ecs
+    cluster = _ecs_cluster('c4-ecs-cgap-build-stack-CGAPDockerClusterBuild-AbC')
+    services = [_ecs_service(cluster.split('/')[-1], 'Portal')]
+    client, calls = _recording_client('ecs', _ecs_responses([cluster], {cluster: services}, {}))
+    argv = [cluster if arg == 'CLUSTER' else arg for arg in argv]
+    with mock.patch.object(deploy_ecs.boto3, 'client', return_value=client) as make_client, \
+            mock.patch.object(sys, 'argv', ['deploy-ecs'] + argv), \
+            mock.patch.object(deploy_ecs, 'PRINT') as printed:
+        try:
+            deploy_ecs.main()
+        except SystemExit as exit_:
+            assert exit_.code == 0
+    make_client.assert_called_once_with('ecs', region_name=ECSUtils.REGION)
+    assert ECSUtils.REGION == 'us-east-1'
+    assert _names(calls) == expected_calls
+    if argv == ['--list']:
+        printed.assert_called_once_with([cluster])
+    assert all(d[2] == 'allow' for d in _request_decisions('ecs', calls))
+
+
+SMAHT_BLUE = 'c4-ecs-blue-green-smaht-production-stack-SmahtProductionBlue-AbC'
+SMAHT_GREEN = 'c4-ecs-blue-green-smaht-production-stack-SmahtProductionGreen-DeF'
+
+
+def _smaht_ecs():
+    services, tasks = {}, {}
+    for cluster, color in ((SMAHT_BLUE, 'blue'), (SMAHT_GREEN, 'green')):
+        arns = [_ecs_service(cluster, f'{kind}Servicesmaht{color}-1') for kind in ('Portal', 'Indexer', 'Ingester')]
+        services[_ecs_cluster(cluster)] = arns
+        for arn in arns:
+            kind = C4IdentitySwap._determine_service_type(arn)
+            tasks[arn] = f'arn:aws:ecs:{REGION}:{ACCOUNT}:task-definition/Smaht{color}{kind}Task:7'
+    return _ecs_responses(list(services), services, tasks)
+
+
+def _s3_object(data: dict):
+    from botocore.response import StreamingBody
+    body = json.dumps(data).encode()
+    return {'Body': StreamingBody(io.BytesIO(body), len(body)), 'ContentLength': len(body),
+            'ETag': '"e"'}
+
+
+def _s3_responses(files: dict):
+    return {
+        'HeadObject': lambda params: {'ContentLength': len(json.dumps(files[params['Key']])), 'ETag': '"e"'},
+        'GetObject': lambda params: _s3_object(files[params['Key']]),
+        'PutObject': lambda params: {'ETag': '"f"'},
+    }
+
+
+def _drive_identity_swap(swap, ecs_responses, s3_files, **kwargs):
+    from src.commands import identity_swap
+    ecs_client, ecs_calls = _recording_client('ecs', ecs_responses)
+    autoscaling, autoscaling_calls = _recording_client('application-autoscaling', {
+        'RegisterScalableTarget': lambda params: {},
+        'DescribeScalingPolicies': lambda params: {'ScalingPolicies': [{'PolicyName': 'OldIndexerPolicy'}]},
+        'DeleteScalingPolicy': lambda params: {},
+        'PutScalingPolicy': lambda params: {
+            'PolicyARN': f'arn:aws:autoscaling:{REGION}:{ACCOUNT}:scalingPolicy:1:resource/ecs/x:policyName/p'},
+    })
+    cloudwatch, cloudwatch_calls = _recording_client('cloudwatch', {
+        'DescribeAlarms': lambda params: {'MetricAlarms': [{
+            'MetricName': 'ApproximateNumberOfMessagesVisible', 'Namespace': 'AWS/SQS', 'Statistic': 'Average',
+            'Period': 60, 'EvaluationPeriods': 1, 'Threshold': 1.0, 'Dimensions': []}]},
+        'PutMetricAlarm': lambda params: {},
+    })
+    s3, s3_calls = _recording_client('s3', _s3_responses(s3_files), boto3_session=True)
+    clients = {'application-autoscaling': autoscaling, 'cloudwatch': cloudwatch, 's3': s3}
+    ecs_utils = mock.Mock(client=ecs_client)
+    ecs_utils.list_ecs_clusters.side_effect = lambda: ecs_client.list_clusters()['clusterArns']
+    ecs_utils.list_ecs_services.side_effect = (
+        lambda cluster_name: ecs_client.list_services(cluster=cluster_name)['serviceArns'])
+    ecs_utils.list_ecs_tasks.side_effect = (
+        lambda: ecs_client.list_task_definitions()['taskDefinitionArns'])
+    with mock.patch.object(identity_swap, 'ECSUtils', return_value=ecs_utils), \
+            mock.patch.object(identity_swap.boto3, 'client', side_effect=lambda name, **_: clients[name]), \
+            mock.patch.object(identity_swap.ConfigManager, 'get_config_setting', return_value=swap.APP_KIND), \
+            mock.patch.object(identity_swap, 'yes_or_no', return_value=True), \
+            mock.patch('builtins.input', return_value='yes'), \
+            mock.patch.object(identity_swap, 'PRINT'):
+        swap.identity_swap(**kwargs)
+    return {'ecs': ecs_calls, 'application-autoscaling': autoscaling_calls,
+            'cloudwatch': cloudwatch_calls, 's3': s3_calls}
+
+
+def test_smaht_identity_swap_api_calls_are_all_allowed():
+    """ `identity-swap <blue> <green>` for SMaHT: ECS discovery and service re-pointing, the
+        global env bucket's main.ecosystem (SSE-KMS), and the indexer autoscaling policies/alarms.
+    """
+    from src.commands.identity_swap import SMaHTIdentitySwap
+
+    class Swap(SMaHTIdentitySwap):
+        APP_KIND = 'smaht'
+    calls = _drive_identity_swap(Swap, _smaht_ecs(), {'main.ecosystem': {'ecosystem': 'blue.ecosystem'}},
+                                 blue='smaht-production-blue', green='smaht-production-green')
+    assert set(_names(calls['ecs'])) == {'ListClusters', 'ListServices', 'DescribeServices', 'UpdateService'}
+    assert set(_names(calls['application-autoscaling'])) == {
+        'RegisterScalableTarget', 'DescribeScalingPolicies', 'DeleteScalingPolicy', 'PutScalingPolicy'}
+    assert set(_names(calls['cloudwatch'])) == {'DescribeAlarms', 'PutMetricAlarm'}
+    puts = [params for name, params in calls['s3'] if name == 'PutObject']
+    assert [(p['Bucket'], p['Key']) for p in puts] == [('smaht-production-foursight-envs', 'main.ecosystem')]
+    assert puts[0]['SSEKMSKeyId'] == SMaHTIdentitySwap.SMAHT_KMS_KEY_ID
+    denied = [d for service, recorded in calls.items()
+              for d in _request_decisions(service, recorded) if d[2] != 'allow']
+    assert not denied, denied
+    # SSE-KMS upload and read of that object: data-key use through S3 (the key policy must also
+    # name the role; it does for the datastore key when the role is configured).
+    key = f'arn:aws:kms:{REGION}:{ACCOUNT}:key/{SMaHTIdentitySwap.SMAHT_KMS_KEY_ID}'
+    for action in ('kms:GenerateDataKey', 'kms:Decrypt'):
+        assert _decide(action, key, {'kms:ViaService': f's3.{REGION}.amazonaws.com'}) == 'allow'
+
+
+def test_fourfront_identity_swap_api_calls_are_all_allowed():
+    """ `identity-swap <blue> <green> --mirror` for Fourfront (foursight-prod-envs). """
+    from src.commands.identity_swap import FFIdentitySwap
+
+    class Swap(FFIdentitySwap):
+        APP_KIND = 'ff'
+    blue, green = 'c4-ecs-blue-green-FourfrontProductionBlue-AbC', 'c4-ecs-blue-green-FourfrontProductionGreen-DeF'
+    services, tasks, definitions = {}, {}, []
+    for cluster, color in ((blue, 'blue'), (green, 'green')):
+        arns = [_ecs_service(cluster, f'{kind}Service{color}') for kind in ('Portal', 'Indexer')]
+        services[_ecs_cluster(cluster)] = arns
+        for arn in arns:
+            kind = C4IdentitySwap._determine_service_type(arn)
+            tasks[arn] = f'arn:aws:ecs:{REGION}:{ACCOUNT}:task-definition/fourfront-production-{color}-{kind}:3'
+            definitions += [tasks[arn], f'arn:aws:ecs:{REGION}:{ACCOUNT}:task-definition/'
+                                        f'fourfront-production-{color}-{kind}Mirror:2']
+    calls = _drive_identity_swap(
+        Swap, _ecs_responses(list(services), services, tasks, definitions),
+        {'main.ecosystem': {'prd_env_name': 'fourfront-production-blue'},
+         'green.ecosystem': {'prd_env_name': 'fourfront-production-green'}},
+        blue='fourfront-production-blue', green='fourfront-production-green', mirror=True, do_legacy=False)
+    assert 'ListTaskDefinitions' in _names(calls['ecs']) and 'UpdateService' in _names(calls['ecs'])
+    puts = [(p['Bucket'], p['Key']) for name, p in calls['s3'] if name == 'PutObject']
+    assert puts == [('foursight-prod-envs', 'main.ecosystem')]
+    denied = [d for service, recorded in calls.items()
+              for d in _request_decisions(service, recorded) if d[2] != 'allow']
+    assert not denied, denied
+
+
+def test_identity_swap_legacy_env_files_are_the_only_other_writes():
+    """ `--do-legacy` (Fourfront only, documented as no longer needed) rewrites these files in the
+        legacy foursight-envs bucket via upload_config; they are exactly the extra allowed writes.
+    """
+    for key in ('data', 'staging', 'fourfront-production-green', 'fourfront-production-blue', 'main.ecosystem'):
+        assert _decide('s3:PutObject', f'arn:aws:s3:::foursight-envs/{key}', {'s3:ResourceAccount': ACCOUNT}) == 'allow'
+
+
+@pytest.mark.parametrize('action, resource, context, expected', [
+    # Env buckets: only the ecosystem-selection files, only in this account, never deleted.
+    ('s3:PutObject', 'arn:aws:s3:::smaht-production-foursight-envs/smaht-production-blue',
+     {'s3:ResourceAccount': ACCOUNT}, 'implicit-deny'),
+    ('s3:PutObject', 'arn:aws:s3:::smaht-production-foursight-envs/main.ecosystem',
+     {'s3:ResourceAccount': OTHER_ACCOUNT}, 'implicit-deny'),
+    ('s3:GetObject', 'arn:aws:s3:::smaht-production-foursight-envs/main.ecosystem',
+     {'s3:ResourceAccount': OTHER_ACCOUNT}, 'implicit-deny'),
+    ('s3:PutObject', 'arn:aws:s3:::smaht-production-application-files/main.ecosystem',
+     {'s3:ResourceAccount': ACCOUNT}, 'implicit-deny'),
+    ('s3:DeleteObject', 'arn:aws:s3:::smaht-production-foursight-envs/main.ecosystem',
+     {'s3:ResourceAccount': ACCOUNT}, 'deny'),
+    ('s3:PutObjectAcl', 'arn:aws:s3:::smaht-production-foursight-envs/main.ecosystem',
+     {'s3:ResourceAccount': ACCOUNT}, 'implicit-deny'),
+    # Autoscaling: ECS service desired count only, this account and region.
+    ('application-autoscaling:RegisterScalableTarget',
+     f'arn:aws:application-autoscaling:{REGION}:{ACCOUNT}:scalable-target/x',
+     {'application-autoscaling:service-namespace': 'dynamodb',
+      'application-autoscaling:scalable-dimension': 'dynamodb:table:WriteCapacityUnits'}, 'implicit-deny'),
+    ('application-autoscaling:PutScalingPolicy',
+     f'arn:aws:application-autoscaling:{REGION}:{OTHER_ACCOUNT}:scalable-target/x',
+     {'application-autoscaling:service-namespace': 'ecs',
+      'application-autoscaling:scalable-dimension': 'ecs:service:DesiredCount'}, 'implicit-deny'),
+    ('application-autoscaling:DeleteScalingPolicy',
+     f'arn:aws:application-autoscaling:us-west-2:{ACCOUNT}:scalable-target/x',
+     {'aws:RequestedRegion': 'us-west-2', 'application-autoscaling:service-namespace': 'ecs',
+      'application-autoscaling:scalable-dimension': 'ecs:service:DesiredCount'}, 'deny'),
+    # ECS: discovery in the home region; still no direct task execution.
+    ('ecs:ListServices', '*', {'aws:RequestedRegion': 'us-west-2'}, 'deny'),
+    ('ecs:UpdateService', f'arn:aws:ecs:{REGION}:{OTHER_ACCOUNT}:service/c/s', {}, 'implicit-deny'),
+    ('ecs:RunTask', '*', {}, 'deny'),
+])
+def test_release_command_permissions_keep_their_scope(action, resource, context, expected):
+    assert _decide(action, resource, context) == expected
+
+
+def test_autoscaling_service_linked_role_can_be_created():
+    resource = _iam('role/aws-service-role/ecs.application-autoscaling.amazonaws.com/'
+                    'AWSServiceRoleForApplicationAutoScaling_ECSService')
+    assert _decide('iam:CreateServiceLinkedRole', resource,
+                   {'iam:AWSServiceName': 'ecs.application-autoscaling.amazonaws.com'}) == 'allow'
 
 
 # ---------------------------------------------------------------------------------------------

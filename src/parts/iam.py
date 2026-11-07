@@ -1405,6 +1405,8 @@ class C4IAM(C4IAMBase, C4Part):
         'es.amazonaws.com',
         'opensearchservice.amazonaws.com',
         'rds.amazonaws.com',
+        # identity-swap registers ECS services as scalable targets
+        'ecs.application-autoscaling.amazonaws.com',
     )
 
     # Resource-name patterns this role must never modify or pass: itself, the other human-access
@@ -1424,6 +1426,15 @@ class C4IAM(C4IAMBase, C4Part):
     DEPLOY_NAME_PATTERN = COMMON_STACK_PREFIX + '*'
     # Foursight/application package buckets are '<...>-application-versions' (FSBucketTemplate).
     DEPLOY_ARTIFACT_BUCKET_PATTERN = '*application-versions'
+    # Global env (ecosystem) buckets identity-swap switches: the generated '<env>-foursight-envs'
+    # (FSBucketTemplate.ENVS) and Fourfront's pre-existing 'foursight-prod-envs' and legacy
+    # 'foursight-envs'; and the objects it writes in them (FF --do-legacy writes the last four).
+    DEPLOY_ENV_BUCKET_PATTERNS = ('*-foursight-envs', 'foursight-prod-envs', 'foursight-envs')
+    DEPLOY_ENV_OBJECT_WRITES = (
+        '*-foursight-envs/main.ecosystem', 'foursight-prod-envs/main.ecosystem',
+        'foursight-envs/main.ecosystem', 'foursight-envs/data', 'foursight-envs/staging',
+        'foursight-envs/fourfront-production-blue', 'foursight-envs/fourfront-production-green',
+    )
     # Application configuration (GAC) secrets that operators fill in after creation.
     DEPLOY_FILLED_SECRET_PATTERN = 'C4AppConfig*'
     # The RDS secret whose host/port SecretTargetAttachment writes.
@@ -1498,6 +1509,10 @@ class C4IAM(C4IAMBase, C4Part):
                         'elasticloadbalancing:DescribeTargetGroups',
                         'elasticloadbalancing:DescribeTargetHealth',
                         'ecs:DescribeTaskDefinition', 'codebuild:ListProjects',
+                        # deploy-ecs / identity-swap discovery (list APIs AWS authorizes on '*')
+                        'ecs:ListClusters', 'ecs:ListServices', 'ecs:ListTaskDefinitions',
+                        'application-autoscaling:DescribeScalableTargets',
+                        'application-autoscaling:DescribeScalingPolicies',
                         'rds:DescribeDBEngineVersions', 'rds:DescribeEngineDefaultParameters',
                         'rds:DescribeEvents',
                         'logs:DescribeLogGroups', 'logs:DescribeResourcePolicies',
@@ -1721,6 +1736,19 @@ class C4IAM(C4IAMBase, C4Part):
                     'Resource': cls._service_arn('ecr', 'repository/*'),
                 },
                 {
+                    # identity-swap re-points the indexer services' step-scaling policies: register
+                    # the ECS service as a scalable target, then delete and re-create its policies.
+                    'Sid': 'RepointEcsServiceScalingPolicies',
+                    'Effect': 'Allow',
+                    'Action': ['application-autoscaling:RegisterScalableTarget',
+                               'application-autoscaling:PutScalingPolicy',
+                               'application-autoscaling:DeleteScalingPolicy'],
+                    'Resource': cls._service_arn('application-autoscaling', 'scalable-target/*'),
+                    'Condition': {'StringEquals': {
+                        'application-autoscaling:service-namespace': 'ecs',
+                        'application-autoscaling:scalable-dimension': 'ecs:service:DesiredCount'}},
+                },
+                {
                     'Sid': 'ManageLogGroupsAndAlarms',
                     'Effect': 'Allow',
                     'Action': [
@@ -1927,6 +1955,22 @@ class C4IAM(C4IAMBase, C4Part):
                     'Action': ['secretsmanager:PutSecretValue'],
                     'Resource': cls._service_arn('secretsmanager',
                                                  f'secret:{cls.DEPLOY_RDS_SECRET_PATTERN}'),
+                },
+                {
+                    # identity-swap reads the ecosystem files in the global env bucket ...
+                    'Sid': 'ReadGlobalEnvBucketFiles',
+                    'Effect': 'Allow',
+                    'Action': ['s3:GetObject'],
+                    'Resource': [f'arn:aws:s3:::{bucket}/*' for bucket in cls.DEPLOY_ENV_BUCKET_PATTERNS],
+                    'Condition': {'StringEquals': {'s3:ResourceAccount': AccountId}},
+                },
+                {
+                    # ... and overwrites only the files that select the live ecosystem.
+                    'Sid': 'SwitchTheLiveEcosystemFile',
+                    'Effect': 'Allow',
+                    'Action': ['s3:PutObject'],
+                    'Resource': [f'arn:aws:s3:::{key}' for key in cls.DEPLOY_ENV_OBJECT_WRITES],
+                    'Condition': {'StringEquals': {'s3:ResourceAccount': AccountId}},
                 },
                 {
                     # `aws cloudformation package/deploy --s3-bucket` uploads, and the template/

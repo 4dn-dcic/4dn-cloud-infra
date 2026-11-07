@@ -55,7 +55,7 @@ Three **optional, disabled-by-default** IAM roles let people work directly in AW
 |---|---|
 | `*DevDiagnoseRole` | Read-only inspection of the running system |
 | `*PowerRemediateRole` | Operational API access, including privileged build/workflow delegation |
-| `*InfraDeployRole` | Change-set deployment, image builds/pushes and cleanup of this repository's `c4-*` stacks |
+| `*InfraDeployRole` | Change-set deployment, image builds/pushes, ECS releases and cleanup of this repository's `c4-*` stacks |
 
 They are built by `C4IAM` in `src/parts/iam.py` and live in the IAM stack. With none of the
 `human_access.*` settings present in `custom/config.json` the IAM template is byte-for-byte what
@@ -873,8 +873,11 @@ ECS/ELB/OpenSearch/ElastiCache/RDS service-linked roles; create and maintain (bu
 disable) the datastore KMS key; upload packaged artifacts to `*application-versions` buckets
 in this account; start, watch and stop builds of the CodeBuild image projects; push and retag
 images in this account's ECR repositories (`docker push`, `add-image-tag`,
-`unrelease-most-recent-image`); and continue, force or roll back a failed `c4-*` stack update and
-delete `c4-*` stacks (again never with a service role).
+`unrelease-most-recent-image`); run the ECS release commands `deploy-ecs` and `identity-swap`
+(ECS discovery and service updates, the indexer services' ECS scaling policies and alarms, and a
+rewrite of only the `main.ecosystem` file - plus Fourfront's legacy `--do-legacy` files - in the
+global env buckets of this account); and continue, force or roll back a failed `c4-*` stack update
+and delete `c4-*` stacks (again never with a service role).
 
 What it cannot do: modify or pass itself, the other human-access roles, `*DevRole` or their
 policies; manage access keys, login profiles, MFA, identity providers, groups, customer managed
@@ -1000,6 +1003,11 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "elasticloadbalancing:DescribeTargetHealth",
         "ecs:DescribeTaskDefinition",
         "codebuild:ListProjects",
+        "ecs:ListClusters",
+        "ecs:ListServices",
+        "ecs:ListTaskDefinitions",
+        "application-autoscaling:DescribeScalableTargets",
+        "application-autoscaling:DescribeScalingPolicies",
         "rds:DescribeDBEngineVersions",
         "rds:DescribeEngineDefaultParameters",
         "rds:DescribeEvents",
@@ -1182,7 +1190,8 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
             "elasticloadbalancing.amazonaws.com",
             "es.amazonaws.com",
             "opensearchservice.amazonaws.com",
-            "rds.amazonaws.com"
+            "rds.amazonaws.com",
+            "ecs.application-autoscaling.amazonaws.com"
           ]
         }
       }
@@ -1311,6 +1320,22 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "ecr:DescribeImages"
       ],
       "Resource": "arn:aws:ecr:<region>:<account-id>:repository/*"
+    },
+    {
+      "Sid": "RepointEcsServiceScalingPolicies",
+      "Effect": "Allow",
+      "Action": [
+        "application-autoscaling:RegisterScalableTarget",
+        "application-autoscaling:PutScalingPolicy",
+        "application-autoscaling:DeleteScalingPolicy"
+      ],
+      "Resource": "arn:aws:application-autoscaling:<region>:<account-id>:scalable-target/*",
+      "Condition": {
+        "StringEquals": {
+          "application-autoscaling:service-namespace": "ecs",
+          "application-autoscaling:scalable-dimension": "ecs:service:DesiredCount"
+        }
+      }
     },
     {
       "Sid": "ManageLogGroupsAndAlarms",
@@ -1599,6 +1624,44 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "secretsmanager:PutSecretValue"
       ],
       "Resource": "arn:aws:secretsmanager:<region>:<account-id>:secret:C4*RDSSecret*"
+    },
+    {
+      "Sid": "ReadGlobalEnvBucketFiles",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::*-foursight-envs/*",
+        "arn:aws:s3:::foursight-prod-envs/*",
+        "arn:aws:s3:::foursight-envs/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "s3:ResourceAccount": "<account-id>"
+        }
+      }
+    },
+    {
+      "Sid": "SwitchTheLiveEcosystemFile",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::*-foursight-envs/main.ecosystem",
+        "arn:aws:s3:::foursight-prod-envs/main.ecosystem",
+        "arn:aws:s3:::foursight-envs/main.ecosystem",
+        "arn:aws:s3:::foursight-envs/data",
+        "arn:aws:s3:::foursight-envs/staging",
+        "arn:aws:s3:::foursight-envs/fourfront-production-blue",
+        "arn:aws:s3:::foursight-envs/fourfront-production-green"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "s3:ResourceAccount": "<account-id>"
+        }
+      }
     },
     {
       "Sid": "UploadAndReadPackagedArtifacts",

@@ -1,7 +1,7 @@
 import argparse
 import boto3
 
-from dcicutils.ecs_utils import CGAP_ECS_REGION
+from dcicutils.ecs_utils import ECSUtils
 from dcicutils.misc_utils import PRINT
 
 
@@ -28,7 +28,7 @@ def main():
     args = parser.parse_args()
 
     # XXX: replace logic with ECSUtils
-    client = boto3.client('ecs', region_name=CGAP_ECS_REGION)
+    client = boto3.client('ecs', region_name=ECSUtils.REGION)
     if args.list:
         PRINT(list_clusters(client))
         exit(0)

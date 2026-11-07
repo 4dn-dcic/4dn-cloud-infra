@@ -123,7 +123,7 @@ Validation used a fresh Python 3.10 environment installed from that `poetry.lock
 1.43.108, awscli 1.46.1, foursight-core 5.10.3, cfn-lint 0.86.4), fake credentials, metadata
 disabled, and sockets plus botocore HTTP sends blocked.
 
-- **381 tests passed** (`tests src/tests`, also in reverse order); changed Python files pass flake8
+- **400 tests passed** (`tests src/tests`, also in reverse order); changed Python files pass flake8
   (including a pre-existing unused import removed from `datastore.py`); the operator
   reStructuredText parses without messages.
 - **102 existing-stack templates** (CGAP/Fourfront/SMaHT x standalone/blue-green x S3 encryption
@@ -140,7 +140,7 @@ disabled, and sockets plus botocore HTTP sends blocked.
   check requires. Deletion, disabling, grants and direct encrypt/re-encrypt are not granted. A
   flag without principals leaves the key policy unchanged.
 - Policy sizes, counted as IAM does (whitespace removed, account/region substituted): managed
-  policies 5275/4874/5035 characters (limit 6144); inline guardrail 3738 (limit 10240).
+  policies 5483/5322/5784 characters (limit 6144); inline guardrail 3738 (limit 10240).
 - Image builds, pushes/retags and stack cleanup: the dcicutils `add-image-tag` and
   `unrelease-most-recent-image` code and a CloudFormation continue/rollback/delete/retain sequence
   were driven against locally answered botocore clients, and every API they call is allowed;
@@ -152,6 +152,17 @@ disabled, and sockets plus botocore HTTP sends blocked.
   resource types a stack deletion must retain (the data-bearing types and the S3 federator IAM
   user) and assert everything else is deletable. With all three roles enabled, the diagnose and
   remediate roles' resources are byte-identical to the previous head.
+- ECS release commands: `deploy-ecs` (`--list`, `--kick`) and `identity-swap` (SMaHT, and
+  Fourfront `--mirror`) were run end to end against locally answered ECS, Application Auto
+  Scaling, CloudWatch and S3 clients. Every recorded call, evaluated with its actual parameters
+  (cluster/service ARNs, scaling namespace and dimension, alarm names, env-bucket object keys),
+  is allowed. The only S3 writes are the `main.ecosystem` objects. Negative cases cover other
+  env-bucket objects, other accounts and regions, non-ECS scaling targets, object deletion and
+  `RunTask`.
+- Pre-existing defect fixed: `deploy-ecs` imported `CGAP_ECS_REGION`, which the locked
+  dcicutils 8.19.0 does not define, so the command failed at import (reproduced with the
+  regression test against the previous source: `ImportError`). It now uses `ECSUtils.REGION`
+  (`us-east-1`, as before). Flags, output and exit codes are unchanged.
 - Coverage is checked against official AWS data in `tests/data/aws_iam_deploy_reference.json`:
   CloudFormation resource-provider handler permissions for all 47 resource types in the
   synthesized templates and the Foursight SAM output, and the AWS Policy Generator action and

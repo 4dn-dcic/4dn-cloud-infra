@@ -6,6 +6,13 @@
 "retrieved": "2026-11-03"
 },
 "condition_keys": {
+"application-autoscaling": [
+"application-autoscaling:scalable-dimension",
+"application-autoscaling:service-namespace",
+"aws:RequestTag/${TagKey}",
+"aws:ResourceTag/${TagKey}",
+"aws:TagKeys"
+],
 "cloudformation": [
 "aws:RequestTag/${TagKey}",
 "aws:ResourceTag/${TagKey}",
