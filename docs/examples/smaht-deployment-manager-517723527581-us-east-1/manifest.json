@@ -1,0 +1,40 @@
+{
+  "account_id": "517723527581",
+  "region": "us-east-1",
+  "permission_set": "SMaHT-Deployment-Manager",
+  "source": "src/parts/iam.py C4IAM.human_deploy_policy_documents",
+  "generated_by": "python -m src.commands.render_deploy_policy_bundle --account-id 517723527581 --region us-east-1 --permission-set SMaHT-Deployment-Manager --policy-prefix SMaHT --out docs/examples/smaht-deployment-manager-517723527581-us-east-1",
+  "customer_managed_policies": [
+    {
+      "name": "SMaHTInfraDeployStackPolicy",
+      "path": "/",
+      "file": "SMaHTInfraDeployStackPolicy.json",
+      "description": "Deployment role: CloudFormation change sets and generated runtime identities.",
+      "characters": 5483
+    },
+    {
+      "name": "SMaHTInfraDeployComputePolicy",
+      "path": "/",
+      "file": "SMaHTInfraDeployComputePolicy.json",
+      "description": "Deployment role: network, instances, load balancing, ECS, Foursight serverless.",
+      "characters": 5322
+    },
+    {
+      "name": "SMaHTInfraDeployDataPolicy",
+      "path": "/",
+      "file": "SMaHTInfraDeployDataPolicy.json",
+      "description": "Deployment role: datastores, keys, secrets, buckets, artifacts, registries, builds.",
+      "characters": 5784
+    }
+  ],
+  "aws_managed_policies": [],
+  "inline_policy": {
+    "file": "SMaHT-Deployment-Manager-inline-policy.json",
+    "characters": 3738
+  },
+  "limits": {
+    "managed_policy_characters": 6144,
+    "inline_policy_characters": 10240,
+    "inline_policy_bytes": 32768
+  }
+}
