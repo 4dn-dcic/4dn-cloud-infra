@@ -2115,23 +2115,36 @@ class C4IAM(C4IAMBase, C4Part):
             },
         )
 
+    @classmethod
+    def human_deploy_policy_documents(cls) -> list:
+        """ [(name, description, document)] for the deployment permissions: the three allow
+            documents (customer managed policies, 6144 characters each) and then the deny-only
+            guardrail (an inline policy). The opt-in role below and the materialized
+            account-specific bundle (src/commands/render_deploy_policy_bundle.py) both use this.
+        """
+        guardrail = cls.human_deploy_guardrail_policy()
+        return [
+            ('InfraDeployStackPolicy',
+             'Deployment role: CloudFormation change sets and generated runtime identities.',
+             cls.human_deploy_stack_policy()),
+            ('InfraDeployComputePolicy',
+             'Deployment role: network, instances, load balancing, ECS, Foursight serverless.',
+             cls.human_deploy_compute_policy()),
+            ('InfraDeployDataPolicy',
+             'Deployment role: datastores, keys, secrets, buckets, artifacts, registries, builds.',
+             cls.human_deploy_data_policy()),
+            (guardrail.PolicyName, 'Deployment role: explicit denies (inline).', guardrail.PolicyDocument),
+        ]
+
     def human_deploy_managed_policies(self) -> list:
         """ The allow documents exceed a role's 10240-character inline budget, so they are three
             customer managed policies (6144 each) created in this stack and attached to the role.
             Their CloudFormation-generated names contain 'InfraDeploy', which the guardrail
             protects.
         """
-        documents = (
-            ('InfraDeployStackPolicy', self.human_deploy_stack_policy(),
-             'Deployment role: CloudFormation change sets and generated runtime identities.'),
-            ('InfraDeployComputePolicy', self.human_deploy_compute_policy(),
-             'Deployment role: network, instances, load balancing, ECS, Foursight serverless.'),
-            ('InfraDeployDataPolicy', self.human_deploy_data_policy(),
-             'Deployment role: datastores, keys, secrets, buckets, artifacts, registries, builds.'),
-        )
         return [ManagedPolicy(self.name.logical_id(title), Description=description,
                               PolicyDocument=document)
-                for title, document, description in documents]
+                for title, description, document in self.human_deploy_policy_documents()[:3]]
 
     def human_deploy_role(self, principal_arns: list, policies: list) -> Role:
         """ Change-set deployment role. Trust is the same enumerated, source-identity-labelled,

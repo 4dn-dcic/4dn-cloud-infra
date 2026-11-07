@@ -103,6 +103,8 @@ grant access immediately through an existing key policy's delegation to account 
 > CloudFormation's `AWS::Region` and `AWS::AccountId`, and the trust policy (which needs approved
 > principal ARNs from `custom/config.json`) is not shown here. The three inline policies attached
 > to each role are also merged into one document per role for readability.
+> (The deployment-role example further down is different: it is rendered for one account and
+> Region, and its own note explains how to attach it.)
 
 ### Illustrative policy: diagnostic role (`*DevDiagnoseRole`)
 
@@ -935,6 +937,11 @@ Prerequisites an administrator completes, because the role cannot grant them to 
 * Optionally enable termination protection on stacks that must never be deleted (for example the
   datastore and IAM stacks); this role cannot turn it off.
 
+The same permissions can be attached to an existing IAM Identity Center permission set instead
+of this role. The ready-to-use bundle for `SMaHT-Deployment-Manager` in account 517723527581
+(us-east-1) is in
+[`docs/examples/smaht-deployment-manager-517723527581-us-east-1/`](docs/examples/smaht-deployment-manager-517723527581-us-east-1/README.md).
+
 Use `cli provision <stack>` **without** `--upload-change-set` or `--validate` (both run the AWS
 CLI in Docker with only `custom/aws_creds` mounted, so they never see an assumed-role session),
 then create and execute the change set with `aws cloudformation deploy --no-execute-changeset`
@@ -943,12 +950,22 @@ boundary and the remaining limits are in `docs/source/human_access_roles.rst`.
 
 ### Illustrative policy: deployment role (`*InfraDeployRole`)
 
-Generated from `src/parts/iam.py` and checked statement-for-statement by
-`tests/test_human_deploy_role.py`. It merges the role's three customer managed policies
-(`InfraDeployStackPolicy`, `InfraDeployComputePolicy`, `InfraDeployDataPolicy`) and its inline
-`HumanDeployGuardrailPolicy` into one document for readability. It is
-**not deployable as written**: `<region>` and `<account-id>` stand for `AWS::Region` and
-`AWS::AccountId`, and the trust policy is not shown.
+Generated from `src/parts/iam.py` for account `517723527581` in `us-east-1`, and checked
+statement-for-statement by `tests/test_human_deploy_role.py`. It merges the three customer managed
+policies (`InfraDeployStackPolicy`, `InfraDeployComputePolicy`, `InfraDeployDataPolicy`) and the
+inline `HumanDeployGuardrailPolicy` into one document for reading. It is **not one attachable
+policy**. At about 20,000 characters it is over three times IAM's 6,144-character limit for a
+managed policy, and it mixes the allow documents with the deny-only inline policy.
+
+To use these permissions, attach the four separate documents:
+
+* **Existing IAM Identity Center permission set `SMaHT-Deployment-Manager` in that account:** use
+  the ready-to-use bundle and setup guide in
+  [`docs/examples/smaht-deployment-manager-517723527581-us-east-1/`](docs/examples/smaht-deployment-manager-517723527581-us-east-1/README.md).
+* **Another account or Region:** regenerate the bundle with
+  `python -m src.commands.render_deploy_policy_bundle`.
+* **Opt-in custom role above:** CloudFormation creates the same documents in the IAM stack, with
+  that role's own trust policy, which is not shown here.
 
 ```json
 {
@@ -1019,7 +1036,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
       "Resource": "*",
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "<region>"
+          "aws:RequestedRegion": "us-east-1"
         }
       }
     },
@@ -1040,7 +1057,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
       "Resource": "*",
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "<region>"
+          "aws:RequestedRegion": "us-east-1"
         }
       }
     },
@@ -1051,12 +1068,12 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "cloudformation:CreateChangeSet"
       ],
       "Resource": [
-        "arn:aws:cloudformation:<region>:<account-id>:stack/c4-*/*",
-        "arn:aws:cloudformation:<region>:aws:transform/Serverless-2016-10-31"
+        "arn:aws:cloudformation:us-east-1:517723527581:stack/c4-*/*",
+        "arn:aws:cloudformation:us-east-1:aws:transform/Serverless-2016-10-31"
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "<region>"
+          "aws:RequestedRegion": "us-east-1"
         },
         "Null": {
           "cloudformation:RoleArn": "true"
@@ -1071,10 +1088,10 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "cloudformation:DeleteChangeSet",
         "cloudformation:CancelUpdateStack"
       ],
-      "Resource": "arn:aws:cloudformation:<region>:<account-id>:stack/c4-*/*",
+      "Resource": "arn:aws:cloudformation:us-east-1:517723527581:stack/c4-*/*",
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "<region>"
+          "aws:RequestedRegion": "us-east-1"
         }
       }
     },
@@ -1086,10 +1103,10 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "cloudformation:RollbackStack",
         "cloudformation:DeleteStack"
       ],
-      "Resource": "arn:aws:cloudformation:<region>:<account-id>:stack/c4-*/*",
+      "Resource": "arn:aws:cloudformation:us-east-1:517723527581:stack/c4-*/*",
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "<region>"
+          "aws:RequestedRegion": "us-east-1"
         },
         "Null": {
           "cloudformation:RoleArn": "true"
@@ -1133,9 +1150,9 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "iam:UntagUser"
       ],
       "Resource": [
-        "arn:aws:iam::<account-id>:role/c4-*",
-        "arn:aws:iam::<account-id>:user/c4-*",
-        "arn:aws:iam::<account-id>:instance-profile/c4-*"
+        "arn:aws:iam::517723527581:role/c4-*",
+        "arn:aws:iam::517723527581:user/c4-*",
+        "arn:aws:iam::517723527581:instance-profile/c4-*"
       ]
     },
     {
@@ -1145,7 +1162,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "iam:AttachRolePolicy",
         "iam:DetachRolePolicy"
       ],
-      "Resource": "arn:aws:iam::<account-id>:role/c4-*",
+      "Resource": "arn:aws:iam::517723527581:role/c4-*",
       "Condition": {
         "ArnEquals": {
           "iam:PolicyARN": [
@@ -1163,7 +1180,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
       "Action": [
         "iam:PassRole"
       ],
-      "Resource": "arn:aws:iam::<account-id>:role/c4-*",
+      "Resource": "arn:aws:iam::517723527581:role/c4-*",
       "Condition": {
         "StringEqualsIfExists": {
           "iam:PassedToService": [
@@ -1181,7 +1198,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
       "Action": [
         "iam:CreateServiceLinkedRole"
       ],
-      "Resource": "arn:aws:iam::<account-id>:role/aws-service-role/*",
+      "Resource": "arn:aws:iam::517723527581:role/aws-service-role/*",
       "Condition": {
         "StringEquals": {
           "iam:AWSServiceName": [
@@ -1244,8 +1261,8 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "ec2:ModifyInstanceAttribute"
       ],
       "Resource": [
-        "arn:aws:ec2:<region>:<account-id>:*",
-        "arn:aws:ec2:<region>::image/*"
+        "arn:aws:ec2:us-east-1:517723527581:*",
+        "arn:aws:ec2:us-east-1::image/*"
       ]
     },
     {
@@ -1271,7 +1288,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "elasticloadbalancing:AddTags",
         "elasticloadbalancing:RemoveTags"
       ],
-      "Resource": "arn:aws:elasticloadbalancing:<region>:<account-id>:*"
+      "Resource": "arn:aws:elasticloadbalancing:us-east-1:517723527581:*"
     },
     {
       "Sid": "ManageContainerServices",
@@ -1294,7 +1311,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "ecs:UntagResource",
         "ecs:ListTagsForResource"
       ],
-      "Resource": "arn:aws:ecs:<region>:<account-id>:*"
+      "Resource": "arn:aws:ecs:us-east-1:517723527581:*"
     },
     {
       "Sid": "StartWatchAndStopImageBuilds",
@@ -1305,7 +1322,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "codebuild:BatchGetBuilds",
         "codebuild:ListBuildsForProject"
       ],
-      "Resource": "arn:aws:codebuild:<region>:<account-id>:project/*"
+      "Resource": "arn:aws:codebuild:us-east-1:517723527581:project/*"
     },
     {
       "Sid": "PushAndRetagImages",
@@ -1319,7 +1336,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "ecr:BatchGetImage",
         "ecr:DescribeImages"
       ],
-      "Resource": "arn:aws:ecr:<region>:<account-id>:repository/*"
+      "Resource": "arn:aws:ecr:us-east-1:517723527581:repository/*"
     },
     {
       "Sid": "RepointEcsServiceScalingPolicies",
@@ -1329,7 +1346,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "application-autoscaling:PutScalingPolicy",
         "application-autoscaling:DeleteScalingPolicy"
       ],
-      "Resource": "arn:aws:application-autoscaling:<region>:<account-id>:scalable-target/*",
+      "Resource": "arn:aws:application-autoscaling:us-east-1:517723527581:scalable-target/*",
       "Condition": {
         "StringEquals": {
           "application-autoscaling:service-namespace": "ecs",
@@ -1355,8 +1372,8 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "cloudwatch:ListTagsForResource"
       ],
       "Resource": [
-        "arn:aws:logs:<region>:<account-id>:log-group:*",
-        "arn:aws:cloudwatch:<region>:<account-id>:alarm:*"
+        "arn:aws:logs:us-east-1:517723527581:log-group:*",
+        "arn:aws:cloudwatch:us-east-1:517723527581:alarm:*"
       ]
     },
     {
@@ -1388,8 +1405,8 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "events:ListTagsForResource"
       ],
       "Resource": [
-        "arn:aws:lambda:<region>:<account-id>:function:*",
-        "arn:aws:events:<region>:<account-id>:rule/*"
+        "arn:aws:lambda:us-east-1:517723527581:function:*",
+        "arn:aws:events:us-east-1:517723527581:rule/*"
       ]
     },
     {
@@ -1398,7 +1415,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
       "Action": [
         "lambda:GetLayerVersion"
       ],
-      "Resource": "arn:aws:lambda:<region>:*:layer:*:*"
+      "Resource": "arn:aws:lambda:us-east-1:*:layer:*:*"
     },
     {
       "Sid": "ManageFoursightRestApi",
@@ -1412,9 +1429,9 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "apigateway:UpdateRestApiPolicy"
       ],
       "Resource": [
-        "arn:aws:apigateway:<region>::/restapis",
-        "arn:aws:apigateway:<region>::/restapis/*",
-        "arn:aws:apigateway:<region>::/tags/*"
+        "arn:aws:apigateway:us-east-1::/restapis",
+        "arn:aws:apigateway:us-east-1::/restapis/*",
+        "arn:aws:apigateway:us-east-1::/tags/*"
       ]
     },
     {
@@ -1443,7 +1460,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "rds:RemoveTagsFromResource",
         "rds:ListTagsForResource"
       ],
-      "Resource": "arn:aws:rds:<region>:<account-id>:*"
+      "Resource": "arn:aws:rds:us-east-1:517723527581:*"
     },
     {
       "Sid": "ManageSearchDomains",
@@ -1464,7 +1481,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "es:RemoveTags",
         "es:ListTags"
       ],
-      "Resource": "arn:aws:es:<region>:<account-id>:domain/*"
+      "Resource": "arn:aws:es:us-east-1:517723527581:domain/*"
     },
     {
       "Sid": "ManageCaches",
@@ -1486,7 +1503,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "elasticache:RemoveTagsFromResource",
         "elasticache:ListTagsForResource"
       ],
-      "Resource": "arn:aws:elasticache:<region>:<account-id>:*"
+      "Resource": "arn:aws:elasticache:us-east-1:517723527581:*"
     },
     {
       "Sid": "ManageQueues",
@@ -1500,7 +1517,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "sqs:UntagQueue",
         "sqs:ListQueueTags"
       ],
-      "Resource": "arn:aws:sqs:<region>:<account-id>:*"
+      "Resource": "arn:aws:sqs:us-east-1:517723527581:*"
     },
     {
       "Sid": "ManageBucketConfiguration",
@@ -1557,7 +1574,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "ecr:UntagResource",
         "ecr:ListTagsForResource"
       ],
-      "Resource": "arn:aws:ecr:<region>:<account-id>:repository/*"
+      "Resource": "arn:aws:ecr:us-east-1:517723527581:repository/*"
     },
     {
       "Sid": "ManageBuildProjects",
@@ -1568,7 +1585,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "codebuild:DeleteProject",
         "codebuild:BatchGetProjects"
       ],
-      "Resource": "arn:aws:codebuild:<region>:<account-id>:project/*"
+      "Resource": "arn:aws:codebuild:us-east-1:517723527581:project/*"
     },
     {
       "Sid": "MaintainDatastoreKeys",
@@ -1582,7 +1599,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "kms:UntagResource",
         "kms:UpdateKeyDescription"
       ],
-      "Resource": "arn:aws:kms:<region>:<account-id>:key/*"
+      "Resource": "arn:aws:kms:us-east-1:517723527581:key/*"
     },
     {
       "Sid": "UseKeysOnlyThroughS3",
@@ -1591,10 +1608,10 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "kms:GenerateDataKey",
         "kms:Decrypt"
       ],
-      "Resource": "arn:aws:kms:<region>:<account-id>:key/*",
+      "Resource": "arn:aws:kms:us-east-1:517723527581:key/*",
       "Condition": {
         "StringEquals": {
-          "kms:ViaService": "s3.<region>.amazonaws.com"
+          "kms:ViaService": "s3.us-east-1.amazonaws.com"
         }
       }
     },
@@ -1607,7 +1624,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "secretsmanager:TagResource",
         "secretsmanager:UntagResource"
       ],
-      "Resource": "arn:aws:secretsmanager:<region>:<account-id>:secret:C4*"
+      "Resource": "arn:aws:secretsmanager:us-east-1:517723527581:secret:C4*"
     },
     {
       "Sid": "ResolveApplicationSecrets",
@@ -1615,7 +1632,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
       "Action": [
         "secretsmanager:GetSecretValue"
       ],
-      "Resource": "arn:aws:secretsmanager:<region>:<account-id>:secret:C4*"
+      "Resource": "arn:aws:secretsmanager:us-east-1:517723527581:secret:C4*"
     },
     {
       "Sid": "AttachDatabaseEndpointToItsSecret",
@@ -1623,7 +1640,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
       "Action": [
         "secretsmanager:PutSecretValue"
       ],
-      "Resource": "arn:aws:secretsmanager:<region>:<account-id>:secret:C4*RDSSecret*"
+      "Resource": "arn:aws:secretsmanager:us-east-1:517723527581:secret:C4*RDSSecret*"
     },
     {
       "Sid": "ReadGlobalEnvBucketFiles",
@@ -1638,7 +1655,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
       ],
       "Condition": {
         "StringEquals": {
-          "s3:ResourceAccount": "<account-id>"
+          "s3:ResourceAccount": "517723527581"
         }
       }
     },
@@ -1659,7 +1676,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
       ],
       "Condition": {
         "StringEquals": {
-          "s3:ResourceAccount": "<account-id>"
+          "s3:ResourceAccount": "517723527581"
         }
       }
     },
@@ -1675,7 +1692,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
       "Resource": "arn:aws:s3:::*application-versions/*",
       "Condition": {
         "StringEquals": {
-          "s3:ResourceAccount": "<account-id>"
+          "s3:ResourceAccount": "517723527581"
         }
       }
     },
@@ -1697,12 +1714,12 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "iam:PassRole"
       ],
       "Resource": [
-        "arn:aws:iam::<account-id>:role/*DevDiagnoseRole*",
-        "arn:aws:iam::<account-id>:role/*PowerRemediateRole*",
-        "arn:aws:iam::<account-id>:role/*InfraDeployRole*",
-        "arn:aws:iam::<account-id>:role/*DevRole*",
-        "arn:aws:iam::<account-id>:policy/*HumanAccessBoundary*",
-        "arn:aws:iam::<account-id>:policy/*InfraDeploy*"
+        "arn:aws:iam::517723527581:role/*DevDiagnoseRole*",
+        "arn:aws:iam::517723527581:role/*PowerRemediateRole*",
+        "arn:aws:iam::517723527581:role/*InfraDeployRole*",
+        "arn:aws:iam::517723527581:role/*DevRole*",
+        "arn:aws:iam::517723527581:policy/*HumanAccessBoundary*",
+        "arn:aws:iam::517723527581:policy/*InfraDeploy*"
       ]
     },
     {
@@ -1808,7 +1825,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
         "cloudformation:DeleteStack",
         "cloudformation:RollbackStack"
       ],
-      "NotResource": "arn:aws:cloudformation:<region>:<account-id>:stack/c4-*/*"
+      "NotResource": "arn:aws:cloudformation:us-east-1:517723527581:stack/c4-*/*"
     },
     {
       "Sid": "NeverAdministerStackSetsOrStackProtections",
@@ -1826,7 +1843,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
       "Action": [
         "secretsmanager:PutSecretValue"
       ],
-      "NotResource": "arn:aws:secretsmanager:<region>:<account-id>:secret:C4*RDSSecret*"
+      "NotResource": "arn:aws:secretsmanager:us-east-1:517723527581:secret:C4*RDSSecret*"
     },
     {
       "Sid": "NeverRewriteSecretPayloadsOrPolicies",
@@ -1857,7 +1874,7 @@ Generated from `src/parts/iam.py` and checked statement-for-statement by
       "Resource": "*",
       "Condition": {
         "StringNotEquals": {
-          "aws:RequestedRegion": "<region>"
+          "aws:RequestedRegion": "us-east-1"
         }
       }
     }

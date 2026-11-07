@@ -1428,32 +1428,29 @@ def _readme_deploy_policy() -> dict:
     return json.loads(match.group(1))
 
 
-def _placeholder(value):
-    if isinstance(value, dict):
-        if value == {'Ref': 'AWS::Region'}:
-            return '<region>'
-        if value == {'Ref': 'AWS::AccountId'}:
-            return '<account-id>'
-        if 'Fn::Join' in value:
-            separator, parts = value['Fn::Join']
-            return separator.join(_placeholder(part) for part in parts)
-        return {key: _placeholder(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_placeholder(item) for item in value]
-    return value
+BUNDLE_DIR = os.path.join(REPO_ROOT, 'docs', 'examples', 'smaht-deployment-manager-517723527581-us-east-1')
+BUNDLE = json.load(io.open(os.path.join(BUNDLE_DIR, 'manifest.json')))
+
+
+def _concrete(value):
+    """ The README example is rendered for the account/Region of the tracked SSO bundle. """
+    from src.commands.render_deploy_policy_bundle import materialize
+    return materialize(value, BUNDLE['account_id'], BUNDLE['region'])
 
 
 def test_readme_deploy_example_matches_the_generated_policies():
-    assert _readme_deploy_policy()['Statement'] == _placeholder(_deploy_statements())
+    assert _readme_deploy_policy()['Statement'] == _concrete(_deploy_statements())
 
 
-def test_readme_deploy_example_is_labelled_and_not_deployable_as_written():
+def test_readme_deploy_example_is_concrete_labelled_and_points_to_the_bundle():
     text = io.open(README).read()
     section = text.split(DEPLOY_README_HEADING, 1)[1].split('\n### ', 1)[0]
-    assert 'not deployable as written' in section
+    assert 'not one attachable' in section and 'policy' in section
     assert 'src/parts/iam.py' in section
+    assert 'docs/examples/smaht-deployment-manager-517723527581-us-east-1/' in section
+    assert 'render_deploy_policy_bundle' in section
     rendered = json.dumps(_readme_deploy_policy())
-    assert '<account-id>' in rendered and '<region>' in rendered
-    assert not re.search(r'\b\d{12}\b', rendered)
-    # The older anchor and its diagnostic example remain.
+    assert '<' not in rendered and '"Ref"' not in rendered and 'Fn::' not in rendered
+    assert set(re.findall(r'\b\d{12}\b', rendered)) == {BUNDLE['account_id']}
+    # The older anchor and its (parameterized) diagnostic example remain.
     assert '### Illustrative policy: diagnostic role (`*DevDiagnoseRole`)' in text

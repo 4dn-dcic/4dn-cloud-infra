@@ -381,6 +381,21 @@ unchanged.
 ``update-kms-policy`` adds Foursight roles to the key's use statement; it does not grant the
 deployment role.
 
+Using an existing IAM Identity Center permission set instead
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The same four documents can be attached to an existing permission set: the three allow documents
+as IAM customer managed policies in the member account, and the guardrail as the permission set's
+inline policy. ``python -m src.commands.render_deploy_policy_bundle`` renders them as plain JSON for
+one account and Region (``--check`` verifies an existing bundle). The tracked bundle for
+``SMaHT-Deployment-Manager`` in account 517723527581 (us-east-1), with its setup and reprovisioning
+guide, is in ``docs/examples/smaht-deployment-manager-517723527581-us-east-1/``.
+
+That path creates no role or trust policy. Authentication and session length stay with Identity
+Center, the policies are updated by regenerating them, and the datastore key is reached through
+``deploying_iam_user`` rather than the ``HumanDeployRoleArn`` export. Leave ``human_access.deploy.*``
+off in that case. The IAM stack (which contains ``*DevRole``) is still applied by an administrator.
+
 Bootstrap (administrator, once)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
