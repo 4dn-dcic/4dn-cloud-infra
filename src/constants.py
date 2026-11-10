@@ -91,6 +91,11 @@ class Settings:
     # every OpenSearch domain (Delete or Retain). Unset leaves the attributes off (CloudFormation defaults).
     RDS_RETENTION_POLICY = 'rds.retention_policy'
     ES_RETENTION_POLICY = 'elasticsearch.retention_policy'
+    # Delete or Retain, for every datastore S3 bucket and their S3 encryption key, likewise both attributes.
+    S3_RETENTION_POLICY = 's3.retention_policy'
+    # Private subnet (letter of the network stack's PrivateSubnet<X> exports) for the OpenSearch
+    # domain(s). Default A; for an IT-provided VPC whose first subnet is in an AZ OpenSearch does not offer.
+    ES_PRIVATE_SUBNET = 'elasticsearch.private_subnet'
 
     # ES Configuration Options
     ES_MASTER_COUNT = 'elasticsearch.master_node_count'

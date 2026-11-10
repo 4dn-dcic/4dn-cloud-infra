@@ -97,6 +97,12 @@ Other relevant keys:
   ``UpdateReplacePolicy`` on the RDS instance (``Delete``, ``Retain`` or ``Snapshot``) and on each
   OpenSearch domain (``Delete`` or ``Retain``; OpenSearch has no snapshot policy). Unset keeps
   CloudFormation's defaults: an update that replaces RDS or a domain deletes it without a snapshot.
+* ``s3.retention_policy`` - ``Delete`` or ``Retain`` for both attributes of every datastore S3
+  bucket and their S3 encryption key, so the files and the key that decrypts them outlive the stack.
+* ``elasticsearch.private_subnet`` - which ``db.private.subnets`` entry (``A``, ``B``, ...) the
+  OpenSearch domains use; default ``A``. Some Availability Zones offer no OpenSearch (or RDS)
+  instance types - check with ``aws opensearch list-instance-type-details --retrieve-azs`` and
+  pick a subnet in a supported zone; ``rds.az`` must likewise name a supported zone.
 
 Deploy order
 ------------

@@ -407,11 +407,11 @@ class C4Datastore(C4DatastoreBase, C4Part):
                 self.build_s3_bucket_encryption(s3_encrypt_key_ref) if s3_encrypt_key_ref is not None else None,
             "VersioningConfiguration": VersioningConfiguration(Status='Enabled') if versioning else None,
         }
-        return Bucket(
+        return self.apply_retention_policy(Bucket(
             self.build_s3_bucket_resource_name(bucket_name),
             Tags=self.tags.cost_tag_obj(),
             **{k: v for k, v in bucket_kwargs.items() if v is not None}  # do not pass kwargs that are None
-        )
+        ), Settings.S3_RETENTION_POLICY, allowed=('Delete', 'Retain'))
 
     def output_s3_bucket(self, export_name, bucket_name: str) -> Output:
         """ Builds an output for the given export_name/Bucket resource """
@@ -458,7 +458,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
         """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         logical_id = self.name.logical_id(camelize(env_name) + 'S3EncryptKey')
-        return Key(
+        return self.apply_retention_policy(Key(
             logical_id,
             Description=f'Key for encrypting sensitive S3 files for {env_name} environment',
             KeyPolicy={
@@ -499,7 +499,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
             },
             KeySpec='SYMMETRIC_DEFAULT',  # (AES-256-GCM)
             Tags=self.tags.cost_tag_array()
-        )
+        ), Settings.S3_RETENTION_POLICY, allowed=('Delete', 'Retain'))
 
     # XXX: This is no longer used, see the appconfig stack - Will 23 June 2023
     # def application_configuration_secret(self) -> Secret:
@@ -582,6 +582,20 @@ class C4Datastore(C4DatastoreBase, C4Part):
             ]),
             Tags=self.tags.cost_tag_array(name=logical_id),
         ), Settings.RDS_RETENTION_POLICY, allowed=('Delete', 'Retain', 'Snapshot'))
+
+    @classmethod
+    def opensearch_subnet_export(cls) -> str:
+        """ The private subnet export the OpenSearch domain(s) use: PrivateSubnetA unless
+            elasticsearch.private_subnet names another letter of the network stack's private subnets. """
+        letter = ConfigManager.get_config_setting(Settings.ES_PRIVATE_SUBNET, default=None)
+        if letter is None:
+            return C4NetworkExports.PRIVATE_SUBNETS[0]
+        exports = C4NetworkExports.PRIVATE_SUBNETS
+        index = ord(letter.upper()) - ord('A') if isinstance(letter, str) and len(letter) == 1 else -1
+        if not 0 <= index < len(exports):
+            raise ValueError(f'{Settings.ES_PRIVATE_SUBNET} must be one letter A-{chr(ord("A") + len(exports) - 1)},'
+                             f' not {letter!r}.')
+        return exports[index]
 
     @staticmethod
     def apply_retention_policy(resource, setting, *, allowed):
@@ -681,7 +695,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
                 SubnetIds=[
                     # TODO: Is this right? Just one subnet? -kmp 14-Aug-2021
                     # self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNET_A),
-                    self.NETWORK_EXPORTS.import_value(C4NetworkExports.PRIVATE_SUBNETS[0]),
+                    self.NETWORK_EXPORTS.import_value(self.opensearch_subnet_export()),
                 ],
             ),
             Tags=self.tags.cost_tag_obj(name=domain_name),

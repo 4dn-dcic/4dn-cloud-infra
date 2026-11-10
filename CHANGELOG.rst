@@ -165,6 +165,14 @@ Optional TLS listener and CrowdStrike Falcon sidecar (both off by default)
   ``Retain`` or ``Snapshot``) and of every OpenSearch domain (``Delete`` or ``Retain``). Unset
   leaves the attributes off, so existing datastore templates are byte-identical.
 
+* ``s3.retention_policy`` -- likewise sets both attributes (``Delete`` or ``Retain``) on every
+  datastore S3 bucket and on their S3 encryption key, so encrypted files stay readable if the
+  stack is deleted or a resource replaced. Unset changes nothing.
+
+* ``elasticsearch.private_subnet`` -- the letter of the network stack's ``PrivateSubnet<X>``
+  export that the OpenSearch domain(s) use. Default ``A`` (unchanged); for an IT-provided
+  Database VPC whose first subnet is in an Availability Zone OpenSearch does not offer.
+
 Additive changes to shared stacks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
