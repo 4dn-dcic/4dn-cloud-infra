@@ -89,6 +89,10 @@ Other relevant keys:
 * ``sentieon.volume_size`` — size in GiB of the license server's encrypted root volume
   (default 20).
 * ``subnet.pair_count`` — number of subnet pairs the datastore expects (default 2).
+* ``iam.omit_dev_role`` — ``true`` leaves the legacy human-access ``SMaHTDevRole`` (trusted by
+  the account root) and its ``ECSDevUserRole`` output out of the ``iam`` stack. Nothing imports
+  that export; the runtime roles, instance profile and S3 federator user are still created.
+  Default ``false`` (unchanged template).
 
 Deploy order
 ------------

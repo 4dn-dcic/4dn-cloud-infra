@@ -124,6 +124,10 @@ class Settings:
     # on the sidecar completing successfully, has the Falcon CID injected from Secrets Manager, and
     # is wrapped by the CrowdStrike loader entrypoint.
     CROWDSTRIKE_ENABLED = 'crowdstrike.enabled'                    # bool, default false
+    # Omit the legacy human-access <App>DevRole (account-root trust) and its ECSDevUserRole output
+    # from the IAM stack. Off by default so existing IAM stacks are unchanged; nothing imports the
+    # export. The runtime roles, instance profile and S3 federator user are always built.
+    IAM_OMIT_DEV_ROLE = 'iam.omit_dev_role'                        # bool, default false
     # REQUIRED when crowdstrike.enabled is true: the CrowdStrike loader entrypoint the application
     # container must run, as a JSON list or comma-separated string. This is a vendor/image-specific
     # contract (from the falcon-sensor image config / CrowdStrike PDF) and MUST be supplied by the

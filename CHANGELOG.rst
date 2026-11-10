@@ -155,6 +155,11 @@ Optional TLS listener and CrowdStrike Falcon sidecar (both off by default)
   verification and task-memory validation -- see ``docs/source/crowdstrike.rst``. The fixed
   Fourfront ECS stack is not wired for the sidecar.
 
+* ``iam.omit_dev_role`` -- when ``true``, the IAM stack omits the legacy human-access
+  ``<App>DevRole`` (account-root trust) and its ``ECSDevUserRole`` output, which no stack imports.
+  The ECS, autoscaling and flow-log roles, the instance profile and the S3 federator user are
+  unchanged. Unset or ``false`` keeps the IAM template byte-identical.
+
 Additive changes to shared stacks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
