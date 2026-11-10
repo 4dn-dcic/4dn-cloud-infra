@@ -25,12 +25,19 @@
       "file": "SMaHTInfraDeployDataPolicy.json",
       "description": "Deployment role: datastores, keys, secrets, buckets, artifacts, registries, builds.",
       "characters": 5784
+    },
+    {
+      "name": "SMaHTInfraDeployTibannaPolicy",
+      "path": "/",
+      "file": "SMaHTInfraDeployTibannaPolicy.json",
+      "description": "Deployment role: Tibanna IAM, role assignment, state machines and job table.",
+      "characters": 3929
     }
   ],
   "aws_managed_policies": [],
   "inline_policy": {
     "file": "SMaHT-Deployment-Manager-inline-policy.json",
-    "characters": 3738
+    "characters": 5169
   },
   "limits": {
     "managed_policy_characters": 6144,

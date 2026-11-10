@@ -21,7 +21,8 @@ These files are the infrastructure deployment permissions from `src/parts/iam.py
 | `SMaHTInfraDeployStackPolicy.json` | Customer managed policy, created in account 517723527581 | `SMaHTInfraDeployStackPolicy`, path `/` | 5,483 of 6,144 characters |
 | `SMaHTInfraDeployComputePolicy.json` | Customer managed policy, created in account 517723527581 | `SMaHTInfraDeployComputePolicy`, path `/` | 5,322 of 6,144 |
 | `SMaHTInfraDeployDataPolicy.json` | Customer managed policy, created in account 517723527581 | `SMaHTInfraDeployDataPolicy`, path `/` | 5,784 of 6,144 |
-| `SMaHT-Deployment-Manager-inline-policy.json` | The permission set's inline policy (explicit denies only) | – | 3,738 of 10,240 non-whitespace characters, and under 32,768 bytes |
+| `SMaHTInfraDeployTibannaPolicy.json` | Customer managed policy, created in account 517723527581 | `SMaHTInfraDeployTibannaPolicy`, path `/` | 3,929 of 6,144 |
+| `SMaHT-Deployment-Manager-inline-policy.json` | The permission set's inline policy (explicit denies only) | – | 5,169 of 10,240 non-whitespace characters, and under 32,768 bytes |
 | `manifest.json` | Not attached. It records the names, paths, sizes and source above. | – | – |
 
 These are the quotas that apply:
@@ -29,10 +30,10 @@ These are the quotas that apply:
 - **IAM:** 6,144 characters per customer managed policy, whitespace not counted.
 - **IAM Identity Center:** one inline policy per permission set, at most 32,768 bytes and 10,240
   non-whitespace characters.
-- **Managed policies per role:** IAM quotas apply to the role Identity Center provisions. Three
+- **Managed policies per role:** IAM quotas apply to the role Identity Center provisions. Four
   customer managed policies and no AWS managed policies fit the default limit.
 
-The permissions only work with all four documents attached. The three allow documents are
+The permissions only work with all five documents attached. The four allow documents are
 incomplete without the inline guardrail, which supplies the explicit denies.
 Do not merge them into one policy, and do not drop any of them.
 
@@ -43,7 +44,7 @@ holding it any change to `policy/*InfraDeploy*`, so a deployer cannot rewrite th
 
 - **Identity Center administrator** (management or delegated administrator account): edits the
   permission set and reprovisions it.
-- **IAM administrator in account 517723527581:** creates and updates the three customer managed
+- **IAM administrator in account 517723527581:** creates and updates the four customer managed
   policies. Identity Center requires a customer managed policy to exist, with the same name and
   path, in every account the permission set is provisioned to before you reprovision.
 - **Deployers:** need no changes. They keep signing in through Identity Center as today.
@@ -91,7 +92,13 @@ aws iam create-policy --region us-east-1 --path / --policy-name SMaHTInfraDeploy
 aws iam create-policy --region us-east-1 --path / --policy-name SMaHTInfraDeployDataPolicy \
     --policy-document file://SMaHTInfraDeployDataPolicy.json \
     --description "Deployment role: datastores, keys, secrets, buckets, artifacts, registries, builds."
+aws iam create-policy --region us-east-1 --path / --policy-name SMaHTInfraDeployTibannaPolicy \
+    --policy-document file://SMaHTInfraDeployTibannaPolicy.json \
+    --description "Deployment role: Tibanna IAM, role assignment, state machines and job table."
 ```
+
+If the first three already exist from an earlier version of this bundle, create only
+`SMaHTInfraDeployTibannaPolicy` and update the others as below.
 
 You can use the IAM console instead (**Policies → Create policy → JSON**): paste each file and use
 exactly these names, with path `/`.
@@ -119,7 +126,8 @@ alongside the old permissions:
    The explicit denies would still apply. If people rely on these grants for non-deployment work,
    give them a separate permission set.
 2. **Customer managed policies:** attach `SMaHTInfraDeployStackPolicy`,
-   `SMaHTInfraDeployComputePolicy` and `SMaHTInfraDeployDataPolicy`, each with path `/`.
+   `SMaHTInfraDeployComputePolicy`, `SMaHTInfraDeployDataPolicy` and
+   `SMaHTInfraDeployTibannaPolicy`, each with path `/`.
 3. **Inline policy:** replace the whole existing inline policy (today's EC2 start/stop and DynamoDB
    item grants) with the contents of `SMaHT-Deployment-Manager-inline-policy.json`.
 4. **Leave everything else unchanged:** session duration, relay state, tags, permissions boundary
@@ -155,13 +163,20 @@ As the IAM administrator in 517723527581, list the role's policies. The role is 
 ```bash
 ROLE=$(aws iam list-roles --region us-east-1 --path-prefix /aws-reserved/sso.amazonaws.com/ \
        --query "Roles[?starts_with(RoleName, 'AWSReservedSSO_SMaHT-Deployment-Manager_')].RoleName" --output text)
-aws iam list-attached-role-policies --region us-east-1 --role-name "$ROLE"   # exactly the three SMaHTInfraDeploy* policies
+aws iam list-attached-role-policies --region us-east-1 --role-name "$ROLE"   # exactly the four SMaHTInfraDeploy* policies
 aws iam list-role-policies --region us-east-1 --role-name "$ROLE"            # AwsSSOInlinePolicy
 aws iam simulate-principal-policy --region us-east-1 \
     --policy-source-arn "$(aws iam get-role --region us-east-1 --role-name "$ROLE" --query Role.Arn --output text)" \
     --action-names cloudformation:CreateChangeSet cloudformation:DeleteStack \
     --resource-arns arn:aws:cloudformation:us-east-1:517723527581:stack/c4-iam-main-stack/x
+aws iam simulate-principal-policy --region us-east-1 \
+    --policy-source-arn "$(aws iam get-role --region us-east-1 --role-name "$ROLE" --query Role.Arn --output text)" \
+    --action-names states:CreateStateMachine states:StartExecution \
+    --resource-arns arn:aws:states:us-east-1:517723527581:stateMachine:tibanna_tiger_smaht-production
 ```
+
+Expect `allowed` for the change set, stack deletion and `CreateStateMachine`, and
+`explicitDeny` for `StartExecution`. Simulation is a check, not a deployment.
 
 ## Repository settings and prerequisites (not part of the policy documents)
 
@@ -216,6 +231,14 @@ and use it, set this before the first datastore creation:
   `SMAHT_KMS_KEY_ID`, the alarm ARNs) currently name resources of another account (865557043974).
   For this account the command needs them to name this account's resources; the policies allow the
   generated `<env>-foursight-envs/main.ecosystem` path. `deploy-ecs` needs no change.
+- **Tibanna:** `tibanna_smaht deploy_tiger -e <env>` and `tibanna_smaht cleanup -g <env>` are
+  covered for any env name: every IAM name they create starts `tibanna_tiger_`, the functions are
+  `<lambda>_tiger_<env>`, and the job table is `tibanna-master`. Running Tibanna is not: starting
+  workflows, invoking its functions, launching its workers, `tibanna add_user` and
+  `cleanup --purge-history` stay with Tibanna's own roles or an administrator. Set
+  `GLOBAL_ENV_BUCKET` to this account's `<env>-foursight-envs` bucket. If `S3_ENCRYPT_KEY_ID` is
+  set, Tibanna edits that key's policy, which therefore has to name this permission set's role.
+  See "Tibanna deployment" in `docs/source/human_access_roles.rst`.
 - **SRCE / PR97 stacks:** these need `--capabilities CAPABILITY_NAMED_IAM`. Their names fall within
   these policies' `c4-*` scopes, but their resource types are not covered by this repository's
   handler tests.
@@ -226,7 +249,7 @@ and use it, set this before the first datastore creation:
 |---|---|---|
 | Who creates the role | IAM Identity Center | CloudFormation, in the IAM stack |
 | Authentication and session | Identity Center sign-in and the permission set's session duration (unchanged) | Enumerated principals, MFA at assumption, source identity, one-hour sessions |
-| Policies | You create three IAM customer managed policies and one inline policy, and update them by regenerating | Created and updated by the IAM stack |
+| Policies | You create four IAM customer managed policies and one inline policy, and update them by regenerating | Created and updated by the IAM stack |
 | KMS access to the datastore key | Through `deploying_iam_user` (above) | Key-policy statements added automatically through the `HumanDeployRoleArn` export |
 | Permissions | Identical documents | Identical documents |
 
@@ -235,5 +258,6 @@ Both are trusted-deployer permissions, not a sandbox. See `docs/source/human_acc
 - what the permissions can and cannot do;
 - the escalation equivalence;
 - builds and image delegation;
+- Tibanna deployment;
 - stack-deletion retention;
 - the deployment commands.

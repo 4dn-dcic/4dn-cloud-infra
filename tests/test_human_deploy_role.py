@@ -57,7 +57,7 @@ ENABLED_DEPLOY = {
     Settings.HUMAN_ACCESS_DEPLOY_PRINCIPALS: DEPLOYERS,
 }
 DEPLOY_POLICY_IDS = ('C4IAMMainInfraDeployStackPolicy', 'C4IAMMainInfraDeployComputePolicy',
-                     'C4IAMMainInfraDeployDataPolicy')
+                     'C4IAMMainInfraDeployDataPolicy', 'C4IAMMainInfraDeployTibannaPolicy')
 
 
 # ---------------------------------------------------------------------------------------------
@@ -130,6 +130,8 @@ def _condition_holds(condition: dict, context: dict) -> bool:
                 ok = any(_match(e, a) for a in actual for e in expected)
             elif base == 'StringNotEquals':
                 ok = not any(a == e for a in actual for e in expected)
+            elif base in ('StringNotLike', 'ArnNotLike'):
+                ok = not any(_match(e, a) for a in actual for e in expected)
             elif base == 'Bool':
                 ok = actual[0].lower() == expected[0].lower()
             elif base == 'NumericLessThan':
@@ -447,7 +449,9 @@ NOT_GRANTED = {
     'elasticache:DeleteReplicationGroup': DATA, 'elasticache:CreateSnapshot': DATA,
     'secretsmanager:UpdateSecret': 'would rewrite a filled SecretString; denied (see docs)',
     'iam:AttachUserPolicy': GUARD,
-    'iam:DetachUserPolicy': GUARD, 'iam:AddUserToGroup': GUARD, 'iam:RemoveUserFromGroup': GUARD,
+    # iam:RemoveUserFromGroup is granted only on Tibanna's user group (tibanna cleanup); the
+    # templates' user joins no group. See test_tibanna_iam_is_limited_to_its_namespace.
+    'iam:DetachUserPolicy': GUARD, 'iam:AddUserToGroup': GUARD,
     'iam:CreateLoginProfile': GUARD, 'iam:UpdateLoginProfile': GUARD,
     'iam:DeleteLoginProfile': GUARD, 'iam:DeleteAccessKey': GUARD,
     'iam:PutRolePermissionsBoundary': GUARD, 'iam:DeleteRolePermissionsBoundary': GUARD,
@@ -1413,7 +1417,255 @@ def test_autoscaling_service_linked_role_can_be_created():
 
 
 # ---------------------------------------------------------------------------------------------
-# 7. README example
+# 7. Tibanna deployment (tibanna_smaht deploy_tiger / cleanup), not Tibanna execution
+# ---------------------------------------------------------------------------------------------
+# The requests below are those tibanna.core.API.deploy_tibanna/cleanup and tibanna.iam_utils.IAM
+# make (tibanna c8c49ea, tibanna_ff 808baba) for `tibanna_smaht deploy_tiger -e smaht-production`,
+# with the names built the way those modules build them: usergroup = env; IAM prefix
+# 'tibanna_' + 'tiger' + '_' + usergroup; state machine 'tibanna_tiger' + '_' + usergroup;
+# functions config['function_name'] ('<lambda>_tiger') + '_' + usergroup.
+
+TIBANNA_ENV = 'smaht-production'
+TIBANNA = f'tibanna_tiger_{TIBANNA_ENV}'
+TIBANNA_POLICY_SUFFIXES = (  # IAM.policy_suffix, all 15 policy types
+    'bucket_access', 'ec2_termination', 'list_instanceprofiles', 'cloudwatchlogs', 'iam_passrole_s3',
+    'lambdainvoke', 'cw_metric', 'cw_dashboard', 'dynamodb', 'ec2_desc', 'executions', 'pricing',
+    'vpc_access', 'kms_key_for_s3', 'kms_key_for_ami')
+TIBANNA_LAMBDAS = ('run_task', 'check_task', 'start_run', 'update_ffmeta', 'update_cost')
+TIBANNA_ROLES = ('for_ec2', 'states') + TIBANNA_LAMBDAS  # IAM.role_suffix of IAM.role_types
+TIBANNA_ROLE_AWS_POLICIES = (  # IAM.policy_arn_list_for_role (tibanna, tibanna_ffcommon)
+    'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly',
+    'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy',
+    'arn:aws:iam::aws:policy/service-role/AWSLambdaRole',
+    'arn:aws:iam::aws:policy/AmazonEC2FullAccess',
+    'arn:aws:iam::aws:policy/AWSElasticBeanstalkReadOnly')
+TIBANNA_GROUP_AWS_POLICIES = (  # IAM.create_user_group
+    'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole',
+    'arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess')
+TIBANNA_STATE_MACHINES = (TIBANNA, f'{TIBANNA}_costupdater')
+
+
+def _tibanna_function(name, env=TIBANNA_ENV):
+    return f'arn:aws:lambda:{REGION}:{ACCOUNT}:function:{name}_tiger_{env}'
+
+
+def _tibanna_state_machine(name):
+    return f'arn:aws:states:{REGION}:{ACCOUNT}:stateMachine:{name}'
+
+
+def _tibanna_policy(suffix):
+    return _iam(f'policy/{TIBANNA}_{suffix}')
+
+
+def _tibanna_deploy_requests():
+    """ (action, resource, context) for deploy_tiger, in order, including the replace-on-conflict
+        branches (delete and re-create) that a redeploy takes.
+    """
+    requests = [('sts:GetCallerIdentity', '*', {})]
+    # dcicutils s3Utils(env=...) resolves Tibanna's bucket names from the global env bucket.
+    requests += [('s3:GetObject', f'arn:aws:s3:::{TIBANNA_ENV}-foursight-envs/{key}',
+                  {'s3:ResourceAccount': ACCOUNT}) for key in ('main.ecosystem', TIBANNA_ENV)]
+    for suffix in TIBANNA_POLICY_SUFFIXES:  # create_policy_robust, remove_policy on conflict
+        policy = _tibanna_policy(suffix)
+        requests += [(f'iam:{action}', policy, {}) for action in (
+            'CreatePolicy', 'GetPolicy', 'ListEntitiesForPolicy', 'ListPolicyVersions',
+            'DeletePolicyVersion', 'DeletePolicy')]
+        requests += [('iam:DetachRolePolicy', _iam(f'role/{TIBANNA}_run_task'), {'iam:PolicyARN': policy}),
+                     ('iam:DetachGroupPolicy', _iam(f'group/{TIBANNA}'), {'iam:PolicyARN': policy})]
+    for suffix in TIBANNA_ROLES:  # create_role_for_role_type, remove_role on conflict
+        role = _iam(f'role/{TIBANNA}_{suffix}')
+        requests += [(f'iam:{action}', role, {}) for action in (
+            'CreateRole', 'GetRole', 'ListInstanceProfilesForRole', 'ListAttachedRolePolicies',
+            'DeleteRole')]
+        for policy in [_tibanna_policy(s) for s in TIBANNA_POLICY_SUFFIXES] + list(TIBANNA_ROLE_AWS_POLICIES):
+            requests += [(f'iam:{action}', role, {'iam:PolicyARN': policy})
+                         for action in ('AttachRolePolicy', 'DetachRolePolicy')]
+    requests += [('iam:GetRole', _iam('role/tibanna_lambda_init_role'), {}),
+                 ('iam:CreateRole', _iam('role/tibanna_lambda_init_role'), {})]
+    profile = _iam(f'instance-profile/{TIBANNA}_for_ec2')  # create_instance_profile
+    requests += [(f'iam:{action}', profile, {}) for action in (
+        'CreateInstanceProfile', 'DeleteInstanceProfile', 'AddRoleToInstanceProfile',
+        'RemoveRoleFromInstanceProfile')]
+    # AddRoleToInstanceProfile also checks PassRole on the role, with or without EC2 context.
+    requests += [('iam:PassRole', _iam(f'role/{TIBANNA}_for_ec2'), context) for context in (
+        {}, {'iam:PassedToService': 'ec2.amazonaws.com',
+             'iam:AssociatedResourceArn': f'arn:aws:ec2:*:{ACCOUNT}:instance/*'})]
+    group = _iam(f'group/{TIBANNA}')  # create_user_group
+    requests += [('iam:CreateGroup', group, {}), ('iam:ListAttachedGroupPolicies', group, {})]
+    for policy in [_tibanna_policy(s) for s in TIBANNA_POLICY_SUFFIXES] + list(TIBANNA_GROUP_AWS_POLICIES):
+        requests += [(f'iam:{action}', group, {'iam:PolicyARN': policy})
+                     for action in ('AttachGroupPolicy', 'DetachGroupPolicy')]
+    # create_stepfunction: create, or update on StateMachineAlreadyExists; costupdater too.
+    for name in TIBANNA_STATE_MACHINES:
+        requests += [(f'states:{action}', _tibanna_state_machine(name), {})
+                     for action in ('CreateStateMachine', 'UpdateStateMachine')]
+        requests.append(('iam:PassRole', _iam(f'role/{TIBANNA}_states'),
+                         {'iam:PassedToService': 'states.amazonaws.com',
+                          'iam:AssociatedResourceArn': _tibanna_state_machine(name)}))
+    # deploy_lambda: delete the existing function, then aws_lambda.deploy_function creates it
+    # (Publish=True) with its role and, given --subnets/--security-groups, a VPC config.
+    requests += [(f'ec2:{action}', '*', {}) for action in (
+        'DescribeSubnets', 'DescribeSecurityGroups', 'DescribeVpcs')]
+    for name in TIBANNA_LAMBDAS:
+        function = _tibanna_function(name)
+        requests += [(f'lambda:{action}', function, {}) for action in (
+            'GetFunction', 'DeleteFunction', 'CreateFunction', 'UpdateFunctionCode',
+            'UpdateFunctionConfiguration')]
+        requests.append(('iam:PassRole', _iam(f'role/{TIBANNA}_{name}'),
+                         {'iam:PassedToService': 'lambda.amazonaws.com',
+                          'iam:AssociatedResourceArn': function}))
+    # With S3_ENCRYPT_KEY_ID set: cleanup_kms / add_role_to_kms edit that key's policy.
+    requests += [(f'kms:{action}', f'arn:aws:kms:{REGION}:{ACCOUNT}:key/abcd', {})
+                 for action in ('GetKeyPolicy', 'PutKeyPolicy')]
+    table = f'arn:aws:dynamodb:{REGION}:{ACCOUNT}:table/tibanna-master'
+    requests += [('dynamodb:DescribeTable', table, {}), ('dynamodb:CreateTable', table, {})]
+    return requests
+
+
+def _tibanna_cleanup_requests():
+    """ `tibanna_smaht cleanup -g smaht-production` (without --purge-history). """
+    requests = [('states:DeleteStateMachine', _tibanna_state_machine(name), {})
+                for name in TIBANNA_STATE_MACHINES]
+    # API.cleanup deletes '<lambda>' + '_' + usergroup (no '_tiger'), names deploy_tiger never
+    # creates, so those calls fail and are ignored; deploy_lambda's own deletes are covered above.
+    for suffix in TIBANNA_POLICY_SUFFIXES:
+        requests += [(f'iam:{action}', _tibanna_policy(suffix), {})
+                     for action in ('GetPolicy', 'ListEntitiesForPolicy', 'DeletePolicy')]
+    for suffix in TIBANNA_ROLES:
+        requests += [(f'iam:{action}', _iam(f'role/{TIBANNA}_{suffix}'), {})
+                     for action in ('GetRole', 'ListInstanceProfilesForRole', 'DeleteRole')]
+    group = _iam(f'group/{TIBANNA}')
+    requests += [('iam:RemoveRoleFromInstanceProfile', _iam(f'instance-profile/{TIBANNA}_for_ec2'), {}),
+                 ('iam:DeleteInstanceProfile', _iam(f'instance-profile/{TIBANNA}_for_ec2'), {}),
+                 ('iam:GetGroup', group, {}), ('iam:RemoveUserFromGroup', group, {}),
+                 ('iam:DeleteGroup', group, {})]
+    return requests
+
+
+def test_tibanna_deploy_requests_are_all_allowed():
+    statements = _deploy_statements()
+    refused = [(a, r, c, d) for a, r, c in _tibanna_deploy_requests()
+               if (d := _decide(a, r, c, statements)) != 'allow']
+    assert not refused, refused
+
+
+def test_tibanna_cleanup_requests_are_all_allowed():
+    statements = _deploy_statements()
+    refused = [(a, r, d) for a, r, c in _tibanna_cleanup_requests()
+               if (d := _decide(a, r, c, statements)) != 'allow']
+    assert not refused, refused
+
+
+def test_tibanna_names_used_here_are_the_policy_constants():
+    assert TIBANNA.startswith(C4IAM.DEPLOY_TIBANNA_PREFIX)
+    assert TIBANNA_LAMBDAS == C4IAM.DEPLOY_TIBANNA_LAMBDAS
+    assert set(TIBANNA_ROLE_AWS_POLICIES) == set(C4IAM.DEPLOY_TIBANNA_ROLE_MANAGED_POLICIES)
+    assert set(TIBANNA_GROUP_AWS_POLICIES) == set(C4IAM.DEPLOY_TIBANNA_GROUP_MANAGED_POLICIES)
+
+
+ADMIN_POLICY = 'arn:aws:iam::aws:policy/AdministratorAccess'
+TIBANNA_RUN_TASK_ROLE = _iam(f'role/{TIBANNA}_run_task')
+
+
+@pytest.mark.parametrize('action, resource, context, expected', [
+    # Customer managed policies and groups: Tibanna's namespace only, this account only.
+    ('iam:CreatePolicy', _iam('policy/tibanna_unicorn_default_policy'), {}, 'deny'),
+    ('iam:CreatePolicy', _iam('policy/Admin'), {}, 'deny'),
+    ('iam:CreatePolicy', f'arn:aws:iam::{OTHER_ACCOUNT}:policy/{TIBANNA}_bucket_access', {}, 'deny'),
+    ('iam:CreateGroup', _iam('group/Administrators'), {}, 'deny'),
+    ('iam:DeletePolicy', _iam('policy/SomeoneElsesPolicy'), {}, 'implicit-deny'),
+    ('iam:DeleteGroup', _iam('group/Administrators'), {}, 'implicit-deny'),
+    ('iam:RemoveUserFromGroup', _iam('group/Administrators'), {}, 'implicit-deny'),
+    # Tibanna's policies are replaced, never edited in place; users are added by an administrator.
+    ('iam:CreatePolicyVersion', _tibanna_policy('bucket_access'), {}, 'deny'),
+    ('iam:SetDefaultPolicyVersion', _tibanna_policy('bucket_access'), {}, 'deny'),
+    ('iam:AddUserToGroup', _iam(f'group/{TIBANNA}'), {}, 'deny'),
+    ('iam:PutGroupPolicy', _iam(f'group/{TIBANNA}'), {}, 'deny'),
+    ('iam:PutRolePolicy', TIBANNA_RUN_TASK_ROLE, {}, 'implicit-deny'),
+    ('iam:UpdateAssumeRolePolicy', TIBANNA_RUN_TASK_ROLE, {}, 'implicit-deny'),
+    ('iam:DeleteRole', _iam('role/tibanna_lambda_init_role'), {}, 'implicit-deny'),
+    ('iam:CreateRole', _iam('role/tibanna_unicorn_default_run_task_awsem'), {}, 'implicit-deny'),
+    # Attachments: only Tibanna's own policies and the AWS managed ones its source attaches.
+    ('iam:AttachRolePolicy', TIBANNA_RUN_TASK_ROLE, {'iam:PolicyARN': ADMIN_POLICY}, 'deny'),
+    ('iam:AttachRolePolicy', TIBANNA_RUN_TASK_ROLE,
+     {'iam:PolicyARN': 'arn:aws:iam::aws:policy/IAMFullAccess'}, 'deny'),
+    ('iam:AttachRolePolicy', TIBANNA_RUN_TASK_ROLE,
+     {'iam:PolicyARN': _iam('policy/c4-iam-main-stack-SomePolicy-X')}, 'deny'),
+    ('iam:AttachRolePolicy', TIBANNA_RUN_TASK_ROLE,
+     {'iam:PolicyARN': f'arn:aws:iam::{OTHER_ACCOUNT}:policy/{TIBANNA}_bucket_access'}, 'deny'),
+    ('iam:AttachRolePolicy', TIBANNA_RUN_TASK_ROLE,
+     {'iam:PolicyARN': 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'}, 'deny'),
+    ('iam:AttachRolePolicy', ECS_ROLE, {'iam:PolicyARN': _tibanna_policy('bucket_access')}, 'implicit-deny'),
+    ('iam:AttachGroupPolicy', _iam(f'group/{TIBANNA}'), {'iam:PolicyARN': ADMIN_POLICY}, 'deny'),
+    ('iam:AttachGroupPolicy', _iam(f'group/{TIBANNA}'),
+     {'iam:PolicyARN': 'arn:aws:iam::aws:policy/AmazonEC2FullAccess'}, 'deny'),
+    ('iam:AttachGroupPolicy', _iam('group/Administrators'),
+     {'iam:PolicyARN': _tibanna_policy('bucket_access')}, 'deny'),
+    # The human-access protections still win inside Tibanna's namespace.
+    ('iam:CreatePolicy', _iam('policy/tibanna_tiger_InfraDeployStackPolicy'), {}, 'deny'),
+    ('iam:CreateRole', _iam('role/tibanna_tiger_DevRole'), {}, 'deny'),
+    ('iam:PassRole', _iam('role/tibanna_tiger_x_InfraDeployRole_run_task'),
+     {'iam:PassedToService': 'lambda.amazonaws.com'}, 'deny'),
+    # Role assignment: each role only to the service and resources Tibanna gives it.
+    ('iam:PassRole', TIBANNA_RUN_TASK_ROLE, {'iam:PassedToService': 'ec2.amazonaws.com'}, 'implicit-deny'),
+    ('iam:PassRole', TIBANNA_RUN_TASK_ROLE, {'iam:PassedToService': 'states.amazonaws.com'}, 'implicit-deny'),
+    ('iam:PassRole', TIBANNA_RUN_TASK_ROLE, {}, 'implicit-deny'),
+    ('iam:PassRole', TIBANNA_RUN_TASK_ROLE,
+     {'iam:PassedToService': 'lambda.amazonaws.com',
+      'iam:AssociatedResourceArn': f'arn:aws:lambda:{REGION}:{ACCOUNT}:function:anything-else'}, 'implicit-deny'),
+    ('iam:PassRole', TIBANNA_RUN_TASK_ROLE,
+     {'iam:PassedToService': 'lambda.amazonaws.com',
+      'iam:AssociatedResourceArn': f'arn:aws:lambda:{REGION}:{OTHER_ACCOUNT}:function:run_task_tiger_x'},
+     'implicit-deny'),
+    ('iam:PassRole', _iam(f'role/{TIBANNA}_states'),
+     {'iam:PassedToService': 'lambda.amazonaws.com'}, 'implicit-deny'),
+    ('iam:PassRole', _iam(f'role/{TIBANNA}_states'),
+     {'iam:PassedToService': 'states.amazonaws.com',
+      'iam:AssociatedResourceArn': _tibanna_state_machine('another-workflow')}, 'implicit-deny'),
+    ('iam:PassRole', _iam(f'role/{TIBANNA}_for_ec2'),
+     {'iam:PassedToService': 'lambda.amazonaws.com'}, 'implicit-deny'),
+    ('iam:PassRole', f'arn:aws:iam::{OTHER_ACCOUNT}:role/{TIBANNA}_run_task',
+     {'iam:PassedToService': 'lambda.amazonaws.com'}, 'implicit-deny'),
+    ('iam:PassRole', _iam('role/tibanna_lambda_init_role'),
+     {'iam:PassedToService': 'lambda.amazonaws.com'}, 'implicit-deny'),
+    # Definitions only for Tibanna's state machines, in this account and region; job table only.
+    ('states:CreateStateMachine', _tibanna_state_machine('another-workflow'), {}, 'implicit-deny'),
+    ('states:CreateStateMachine', f'arn:aws:states:{REGION}:{OTHER_ACCOUNT}:stateMachine:{TIBANNA}', {},
+     'implicit-deny'),
+    ('states:CreateStateMachine', f'arn:aws:states:us-west-2:{ACCOUNT}:stateMachine:{TIBANNA}',
+     {'aws:RequestedRegion': 'us-west-2'}, 'deny'),
+    ('dynamodb:CreateTable', f'arn:aws:dynamodb:{REGION}:{ACCOUNT}:table/other', {}, 'implicit-deny'),
+    ('dynamodb:DeleteTable', f'arn:aws:dynamodb:{REGION}:{ACCOUNT}:table/tibanna-master', {}, 'deny'),
+    ('dynamodb:PutItem', f'arn:aws:dynamodb:{REGION}:{ACCOUNT}:table/tibanna-master', {}, 'implicit-deny'),
+    ('dynamodb:DeleteItem', f'arn:aws:dynamodb:{REGION}:{ACCOUNT}:table/tibanna-master', {}, 'implicit-deny'),
+    # Running Tibanna stays with Tibanna's own roles: no workflow starts or redrives, no function
+    # invocations, no worker launches, no job-log deletion.
+    ('states:StartExecution', _tibanna_state_machine(TIBANNA), {}, 'deny'),
+    ('states:StartSyncExecution', _tibanna_state_machine(TIBANNA), {}, 'deny'),
+    ('states:RedriveExecution', f'arn:aws:states:{REGION}:{ACCOUNT}:execution:{TIBANNA}:job', {}, 'deny'),
+    ('states:StopExecution', f'arn:aws:states:{REGION}:{ACCOUNT}:execution:{TIBANNA}:job', {}, 'implicit-deny'),
+    ('lambda:InvokeFunction', _tibanna_function('run_task'), {}, 'deny'),
+    ('lambda:InvokeFunction', _tibanna_function('start_run'), {}, 'deny'),
+    ('ec2:RunInstances', f'arn:aws:ec2:{REGION}:{ACCOUNT}:instance/*',
+     {'ec2:InstanceProfile': _iam(f'instance-profile/{TIBANNA}_for_ec2')}, 'deny'),
+    ('ec2:AssociateIamInstanceProfile', f'arn:aws:ec2:{REGION}:{ACCOUNT}:instance/i-0abc',
+     {'ec2:InstanceProfile': _iam(f'instance-profile/{TIBANNA}_for_ec2')}, 'deny'),
+    ('s3:DeleteObject', 'arn:aws:s3:::smaht-production-tibanna-logs/job.log', {}, 'deny'),
+    ('ecs:RunTask', '*', {}, 'deny'),
+    ('ssm:SendCommand', '*', {}, 'deny'),
+])
+def test_tibanna_deployment_keeps_its_scope_and_execution_stays_denied(action, resource, context, expected):
+    assert _decide(action, resource, context) == expected
+
+
+def test_existing_instance_launches_are_unaffected_by_the_tibanna_worker_deny():
+    assert _decide('ec2:RunInstances', f'arn:aws:ec2:{REGION}:{ACCOUNT}:instance/*',
+                   {'ec2:InstanceProfile': _iam('instance-profile/c4-iam-main-stack-CGAPECSInstanceProfile-X')}
+                   ) == 'allow'
+
+
+# ---------------------------------------------------------------------------------------------
+# 8. README example
 # ---------------------------------------------------------------------------------------------
 
 DEPLOY_README_HEADING = '### Illustrative policy: deployment role (`*InfraDeployRole`)'

@@ -1,6 +1,6 @@
 """ Renders the deployment permissions (C4IAM.human_deploy_policy_documents) as plain IAM JSON
     for one AWS account and Region, for attaching to an existing IAM Identity Center permission
-    set: three customer managed policies plus the permission set's inline policy.
+    set: the customer managed policies plus the permission set's inline policy.
 
         python -m src.commands.render_deploy_policy_bundle --account-id <id> --region <region> \\
             --permission-set <name> --policy-prefix <prefix> --out <dir> [--check]
@@ -64,7 +64,7 @@ def render_bundle(*, account_id: str, region: str, permission_set: str, policy_p
     from ..parts.iam import C4IAM
     documents = C4IAM.human_deploy_policy_documents()
     files, managed = {}, []
-    for title, description, document in documents[:3]:
+    for title, description, document in documents[:-1]:
         name = f'{policy_prefix}{title}'
         rendered = materialize(document, account_id, region)
         size = policy_characters(rendered)
@@ -73,7 +73,7 @@ def render_bundle(*, account_id: str, region: str, permission_set: str, policy_p
         files[f'{name}.json'] = _text(rendered)
         managed.append({'name': name, 'path': '/', 'file': f'{name}.json', 'description': description,
                         'characters': size})
-    _, _, guardrail = documents[3]
+    _, _, guardrail = documents[-1]
     inline = materialize(guardrail, account_id, region)
     inline_file = f'{permission_set}-inline-policy.json'
     files[inline_file] = _text(inline)

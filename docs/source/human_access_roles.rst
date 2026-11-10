@@ -159,7 +159,7 @@ its own switches and never reuses the diagnose/remediate principals::
 
 Without both, nothing is added. Trust, MFA, source identity and ``human_access.require_mfa`` /
 ``human_access.source_identity_pattern`` behave as described above. The session ceiling is one hour.
-The role's allows are three customer managed policies created alongside it (the documents exceed a
+The role's allows are four customer managed policies created alongside it (the documents exceed a
 role's inline-policy quota); its denies are an inline policy. It has no permissions boundary and
 does not use the diagnose/remediate boundary, which denies the CloudFormation and IAM writes that
 deployment needs. ``tests/test_human_deploy_role.py`` documents every decision below.
@@ -205,6 +205,8 @@ Generated identities
     IAM roles, users and instance profiles named ``c4-*``; the four AWS managed policies the
     CodeBuild roles attach; ``iam:PassRole`` of ``c4-*`` roles to ECS tasks, EC2, Lambda and
     CodeBuild; six service-linked roles.
+Tibanna (``tibanna_smaht deploy_tiger`` / ``cleanup``)
+    See `Tibanna deployment`_ (``InfraDeployTibannaPolicy``).
 
 Every CloudFormation handler permission for every resource type in the synthesized templates (plus
 the Foursight SAM resources) is either granted or explicitly excluded in the tests, with a reason:
@@ -237,14 +239,17 @@ account administrators for application resources. The inline guardrail denies:
 * changes to, or passing of, this role, ``*DevDiagnoseRole``, ``*PowerRemediateRole``, ``*DevRole``,
   the human-access boundary and the ``InfraDeploy`` policies (generated names are matched by their
   logical-id token; synthesis refuses an IAM stack name long enough to truncate it);
-* access keys, login profiles, MFA, identity providers, groups, customer managed policies,
+* access keys, login profiles, MFA, identity providers, adding users to groups, policy versions,
   permissions boundaries, SSO, Organizations, billing, and ``sts:AssumeRole``/``GetFederationToken``;
+* groups and customer managed policies outside ``tibanna_tiger_*``, and attaching any policy to
+  Tibanna's roles or group other than its own and the AWS managed ones its source attaches;
 * running workloads directly: Lambda invocation, ECS run/exec, CodeBuild retries and batch builds,
-  Step Functions starts, SSM sessions/commands, image deletion, search-index HTTP and queue message
-  APIs;
+  Step Functions starts and redrives, launching instances with Tibanna's worker instance profile,
+  SSM sessions/commands, image deletion, search-index HTTP and queue message APIs;
 * data destruction: deletion of RDS instances, OpenSearch/Elasticsearch domains, buckets and
-  objects, queues, secrets, KMS keys (and disabling them), ECR repositories, log groups and Redis
-  replication groups, whether called directly or by CloudFormation on the role's behalf;
+  objects, queues, secrets, KMS keys (and disabling them), ECR repositories, log groups, Redis
+  replication groups and DynamoDB tables, whether called directly or by CloudFormation on the
+  role's behalf;
 * ``DeleteStack``/``RollbackStack`` on stacks not named ``c4-*``, stack-set deletion, and changes to
   termination protection or stack policies;
 * secret writes other than the RDS secret's endpoint attachment, and every secret payload rewrite;
@@ -277,6 +282,75 @@ S3-only data-key permission covers the IAM side, and the key policy must name th
 datastore key policy does when this role is configured (a pre-existing key needs the onboarding
 update in KMS below). ``deploy-ecs`` uses ``us-east-1`` (``ECSUtils.REGION``) and the other
 commands the session region, so they work only when that is the role's deployment region.
+
+Tibanna deployment
+~~~~~~~~~~~~~~~~~~
+
+Tibanna is deployed outside CloudFormation by the ``tibanna_smaht`` command (``tibanna_ff``), which
+creates its IAM resources, Lambda functions, state machines and job table directly. The role covers
+deploying, updating and cleaning it up, not running it: runtime permissions stay on the roles that
+deploy creates. With ``-e <env>`` the usergroup is the env name, so every name below ends in it::
+
+    export GLOBAL_ENV_BUCKET=<env>-foursight-envs AWS_REGION=<region>   # tibanna_ff requires the bucket
+    tibanna_smaht deploy_tiger -e <env> --subnets <private subnets> -r <application security group>
+    tibanna_smaht cleanup -g <env>              # without --purge-history
+
+What those commands call, and the grants (``InfraDeployTibannaPolicy`` unless noted):
+
+IAM policies ``tibanna_tiger_<env>_*`` (15)
+    ``CreatePolicy``, and on replace or cleanup ``GetPolicy``, ``ListEntitiesForPolicy``,
+    ``ListPolicyVersions``, ``DeletePolicyVersion``, ``DeletePolicy``.
+Roles ``tibanna_tiger_<env>_{for_ec2,states,run_task,check_task,start_run,update_ffmeta,update_cost}``
+    ``CreateRole``, ``GetRole``, ``DeleteRole``, ``ListAttachedRolePolicies``,
+    ``ListInstanceProfilesForRole``; ``AttachRolePolicy``/``DetachRolePolicy`` only for
+    ``policy/tibanna_tiger_*`` in this account and ``AmazonEC2ContainerRegistryReadOnly``,
+    ``AmazonEC2FullAccess``, ``AWSElasticBeanstalkReadOnly``, ``CloudWatchAgentServerPolicy`` and
+    ``service-role/AWSLambdaRole``. ``CreateRole``/``GetRole`` also on the empty
+    ``tibanna_lambda_init_role`` that every setup checks for and creates if absent. The functions
+    are created with their own ``Role`` (it overrides the module's ``tibanna_lambda_init_role``
+    default), so that role is never passed, and it is not deleted.
+Worker instance profile ``tibanna_tiger_<env>_for_ec2``
+    ``CreateInstanceProfile``, ``DeleteInstanceProfile``, ``AddRoleToInstanceProfile``,
+    ``RemoveRoleFromInstanceProfile``, and the ``iam:PassRole`` on the ``_for_ec2`` role that
+    ``AddRoleToInstanceProfile`` requires (allowed with no service context or with
+    ``ec2.amazonaws.com``). The guardrail denies ``ec2:RunInstances`` (and instance-profile
+    association) with any ``tibanna_tiger_*`` profile: workers are launched by Tibanna's
+    ``run_task`` function.
+User group ``tibanna_tiger_<env>``
+    ``CreateGroup``, ``GetGroup``, ``DeleteGroup``, ``ListAttachedGroupPolicies``,
+    ``RemoveUserFromGroup`` (cleanup); ``AttachGroupPolicy``/``DetachGroupPolicy`` only for
+    ``policy/tibanna_tiger_*``, ``CloudWatchReadOnlyAccess`` and
+    ``service-role/AWSLambdaBasicExecutionRole``. Adding users (``tibanna add_user``) stays denied.
+Role assignment
+    ``iam:PassRole`` of the five function roles only to ``lambda.amazonaws.com`` and of the
+    ``_states`` role only to ``states.amazonaws.com``; where AWS supplies
+    ``iam:AssociatedResourceArn`` it must be one of Tibanna's functions or state machines.
+State machines ``tibanna_tiger_<env>`` and ``tibanna_tiger_<env>_costupdater``
+    ``CreateStateMachine``, ``UpdateStateMachine`` (on conflict), ``DeleteStateMachine`` (cleanup).
+Functions ``{run_task,check_task,start_run,update_ffmeta,update_cost}_tiger_<env>``
+    Each is deleted and re-created with ``Publish=True`` on every deploy: ``GetFunction``,
+    ``DeleteFunction``, ``CreateFunction``, ``UpdateFunctionCode``,
+    ``UpdateFunctionConfiguration`` under ``ManageFoursightFunctionsAndSchedules`` (``function:*``),
+    and the EC2 describes a VPC configuration needs. ``Publish=True`` is a parameter of those calls;
+    the deploy makes no ``PublishVersion`` call and AWS documents no dependent action for it, so
+    ``lambda:PublishVersion`` is not granted (unverified until a live deploy).
+Job table ``tibanna-master``
+    ``DescribeTable`` and ``CreateTable`` if absent. Item reads and writes and table deletion are
+    not granted (``DeleteTable`` is denied).
+Already granted elsewhere
+    ``s3:GetObject`` on the global env bucket (``*-foursight-envs``) for Tibanna's bucket lookup;
+    ``kms:GetKeyPolicy``/``PutKeyPolicy`` when ``S3_ENCRYPT_KEY_ID`` is set (the key policy must also
+    name the deployer); ``scripts/upload_tibanna_awsf`` image pushes.
+
+Not granted: starting, redriving or stopping workflows, invoking functions, launching workers,
+``tibanna add_user``, and ``cleanup --purge-history`` (it deletes job logs and table items).
+``cleanup`` deletes functions named ``<lambda>_<env>`` rather than the ``<lambda>_tiger_<env>``
+names ``deploy_tiger`` creates; that is upstream Tibanna behaviour, so those deletions fail and are
+ignored, and the functions are replaced by the next deploy.
+
+The roles Tibanna creates carry its runtime authority (``run_task`` has ``AmazonEC2FullAccess``),
+and the deployer writes their policies, so deploying Tibanna is trusted in the same way as
+deploying the ``c4-*`` stacks (see above).
 
 Builds and images: delegated authority
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -384,7 +458,7 @@ deployment role.
 Using an existing IAM Identity Center permission set instead
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The same four documents can be attached to an existing permission set: the three allow documents
+The same five documents can be attached to an existing permission set: the four allow documents
 as IAM customer managed policies in the member account, and the guardrail as the permission set's
 inline policy. ``python -m src.commands.render_deploy_policy_bundle`` renders them as plain JSON for
 one account and Region (``--check`` verifies an existing bundle). The tracked bundle for
@@ -497,7 +571,8 @@ Not covered by the deployment role
 
 Applying the IAM stack's human-access roles, onboarding a pre-existing datastore key, filling secrets,
 ``assure-global-env-bucket`` (writes the env bucket), ``update-kms-policy``, ``update-cors-policy``,
-``update-sentieon-security``, Tibanna deployment, ECS deployment-task runs (``RunTask``), CodeBuild
+``update-sentieon-security``, running Tibanna (workflow starts, ``tibanna add_user``,
+``cleanup --purge-history``), ECS deployment-task runs (``RunTask``), CodeBuild
 retries and batch builds, image deletion, reference-file copies, and removal of the data-bearing
 resources retained after a failure or stack deletion. Those need
 administrator or runtime credentials. Validate any role

@@ -44,12 +44,9 @@
         "iam:CreateSAMLProvider",
         "iam:CreateOpenIDConnectProvider",
         "iam:UpdateAccountPasswordPolicy",
-        "iam:CreatePolicy",
         "iam:CreatePolicyVersion",
         "iam:SetDefaultPolicyVersion",
-        "iam:CreateGroup",
         "iam:PutGroupPolicy",
-        "iam:AttachGroupPolicy",
         "iam:AddUserToGroup",
         "iam:AttachUserPolicy",
         "iam:PutRolePermissionsBoundary",
@@ -74,6 +71,71 @@
       "Resource": "*"
     },
     {
+      "Sid": "NeverCreatePoliciesOrGroupsOutsideTibanna",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreatePolicy",
+        "iam:CreateGroup",
+        "iam:AttachGroupPolicy"
+      ],
+      "NotResource": [
+        "arn:aws:iam::517723527581:policy/tibanna_tiger_*",
+        "arn:aws:iam::517723527581:group/tibanna_tiger_*"
+      ]
+    },
+    {
+      "Sid": "NeverAttachOtherPoliciesToTibannaRoles",
+      "Effect": "Deny",
+      "Action": [
+        "iam:AttachRolePolicy"
+      ],
+      "Resource": "arn:aws:iam::517723527581:role/tibanna_tiger_*",
+      "Condition": {
+        "ArnNotLike": {
+          "iam:PolicyARN": [
+            "arn:aws:iam::517723527581:policy/tibanna_tiger_*",
+            "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+            "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
+            "arn:aws:iam::aws:policy/AWSElasticBeanstalkReadOnly",
+            "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
+            "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "NeverAttachOtherPoliciesToTibannaGroups",
+      "Effect": "Deny",
+      "Action": [
+        "iam:AttachGroupPolicy"
+      ],
+      "Resource": "arn:aws:iam::517723527581:group/tibanna_tiger_*",
+      "Condition": {
+        "ArnNotLike": {
+          "iam:PolicyARN": [
+            "arn:aws:iam::517723527581:policy/tibanna_tiger_*",
+            "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess",
+            "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "NeverLaunchTibannaWorkers",
+      "Effect": "Deny",
+      "Action": [
+        "ec2:RunInstances",
+        "ec2:AssociateIamInstanceProfile",
+        "ec2:ReplaceIamInstanceProfileAssociation"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "ArnLike": {
+          "ec2:InstanceProfile": "arn:aws:iam::517723527581:instance-profile/tibanna_tiger_*"
+        }
+      }
+    },
+    {
       "Sid": "NeverRunWorkloadsDirectly",
       "Effect": "Deny",
       "Action": [
@@ -87,6 +149,7 @@
         "codebuild:RetryBuildBatch",
         "states:StartExecution",
         "states:StartSyncExecution",
+        "states:RedriveExecution",
         "ssm:SendCommand",
         "ssm:StartSession",
         "ec2-instance-connect:SendSSHPublicKey",
@@ -119,7 +182,8 @@
         "ecr:DeleteRepository",
         "logs:DeleteLogGroup",
         "elasticache:DeleteReplicationGroup",
-        "elasticache:DeleteSnapshot"
+        "elasticache:DeleteSnapshot",
+        "dynamodb:DeleteTable"
       ],
       "Resource": "*"
     },

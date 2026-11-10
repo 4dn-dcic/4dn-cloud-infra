@@ -1440,6 +1440,28 @@ class C4IAM(C4IAMBase, C4Part):
     # The RDS secret whose host/port SecretTargetAttachment writes.
     DEPLOY_RDS_SECRET_PATTERN = 'C4*RDSSecret*'
 
+    # Tibanna (SMaHT 'tiger'), deployed by `tibanna_smaht deploy_tiger -e <env>` outside
+    # CloudFormation (tibanna.iam_utils / tibanna.core in the tibanna and tibanna_ff packages).
+    # Every policy, role, group and instance profile it creates is named 'tibanna_tiger_<env>_...';
+    # its state machines 'tibanna_tiger_<env>[_costupdater]'; its functions '<name>_tiger_<env>'.
+    DEPLOY_TIBANNA_PREFIX = 'tibanna_tiger_'
+    DEPLOY_TIBANNA_LAMBDAS = ('run_task', 'check_task', 'start_run', 'update_ffmeta', 'update_cost')
+    # The empty Lambda-trust role Tibanna's setup creates if absent; it is never passed.
+    DEPLOY_TIBANNA_INIT_ROLE = 'tibanna_lambda_init_role'
+    DEPLOY_TIBANNA_JOB_TABLE = 'tibanna-master'
+    # AWS managed policies Tibanna attaches to its roles and to its user group, besides its own.
+    DEPLOY_TIBANNA_ROLE_MANAGED_POLICIES = (
+        'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly',
+        'arn:aws:iam::aws:policy/AmazonEC2FullAccess',
+        'arn:aws:iam::aws:policy/AWSElasticBeanstalkReadOnly',
+        'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy',
+        'arn:aws:iam::aws:policy/service-role/AWSLambdaRole',
+    )
+    DEPLOY_TIBANNA_GROUP_MANAGED_POLICIES = (
+        'arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess',
+        'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole',
+    )
+
     # IAM role names are at most 64 characters; CloudFormation generates <stack>-<LogicalId>-<suffix>
     # and shortens it when too long. Allow 13 characters for '-' plus the random suffix.
     _IAM_ROLE_NAME_LIMIT = 64
@@ -1986,11 +2008,128 @@ class C4IAM(C4IAMBase, C4Part):
         }
 
     @classmethod
+    def _tibanna_arn(cls, kind: str, suffix: str = '*'):
+        return cls._iam_arn(f'{kind}/{cls.DEPLOY_TIBANNA_PREFIX}{suffix}')
+
+    @classmethod
+    def human_deploy_tibanna_policy(cls) -> dict:
+        """ Deploying, updating and cleaning up Tibanna: its IAM policies, roles, user group and
+            instance profile, assigning those roles to its functions, state machines and worker
+            instances, its state machine definitions and its job table. Runtime permissions stay
+            on the roles Tibanna creates; this role can neither start workflows nor invoke
+            functions (guardrail). Its Lambda functions are managed under
+            ManageFoursightFunctionsAndSchedules (function:*).
+        """
+        policy = cls._tibanna_arn('policy')
+        role = cls._tibanna_arn('role')
+        group = cls._tibanna_arn('group')
+        lambda_functions = [cls._service_arn('lambda', f'function:{name}_tiger_*')
+                            for name in cls.DEPLOY_TIBANNA_LAMBDAS]
+        state_machines = cls._service_arn('states', f'stateMachine:{cls.DEPLOY_TIBANNA_PREFIX}*')
+        return {
+            'Version': '2012-10-17',
+            'Statement': [
+                {
+                    # Created from Tibanna's own definitions; replaced by delete and re-create.
+                    'Sid': 'ManageTibannaPolicies',
+                    'Effect': 'Allow',
+                    'Action': ['iam:CreatePolicy', 'iam:DeletePolicy', 'iam:DeletePolicyVersion',
+                               'iam:GetPolicy', 'iam:ListPolicyVersions',
+                               'iam:ListEntitiesForPolicy'],
+                    'Resource': policy,
+                },
+                {
+                    'Sid': 'ManageTibannaRolesAndWorkerInstanceProfile',
+                    'Effect': 'Allow',
+                    'Action': [
+                        'iam:CreateRole', 'iam:GetRole', 'iam:DeleteRole',
+                        'iam:ListAttachedRolePolicies', 'iam:ListInstanceProfilesForRole',
+                        'iam:CreateInstanceProfile', 'iam:DeleteInstanceProfile',
+                        'iam:AddRoleToInstanceProfile', 'iam:RemoveRoleFromInstanceProfile',
+                    ],
+                    'Resource': [role, cls._tibanna_arn('instance-profile', '*_for_ec2')],
+                },
+                {
+                    'Sid': 'CreateTibannaLambdaInitRole',
+                    'Effect': 'Allow',
+                    'Action': ['iam:CreateRole', 'iam:GetRole'],
+                    'Resource': cls._iam_arn(f'role/{cls.DEPLOY_TIBANNA_INIT_ROLE}'),
+                },
+                {
+                    'Sid': 'AttachTibannaRolePolicies',
+                    'Effect': 'Allow',
+                    'Action': ['iam:AttachRolePolicy', 'iam:DetachRolePolicy'],
+                    'Resource': role,
+                    'Condition': {'ArnLike': {'iam:PolicyARN': [
+                        policy, *cls.DEPLOY_TIBANNA_ROLE_MANAGED_POLICIES]}},
+                },
+                {
+                    # The group users join to run Tibanna. Adding users stays an administrator
+                    # task (`tibanna add_user`); cleanup removes them before deleting the group.
+                    'Sid': 'ManageTibannaUserGroup',
+                    'Effect': 'Allow',
+                    'Action': ['iam:CreateGroup', 'iam:GetGroup', 'iam:DeleteGroup',
+                               'iam:ListAttachedGroupPolicies', 'iam:RemoveUserFromGroup'],
+                    'Resource': group,
+                },
+                {
+                    'Sid': 'AttachTibannaGroupPolicies',
+                    'Effect': 'Allow',
+                    'Action': ['iam:AttachGroupPolicy', 'iam:DetachGroupPolicy'],
+                    'Resource': group,
+                    'Condition': {'ArnLike': {'iam:PolicyARN': [
+                        policy, *cls.DEPLOY_TIBANNA_GROUP_MANAGED_POLICIES]}},
+                },
+                {
+                    'Sid': 'AssignTibannaFunctionRoles',
+                    'Effect': 'Allow',
+                    'Action': ['iam:PassRole'],
+                    'Resource': [cls._tibanna_arn('role', f'*_{name}') for name in cls.DEPLOY_TIBANNA_LAMBDAS],
+                    'Condition': {'StringEquals': {'iam:PassedToService': 'lambda.amazonaws.com'},
+                                  'ArnLikeIfExists': {'iam:AssociatedResourceArn': lambda_functions}},
+                },
+                {
+                    'Sid': 'AssignTibannaStateMachineRole',
+                    'Effect': 'Allow',
+                    'Action': ['iam:PassRole'],
+                    'Resource': cls._tibanna_arn('role', '*_states'),
+                    'Condition': {'StringEquals': {'iam:PassedToService': 'states.amazonaws.com'},
+                                  'ArnLikeIfExists': {'iam:AssociatedResourceArn': state_machines}},
+                },
+                {
+                    # AddRoleToInstanceProfile requires PassRole on the role. Launching instances
+                    # with this profile is denied in the guardrail.
+                    'Sid': 'AssignTibannaWorkerRoleToItsInstanceProfile',
+                    'Effect': 'Allow',
+                    'Action': ['iam:PassRole'],
+                    'Resource': cls._tibanna_arn('role', '*_for_ec2'),
+                    'Condition': {'StringEqualsIfExists': {'iam:PassedToService': 'ec2.amazonaws.com'}},
+                },
+                {
+                    # Created, or updated on conflict, on every deploy; deleted by cleanup.
+                    'Sid': 'ManageTibannaStateMachineDefinitions',
+                    'Effect': 'Allow',
+                    'Action': ['states:CreateStateMachine', 'states:UpdateStateMachine',
+                               'states:DeleteStateMachine'],
+                    'Resource': state_machines,
+                },
+                {
+                    # Created if absent; never deleted or written by this role.
+                    'Sid': 'CreateTibannaJobTable',
+                    'Effect': 'Allow',
+                    'Action': ['dynamodb:DescribeTable', 'dynamodb:CreateTable'],
+                    'Resource': cls._service_arn('dynamodb', f'table/{cls.DEPLOY_TIBANNA_JOB_TABLE}'),
+                },
+            ],
+        }
+
+    @classmethod
     def human_deploy_guardrail_policy(cls) -> Policy:
         """ Explicit denies. These hold even though the allows above already omit most of these
             actions, so a later broadening of an allow cannot silently remove them.
         """
         protected = [cls._iam_arn(pattern) for pattern in cls.DEPLOY_PROTECTED_IAM_PATTERNS]
+        tibanna_policy, tibanna_group = cls._tibanna_arn('policy'), cls._tibanna_arn('group')
         return Policy(
             PolicyName='HumanDeployGuardrailPolicy',
             PolicyDocument={
@@ -2019,9 +2158,8 @@ class C4IAM(C4IAMBase, C4Part):
                             'iam:CreateVirtualMFADevice', 'iam:EnableMFADevice',
                             'iam:DeactivateMFADevice', 'iam:CreateSAMLProvider',
                             'iam:CreateOpenIDConnectProvider', 'iam:UpdateAccountPasswordPolicy',
-                            'iam:CreatePolicy', 'iam:CreatePolicyVersion',
-                            'iam:SetDefaultPolicyVersion', 'iam:CreateGroup', 'iam:PutGroupPolicy',
-                            'iam:AttachGroupPolicy', 'iam:AddUserToGroup', 'iam:AttachUserPolicy',
+                            'iam:CreatePolicyVersion', 'iam:SetDefaultPolicyVersion',
+                            'iam:PutGroupPolicy', 'iam:AddUserToGroup', 'iam:AttachUserPolicy',
                             'iam:PutRolePermissionsBoundary', 'iam:DeleteRolePermissionsBoundary',
                             'iam:PutUserPermissionsBoundary', 'iam:DeleteUserPermissionsBoundary',
                             'sso:*', 'sso-directory:*', 'identitystore:*', 'organizations:*',
@@ -2030,6 +2168,40 @@ class C4IAM(C4IAMBase, C4Part):
                             'sts:AssumeRoleWithWebIdentity', 'sts:GetFederationToken',
                         ],
                         'Resource': '*',
+                    },
+                    {
+                        # Customer managed policies and groups only in Tibanna's namespace (its
+                        # deploy creates them), and attached only as that deploy attaches them.
+                        'Sid': 'NeverCreatePoliciesOrGroupsOutsideTibanna',
+                        'Effect': 'Deny',
+                        'Action': ['iam:CreatePolicy', 'iam:CreateGroup', 'iam:AttachGroupPolicy'],
+                        'NotResource': [tibanna_policy, tibanna_group],
+                    },
+                    {
+                        'Sid': 'NeverAttachOtherPoliciesToTibannaRoles',
+                        'Effect': 'Deny',
+                        'Action': ['iam:AttachRolePolicy'],
+                        'Resource': cls._tibanna_arn('role'),
+                        'Condition': {'ArnNotLike': {'iam:PolicyARN': [
+                            tibanna_policy, *cls.DEPLOY_TIBANNA_ROLE_MANAGED_POLICIES]}},
+                    },
+                    {
+                        'Sid': 'NeverAttachOtherPoliciesToTibannaGroups',
+                        'Effect': 'Deny',
+                        'Action': ['iam:AttachGroupPolicy'],
+                        'Resource': tibanna_group,
+                        'Condition': {'ArnNotLike': {'iam:PolicyARN': [
+                            tibanna_policy, *cls.DEPLOY_TIBANNA_GROUP_MANAGED_POLICIES]}},
+                    },
+                    {
+                        # Tibanna's worker role is assigned to its instance profile, but the
+                        # workers are launched by Tibanna's own run_task function, not this role.
+                        'Sid': 'NeverLaunchTibannaWorkers',
+                        'Effect': 'Deny',
+                        'Action': ['ec2:RunInstances', 'ec2:AssociateIamInstanceProfile',
+                                   'ec2:ReplaceIamInstanceProfileAssociation'],
+                        'Resource': '*',
+                        'Condition': {'ArnLike': {'ec2:InstanceProfile': cls._tibanna_arn('instance-profile')}},
                     },
                     {
                         # Deployment is not workload execution: no direct function invocations,
@@ -2044,6 +2216,7 @@ class C4IAM(C4IAMBase, C4Part):
                             'codebuild:RetryBuild', 'codebuild:StartBuildBatch',
                             'codebuild:RetryBuildBatch',
                             'states:StartExecution', 'states:StartSyncExecution',
+                            'states:RedriveExecution',
                             'ssm:SendCommand', 'ssm:StartSession',
                             'ec2-instance-connect:SendSSHPublicKey',
                             'ecr:BatchDeleteImage',
@@ -2070,6 +2243,7 @@ class C4IAM(C4IAMBase, C4Part):
                             'ecr:DeleteRepository',
                             'logs:DeleteLogGroup',
                             'elasticache:DeleteReplicationGroup', 'elasticache:DeleteSnapshot',
+                            'dynamodb:DeleteTable',
                         ],
                         'Resource': '*',
                     },
@@ -2117,9 +2291,9 @@ class C4IAM(C4IAMBase, C4Part):
 
     @classmethod
     def human_deploy_policy_documents(cls) -> list:
-        """ [(name, description, document)] for the deployment permissions: the three allow
-            documents (customer managed policies, 6144 characters each) and then the deny-only
-            guardrail (an inline policy). The opt-in role below and the materialized
+        """ [(name, description, document)] for the deployment permissions: the four allow
+            documents (customer managed policies, 6144 characters each) and then, last, the
+            deny-only guardrail (an inline policy). The opt-in role below and the materialized
             account-specific bundle (src/commands/render_deploy_policy_bundle.py) both use this.
         """
         guardrail = cls.human_deploy_guardrail_policy()
@@ -2133,18 +2307,21 @@ class C4IAM(C4IAMBase, C4Part):
             ('InfraDeployDataPolicy',
              'Deployment role: datastores, keys, secrets, buckets, artifacts, registries, builds.',
              cls.human_deploy_data_policy()),
+            ('InfraDeployTibannaPolicy',
+             'Deployment role: Tibanna IAM, role assignment, state machines and job table.',
+             cls.human_deploy_tibanna_policy()),
             (guardrail.PolicyName, 'Deployment role: explicit denies (inline).', guardrail.PolicyDocument),
         ]
 
     def human_deploy_managed_policies(self) -> list:
-        """ The allow documents exceed a role's 10240-character inline budget, so they are three
+        """ The allow documents exceed a role's 10240-character inline budget, so they are four
             customer managed policies (6144 each) created in this stack and attached to the role.
             Their CloudFormation-generated names contain 'InfraDeploy', which the guardrail
             protects.
         """
         return [ManagedPolicy(self.name.logical_id(title), Description=description,
                               PolicyDocument=document)
-                for title, description, document in self.human_deploy_policy_documents()[:3]]
+                for title, description, document in self.human_deploy_policy_documents()[:-1]]
 
     def human_deploy_role(self, principal_arns: list, policies: list) -> Role:
         """ Change-set deployment role. Trust is the same enumerated, source-identity-labelled,

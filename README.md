@@ -878,18 +878,25 @@ images in this account's ECR repositories (`docker push`, `add-image-tag`,
 `unrelease-most-recent-image`); run the ECS release commands `deploy-ecs` and `identity-swap`
 (ECS discovery and service updates, the indexer services' ECS scaling policies and alarms, and a
 rewrite of only the `main.ecosystem` file - plus Fourfront's legacy `--do-legacy` files - in the
-global env buckets of this account); and continue, force or roll back a failed `c4-*` stack update
-and delete `c4-*` stacks (again never with a service role).
+global env buckets of this account); continue, force or roll back a failed `c4-*` stack update
+and delete `c4-*` stacks (again never with a service role); and deploy, update and clean up
+Tibanna (`tibanna_smaht deploy_tiger` / `cleanup`): create and replace its `tibanna_tiger_*` IAM
+policies, roles, user group and worker instance profile, attaching only Tibanna's own policies
+and the AWS managed policies its source attaches; assign its roles only to its functions
+(`run_task`, `check_task`, `start_run`, `update_ffmeta`, `update_cost`, each `_tiger_<env>`), its
+state machines and its worker instance profile; create, update and delete the `tibanna_tiger_*`
+state machine definitions; and create the `tibanna-master` job table.
 
 What it cannot do: modify or pass itself, the other human-access roles, `*DevRole` or their
-policies; manage access keys, login profiles, MFA, identity providers, groups, customer managed
-policies or permissions boundaries; touch SSO, Organizations or billing; assume other roles;
-invoke Lambda, run or exec into ECS tasks, retry or batch builds, start workflows, open SSM
-sessions or delete images; delete stacks other than `c4-*`, stack sets, or administrator-set
-termination protection and stack policies; delete the data-bearing resources (RDS instances,
-OpenSearch/Elasticsearch domains, buckets and objects, queues, secrets, KMS keys, ECR
-repositories, log groups, Redis replication groups), whether directly, through a change set or
-through `DeleteStack`; write any secret value except the RDS secret's endpoint attachment, or
+policies; manage access keys, login profiles, MFA, identity providers or permissions boundaries;
+create groups or customer managed policies other than Tibanna's, or new policy versions; add
+users to groups; touch SSO, Organizations or billing; assume other roles; invoke Lambda, run or
+exec into ECS tasks, retry or batch builds, start or redrive workflows (Tibanna's included),
+launch instances with Tibanna's worker profile, open SSM sessions or delete images; delete stacks
+other than `c4-*`, stack sets, or administrator-set termination protection and stack policies;
+delete the data-bearing resources (RDS instances, OpenSearch/Elasticsearch domains, buckets and
+objects, queues, secrets, KMS keys, ECR repositories, log groups, Redis replication groups,
+DynamoDB tables), whether directly, through a change set or through `DeleteStack`; write any secret value except the RDS secret's endpoint attachment, or
 rewrite a secret's payload; or act outside the deployment region.
 
 **This is not a low-privilege role.** Deploying this system means writing IAM roles with inline
@@ -898,7 +905,9 @@ policies and handing them to services that run code (Foursight's Lambda role alo
 permission a `c4-*` runtime role can be given. The denies stop direct self-escalation and
 data destruction; they do not make deployment low-trust. The deployer can also read the
 `C4*` secrets, because CloudFormation resolves secret references and secret resources with the
-caller's credentials.
+caller's credentials. Tibanna is the same: running it stays with the roles its deploy creates
+(the `run_task` role carries `AmazonEC2FullAccess`), and the deployer writes those roles'
+policies, so deploying Tibanna is trusted in the same way.
 
 Builds and images delegate authority too. `StartBuild` runs a project as its CodeBuild service
 role (`AWSCodeBuildAdminAccess`, `AmazonS3FullAccess`, `AmazonEC2ContainerRegistryPowerUser`,
@@ -951,13 +960,14 @@ boundary and the remaining limits are in `docs/source/human_access_roles.rst`.
 ### Illustrative policy: deployment role (`*InfraDeployRole`)
 
 Generated from `src/parts/iam.py` for account `517723527581` in `us-east-1`, and checked
-statement-for-statement by `tests/test_human_deploy_role.py`. It merges the three customer managed
-policies (`InfraDeployStackPolicy`, `InfraDeployComputePolicy`, `InfraDeployDataPolicy`) and the
-inline `HumanDeployGuardrailPolicy` into one document for reading. It is **not one attachable
-policy**. At about 20,000 characters it is over three times IAM's 6,144-character limit for a
-managed policy, and it mixes the allow documents with the deny-only inline policy.
+statement-for-statement by `tests/test_human_deploy_role.py`. It merges the four customer managed
+policies (`InfraDeployStackPolicy`, `InfraDeployComputePolicy`, `InfraDeployDataPolicy`,
+`InfraDeployTibannaPolicy`) and the inline `HumanDeployGuardrailPolicy` into one document for
+reading. It is **not one attachable policy**. At about 25,500 characters it is over four times
+IAM's 6,144-character limit for a managed policy, and it mixes the allow documents with the
+deny-only inline policy.
 
-To use these permissions, attach the four separate documents:
+To use these permissions, attach the five separate documents:
 
 * **Existing IAM Identity Center permission set `SMaHT-Deployment-Manager` in that account:** use
   the ready-to-use bundle and setup guide in
@@ -1697,6 +1707,174 @@ To use these permissions, attach the four separate documents:
       }
     },
     {
+      "Sid": "ManageTibannaPolicies",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreatePolicy",
+        "iam:DeletePolicy",
+        "iam:DeletePolicyVersion",
+        "iam:GetPolicy",
+        "iam:ListPolicyVersions",
+        "iam:ListEntitiesForPolicy"
+      ],
+      "Resource": "arn:aws:iam::517723527581:policy/tibanna_tiger_*"
+    },
+    {
+      "Sid": "ManageTibannaRolesAndWorkerInstanceProfile",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:GetRole",
+        "iam:DeleteRole",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListInstanceProfilesForRole",
+        "iam:CreateInstanceProfile",
+        "iam:DeleteInstanceProfile",
+        "iam:AddRoleToInstanceProfile",
+        "iam:RemoveRoleFromInstanceProfile"
+      ],
+      "Resource": [
+        "arn:aws:iam::517723527581:role/tibanna_tiger_*",
+        "arn:aws:iam::517723527581:instance-profile/tibanna_tiger_*_for_ec2"
+      ]
+    },
+    {
+      "Sid": "CreateTibannaLambdaInitRole",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:GetRole"
+      ],
+      "Resource": "arn:aws:iam::517723527581:role/tibanna_lambda_init_role"
+    },
+    {
+      "Sid": "AttachTibannaRolePolicies",
+      "Effect": "Allow",
+      "Action": [
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy"
+      ],
+      "Resource": "arn:aws:iam::517723527581:role/tibanna_tiger_*",
+      "Condition": {
+        "ArnLike": {
+          "iam:PolicyARN": [
+            "arn:aws:iam::517723527581:policy/tibanna_tiger_*",
+            "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+            "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
+            "arn:aws:iam::aws:policy/AWSElasticBeanstalkReadOnly",
+            "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
+            "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "ManageTibannaUserGroup",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateGroup",
+        "iam:GetGroup",
+        "iam:DeleteGroup",
+        "iam:ListAttachedGroupPolicies",
+        "iam:RemoveUserFromGroup"
+      ],
+      "Resource": "arn:aws:iam::517723527581:group/tibanna_tiger_*"
+    },
+    {
+      "Sid": "AttachTibannaGroupPolicies",
+      "Effect": "Allow",
+      "Action": [
+        "iam:AttachGroupPolicy",
+        "iam:DetachGroupPolicy"
+      ],
+      "Resource": "arn:aws:iam::517723527581:group/tibanna_tiger_*",
+      "Condition": {
+        "ArnLike": {
+          "iam:PolicyARN": [
+            "arn:aws:iam::517723527581:policy/tibanna_tiger_*",
+            "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess",
+            "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AssignTibannaFunctionRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:PassRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::517723527581:role/tibanna_tiger_*_run_task",
+        "arn:aws:iam::517723527581:role/tibanna_tiger_*_check_task",
+        "arn:aws:iam::517723527581:role/tibanna_tiger_*_start_run",
+        "arn:aws:iam::517723527581:role/tibanna_tiger_*_update_ffmeta",
+        "arn:aws:iam::517723527581:role/tibanna_tiger_*_update_cost"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "lambda.amazonaws.com"
+        },
+        "ArnLikeIfExists": {
+          "iam:AssociatedResourceArn": [
+            "arn:aws:lambda:us-east-1:517723527581:function:run_task_tiger_*",
+            "arn:aws:lambda:us-east-1:517723527581:function:check_task_tiger_*",
+            "arn:aws:lambda:us-east-1:517723527581:function:start_run_tiger_*",
+            "arn:aws:lambda:us-east-1:517723527581:function:update_ffmeta_tiger_*",
+            "arn:aws:lambda:us-east-1:517723527581:function:update_cost_tiger_*"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AssignTibannaStateMachineRole",
+      "Effect": "Allow",
+      "Action": [
+        "iam:PassRole"
+      ],
+      "Resource": "arn:aws:iam::517723527581:role/tibanna_tiger_*_states",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "states.amazonaws.com"
+        },
+        "ArnLikeIfExists": {
+          "iam:AssociatedResourceArn": "arn:aws:states:us-east-1:517723527581:stateMachine:tibanna_tiger_*"
+        }
+      }
+    },
+    {
+      "Sid": "AssignTibannaWorkerRoleToItsInstanceProfile",
+      "Effect": "Allow",
+      "Action": [
+        "iam:PassRole"
+      ],
+      "Resource": "arn:aws:iam::517723527581:role/tibanna_tiger_*_for_ec2",
+      "Condition": {
+        "StringEqualsIfExists": {
+          "iam:PassedToService": "ec2.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "ManageTibannaStateMachineDefinitions",
+      "Effect": "Allow",
+      "Action": [
+        "states:CreateStateMachine",
+        "states:UpdateStateMachine",
+        "states:DeleteStateMachine"
+      ],
+      "Resource": "arn:aws:states:us-east-1:517723527581:stateMachine:tibanna_tiger_*"
+    },
+    {
+      "Sid": "CreateTibannaJobTable",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:DescribeTable",
+        "dynamodb:CreateTable"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:517723527581:table/tibanna-master"
+    },
+    {
       "Sid": "NeverModifyHumanAccessIdentities",
       "Effect": "Deny",
       "Action": [
@@ -1739,12 +1917,9 @@ To use these permissions, attach the four separate documents:
         "iam:CreateSAMLProvider",
         "iam:CreateOpenIDConnectProvider",
         "iam:UpdateAccountPasswordPolicy",
-        "iam:CreatePolicy",
         "iam:CreatePolicyVersion",
         "iam:SetDefaultPolicyVersion",
-        "iam:CreateGroup",
         "iam:PutGroupPolicy",
-        "iam:AttachGroupPolicy",
         "iam:AddUserToGroup",
         "iam:AttachUserPolicy",
         "iam:PutRolePermissionsBoundary",
@@ -1769,6 +1944,71 @@ To use these permissions, attach the four separate documents:
       "Resource": "*"
     },
     {
+      "Sid": "NeverCreatePoliciesOrGroupsOutsideTibanna",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreatePolicy",
+        "iam:CreateGroup",
+        "iam:AttachGroupPolicy"
+      ],
+      "NotResource": [
+        "arn:aws:iam::517723527581:policy/tibanna_tiger_*",
+        "arn:aws:iam::517723527581:group/tibanna_tiger_*"
+      ]
+    },
+    {
+      "Sid": "NeverAttachOtherPoliciesToTibannaRoles",
+      "Effect": "Deny",
+      "Action": [
+        "iam:AttachRolePolicy"
+      ],
+      "Resource": "arn:aws:iam::517723527581:role/tibanna_tiger_*",
+      "Condition": {
+        "ArnNotLike": {
+          "iam:PolicyARN": [
+            "arn:aws:iam::517723527581:policy/tibanna_tiger_*",
+            "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+            "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
+            "arn:aws:iam::aws:policy/AWSElasticBeanstalkReadOnly",
+            "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
+            "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "NeverAttachOtherPoliciesToTibannaGroups",
+      "Effect": "Deny",
+      "Action": [
+        "iam:AttachGroupPolicy"
+      ],
+      "Resource": "arn:aws:iam::517723527581:group/tibanna_tiger_*",
+      "Condition": {
+        "ArnNotLike": {
+          "iam:PolicyARN": [
+            "arn:aws:iam::517723527581:policy/tibanna_tiger_*",
+            "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess",
+            "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "NeverLaunchTibannaWorkers",
+      "Effect": "Deny",
+      "Action": [
+        "ec2:RunInstances",
+        "ec2:AssociateIamInstanceProfile",
+        "ec2:ReplaceIamInstanceProfileAssociation"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "ArnLike": {
+          "ec2:InstanceProfile": "arn:aws:iam::517723527581:instance-profile/tibanna_tiger_*"
+        }
+      }
+    },
+    {
       "Sid": "NeverRunWorkloadsDirectly",
       "Effect": "Deny",
       "Action": [
@@ -1782,6 +2022,7 @@ To use these permissions, attach the four separate documents:
         "codebuild:RetryBuildBatch",
         "states:StartExecution",
         "states:StartSyncExecution",
+        "states:RedriveExecution",
         "ssm:SendCommand",
         "ssm:StartSession",
         "ec2-instance-connect:SendSSHPublicKey",
@@ -1814,7 +2055,8 @@ To use these permissions, attach the four separate documents:
         "ecr:DeleteRepository",
         "logs:DeleteLogGroup",
         "elasticache:DeleteReplicationGroup",
-        "elasticache:DeleteSnapshot"
+        "elasticache:DeleteSnapshot",
+        "dynamodb:DeleteTable"
       ],
       "Resource": "*"
     },
