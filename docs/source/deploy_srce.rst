@@ -93,6 +93,10 @@ Other relevant keys:
   the account root) and its ``ECSDevUserRole`` output out of the ``iam`` stack. Nothing imports
   that export; the runtime roles, instance profile and S3 federator user are still created.
   Default ``false`` (unchanged template).
+* ``rds.retention_policy`` / ``elasticsearch.retention_policy`` - set both ``DeletionPolicy`` and
+  ``UpdateReplacePolicy`` on the RDS instance (``Delete``, ``Retain`` or ``Snapshot``) and on each
+  OpenSearch domain (``Delete`` or ``Retain``; OpenSearch has no snapshot policy). Unset keeps
+  CloudFormation's defaults: an update that replaces RDS or a domain deletes it without a snapshot.
 
 Deploy order
 ------------

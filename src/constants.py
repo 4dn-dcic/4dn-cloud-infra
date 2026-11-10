@@ -87,6 +87,10 @@ class Settings:
     RDS_AZ = 'rds.az'                        # TODO: Ignored for now. Always defaults to "us-east-1"
     RDS_POSTGRES_VERSION = 'rds.postgres_version'
     RDS_NAME = 'rds.name'  # can be used to configure name of RDS instance, foursight must know it - Will Nov 2 2021
+    # Both DeletionPolicy and UpdateReplacePolicy of the RDS instance (Delete, Retain or Snapshot) and of
+    # every OpenSearch domain (Delete or Retain). Unset leaves the attributes off (CloudFormation defaults).
+    RDS_RETENTION_POLICY = 'rds.retention_policy'
+    ES_RETENTION_POLICY = 'elasticsearch.retention_policy'
 
     # ES Configuration Options
     ES_MASTER_COUNT = 'elasticsearch.master_node_count'

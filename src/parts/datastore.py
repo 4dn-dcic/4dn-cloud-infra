@@ -550,7 +550,7 @@ class C4Datastore(C4DatastoreBase, C4Part):
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         logical_id = self.name.logical_id(self.rds_instance_name(env_name))  # was env_name
         secret_string_logical_id = self.rds_secret_logical_id()
-        return DBInstance(
+        return self.apply_retention_policy(DBInstance(
             logical_id,
             AllocatedStorage=storage_size or ConfigManager.get_config_setting(Settings.RDS_STORAGE_SIZE,
                                                                               default=self.DEFAULT_RDS_STORAGE_SIZE),
@@ -581,7 +581,20 @@ class C4Datastore(C4DatastoreBase, C4Part):
                 ':SecretString:password}}'
             ]),
             Tags=self.tags.cost_tag_array(name=logical_id),
-        )
+        ), Settings.RDS_RETENTION_POLICY, allowed=('Delete', 'Retain', 'Snapshot'))
+
+    @staticmethod
+    def apply_retention_policy(resource, setting, *, allowed):
+        """ Sets both DeletionPolicy and UpdateReplacePolicy from the given config setting, if it is set.
+            Unset leaves the resource exactly as before (CloudFormation's defaults apply). """
+        policy = ConfigManager.get_config_setting(setting, default=None)
+        if policy is None:
+            return resource
+        if policy not in allowed:
+            raise ValueError(f'{setting} must be one of {", ".join(allowed)}, not {policy!r}.')
+        resource.DeletionPolicy = policy
+        resource.UpdateReplacePolicy = policy
+        return resource
 
     def output_rds_url(self, resource: DBInstance) -> Output:
         """ Outputs RDS URL """
@@ -674,7 +687,8 @@ class C4Datastore(C4DatastoreBase, C4Part):
             Tags=self.tags.cost_tag_obj(name=domain_name),
             **options,
         )
-        return domain
+        # Snapshot is not a valid DeletionPolicy for AWS::OpenSearchService::Domain.
+        return self.apply_retention_policy(domain, Settings.ES_RETENTION_POLICY, allowed=('Delete', 'Retain'))
 
     def output_es_url(self, resource: OSDomain, export_name=C4DatastoreExports.ES_URL) -> Output:
         """ Outputs ES URL """

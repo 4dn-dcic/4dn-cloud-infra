@@ -160,6 +160,11 @@ Optional TLS listener and CrowdStrike Falcon sidecar (both off by default)
   The ECS, autoscaling and flow-log roles, the instance profile and the S3 federator user are
   unchanged. Unset or ``false`` keeps the IAM template byte-identical.
 
+* ``rds.retention_policy`` / ``elasticsearch.retention_policy`` -- when set, become both the
+  ``DeletionPolicy`` and the ``UpdateReplacePolicy`` of the datastore RDS instance (``Delete``,
+  ``Retain`` or ``Snapshot``) and of every OpenSearch domain (``Delete`` or ``Retain``). Unset
+  leaves the attributes off, so existing datastore templates are byte-identical.
+
 Additive changes to shared stacks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
