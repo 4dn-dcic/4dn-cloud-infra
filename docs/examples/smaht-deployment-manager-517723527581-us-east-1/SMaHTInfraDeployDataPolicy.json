@@ -1,0 +1,267 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ManageDatabases",
+      "Effect": "Allow",
+      "Action": [
+        "rds:CreateDBInstance",
+        "rds:ModifyDBInstance",
+        "rds:RebootDBInstance",
+        "rds:DescribeDBInstances",
+        "rds:DescribeDBClusters",
+        "rds:DescribeDBSnapshots",
+        "rds:DescribeDBClusterSnapshots",
+        "rds:DescribeDBInstanceAutomatedBackups",
+        "rds:CreateDBParameterGroup",
+        "rds:ModifyDBParameterGroup",
+        "rds:ResetDBParameterGroup",
+        "rds:DeleteDBParameterGroup",
+        "rds:DescribeDBParameterGroups",
+        "rds:DescribeDBParameters",
+        "rds:CreateDBSubnetGroup",
+        "rds:ModifyDBSubnetGroup",
+        "rds:DeleteDBSubnetGroup",
+        "rds:DescribeDBSubnetGroups",
+        "rds:AddTagsToResource",
+        "rds:RemoveTagsFromResource",
+        "rds:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:rds:us-east-1:517723527581:*"
+    },
+    {
+      "Sid": "ManageSearchDomains",
+      "Effect": "Allow",
+      "Action": [
+        "es:CreateDomain",
+        "es:UpdateDomainConfig",
+        "es:UpgradeDomain",
+        "es:DescribeDomain",
+        "es:DescribeDomainConfig",
+        "es:DescribeDomainChangeProgress",
+        "es:CreateElasticsearchDomain",
+        "es:UpdateElasticsearchDomainConfig",
+        "es:UpgradeElasticsearchDomain",
+        "es:DescribeElasticsearchDomain",
+        "es:DescribeElasticsearchDomainConfig",
+        "es:AddTags",
+        "es:RemoveTags",
+        "es:ListTags"
+      ],
+      "Resource": "arn:aws:es:us-east-1:517723527581:domain/*"
+    },
+    {
+      "Sid": "ManageCaches",
+      "Effect": "Allow",
+      "Action": [
+        "elasticache:CreateReplicationGroup",
+        "elasticache:ModifyReplicationGroup",
+        "elasticache:DescribeReplicationGroups",
+        "elasticache:IncreaseReplicaCount",
+        "elasticache:DecreaseReplicaCount",
+        "elasticache:CreateCacheCluster",
+        "elasticache:DeleteCacheCluster",
+        "elasticache:DescribeCacheClusters",
+        "elasticache:CreateCacheSubnetGroup",
+        "elasticache:ModifyCacheSubnetGroup",
+        "elasticache:DeleteCacheSubnetGroup",
+        "elasticache:DescribeCacheSubnetGroups",
+        "elasticache:AddTagsToResource",
+        "elasticache:RemoveTagsFromResource",
+        "elasticache:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:elasticache:us-east-1:517723527581:*"
+    },
+    {
+      "Sid": "ManageQueues",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:CreateQueue",
+        "sqs:SetQueueAttributes",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:TagQueue",
+        "sqs:UntagQueue",
+        "sqs:ListQueueTags"
+      ],
+      "Resource": "arn:aws:sqs:us-east-1:517723527581:*"
+    },
+    {
+      "Sid": "ManageBucketConfiguration",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:ListBucket",
+        "s3:GetBucketAcl",
+        "s3:PutBucketAcl",
+        "s3:GetBucketTagging",
+        "s3:PutBucketTagging",
+        "s3:GetBucketVersioning",
+        "s3:PutBucketVersioning",
+        "s3:GetLifecycleConfiguration",
+        "s3:PutLifecycleConfiguration",
+        "s3:GetEncryptionConfiguration",
+        "s3:PutEncryptionConfiguration",
+        "s3:GetBucketPolicy",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:GetBucketOwnershipControls",
+        "s3:PutBucketOwnershipControls",
+        "s3:GetBucketCORS",
+        "s3:GetBucketLogging",
+        "s3:GetBucketNotification",
+        "s3:GetBucketObjectLockConfiguration",
+        "s3:GetBucketWebsite",
+        "s3:GetReplicationConfiguration",
+        "s3:GetAccelerateConfiguration",
+        "s3:GetAnalyticsConfiguration",
+        "s3:GetIntelligentTieringConfiguration",
+        "s3:GetInventoryConfiguration",
+        "s3:GetMetricsConfiguration",
+        "s3:GetBucketAbac",
+        "s3:GetBucketMetadataTableConfiguration",
+        "s3:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:s3:::*"
+    },
+    {
+      "Sid": "ManageImageRepositories",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:CreateRepository",
+        "ecr:DescribeRepositories",
+        "ecr:SetRepositoryPolicy",
+        "ecr:GetRepositoryPolicy",
+        "ecr:DeleteRepositoryPolicy",
+        "ecr:PutImageScanningConfiguration",
+        "ecr:GetLifecyclePolicy",
+        "ecr:TagResource",
+        "ecr:UntagResource",
+        "ecr:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:ecr:us-east-1:517723527581:repository/*"
+    },
+    {
+      "Sid": "ManageBuildProjects",
+      "Effect": "Allow",
+      "Action": [
+        "codebuild:CreateProject",
+        "codebuild:UpdateProject",
+        "codebuild:DeleteProject",
+        "codebuild:BatchGetProjects"
+      ],
+      "Resource": "arn:aws:codebuild:us-east-1:517723527581:project/*"
+    },
+    {
+      "Sid": "MaintainDatastoreKeys",
+      "Effect": "Allow",
+      "Action": [
+        "kms:DescribeKey",
+        "kms:GetKeyPolicy",
+        "kms:PutKeyPolicy",
+        "kms:GetKeyRotationStatus",
+        "kms:ListResourceTags",
+        "kms:UntagResource",
+        "kms:UpdateKeyDescription"
+      ],
+      "Resource": "arn:aws:kms:us-east-1:517723527581:key/*"
+    },
+    {
+      "Sid": "UseKeysOnlyThroughS3",
+      "Effect": "Allow",
+      "Action": [
+        "kms:GenerateDataKey",
+        "kms:Decrypt"
+      ],
+      "Resource": "arn:aws:kms:us-east-1:517723527581:key/*",
+      "Condition": {
+        "StringEquals": {
+          "kms:ViaService": "s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "CreateApplicationSecrets",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:CreateSecret",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:TagResource",
+        "secretsmanager:UntagResource"
+      ],
+      "Resource": "arn:aws:secretsmanager:us-east-1:517723527581:secret:C4*"
+    },
+    {
+      "Sid": "ResolveApplicationSecrets",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:us-east-1:517723527581:secret:C4*"
+    },
+    {
+      "Sid": "AttachDatabaseEndpointToItsSecret",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:PutSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:us-east-1:517723527581:secret:C4*RDSSecret*"
+    },
+    {
+      "Sid": "ReadGlobalEnvBucketFiles",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::*-foursight-envs/*",
+        "arn:aws:s3:::foursight-prod-envs/*",
+        "arn:aws:s3:::foursight-envs/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "s3:ResourceAccount": "517723527581"
+        }
+      }
+    },
+    {
+      "Sid": "SwitchTheLiveEcosystemFile",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::*-foursight-envs/main.ecosystem",
+        "arn:aws:s3:::foursight-prod-envs/main.ecosystem",
+        "arn:aws:s3:::foursight-envs/main.ecosystem",
+        "arn:aws:s3:::foursight-envs/data",
+        "arn:aws:s3:::foursight-envs/staging",
+        "arn:aws:s3:::foursight-envs/fourfront-production-blue",
+        "arn:aws:s3:::foursight-envs/fourfront-production-green"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "s3:ResourceAccount": "517723527581"
+        }
+      }
+    },
+    {
+      "Sid": "UploadAndReadPackagedArtifacts",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:AbortMultipartUpload"
+      ],
+      "Resource": "arn:aws:s3:::*application-versions/*",
+      "Condition": {
+        "StringEquals": {
+          "s3:ResourceAccount": "517723527581"
+        }
+      }
+    }
+  ]
+}

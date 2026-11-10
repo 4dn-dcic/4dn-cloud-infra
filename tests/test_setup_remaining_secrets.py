@@ -1,7 +1,7 @@
 import mock
 import re
 from typing import Optional
-from src.auto.setup_remaining_secrets.cli import main
+from src.auto.setup_remaining_secrets.cli import main, validate_and_get_gac_secret_name
 from dcicutils.cloudformation_utils import camelize, DEFAULT_ECOSYSTEM
 from dcicutils.qa_utils import printed_output as mock_print, MockBoto3
 from src.names import Names
@@ -86,6 +86,13 @@ def test_setup_remaining_secrets_without_overwriting_existing_secrets() -> None:
     do_test_setup_remaining_secrets(overwrite_secrets=False, create_access_key_pair=False, encryption_enabled=False)
 
 
+def test_gac_fixture_matches_the_default_and_explicit_cli_secret_names() -> None:
+    # Guard against seeding the obsolete datastore key while the CLI reads the appconfig key.
+    assert TestData.gac_secret_name == 'C4AppConfigCgapUnitTest'
+    assert validate_and_get_gac_secret_name(None, TestData.aws_credentials_name) == TestData.gac_secret_name
+    assert validate_and_get_gac_secret_name('explicit-secret', TestData.aws_credentials_name) == 'explicit-secret'
+
+
 def test_get_federated_user_name_pattern() -> None:
     federated_user_name_pattern = Names.ecs_s3_iam_user_logical_id(None,
                                                                    TestData.aws_credentials_name, DEFAULT_ECOSYSTEM)
@@ -108,9 +115,15 @@ def do_test_setup_remaining_secrets(overwrite_secrets: bool = True,
     mocked_secretsmanager = mocked_boto.client("secretsmanager")
     mocked_secret_put = mocked_secretsmanager.put_secret_key_value_for_testing
     mocked_secret_get = mocked_secretsmanager.get_secret_key_value_for_testing
-    mocked_gac_secret_put = lambda key, value: mocked_secret_put(TestData.gac_secret_name, key, value)
-    mocked_gac_secret_get = lambda key: mocked_secret_get(TestData.gac_secret_name, key)
-    mocked_rds_secret_put = lambda key, value: mocked_secret_put(TestData.rds_secret_name, key, value)
+
+    def mocked_gac_secret_put(key, value):
+        return mocked_secret_put(TestData.gac_secret_name, key, value)
+
+    def mocked_gac_secret_get(key):
+        return mocked_secret_get(TestData.gac_secret_name, key)
+
+    def mocked_rds_secret_put(key, value):
+        return mocked_secret_put(TestData.rds_secret_name, key, value)
 
     mocked_rds_secret_put(RdsSecretKeyName.RDS_HOSTNAME, TestData.rds_host)
     mocked_rds_secret_put(RdsSecretKeyName.RDS_PASSWORD, TestData.rds_password)
@@ -202,7 +215,8 @@ def do_test_setup_remaining_secrets(overwrite_secrets: bool = True,
 
         # Mocking input makes import pdb ; pdb.set_trace wig out. Mock yes_or_no instead (2022-12-16/dmichaels).
         # with mock.patch("builtins.input", mocked_input):
-        with mock.patch("src.auto.utils.aws.yes_or_no", mocked_yes_or_no), mock.patch("src.auto.setup_remaining_secrets.cli.yes_or_no", mocked_yes_or_no):
+        with mock.patch("src.auto.utils.aws.yes_or_no", mocked_yes_or_no), \
+             mock.patch("src.auto.setup_remaining_secrets.cli.yes_or_no", mocked_yes_or_no):
 
             main(["--aws-credentials-dir", aws_credentials_dir, "--custom-dir", custom_dir, "--show"])
 

@@ -1,0 +1,251 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "NeverModifyHumanAccessIdentities",
+      "Effect": "Deny",
+      "Action": [
+        "iam:Create*",
+        "iam:Delete*",
+        "iam:Update*",
+        "iam:Put*",
+        "iam:Attach*",
+        "iam:Detach*",
+        "iam:Add*",
+        "iam:Remove*",
+        "iam:Tag*",
+        "iam:Untag*",
+        "iam:SetDefaultPolicyVersion",
+        "iam:PassRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::517723527581:role/*DevDiagnoseRole*",
+        "arn:aws:iam::517723527581:role/*PowerRemediateRole*",
+        "arn:aws:iam::517723527581:role/*InfraDeployRole*",
+        "arn:aws:iam::517723527581:role/*DevRole*",
+        "arn:aws:iam::517723527581:policy/*HumanAccessBoundary*",
+        "arn:aws:iam::517723527581:policy/*InfraDeploy*"
+      ]
+    },
+    {
+      "Sid": "NeverIdentityCredentialOrgOrBillingAdministration",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateAccessKey",
+        "iam:UpdateAccessKey",
+        "iam:CreateLoginProfile",
+        "iam:UpdateLoginProfile",
+        "iam:CreateServiceSpecificCredential",
+        "iam:UploadSSHPublicKey",
+        "iam:UploadSigningCertificate",
+        "iam:CreateVirtualMFADevice",
+        "iam:EnableMFADevice",
+        "iam:DeactivateMFADevice",
+        "iam:CreateSAMLProvider",
+        "iam:CreateOpenIDConnectProvider",
+        "iam:UpdateAccountPasswordPolicy",
+        "iam:CreatePolicyVersion",
+        "iam:SetDefaultPolicyVersion",
+        "iam:PutGroupPolicy",
+        "iam:AddUserToGroup",
+        "iam:AttachUserPolicy",
+        "iam:PutRolePermissionsBoundary",
+        "iam:DeleteRolePermissionsBoundary",
+        "iam:PutUserPermissionsBoundary",
+        "iam:DeleteUserPermissionsBoundary",
+        "sso:*",
+        "sso-directory:*",
+        "identitystore:*",
+        "organizations:*",
+        "account:*",
+        "aws-portal:*",
+        "billing:*",
+        "ce:*",
+        "budgets:*",
+        "cur:*",
+        "sts:AssumeRole",
+        "sts:AssumeRoleWithSAML",
+        "sts:AssumeRoleWithWebIdentity",
+        "sts:GetFederationToken"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "NeverCreatePoliciesOrGroupsOutsideTibanna",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreatePolicy",
+        "iam:CreateGroup",
+        "iam:AttachGroupPolicy"
+      ],
+      "NotResource": [
+        "arn:aws:iam::517723527581:policy/tibanna_tiger_*",
+        "arn:aws:iam::517723527581:group/tibanna_tiger_*"
+      ]
+    },
+    {
+      "Sid": "NeverAttachOtherPoliciesToTibannaRoles",
+      "Effect": "Deny",
+      "Action": [
+        "iam:AttachRolePolicy"
+      ],
+      "Resource": "arn:aws:iam::517723527581:role/tibanna_tiger_*",
+      "Condition": {
+        "ArnNotLike": {
+          "iam:PolicyARN": [
+            "arn:aws:iam::517723527581:policy/tibanna_tiger_*",
+            "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+            "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
+            "arn:aws:iam::aws:policy/AWSElasticBeanstalkReadOnly",
+            "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
+            "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "NeverAttachOtherPoliciesToTibannaGroups",
+      "Effect": "Deny",
+      "Action": [
+        "iam:AttachGroupPolicy"
+      ],
+      "Resource": "arn:aws:iam::517723527581:group/tibanna_tiger_*",
+      "Condition": {
+        "ArnNotLike": {
+          "iam:PolicyARN": [
+            "arn:aws:iam::517723527581:policy/tibanna_tiger_*",
+            "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess",
+            "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "NeverLaunchTibannaWorkers",
+      "Effect": "Deny",
+      "Action": [
+        "ec2:RunInstances",
+        "ec2:AssociateIamInstanceProfile",
+        "ec2:ReplaceIamInstanceProfileAssociation"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "ArnLike": {
+          "ec2:InstanceProfile": "arn:aws:iam::517723527581:instance-profile/tibanna_tiger_*"
+        }
+      }
+    },
+    {
+      "Sid": "NeverRunWorkloadsDirectly",
+      "Effect": "Deny",
+      "Action": [
+        "lambda:InvokeFunction",
+        "lambda:InvokeFunctionUrl",
+        "ecs:RunTask",
+        "ecs:StartTask",
+        "ecs:ExecuteCommand",
+        "codebuild:RetryBuild",
+        "codebuild:StartBuildBatch",
+        "codebuild:RetryBuildBatch",
+        "states:StartExecution",
+        "states:StartSyncExecution",
+        "states:RedriveExecution",
+        "ssm:SendCommand",
+        "ssm:StartSession",
+        "ec2-instance-connect:SendSSHPublicKey",
+        "ecr:BatchDeleteImage",
+        "es:ESHttp*",
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "NeverDestroyDataBearingResources",
+      "Effect": "Deny",
+      "Action": [
+        "rds:DeleteDBInstance",
+        "rds:DeleteDBCluster",
+        "rds:DeleteDBSnapshot",
+        "rds:DeleteDBClusterSnapshot",
+        "es:DeleteDomain",
+        "es:DeleteElasticsearchDomain",
+        "s3:DeleteBucket",
+        "s3:DeleteObject",
+        "s3:DeleteObjectVersion",
+        "sqs:DeleteQueue",
+        "sqs:PurgeQueue",
+        "secretsmanager:DeleteSecret",
+        "kms:ScheduleKeyDeletion",
+        "kms:DisableKey",
+        "ecr:DeleteRepository",
+        "logs:DeleteLogGroup",
+        "elasticache:DeleteReplicationGroup",
+        "elasticache:DeleteSnapshot",
+        "dynamodb:DeleteTable"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "NeverDeleteOtherStacksOrRemoveStackProtections",
+      "Effect": "Deny",
+      "Action": [
+        "cloudformation:DeleteStack",
+        "cloudformation:RollbackStack"
+      ],
+      "NotResource": "arn:aws:cloudformation:us-east-1:517723527581:stack/c4-*/*"
+    },
+    {
+      "Sid": "NeverAdministerStackSetsOrStackProtections",
+      "Effect": "Deny",
+      "Action": [
+        "cloudformation:DeleteStackSet",
+        "cloudformation:UpdateTerminationProtection",
+        "cloudformation:SetStackPolicy"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "NeverWriteSecretValuesExceptTheDatabaseEndpoint",
+      "Effect": "Deny",
+      "Action": [
+        "secretsmanager:PutSecretValue"
+      ],
+      "NotResource": "arn:aws:secretsmanager:us-east-1:517723527581:secret:C4*RDSSecret*"
+    },
+    {
+      "Sid": "NeverRewriteSecretPayloadsOrPolicies",
+      "Effect": "Deny",
+      "Action": [
+        "secretsmanager:UpdateSecret",
+        "secretsmanager:RotateSecret",
+        "secretsmanager:PutResourcePolicy",
+        "secretsmanager:DeleteResourcePolicy"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyOutsideHomeRegionExceptGlobalServices",
+      "Effect": "Deny",
+      "NotAction": [
+        "iam:*",
+        "sts:*",
+        "cloudfront:*",
+        "route53:*",
+        "s3:ListAllMyBuckets",
+        "support:*",
+        "organizations:*",
+        "health:*",
+        "budgets:*",
+        "ce:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
+    }
+  ]
+}
