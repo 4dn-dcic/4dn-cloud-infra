@@ -278,7 +278,8 @@ class ECSBlueGreen(C4ECSApplication):
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(
-                    ContainerName=self.PORTAL_CONTAINER_DEFINITION,  # this must match Name in TaskDefinition (ContainerDefinition)
+                    # this must match Name in TaskDefinition (ContainerDefinition)
+                    ContainerName=self.PORTAL_CONTAINER_DEFINITION,
                     ContainerPort=Ref(self.ecs_web_worker_port()),
                     TargetGroupArn=Ref(self.ecs_lbv2_target_group()) if not target_group_ref else target_group_ref)
             ],
@@ -459,7 +460,7 @@ class ECSBlueGreen(C4ECSApplication):
         )
 
     def ecs_ingester_service(self, cluster_ref=None, image_tag='',
-                            task_definition=None, concurrency=1) -> Service:
+                             task_definition=None, concurrency=1) -> Service:
         """ Defines the Ingester service (manages Ingestion Tasks)
 
             Defined by the ECR Image tag 'latest-ingester'
@@ -515,7 +516,8 @@ class ECSBlueGreen(C4ECSApplication):
                             causing a different initialization sequence.
         """
         return TaskDefinition(
-            f'{APP_KIND.capitalize()}{image_tag}InitialDeployment' if initial else f'{APP_KIND.capitalize()}{image_tag}Deployment',
+            (f'{APP_KIND.capitalize()}{image_tag}InitialDeployment' if initial
+             else f'{APP_KIND.capitalize()}{image_tag}Deployment'),
             RequiresCompatibilities=['FARGATE'],
             Cpu=cpu or ConfigManager.get_config_setting(Settings.ECS_INITIAL_DEPLOYMENT_CPU
                                                         if initial else

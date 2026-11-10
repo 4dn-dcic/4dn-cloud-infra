@@ -163,7 +163,8 @@ class C4SentieonSupport(C4SentieonSupportBase, C4Part):
 
     def sentieon_license_server(self) -> Instance:
         """ Builds an EC2 Instance for use with Sentieon. Requires some manual setup,
-            see: https://support.sentieon.com/appnotes/license_server/#amazon-web-services-running-a-license-server-in-a-persistent-t2-nano-instance
+            see: https://support.sentieon.com/appnotes/license_server/
+                 (#amazon-web-services-running-a-license-server-in-a-persistent-t2-nano-instance)
         """
         logical_id = self.name.logical_id('SentieonLicenseServer')
         network_interface_logical_id = self.name.logical_id('SentieonLicenseServerNetworkInterface')

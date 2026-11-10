@@ -9,7 +9,6 @@ from dcicutils.ecs_utils import COMMON_REGION
 from ..base import ConfigManager
 from ..constants import Settings
 from ..parts.datastore import C4DatastoreExports
-from .find_resources import get_foursight_url
 from ..parts.ecs import C4ECSApplicationExports
 
 

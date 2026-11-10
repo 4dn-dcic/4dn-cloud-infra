@@ -48,7 +48,7 @@ def upload_config(*, bucket, key, data: Union[str, dict], query=True, kms_key=No
 
             s3.upload_fileobj(Fileobj=stream, Bucket=bucket, Key=key,
                               ExtraArgs={'ServerSideEncryption': 'aws:kms',
-                                          'SSEKMSKeyId': kms_key})
+                                         'SSEKMSKeyId': kms_key})
         PRINT("Uploaded.")
     else:
         PRINT("NOT uploaded.")
@@ -70,7 +70,8 @@ class C4IdentitySwap:
     PORTAL = 'Portal'
     INDEXER = 'Indexer'
     INGESTER = 'Ingester'
-    SERVICE_TYPES = [PORTAL, INDEXER, INGESTER]  # note caps are intentional and this set determines the valid services to swap
+    # note caps are intentional and this set determines the valid services to swap
+    SERVICE_TYPES = [PORTAL, INDEXER, INGESTER]
     MAIN_ECOSYSTEM = 'main.ecosystem'
     BLUE_ECOSYSTEM = 'blue.ecosystem'
     GREEN_ECOSYSTEM = 'green.ecosystem'
@@ -280,10 +281,11 @@ class SMaHTIdentitySwap(C4IdentitySwap):
     # These constants refer to alarms created as part of this repo - if changed, the autoscaling updates
     # will be deleted and not updated!
     ARN_PREFIX = 'arn:aws:cloudwatch:us-east-1:865557043974:alarm:'
-    BLUE_SCALE_OUT_ALARM = f'{ARN_PREFIX}c4-ecs-blue-green-smaht-production-stack-IndexingQueueDepthAlarmblue-19YPSKFIMI8CF'
-    GREEN_SCALE_OUT_ALARM = f'{ARN_PREFIX}c4-ecs-blue-green-smaht-production-stack-IndexingQueueDepthAlarmgreen-TFMKK6TS1NPK'
-    BLUE_SCALE_IN_ALARM = f'{ARN_PREFIX}c4-ecs-blue-green-smaht-production-stack-IndexingQueueEmptyAlarmblue-1UFIC7AOA2S10'
-    GREEN_SCALE_IN_ALARM = f'{ARN_PREFIX}c4-ecs-blue-green-smaht-production-stack-IndexingQueueEmptyAlarmgreen-R95GUEMYUEBG'
+    ALARM_PREFIX = f'{ARN_PREFIX}c4-ecs-blue-green-smaht-production-stack-'
+    BLUE_SCALE_OUT_ALARM = f'{ALARM_PREFIX}IndexingQueueDepthAlarmblue-19YPSKFIMI8CF'
+    GREEN_SCALE_OUT_ALARM = f'{ALARM_PREFIX}IndexingQueueDepthAlarmgreen-TFMKK6TS1NPK'
+    BLUE_SCALE_IN_ALARM = f'{ALARM_PREFIX}IndexingQueueEmptyAlarmblue-1UFIC7AOA2S10'
+    GREEN_SCALE_IN_ALARM = f'{ALARM_PREFIX}IndexingQueueEmptyAlarmgreen-R95GUEMYUEBG'
 
     @staticmethod
     def _is_mirror_state(service_mapping: dict):
@@ -369,8 +371,8 @@ class SMaHTIdentitySwap(C4IdentitySwap):
             This function assumes the hard coded alarms already exist.
             It first deletes then re-creates the scaling policies on the applicable services
         """
-        blue_indexer_service_arn = list(filter(lambda k: cls.INDEXER in k and 'smahtblue' in k.lower(), swap_plan.keys()))[0]
-        green_indexer_service_arn = list(filter(lambda k: cls.INDEXER in k and 'smahtgreen' in k.lower(), swap_plan.keys()))[0]
+        blue_indexer_service_arn = [k for k in swap_plan.keys() if cls.INDEXER in k and 'smahtblue' in k.lower()][0]
+        green_indexer_service_arn = [k for k in swap_plan.keys() if cls.INDEXER in k and 'smahtgreen' in k.lower()][0]
         blue_indexer_service_resource_id = cls.extract_resource_id_from_arn(blue_indexer_service_arn)
         green_indexer_service_resource_id = cls.extract_resource_id_from_arn(green_indexer_service_arn)
         mirror_state = cls._is_mirror_state(swap_plan)  # if True, we just went from green --> blue
@@ -387,25 +389,33 @@ class SMaHTIdentitySwap(C4IdentitySwap):
         # if in mirror state, prod is blue, so the green services point to blue tasks, so should point to blue alarms
         if mirror_state:
             cls.update_autoscaling_action(autoscaling_client, cloudwatch_client, 'DataIndexerScaleOut',
-                                          green_indexer_service_resource_id, cls.SCALE_OUT_COUNT, cls.BLUE_SCALE_OUT_ALARM)
+                                          green_indexer_service_resource_id, cls.SCALE_OUT_COUNT,
+                                          cls.BLUE_SCALE_OUT_ALARM)
             cls.update_autoscaling_action(autoscaling_client, cloudwatch_client, 'DataIndexerScaleIn',
-                                          green_indexer_service_resource_id, cls.SCALE_IN_COUNT, cls.BLUE_SCALE_IN_ALARM)
+                                          green_indexer_service_resource_id, cls.SCALE_IN_COUNT,
+                                          cls.BLUE_SCALE_IN_ALARM)
             cls.update_autoscaling_action(autoscaling_client, cloudwatch_client, 'StagingIndexerScaleOut',
-                                          blue_indexer_service_resource_id, cls.SCALE_OUT_COUNT, cls.GREEN_SCALE_OUT_ALARM)
+                                          blue_indexer_service_resource_id, cls.SCALE_OUT_COUNT,
+                                          cls.GREEN_SCALE_OUT_ALARM)
             cls.update_autoscaling_action(autoscaling_client, cloudwatch_client, 'StagingIndexerScaleIn',
-                                          blue_indexer_service_resource_id, cls.SCALE_IN_COUNT, cls.GREEN_SCALE_IN_ALARM)
+                                          blue_indexer_service_resource_id, cls.SCALE_IN_COUNT,
+                                          cls.GREEN_SCALE_IN_ALARM)
 
         # if we are not in mirror state, then green services point to green tasks and we want to track
         # green queues
         else:
             cls.update_autoscaling_action(autoscaling_client, cloudwatch_client, 'DataIndexerScaleOut',
-                                          green_indexer_service_resource_id, cls.SCALE_OUT_COUNT, cls.GREEN_SCALE_OUT_ALARM)
+                                          green_indexer_service_resource_id, cls.SCALE_OUT_COUNT,
+                                          cls.GREEN_SCALE_OUT_ALARM)
             cls.update_autoscaling_action(autoscaling_client, cloudwatch_client, 'DataIndexerScaleIn',
-                                          green_indexer_service_resource_id, cls.SCALE_IN_COUNT, cls.GREEN_SCALE_IN_ALARM)
+                                          green_indexer_service_resource_id, cls.SCALE_IN_COUNT,
+                                          cls.GREEN_SCALE_IN_ALARM)
             cls.update_autoscaling_action(autoscaling_client, cloudwatch_client, 'StagingIndexerScaleOut',
-                                          blue_indexer_service_resource_id, cls.SCALE_OUT_COUNT, cls.BLUE_SCALE_OUT_ALARM)
+                                          blue_indexer_service_resource_id, cls.SCALE_OUT_COUNT,
+                                          cls.BLUE_SCALE_OUT_ALARM)
             cls.update_autoscaling_action(autoscaling_client, cloudwatch_client, 'StagingIndexerScaleIn',
-                                          blue_indexer_service_resource_id, cls.SCALE_IN_COUNT, cls.BLUE_SCALE_IN_ALARM)
+                                          blue_indexer_service_resource_id, cls.SCALE_IN_COUNT,
+                                          cls.BLUE_SCALE_IN_ALARM)
 
     @classmethod
     def identity_swap(cls, *, blue: str, green: str) -> None:
@@ -609,8 +619,8 @@ class FFIdentitySwap(C4IdentitySwap):
 
                 data['fourfront'] = FF_DATA_URL
                 data['ff_env'] = 'data'  # Synthetic value would say the full env name here, but we used to not do that.
-                data[
-                    'ecosystem'] = 'main.ecosystem'  # THe synthetic values don't have an ecosystem, so add it in old style.
+                # The synthetic values don't have an ecosystem, so add it in old style.
+                data['ecosystem'] = 'main.ecosystem'
                 # It's not supposed to matter which format, but since the old tools were using this without http://
                 # let's be maximally compatible. -kmp 23-Aug-2022
                 data['es'] = remove_prefix('https://', data['es'])
@@ -618,17 +628,18 @@ class FFIdentitySwap(C4IdentitySwap):
                 staging = s3Utils.get_synthetic_env_config('staging')  # Compute the real value from the real bucket
                 staging_env = staging['ff_env']
                 staging['fourfront'] = FF_STAGING_URL
-                staging[
-                    'ff_env'] = 'staging'  # Synthetic value would say the full env name here, but we used to not do that.
-                staging[
-                    'ecosystem'] = 'main.ecosystem'  # THe synthetic values don't have an ecosystem, so add it in old style.
+                # Synthetic value would say the full env name here, but we used to not do that.
+                staging['ff_env'] = 'staging'
+                # The synthetic values don't have an ecosystem, so add it in old style.
+                staging['ecosystem'] = 'main.ecosystem'
                 # It's not supposed to matter which format, but since the old tools were using this without http://
                 # let's be maximally compatible. -kmp 23-Aug-2022
                 staging['es'] = remove_prefix('https://', staging['es'])
 
                 main = download_config(bucket='foursight-envs', key='main.ecosystem')
 
-                # There's an element that was 'stg_env' in foursight-envs main.ecosystem that I THINK should be stg_env_name,
+                # There's an element that was 'stg_env' in foursight-envs main.ecosystem that I THINK should be
+                # stg_env_name,
                 # but since it's harmless to keep both, and this is an interim tool intended to be maximally compatible,
                 # let's add the one I think is right rather than replace it.
                 # -kmp 23-Aug-2022

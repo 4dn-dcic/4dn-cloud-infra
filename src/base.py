@@ -127,13 +127,7 @@ class ConfigManager:
         #       cover that special case, it should suffice (and use fewer environment variables) to only worry
         #       about ENV_NAME. -kmp 24-Jun-2021
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
-        env_part = f"{env_name}-"
-        # The org_name is allowed to be missing or empty if none desired.
-        org_name = ConfigManager.get_config_setting(Settings.S3_BUCKET_ORG, default=None)
-        org_part = f"{org_name}-" if org_name else ""
-        ecosystem_name = ConfigManager.get_config_setting(Settings.S3_BUCKET_ECOSYSTEM, default=DEFAULT_ECOSYSTEM)
-        ecosystem_part = f"{ecosystem_name}-" if ecosystem_name else ""
-        app_kind = ConfigManager.get_config_setting(Settings.APP_KIND)
+        ConfigManager.get_config_setting(Settings.APP_KIND)  # still required (raises if missing), though unused
         base_prefix = f"{env_name}-"
         foursight_prefix = f"{base_prefix}foursight-"
         application_prefix = f"{base_prefix}application-"

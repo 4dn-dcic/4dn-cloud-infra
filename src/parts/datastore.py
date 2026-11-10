@@ -1,4 +1,3 @@
-import json
 import re
 
 from dcicutils.cloudformation_utils import camelize

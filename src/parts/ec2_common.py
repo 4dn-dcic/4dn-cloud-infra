@@ -222,7 +222,8 @@ class C4EC2Common(C4Part):
             SecurityGroups=[
                 Ref(self.lb_security_group(identifier=identifier))
             ],
-            Subnets=[self.NETWORK_EXPORTS.import_value(subnet_key) for subnet_key in C4NetworkExports.PUBLIC_SUBNETS[:2]],
+            Subnets=[self.NETWORK_EXPORTS.import_value(subnet_key)
+                     for subnet_key in C4NetworkExports.PUBLIC_SUBNETS[:2]],
             Tags=self.tags.cost_tag_array(name=logical_id),
             Type='application',
         )

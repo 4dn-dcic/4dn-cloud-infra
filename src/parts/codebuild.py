@@ -285,7 +285,8 @@ class C4CodeBuild(C4Part):
                 {'Name': 'IMAGE_REPO_NAME', 'Value': 'base'},  # default to base, override by caller
                 {'Name': 'IMAGE_TAG',  # Use standard default version as of now, no locked version to resolve
                  'Value': self.DEFAULT_PIPELINE_DEPLOY_BRANCH},
-                {'Name': 'BUILD_PATH', 'Value': 'cgap-pipeline-base/dockerfiles/base'}  # default to base, override by caller
+                # default to base, override by caller
+                {'Name': 'BUILD_PATH', 'Value': 'cgap-pipeline-base/dockerfiles/base'}
             ],
             Type=self.BUILD_TYPE,
             PrivilegedMode=True
