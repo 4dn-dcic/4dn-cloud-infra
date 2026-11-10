@@ -180,8 +180,11 @@ Optional TLS listener and CrowdStrike Falcon sidecar (both off by default)
 * ``codebuild.portal_source_type`` / ``codebuild.portal_build_image`` -- build the portal image(s)
   from a self-managed GitLab (``GITLAB_SELF_MANAGED``, authenticated by the account's CodeBuild
   source credential backed by a CodeConnections connection, as in the SRCE dev account) and/or
-  with a different CodeBuild image. Pipeline and Tibanna builders are unchanged; unset keeps every
-  CodeBuild template byte-identical.
+  with a different CodeBuild image. With GitLab selected, the portal build role also gets
+  ``GetConnection``/``GetConnectionToken``/``UseConnection`` on this account's CodeConnections
+  connections. ``codebuild.github_builders=false`` defers the GitHub-sourced pipeline/Tibanna
+  builders and the GitHub source credential (GitLab portal only). Unset keeps every CodeBuild
+  template byte-identical.
 
 Additive changes to shared stacks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

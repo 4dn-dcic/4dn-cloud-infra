@@ -37,11 +37,49 @@ def test_gitlab_portal_source_changes_only_the_portal_projects(synthesis_config,
             assert props['Environment']['Image'] == 'aws/codebuild/standard:8.0'
         else:  # pipeline / tibanna builders are untouched
             assert project == default[name]
-    # Nothing but the portal projects differs.
+    # Nothing but the portal projects and the portal build role (connection access) differs.
     changed = {k for k in template['Resources'] if template['Resources'][k] != default_template['Resources'][k]}
+    assert 'CodeBuildRoleForSmahtTest' in changed
+    changed.remove('CodeBuildRoleForSmahtTest')
     assert {template['Resources'][k]['Properties']['Name'] for k in changed} == PORTAL
 
 
 def test_invalid_portal_source_type_is_rejected(synthesis_config, synthesize):
     with pytest.raises(ValueError, match=Settings.CODEBUILD_PORTAL_SOURCE_TYPE):
         _projects(synthesis_config, synthesize, {Settings.CODEBUILD_PORTAL_SOURCE_TYPE: 'GITLAB'})
+
+
+def _role_policies(template):
+    return {lid: [p['PolicyName'] for p in r['Properties']['Policies']]
+            for lid, r in template['Resources'].items() if r['Type'] == 'AWS::IAM::Role'}
+
+
+def test_gitlab_adds_connection_access_to_the_portal_role_only(synthesis_config, synthesize):
+    default_template, _ = _projects(synthesis_config, synthesize)
+    assert all(names == ['CBNetworkPolicy'] for names in _role_policies(default_template).values())
+    template, _ = _projects(synthesis_config, synthesize, {
+        Settings.CODEBUILD_PORTAL_SOURCE_TYPE: 'GITLAB_SELF_MANAGED', Settings.CODEBUILD_GITHUB_REPOSITORY_URL: GITLAB})
+    roles = _role_policies(template)
+    portal_role = 'CodeBuildRoleForSmahtTest'
+    assert roles[portal_role] == ['CBNetworkPolicy', 'CBCodeConnectionsSourcePolicy']
+    assert all(names == ['CBNetworkPolicy'] for lid, names in roles.items() if lid != portal_role)
+    policy = template['Resources'][portal_role]['Properties']['Policies'][1]['PolicyDocument']['Statement'][0]
+    assert set(policy['Action']) == {f'{svc}:{a}' for svc in ('codeconnections', 'codestar-connections')
+                                     for a in ('GetConnection', 'GetConnectionToken', 'UseConnection')}
+    assert all('connection/*' in str(r) for r in policy['Resource'])
+
+
+def test_github_builders_can_be_deferred_with_a_gitlab_portal(synthesis_config, synthesize):
+    template, projects = _projects(synthesis_config, synthesize, {
+        Settings.CODEBUILD_PORTAL_SOURCE_TYPE: 'GITLAB_SELF_MANAGED', Settings.CODEBUILD_GITHUB_REPOSITORY_URL: GITLAB,
+        Settings.CODEBUILD_GITHUB_BUILDERS: 'false'})
+    assert set(projects) == PORTAL
+    types = {r['Type'] for r in template['Resources'].values()}
+    assert 'AWS::CodeBuild::SourceCredential' not in types
+    assert list(_role_policies(template)) == ['CodeBuildRoleForSmahtTest']
+    assert 'GITHUB' not in str(template) and 'offline-test' not in str(template)
+
+
+def test_deferring_github_builders_requires_gitlab_portal(synthesis_config, synthesize):
+    with pytest.raises(ValueError, match=Settings.CODEBUILD_GITHUB_BUILDERS):
+        _projects(synthesis_config, synthesize, {Settings.CODEBUILD_GITHUB_BUILDERS: 'false'})

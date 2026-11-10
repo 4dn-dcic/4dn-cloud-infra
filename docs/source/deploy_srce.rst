@@ -109,8 +109,11 @@ Other relevant keys:
   on the SRCE GitLab at ``codebuild.build_branch``. It needs, in the target account, a CodeConnections
   ``GitLabSelfManaged`` host (VPC-attached where GitLab is routable) and connection, both completed by a
   person in the console, plus a CodeBuild ``GITLAB_SELF_MANAGED``/``CODECONNECTIONS`` source credential
-  naming that connection. ``codebuild.portal_build_image`` overrides the portal build image (dev SRCE
-  uses ``aws/codebuild/standard:8.0``).
+  naming that connection. The portal build role is then granted use of this account's connections.
+  ``codebuild.portal_build_image`` overrides the portal build image (dev SRCE uses
+  ``aws/codebuild/standard:8.0``). ``codebuild.github_builders: false`` leaves out the
+  GitHub-sourced pipeline and Tibanna builders and the GitHub source credential, e.g. until a GitHub
+  credential is supplied; it requires the GitLab portal source.
 
 Deploy order
 ------------

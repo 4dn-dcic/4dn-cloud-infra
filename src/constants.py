@@ -200,6 +200,7 @@ class Settings:
     # CodeConnections connection), so it carries no per-project auth. Pipeline/Tibanna builders are unchanged.
     CODEBUILD_PORTAL_SOURCE_TYPE = 'codebuild.portal_source_type'
     CODEBUILD_PORTAL_BUILD_IMAGE = 'codebuild.portal_build_image'  # default: the shared BUILD_IMAGE
+    CODEBUILD_GITHUB_BUILDERS = 'codebuild.github_builders'  # bool, default true; see C4CodeBuild
 
 
 # dmichaels/2022-06-06: Factored out from base.py.

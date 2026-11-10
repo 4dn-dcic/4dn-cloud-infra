@@ -73,16 +73,18 @@ class C4CodeBuild(C4Part):
                                               export_name=C4CodeBuildExports.output_project_iam_role(
                                                   project_name=portal_env_name
                                               )))
-        tibanna_iam_role = self.cb_iam_role(project_name=tibanna_project_name)
-        template.add_resource(tibanna_iam_role)
-        template.add_output(self.output_value(resource=tibanna_iam_role,
-                                              export_name=C4CodeBuildExports.output_project_iam_role(
-                                                  project_name=tibanna_project_name
-                                              )))
+        github_builders = self.github_builders_enabled()
+        if github_builders:
+            tibanna_iam_role = self.cb_iam_role(project_name=tibanna_project_name)
+            template.add_resource(tibanna_iam_role)
+            template.add_output(self.output_value(resource=tibanna_iam_role,
+                                                  export_name=C4CodeBuildExports.output_project_iam_role(
+                                                      project_name=tibanna_project_name
+                                                  )))
 
-        # credentials for cb
-        creds = self.cb_source_credential()
-        template.add_resource(creds)
+            # credentials for cb
+            creds = self.cb_source_credential()
+            template.add_resource(creds)
 
         # Build project for portal image in blue/green
         if APP_DEPLOYMENT == DeploymentParadigm.BLUE_GREEN:
@@ -122,6 +124,8 @@ class C4CodeBuild(C4Part):
                                                   export_name=C4CodeBuildExports.output_project_key(
                                                       project_name=portal_env_name
                                                   )))
+        if not github_builders:
+            return template  # pipeline and Tibanna builders build from GitHub; deferred by configuration
         if APP_KIND == 'cgap':
             pipeline_iam_role = self.cb_iam_role(project_name=pipeline_project_name)
             template.add_resource(pipeline_iam_role)
@@ -226,7 +230,37 @@ class C4CodeBuild(C4Part):
             }
         )
 
+    @staticmethod
+    def cb_gitlab_connection_policy() -> Policy:
+        """ Lets the portal build role use this account's CodeConnections connections (the
+            GITLAB_SELF_MANAGED source credential), as the SRCE dev account's role does. """
+        return Policy(
+            PolicyName='CBCodeConnectionsSourcePolicy',
+            PolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Effect": "Allow",
+                    "Action": [
+                        "codeconnections:GetConnection",
+                        "codeconnections:GetConnectionToken",
+                        "codeconnections:UseConnection",
+                        "codestar-connections:GetConnection",
+                        "codestar-connections:GetConnectionToken",
+                        "codestar-connections:UseConnection",
+                    ],
+                    "Resource": [
+                        Join(':', ["arn:aws:codeconnections", Region, AccountId, "connection/*"]),
+                        Join(':', ["arn:aws:codestar-connections", Region, AccountId, "connection/*"]),
+                    ],
+                }]
+            }
+        )
+
     def cb_iam_role(self, *, project_name) -> Role:
+        policies = [self.cb_vpc_policy()]
+        if (self.portal_source_type() == self.GITLAB_SELF_MANAGED
+                and project_name == ConfigManager.get_config_setting(Settings.ENV_NAME)):
+            policies.append(self.cb_gitlab_connection_policy())  # the portal role only
         return Role(
             f'CodeBuildRoleFor{camelize(project_name)}',
             AssumeRolePolicyDocument=dict(
@@ -239,9 +273,7 @@ class C4CodeBuild(C4Part):
                     Principal=dict(Service=['codebuild.amazonaws.com']),
                 )],
             ),
-            Policies=[
-                self.cb_vpc_policy()
-            ],
+            Policies=policies,
             ManagedPolicyArns=[
                 'arn:aws:iam::aws:policy/AmazonS3FullAccess',
                 'arn:aws:iam::aws:policy/CloudWatchFullAccess',
@@ -337,6 +369,17 @@ class C4CodeBuild(C4Part):
 
     GITLAB_SELF_MANAGED = 'GITLAB_SELF_MANAGED'
     PORTAL_SOURCE_TYPES = ('GITHUB', GITLAB_SELF_MANAGED)
+
+    @classmethod
+    def github_builders_enabled(cls) -> bool:
+        """ codebuild.github_builders=false omits the GitHub source credential and the GitHub-sourced
+            pipeline/Tibanna builders (e.g. until a GitHub credential is supplied); the portal must then
+            build from GitLab. Default true: unchanged. """
+        enabled = ConfigManager.get_config_setting(Settings.CODEBUILD_GITHUB_BUILDERS, default=True) is not False
+        if not enabled and cls.portal_source_type() != cls.GITLAB_SELF_MANAGED:
+            raise ValueError(f'{Settings.CODEBUILD_GITHUB_BUILDERS}=false requires'
+                             f' {Settings.CODEBUILD_PORTAL_SOURCE_TYPE}={cls.GITLAB_SELF_MANAGED}.')
+        return enabled
 
     @classmethod
     def portal_source_type(cls) -> str:
