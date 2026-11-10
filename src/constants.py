@@ -195,6 +195,11 @@ class Settings:
     CODEBUILD_GITHUB_REPOSITORY_URL = 'codebuild.repo_url'  # url to github source repository
     CODEBUILD_DEPLOY_BRANCH = 'codebuild.build_branch'
     CODEBUILD_REPO_NAME = 'codebuild.repo_name'  # name of ECR repo
+    # Source provider for the portal build project(s) only: GITHUB (default) or GITLAB_SELF_MANAGED. A GitLab
+    # project authenticates through the account's CodeBuild GITLAB_SELF_MANAGED source credential (a
+    # CodeConnections connection), so it carries no per-project auth. Pipeline/Tibanna builders are unchanged.
+    CODEBUILD_PORTAL_SOURCE_TYPE = 'codebuild.portal_source_type'
+    CODEBUILD_PORTAL_BUILD_IMAGE = 'codebuild.portal_build_image'  # default: the shared BUILD_IMAGE
 
 
 # dmichaels/2022-06-06: Factored out from base.py.

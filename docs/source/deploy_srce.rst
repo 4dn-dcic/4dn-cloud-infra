@@ -105,6 +105,12 @@ Other relevant keys:
   pick a subnet in a supported zone; ``rds.az`` must likewise name a supported zone.
 * ``redis.preferred_az`` - Availability Zone for the single-node ``srce-redis`` replication group,
   so ElastiCache does not place it in an unsupported zone of the Database subnet group. Default unset.
+* ``codebuild.portal_source_type`` - ``GITLAB_SELF_MANAGED`` builds the portal from ``codebuild.repo_url``
+  on the SRCE GitLab at ``codebuild.build_branch``. It needs, in the target account, a CodeConnections
+  ``GitLabSelfManaged`` host (VPC-attached where GitLab is routable) and connection, both completed by a
+  person in the console, plus a CodeBuild ``GITLAB_SELF_MANAGED``/``CODECONNECTIONS`` source credential
+  naming that connection. ``codebuild.portal_build_image`` overrides the portal build image (dev SRCE
+  uses ``aws/codebuild/standard:8.0``).
 
 Deploy order
 ------------

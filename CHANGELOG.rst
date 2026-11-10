@@ -177,6 +177,12 @@ Optional TLS listener and CrowdStrike Falcon sidecar (both off by default)
   (``PreferredCacheClusterAZs``), for a subnet group that includes an AZ with no cache node types.
   Unset leaves ElastiCache to choose, as before.
 
+* ``codebuild.portal_source_type`` / ``codebuild.portal_build_image`` -- build the portal image(s)
+  from a self-managed GitLab (``GITLAB_SELF_MANAGED``, authenticated by the account's CodeBuild
+  source credential backed by a CodeConnections connection, as in the SRCE dev account) and/or
+  with a different CodeBuild image. Pipeline and Tibanna builders are unchanged; unset keeps every
+  CodeBuild template byte-identical.
+
 Additive changes to shared stacks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

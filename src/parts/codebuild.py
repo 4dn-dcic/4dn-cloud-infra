@@ -98,7 +98,8 @@ class C4CodeBuild(C4Part):
                     branch=ConfigManager.get_config_setting(Settings.CODEBUILD_DEPLOY_BRANCH,
                                                             default=self.DEFAULT_DEPLOY_BRANCH),
                     environment=self.cb_portal_environment_vars(repo_name=ConfigManager.get_config_setting(
-                        Settings.ENV_NAME), image_tag=env.lstrip('-'))
+                        Settings.ENV_NAME), image_tag=env.lstrip('-')),
+                    source_type=self.portal_source_type(),
                 )
                 template.add_resource(build_project)
                 template.add_output(self.output_value(resource=build_project,
@@ -113,7 +114,8 @@ class C4CodeBuild(C4Part):
                 branch=ConfigManager.get_config_setting(Settings.CODEBUILD_DEPLOY_BRANCH,
                                                         default=self.DEFAULT_DEPLOY_BRANCH),
                 environment=self.cb_portal_environment_vars(repo_name=ConfigManager.get_config_setting(
-                        Settings.ENV_NAME))
+                        Settings.ENV_NAME)),
+                source_type=self.portal_source_type(),
             )
             template.add_resource(build_project)
             template.add_output(self.output_value(resource=build_project,
@@ -259,7 +261,7 @@ class C4CodeBuild(C4Part):
         """ Environment configuration for the portal build """
         return Environment(
             ComputeType=self.DEFAULT_COMPUTE_TYPE,
-            Image=self.BUILD_IMAGE,
+            Image=ConfigManager.get_config_setting(Settings.CODEBUILD_PORTAL_BUILD_IMAGE, default=self.BUILD_IMAGE),
             EnvironmentVariables=[
                 {'Name': 'AWS_DEFAULT_REGION', 'Value': REGION},
                 {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
@@ -333,8 +335,23 @@ class C4CodeBuild(C4Part):
             Token=ConfigManager.get_config_secret(Secrets.GITHUB_PERSONAL_ACCESS_TOKEN)
         )
 
-    def cb_source(self, *, github_repo_url) -> Source:
-        """ Defines the source for the code build job, typically Github """
+    GITLAB_SELF_MANAGED = 'GITLAB_SELF_MANAGED'
+    PORTAL_SOURCE_TYPES = ('GITHUB', GITLAB_SELF_MANAGED)
+
+    @classmethod
+    def portal_source_type(cls) -> str:
+        source_type = ConfigManager.get_config_setting(Settings.CODEBUILD_PORTAL_SOURCE_TYPE, default='GITHUB')
+        if source_type not in cls.PORTAL_SOURCE_TYPES:
+            raise ValueError(f'{Settings.CODEBUILD_PORTAL_SOURCE_TYPE} must be one of'
+                             f' {", ".join(cls.PORTAL_SOURCE_TYPES)}, not {source_type!r}.')
+        return source_type
+
+    def cb_source(self, *, github_repo_url, source_type='GITHUB') -> Source:
+        """ Defines the source for the code build job, typically Github. A self-managed GitLab source uses
+            the account-level CodeBuild source credential (a CodeConnections connection), like the dev SRCE
+            portal project, so it has no per-project Auth. """
+        if source_type == self.GITLAB_SELF_MANAGED:
+            return Source(Location=github_repo_url, Type=self.GITLAB_SELF_MANAGED, GitCloneDepth=1)
         return Source(
             Auth=SourceAuth(
                 Resource=Ref(self.cb_source_credential()),
@@ -368,7 +385,7 @@ class C4CodeBuild(C4Part):
             VpcId=exports.import_value(exports.VPC)
         )
 
-    def cb_project(self, *, project_name, github_repo_url, branch, environment) -> Project:
+    def cb_project(self, *, project_name, github_repo_url, branch, environment, source_type='GITHUB') -> Project:
         """ Builds a CodeBuild project for project_name """
         return Project(
             camelize(project_name),
@@ -377,7 +394,7 @@ class C4CodeBuild(C4Part):
             Environment=environment,
             Name=project_name,
             ServiceRole=Ref(self.cb_iam_role(project_name=ConfigManager.get_config_setting(Settings.ENV_NAME))),
-            Source=self.cb_source(github_repo_url=github_repo_url),
+            Source=self.cb_source(github_repo_url=github_repo_url, source_type=source_type),
             SourceVersion=branch,
             VpcConfig=self.cb_vpc_config(),
             Tags=self.tags.cost_tag_obj()
