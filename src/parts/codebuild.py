@@ -261,6 +261,8 @@ class C4CodeBuild(C4Part):
         if (self.portal_source_type() == self.GITLAB_SELF_MANAGED
                 and project_name == ConfigManager.get_config_setting(Settings.ENV_NAME)):
             policies.append(self.cb_gitlab_connection_policy())  # the portal role only
+        if self.dhi_settings() and project_name == ConfigManager.get_config_setting(Settings.ENV_NAME):
+            policies.append(self.cb_dhi_secret_policy())  # the portal role only
         return Role(
             f'CodeBuildRoleFor{camelize(project_name)}',
             AssumeRolePolicyDocument=dict(
@@ -303,6 +305,7 @@ class C4CodeBuild(C4Part):
                  'Value': image_tag if image_tag else ConfigManager.get_config_setting(
                      Settings.ECS_IMAGE_TAG, default='latest'
                  )},
+                *self.dhi_environment_variables(),
             ],
             Type=self.BUILD_TYPE,
             PrivilegedMode=True
@@ -369,6 +372,42 @@ class C4CodeBuild(C4Part):
 
     GITLAB_SELF_MANAGED = 'GITLAB_SELF_MANAGED'
     PORTAL_SOURCE_TYPES = ('GITHUB', GITLAB_SELF_MANAGED)
+
+    @staticmethod
+    def dhi_settings():
+        """ (secret name, base image) for Docker Hardened Images builds, or None when not configured. """
+        secret = ConfigManager.get_config_setting(Settings.CODEBUILD_DHI_CREDENTIALS_SECRET, default=None)
+        image = ConfigManager.get_config_setting(Settings.CODEBUILD_DHI_BASE_IMAGE, default=None)
+        if bool(secret) != bool(image):
+            raise ValueError(f'Set both {Settings.CODEBUILD_DHI_CREDENTIALS_SECRET} and'
+                             f' {Settings.CODEBUILD_DHI_BASE_IMAGE}, or neither.')
+        return (secret, image) if secret else None
+
+    def dhi_environment_variables(self) -> list:
+        dhi = self.dhi_settings()
+        if not dhi:
+            return []
+        secret, image = dhi
+        return [
+            {'Name': 'DHI_BASE_IMAGE', 'Value': image},
+            {'Name': 'DHI_USERNAME', 'Type': 'SECRETS_MANAGER', 'Value': f'{secret}:username'},
+            {'Name': 'DHI_TOKEN', 'Type': 'SECRETS_MANAGER', 'Value': f'{secret}:token'},
+        ]
+
+    def cb_dhi_secret_policy(self) -> Policy:
+        """ Read access to exactly the DHI credentials secret (Secrets Manager appends a 6-char suffix). """
+        secret, _ = self.dhi_settings()
+        return Policy(
+            PolicyName='CBDhiCredentialsAccess',
+            PolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Effect": "Allow",
+                    "Action": ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"],
+                    "Resource": Join(':', ["arn:aws:secretsmanager", Region, AccountId, "secret", f"{secret}-??????"]),
+                }]
+            }
+        )
 
     @classmethod
     def github_builders_enabled(cls) -> bool:

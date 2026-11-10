@@ -114,6 +114,10 @@ Other relevant keys:
   ``aws/codebuild/standard:8.0``). ``codebuild.github_builders: false`` leaves out the
   GitHub-sourced pipeline and Tibanna builders and the GitHub source credential, e.g. until a GitHub
   credential is supplied; it requires the GitLab portal source.
+* ``codebuild.dhi_credentials_secret`` / ``codebuild.dhi_base_image`` - Docker Hardened Images build
+  inputs for the portal: the Secrets Manager secret (JSON keys ``username``/``token``, dev SRCE name
+  ``dhi-registry-credentials``) mapped to ``DHI_USERNAME``/``DHI_TOKEN``, and the pinned
+  ``DHI_BASE_IMAGE``. The secret is created empty and populated by a person; set both keys or neither.
 
 Deploy order
 ------------

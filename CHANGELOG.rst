@@ -186,6 +186,11 @@ Optional TLS listener and CrowdStrike Falcon sidecar (both off by default)
   builders and the GitHub source credential (GitLab portal only). Unset keeps every CodeBuild
   template byte-identical.
 
+* ``codebuild.dhi_credentials_secret`` / ``codebuild.dhi_base_image`` -- for Docker Hardened Images
+  portal builds: map ``DHI_USERNAME``/``DHI_TOKEN`` from the named Secrets Manager secret's
+  ``username``/``token`` keys and set ``DHI_BASE_IMAGE``, and let the portal build role read exactly
+  that secret. Set both or neither; unset changes nothing.
+
 Additive changes to shared stacks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -201,6 +201,11 @@ class Settings:
     CODEBUILD_PORTAL_SOURCE_TYPE = 'codebuild.portal_source_type'
     CODEBUILD_PORTAL_BUILD_IMAGE = 'codebuild.portal_build_image'  # default: the shared BUILD_IMAGE
     CODEBUILD_GITHUB_BUILDERS = 'codebuild.github_builders'  # bool, default true; see C4CodeBuild
+    # Docker Hardened Images (dhi.io) build credentials for the portal image: the Secrets Manager secret
+    # name (JSON keys username/token) mapped to DHI_USERNAME/DHI_TOKEN, and the pinned DHI_BASE_IMAGE.
+    # Set both or neither; unset leaves every CodeBuild template unchanged.
+    CODEBUILD_DHI_CREDENTIALS_SECRET = 'codebuild.dhi_credentials_secret'
+    CODEBUILD_DHI_BASE_IMAGE = 'codebuild.dhi_base_image'
 
 
 # dmichaels/2022-06-06: Factored out from base.py.
