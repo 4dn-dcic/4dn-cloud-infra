@@ -109,6 +109,9 @@ class Settings:
     REDIS_ENGINE_VERSION = 'redis.version'
     REDIS_NODE_COUNT = 'redis.node_count'
     REDIS_NODE_TYPE = 'redis.node_type'
+    # Availability Zone for the (single-node) replication group's primary. Unset lets ElastiCache choose
+    # within the subnet group; set it when one of the subnets is in an AZ that offers no cache node type.
+    REDIS_PREFERRED_AZ = 'redis.preferred_az'
 
     # ECS Configuration Options
     ECS_IMAGE_TAG = 'ecs.image_tag'

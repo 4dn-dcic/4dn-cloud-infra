@@ -173,6 +173,10 @@ Optional TLS listener and CrowdStrike Falcon sidecar (both off by default)
   export that the OpenSearch domain(s) use. Default ``A`` (unchanged); for an IT-provided
   Database VPC whose first subnet is in an Availability Zone OpenSearch does not offer.
 
+* ``redis.preferred_az`` -- the Availability Zone of the single-node Redis replication group
+  (``PreferredCacheClusterAZs``), for a subnet group that includes an AZ with no cache node types.
+  Unset leaves ElastiCache to choose, as before.
+
 Additive changes to shared stacks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

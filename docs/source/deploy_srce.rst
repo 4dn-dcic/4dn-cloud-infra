@@ -103,6 +103,8 @@ Other relevant keys:
   OpenSearch domains use; default ``A``. Some Availability Zones offer no OpenSearch (or RDS)
   instance types - check with ``aws opensearch list-instance-type-details --retrieve-azs`` and
   pick a subnet in a supported zone; ``rds.az`` must likewise name a supported zone.
+* ``redis.preferred_az`` - Availability Zone for the single-node ``srce-redis`` replication group,
+  so ElastiCache does not place it in an unsupported zone of the Database subnet group. Default unset.
 
 Deploy order
 ------------
