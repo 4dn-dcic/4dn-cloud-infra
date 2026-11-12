@@ -191,6 +191,11 @@ Optional TLS listener and CrowdStrike Falcon sidecar (both off by default)
   ``username``/``token`` keys and set ``DHI_BASE_IMAGE``, and let the portal build role read exactly
   that secret. Set both or neither; unset changes nothing.
 
+* ``foursight.api_source_cidrs`` -- restricts the ``foursight-srce`` API to the listed public CIDRs
+  with an API Gateway resource policy that chalice embeds in the API definition, so a change
+  redeploys both stages. Validated (no empty, ``/0``, private or malformed entries); never replaces
+  a stage's existing policy. Unset leaves the chalice config unchanged.
+
 Additive changes to shared stacks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

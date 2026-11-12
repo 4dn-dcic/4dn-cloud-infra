@@ -163,6 +163,9 @@ class Settings:
     FOURSIGHT_APP_VERSION_BUCKET = 'foursight.application_version_bucket'
     FOURSIGHT_CHECK_RUNNER = 'foursight.check_runner'  # for use with FF
     FOURSIGHT_APP_NAME = 'foursight.app_name'  # so can be different from ENV_NAME
+    # Opt-in (foursight-srce only): public CIDRs allowed to invoke the Foursight API; see
+    # src/foursight_api_policy.py. Unset leaves the API unrestricted, as before.
+    FOURSIGHT_API_SOURCE_CIDRS = 'foursight.api_source_cidrs'
 
     # Sentieon Options
     SENTIEON_SSH_KEY = 'sentieon.ssh_key'

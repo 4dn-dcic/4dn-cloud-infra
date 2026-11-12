@@ -118,6 +118,9 @@ Other relevant keys:
   inputs for the portal: the Secrets Manager secret (JSON keys ``username``/``token``, dev SRCE name
   ``dhi-registry-credentials``) mapped to ``DHI_USERNAME``/``DHI_TOKEN``, and the pinned
   ``DHI_BASE_IMAGE``. The secret is created empty and populated by a person; set both keys or neither.
+* ``foursight.api_source_cidrs`` - restricts the ``foursight-srce`` API to callers from these public
+  CIDRs (for example an institution's VPN egress). See `Restricting the Foursight API by source
+  address`_. Unset leaves the API open as before.
 
 Deploy order
 ------------
@@ -231,6 +234,36 @@ cross-VPC rules that ``C4SRCENetwork`` and ``C4SRCEDBNetwork`` create — RDS ``
 ``6379``, and HTTPS ``443`` for OpenSearch, each scoped to the peer VPC's CIDR rather than to
 ``0.0.0.0/0``. If Foursight checks time out against the datastore, the fault is in that routing or
 in those rules; adding a Database-VPC security group to the Lambdas is not the fix.
+
+Restricting the Foursight API by source address
+-----------------------------------------------
+
+``foursight.api_source_cidrs`` (``foursight-srce`` only) is a list of public IPv4/IPv6 CIDRs, e.g.::
+
+    "foursight.api_source_cidrs": ["192.0.2.10/32", "198.51.100.0/24"]
+
+A comma-separated string works too. When set, ``cli provision foursight-srce`` gives the chalice
+stages an API Gateway resource policy (``.chalice/foursight-api-policy.json``, generated and
+gitignored). It allows ``execute-api:Invoke`` and explicitly denies it to any source address outside
+the list, on ``execute-api:/*``: every stage, method and path. Requests from elsewhere get HTTP 403
+before reaching a Lambda; Okta sign-in, Lambda code, permissions and schedules are unchanged.
+
+* **It is deployed with the template.** Chalice embeds the policy in the API definition, so adding,
+  changing or removing the setting changes the SAM-generated ``AWS::ApiGateway::Deployment``.
+  CloudFormation then creates a new deployment, and both stages (``api`` and SAM's ``Stage``) serve
+  it. A policy set on the API by hand is not in the template; whether a later template update keeps
+  it is not guaranteed. Keep the setting in the environment's ``custom/config.json`` so every
+  build carries it.
+* **Validation.** The value must be non-empty. Each entry must be a valid network with no host bits
+  set. ``0.0.0.0/0`` and ``::/0`` are refused, as are private, CGNAT, loopback, link-local and
+  multicast ranges: ``aws:SourceIp`` sees the caller's public egress address, so those could never
+  match. A stage that already names its own ``api_gateway_policy_file``, or uses a private
+  endpoint, is never overwritten.
+* **Copied, not linked.** If the source of the list (e.g. an IT-managed prefix list) changes,
+  update the setting and reprovision.
+* **Removing it.** Delete the setting and reprovision. Afterwards confirm with
+  ``aws apigateway get-rest-api`` that no policy remains: CloudFormation's overwrite import is not
+  shown here to clear an API-level policy.
 
 Sentieon license server
 ------------------------
