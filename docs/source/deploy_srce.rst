@@ -78,6 +78,8 @@ Other relevant keys:
   — the state of every existing deployment — retains the HTTP-only listener unchanged. The fixed
   Fourfront ECS stack does not read this setting at all. Verify the certificate covers the
   operator DNS names (the generated ALB DNS name itself is not covered by a custom certificate).
+* ``ecs.bootstrap_closed`` (``srce-ecs-blue-green`` only) — creates the closed bootstrap stage; see
+  "Closed ECS bootstrap stage" below. Unset or ``false`` is the normal stack.
 
 * ``sentieon.ami_id`` — **required** to deploy ``srce-sentieon``. AMI the license server boots
   from; the hardened image is issued per account by the institution's IT/security team, so there
@@ -264,6 +266,37 @@ before reaching a Lambda; Okta sign-in, Lambda code, permissions and schedules a
 * **Removing it.** Delete the setting and reprovision. Afterwards confirm with
   ``aws apigateway get-rest-api`` that no policy remains: CloudFormation's overwrite import is not
   shown here to clear an API-level policy.
+
+Closed ECS bootstrap stage
+--------------------------
+
+The blue/green ALBs get their AWS DNS names only when they exist, but the names are needed before
+then: to request hostnames and the ACM certificate that ``ecs.lb_certificate_arn`` takes. Setting::
+
+    "ecs.bootstrap_closed": true
+
+makes ``srce-ecs-blue-green`` create only the permanent resources: the ALB and container security
+groups, the two internet-facing ALBs, the two target groups, the two clusters, the ten task
+definitions and the four indexer-queue alarms (22 resources).
+
+* **Nothing can connect.** The ALB security group has no ingress rule, and neither ALB has a
+  listener.
+* **Nothing runs.** No ECS service is created. Services are the only thing in this template that
+  starts tasks: it defines no Application Auto Scaling, EventBridge or scheduler resource, and the
+  alarms have no actions.
+* **Task definitions are inert, not locked.** They are registered but never scheduled. Anyone with
+  ``ecs:RunTask`` and ``iam:PassRole`` could still start one by hand. In particular the
+  (initial-)deployment tasks must not be run until the application configuration is complete.
+* **Outputs.** The two ``ECSApplicationURL…`` outputs are the bare ALB DNS names, since nothing is
+  served.
+* **Leaving the stage.** Remove the setting (or set it to ``false``), add ``ecs.lb_certificate_arn``,
+  and update the stack. The change set should show only Add listeners and services, a Modify of the
+  ALB security group's ingress (an in-place update) and the outputs. It should show no replacement
+  of an ALB, target group, cluster or security group: their logical ids and ALB names do not depend
+  on the setting. Check this in the change set before executing it.
+* **Validation.** The value must be a boolean (``true``/``false``, any case). Anything else, for
+  example ``yes`` or ``1``, is an error rather than silently producing the open stack. The shared
+  blue/green class used by the other deployments ignores the setting.
 
 Sentieon license server
 ------------------------

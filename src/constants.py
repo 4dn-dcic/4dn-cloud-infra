@@ -61,6 +61,12 @@ class Settings:
     # https://. When unset, the ALB keeps the plain HTTP:80 listener (unchanged behavior).
     ECS_LB_CERTIFICATE_ARN = 'ecs.lb_certificate_arn'
 
+    # SRCE blue/green only: create the permanent clusters, ALBs, target groups and (inert) task
+    # definitions with the ALB security group's ingress closed and NO listeners or ECS services, so
+    # the ALB DNS names exist (e.g. to request hostnames/certificates) before anything can serve or
+    # start tasks. Strict boolean; unset/false keeps the normal stack. See docs/source/deploy_srce.rst.
+    ECS_BOOTSTRAP_CLOSED = 'ecs.bootstrap_closed'
+
     # Application VPC (ECS portal + foursight) — used in SRCE deployments
     VPC_ID = 'vpc.id'
     VPC_CIDR = 'vpc.cidr'
