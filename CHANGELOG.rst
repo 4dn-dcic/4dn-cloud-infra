@@ -155,6 +155,47 @@ Optional TLS listener and CrowdStrike Falcon sidecar (both off by default)
   verification and task-memory validation -- see ``docs/source/crowdstrike.rst``. The fixed
   Fourfront ECS stack is not wired for the sidecar.
 
+* ``iam.omit_dev_role`` -- when ``true``, the IAM stack omits the legacy human-access
+  ``<App>DevRole`` (account-root trust) and its ``ECSDevUserRole`` output, which no stack imports.
+  The ECS, autoscaling and flow-log roles, the instance profile and the S3 federator user are
+  unchanged. Unset or ``false`` keeps the IAM template byte-identical.
+
+* ``rds.retention_policy`` / ``elasticsearch.retention_policy`` -- when set, become both the
+  ``DeletionPolicy`` and the ``UpdateReplacePolicy`` of the datastore RDS instance (``Delete``,
+  ``Retain`` or ``Snapshot``) and of every OpenSearch domain (``Delete`` or ``Retain``). Unset
+  leaves the attributes off, so existing datastore templates are byte-identical.
+
+* ``s3.retention_policy`` -- likewise sets both attributes (``Delete`` or ``Retain``) on every
+  datastore S3 bucket and on their S3 encryption key, so encrypted files stay readable if the
+  stack is deleted or a resource replaced. Unset changes nothing.
+
+* ``elasticsearch.private_subnet`` -- the letter of the network stack's ``PrivateSubnet<X>``
+  export that the OpenSearch domain(s) use. Default ``A`` (unchanged); for an IT-provided
+  Database VPC whose first subnet is in an Availability Zone OpenSearch does not offer.
+
+* ``redis.preferred_az`` -- the Availability Zone of the single-node Redis replication group
+  (``PreferredCacheClusterAZs``), for a subnet group that includes an AZ with no cache node types.
+  Unset leaves ElastiCache to choose, as before.
+
+* ``codebuild.portal_source_type`` / ``codebuild.portal_build_image`` -- build the portal image(s)
+  from a self-managed GitLab (``GITLAB_SELF_MANAGED``, authenticated by the account's CodeBuild
+  source credential backed by a CodeConnections connection, as in the SRCE dev account) and/or
+  with a different CodeBuild image. With GitLab selected, the portal build role also gets
+  ``GetConnection``/``GetConnectionToken``/``UseConnection`` on this account's CodeConnections
+  connections. ``codebuild.github_builders=false`` defers the GitHub-sourced pipeline/Tibanna
+  builders and the GitHub source credential (GitLab portal only). Unset keeps every CodeBuild
+  template byte-identical.
+
+* ``codebuild.dhi_credentials_secret`` / ``codebuild.dhi_base_image`` -- for Docker Hardened Images
+  portal builds: map ``DHI_USERNAME``/``DHI_TOKEN`` from the named Secrets Manager secret's
+  ``username``/``token`` keys and set ``DHI_BASE_IMAGE``, and let the portal build role read exactly
+  that secret. Set both or neither; unset changes nothing.
+
+* ``foursight.api_source_cidrs`` -- restricts the ``foursight-srce`` API to the listed public CIDRs
+  with an API Gateway resource policy that chalice embeds in the API definition, so a change
+  redeploys both stages. Validated (no empty, ``/0``, private or malformed entries); never replaces
+  a stage's existing policy. Unset leaves the chalice config unchanged.
+
 Additive changes to shared stacks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -47,7 +47,7 @@ def _basic_setup_for_main():
 
     with temporary_custom_and_aws_credentials_dirs_for_testing(mocked_boto, TestData) as (custom_dir,
                                                                                           aws_credentials_dir), \
-        mock.patch("builtins.input") as mocked_input:
+            mock.patch("builtins.input") as mocked_input:
         aws = aws_module.Aws(aws_credentials_dir)
         assert aws.find_security_group_id(TestData.security_group_name) == TestData.security_group_id
         yield custom_dir, aws_credentials_dir, aws, mocked_input

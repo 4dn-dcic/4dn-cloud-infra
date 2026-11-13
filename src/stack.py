@@ -19,6 +19,7 @@ from .parts.datastore import C4DatastoreExports
 from .parts.network import C4NetworkExports
 from .parts.appconfig import C4AppConfigExports
 from .parts.srce_network import C4SRCENetworkExports
+from .foursight_api_policy import apply_to_chalice_config, configured_source_cidrs
 
 # Version string identifies template capabilities. Ref:
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/format-version-structure.html
@@ -196,12 +197,13 @@ class C4FoursightCGAPStack(BaseC4FoursightStack):
             security_ids=self.security_ids,
             subnet_ids=self.subnet_ids,
             trial_creds=self.trial_creds
-            # No longer need to set check_runner as it is determined dynamically at runtime in Foursight. dmichaels/2022-11-01.
+            # No longer need to set check_runner as it is determined dynamically at runtime in Foursight.
+            # dmichaels/2022-11-01.
             # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
             # On the second attempt to create the stack, the physical resource ID will be used.
-            #check_runner=(ConfigManager.find_stack_resource(f'foursight-fourfront-{args.stage}',
-            #                                                'CheckRunner', 'physical_resource_id')
-            #             or "c4-foursight-fourfront-production-stac-CheckRunner-MW4VHuCIsDXc")
+            # check_runner=(ConfigManager.find_stack_resource(f'foursight-fourfront-{args.stage}',
+            #                                                 'CheckRunner', 'physical_resource_id')
+            #              or "c4-foursight-fourfront-production-stac-CheckRunner-MW4VHuCIsDXc")
         )
 
     class PackageDeploy(PackageDeploy_from_core):
@@ -260,7 +262,8 @@ class C4FoursightFourfrontStack(BaseC4FoursightStack):
             security_ids=self.security_ids,
             subnet_ids=self.subnet_ids,
             trial_creds=self.trial_creds
-            # No longer need to set check_runner as it is determined dynamically at runtime in Foursight. dmichaels/2022-11-01.
+            # No longer need to set check_runner as it is determined dynamically at runtime in Foursight.
+            # dmichaels/2022-11-01.
             # On first pass stack creation, this will use a check_runner named CheckRunner-PLACEHOLDER.
             # On the second attempt to create the stack, the physical resource ID will be used.
             # check_runner=(ConfigManager.get_config_setting(Settings.FOURSIGHT_CHECK_RUNNER))
@@ -352,6 +355,8 @@ class C4FoursightSMAHTSRCEStack(C4FoursightSMAHTStack):
             self.global_env_bucket = C4AppConfigExports.get_env_bucket()
             env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
             self.trial_creds = get_trial_creds(env_name)
+            # Validated here so a bad value fails before anything is packaged; None = unrestricted.
+            self.api_source_cidrs = configured_source_cidrs()
         # Skip C4FoursightSMAHTStack.__init__ (which re-runs the regular network lookup);
         # call the grandparent (BaseC4Stack) directly with the values we just resolved.
         BaseC4Stack.__init__(self, description=description, name=name, tags=tags, account=account)
@@ -375,7 +380,8 @@ class C4FoursightSMAHTSRCEStack(C4FoursightSMAHTStack):
             global_env_bucket=self.global_env_bucket,
             security_ids=self.security_ids,
             subnet_ids=self.subnet_ids,
-            trial_creds=self.trial_creds
+            trial_creds=self.trial_creds,
+            api_source_cidrs=self.api_source_cidrs,
         )
 
     class PackageDeploy(PackageDeploy_from_core):
@@ -407,6 +413,14 @@ class C4FoursightSMAHTSRCEStack(C4FoursightSMAHTStack):
                 CloudFormation stack name, the change-set upload and error messages -- stays
                 'foursight-srce'.
             """
+            # foursight.api_source_cidrs: set (or clear) the API resource policy in the chalice config
+            # that core's build_config() is about to write; chalice then embeds it in the API
+            # definition, so a change produces a new API deployment on both stages.
+            api_source_cidrs = kwargs.pop('api_source_cidrs', None)
+            policy_file = apply_to_chalice_config(cls.CONFIG_BASE, dirname(cls.get_config_filepath()),
+                                                  api_source_cidrs)
+            if policy_file:
+                PRINT(f"Restricting the Foursight API to {len(api_source_cidrs)} source CIDR(s): {policy_file}")
             package_args = copy.copy(args)
             package_args.stack = cls.PACKAGE_GROUP_TARGET
             # super(), not PackageDeploy_from_core: `cls` must stay bound to this subclass so

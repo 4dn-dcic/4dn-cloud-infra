@@ -61,8 +61,9 @@ class C4IAM(C4IAMBase, C4Part):
         template.add_resource(iam_role)
         flowlog_role = self.vcp_flowlog_role()
         template.add_resource(flowlog_role)  # no need to export, only used for logs
-        dev_iam_role = self.dev_user_role()
-        template.add_resource(dev_iam_role)
+        dev_iam_role = None if self.omit_dev_role() else self.dev_user_role()
+        if dev_iam_role is not None:
+            template.add_resource(dev_iam_role)
         instance_profile = self.ecs_instance_profile()
         template.add_resource(instance_profile)
         autoscaling_iam_role = self.ecs_autoscaling_role()
@@ -79,10 +80,16 @@ class C4IAM(C4IAMBase, C4Part):
                                                                  export_name=C4IAMExports.AUTOSCALING_IAM_ROLE))
         template.add_output(self.output_assumed_iam_role_or_user(s3_iam_user,
                                                                  export_name=C4IAMExports.S3_IAM_USER))
-        template.add_output(self.output_assumed_iam_role_or_user(dev_iam_role,
-                                                                 export_name=C4IAMExports.DEV_IAM_ROLE))
+        if dev_iam_role is not None:
+            template.add_output(self.output_assumed_iam_role_or_user(dev_iam_role,
+                                                                     export_name=C4IAMExports.DEV_IAM_ROLE))
         template.add_output(self.output_instance_profile(instance_profile))
         return template
+
+    @staticmethod
+    def omit_dev_role() -> bool:
+        """ Whether to leave the legacy human-access dev role (iam.omit_dev_role) out of the stack. """
+        return ConfigManager.get_config_setting(Settings.IAM_OMIT_DEV_ROLE, default=False) is True
 
     @staticmethod
     def build_sqs_arn(prefix):

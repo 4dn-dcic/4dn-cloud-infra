@@ -70,6 +70,11 @@ class C4Redis(C4Part):
         """ Pass additional security settings to Redis via Replication Group """
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
         logical_id = self.name.logical_id(self.redis_cluster_name(env_name))
+        preferred_az = ConfigManager.get_config_setting(Settings.REDIS_PREFERRED_AZ, default=None)
+        node_count = ConfigManager.get_config_setting(Settings.REDIS_NODE_COUNT, default=self.DEFAULT_NODE_COUNT)
+        if preferred_az and int(node_count) != 1:
+            raise ValueError(f'{Settings.REDIS_PREFERRED_AZ} supports a single-node replication group only.')
+        options = {'PreferredCacheClusterAZs': [preferred_az]} if preferred_az else {}
         return ReplicationGroup(
             logical_id,
             AutomaticFailoverEnabled=False,
@@ -80,11 +85,11 @@ class C4Redis(C4Part):
             Engine=self.DEFAULT_ENGINE,
             EngineVersion=ConfigManager.get_config_setting(Settings.REDIS_ENGINE_VERSION,
                                                            default=self.DEFAULT_ENGINE_VERSION),
-            NumCacheClusters=ConfigManager.get_config_setting(Settings.REDIS_NODE_COUNT,
-                                                              default=self.DEFAULT_NODE_COUNT),
+            NumCacheClusters=node_count,
             CacheNodeType=ConfigManager.get_config_setting(Settings.REDIS_NODE_TYPE,
                                                            default=self.DEFAULT_CACHE_NODE_TYPE),
             CacheSubnetGroupName=Ref(self.build_redis_subnet_group()),
             SecurityGroupIds=[self.NETWORK_EXPORTS.import_value(C4NetworkExports.APPLICATION_SECURITY_GROUP)],
             Tags=self.tags.cost_tag_obj(),
+            **options,
         )

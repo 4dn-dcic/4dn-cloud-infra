@@ -36,6 +36,12 @@ class ECSBlueGreen(C4ECSApplication):
 
     SHARING = 'ecosystem'
 
+    def bootstrap_closed(self) -> bool:
+        """ Whether to emit the closed bootstrap stage (no listeners, no ECS services). Always False
+            here, so every non-SRCE blue/green template is unchanged; SRCEECSBlueGreen reads
+            ecs.bootstrap_closed. """
+        return False
+
     def build_template(self, template: Template) -> Template:
         """ Builds the template containing two ECS environments. """
         if APP_DEPLOYMENT != DeploymentParadigm.BLUE_GREEN:
@@ -106,30 +112,36 @@ class ECSBlueGreen(C4ECSApplication):
                                        ConfigManager.get_config_setting(Settings.GREEN_IDENTITY),
                                        C4LoggingExports.APPLICATION_LOG_GROUP_GREEN)
         }
+        # Closed bootstrap stage: task definitions are still registered (inert; nothing schedules them),
+        # but no ECS service -- the only thing in this template that starts tasks -- and no listener.
+        closed = self.bootstrap_closed()
         for tag, (cluster, target_group, identity, log_export) in tags.items():
             # Portal task/service
             portal_task = self.ecs_portal_task(image_tag=tag, log_group_export=log_export, identity=identity)
             template.add_resource(portal_task)
-            portal_service = self.ecs_portal_service(cluster_ref=Ref(cluster),
-                                                     target_group_ref=Ref(target_group), image_tag=tag,
-                                                     task_definition=Ref(portal_task))
-            template.add_resource(portal_service)
+            if not closed:
+                portal_service = self.ecs_portal_service(cluster_ref=Ref(cluster),
+                                                         target_group_ref=Ref(target_group), image_tag=tag,
+                                                         task_definition=Ref(portal_task))
+                template.add_resource(portal_service)
 
             # Indexer task/service
             indexer_task = self.ecs_indexer_task(image_tag=tag, log_group_export=log_export, identity=identity)
             template.add_resource(indexer_task)
-            indexer_service = self.ecs_indexer_service(cluster_ref=Ref(cluster), image_tag=tag,
-                                                       task_definition=Ref(indexer_task))
-            template.add_resource(indexer_service)
+            if not closed:
+                indexer_service = self.ecs_indexer_service(cluster_ref=Ref(cluster), image_tag=tag,
+                                                           task_definition=Ref(indexer_task))
+                template.add_resource(indexer_service)
 
             # Ingester task/service
             ingester_task = self.ecs_ingester_task(image_tag=tag, log_group_export=log_export, identity=identity)
             template.add_resource(ingester_task)
-            ingester_service = self.ecs_ingester_service(
-                cluster_ref=Ref(cluster),
-                image_tag=tag, task_definition=Ref(ingester_task)
-            )
-            template.add_resource(ingester_service)
+            if not closed:
+                ingester_service = self.ecs_ingester_service(
+                    cluster_ref=Ref(cluster),
+                    image_tag=tag, task_definition=Ref(ingester_task)
+                )
+                template.add_resource(ingester_service)
 
             # Deployment tasks
             template.add_resource(self.ecs_deployment_task(image_tag=tag, log_group_export=log_export,
@@ -144,6 +156,8 @@ class ECSBlueGreen(C4ECSApplication):
         template.add_resource(green_lb)
         for color, target_group, lb in [(DeploymentParadigm.BLUE, target_group_blue, blue_lb),
                                         (DeploymentParadigm.GREEN, target_group_green, green_lb)]:
+            if closed:
+                continue  # no listener: the ALB accepts no connection at all
             for listener in self.ecs_lb_listeners(target_group, deployment_type=color, lb_ref=Ref(lb)):
                 template.add_resource(listener)
 
@@ -162,13 +176,19 @@ class ECSBlueGreen(C4ECSApplication):
 
         return template
 
+    def _url_scheme(self) -> str:
+        """ The closed bootstrap stage serves nothing, so its outputs are bare ALB DNS names. """
+        if self.bootstrap_closed():
+            return ''
+        return 'https://' if self.lb_certificate_arn() else 'http://'
+
     def output_blue_application_url(self, env=None) -> Output:
         """ Outputs URL to access portal. """
         env = env or (ConfigManager.get_config_setting(Settings.ENV_NAME) + DeploymentParadigm.BLUE)
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
             Description=f'URL of {APP_KIND.capitalize()}-Portal-Blue.',
-            Value=Join('', ['https://' if self.lb_certificate_arn() else 'http://', GetAtt(
+            Value=Join('', [self._url_scheme(), GetAtt(
                 self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.BLUE), 'DNSName')])
         )
 
@@ -178,7 +198,7 @@ class ECSBlueGreen(C4ECSApplication):
         return Output(
             C4ECSApplicationExports.output_application_url_key(env),
             Description=f'URL of {APP_KIND.capitalize()}-Portal-Green.',
-            Value=Join('', ['https://' if self.lb_certificate_arn() else 'http://',
+            Value=Join('', [self._url_scheme(),
                             GetAtt(self.ecs_application_load_balancer(deployment_type=DeploymentParadigm.GREEN),
                                    'DNSName')])
         )
@@ -278,7 +298,8 @@ class ECSBlueGreen(C4ECSApplication):
             DesiredCount=ConfigManager.get_config_setting(Settings.ECS_WSGI_COUNT, concurrency),
             LoadBalancers=[
                 LoadBalancer(
-                    ContainerName=self.PORTAL_CONTAINER_DEFINITION,  # this must match Name in TaskDefinition (ContainerDefinition)
+                    # this must match Name in TaskDefinition (ContainerDefinition)
+                    ContainerName=self.PORTAL_CONTAINER_DEFINITION,
                     ContainerPort=Ref(self.ecs_web_worker_port()),
                     TargetGroupArn=Ref(self.ecs_lbv2_target_group()) if not target_group_ref else target_group_ref)
             ],
@@ -459,7 +480,7 @@ class ECSBlueGreen(C4ECSApplication):
         )
 
     def ecs_ingester_service(self, cluster_ref=None, image_tag='',
-                            task_definition=None, concurrency=1) -> Service:
+                             task_definition=None, concurrency=1) -> Service:
         """ Defines the Ingester service (manages Ingestion Tasks)
 
             Defined by the ECR Image tag 'latest-ingester'
@@ -515,7 +536,8 @@ class ECSBlueGreen(C4ECSApplication):
                             causing a different initialization sequence.
         """
         return TaskDefinition(
-            f'{APP_KIND.capitalize()}{image_tag}InitialDeployment' if initial else f'{APP_KIND.capitalize()}{image_tag}Deployment',
+            (f'{APP_KIND.capitalize()}{image_tag}InitialDeployment' if initial
+             else f'{APP_KIND.capitalize()}{image_tag}Deployment'),
             RequiresCompatibilities=['FARGATE'],
             Cpu=cpu or ConfigManager.get_config_setting(Settings.ECS_INITIAL_DEPLOYMENT_CPU
                                                         if initial else

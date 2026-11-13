@@ -37,7 +37,8 @@ def main():
         raise Exception('Does not handle non-trio analysis')
     ff_key = s3Utils().get_ff_key()
     metawfr_json = create_metawfr.create_metawfr_from_case(
-        SUPPORTED_ANALYSIS_TYPES[args.analysis_type], args.case_uuid, args.analysis_type, ff_key, post=args.post_metawfr,
+        SUPPORTED_ANALYSIS_TYPES[args.analysis_type], args.case_uuid, args.analysis_type, ff_key,
+        post=args.post_metawfr,
         patch_case=args.patch_case, verbose=True
     )
     PRINT(metawfr_json)

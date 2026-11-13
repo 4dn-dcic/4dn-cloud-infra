@@ -152,14 +152,14 @@ class PricingCalculator(object):
     @staticmethod
     def validate():
         # Price and Bytes for Tier 1 and Tier 2 when maxed out
-        assert PricingCalculator.float_to_usd(PricingCalculator.max_cost_tier_1()) == '$1,177.60',\
+        assert PricingCalculator.float_to_usd(PricingCalculator.max_cost_tier_1()) == '$1,177.60', \
             'tier 1 != {}. price error or prices have changed'.format(
                 PricingCalculator.float_to_usd(PricingCalculator.float_to_usd(PricingCalculator.max_cost_tier_1())))
-        assert PricingCalculator.max_size_tier_1() == 54_975_581_388_800.0,\
+        assert PricingCalculator.max_size_tier_1() == 54_975_581_388_800.0, \
             'tier 1 != {}. byte calculation error'.format(PricingCalculator.max_size_tier_1())
 
-        assert PricingCalculator.float_to_usd(PricingCalculator.max_cost_tier_2()) == '$10,137.60',\
+        assert PricingCalculator.float_to_usd(PricingCalculator.max_cost_tier_2()) == '$10,137.60', \
             'tier 1 != {}. price error or prices have changed'.format(
                 PricingCalculator.float_to_usd(PricingCalculator.float_to_usd(PricingCalculator.max_cost_tier_2())))
-        assert PricingCalculator.max_size_tier_2() == 494_780_232_499_200.0,\
+        assert PricingCalculator.max_size_tier_2() == 494_780_232_499_200.0, \
             'tier 1 != {}. byte calculation error'.format(PricingCalculator.max_size_tier_2())

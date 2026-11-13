@@ -108,9 +108,15 @@ def do_test_setup_remaining_secrets(overwrite_secrets: bool = True,
     mocked_secretsmanager = mocked_boto.client("secretsmanager")
     mocked_secret_put = mocked_secretsmanager.put_secret_key_value_for_testing
     mocked_secret_get = mocked_secretsmanager.get_secret_key_value_for_testing
-    mocked_gac_secret_put = lambda key, value: mocked_secret_put(TestData.gac_secret_name, key, value)
-    mocked_gac_secret_get = lambda key: mocked_secret_get(TestData.gac_secret_name, key)
-    mocked_rds_secret_put = lambda key, value: mocked_secret_put(TestData.rds_secret_name, key, value)
+
+    def mocked_gac_secret_put(key, value):
+        return mocked_secret_put(TestData.gac_secret_name, key, value)
+
+    def mocked_gac_secret_get(key):
+        return mocked_secret_get(TestData.gac_secret_name, key)
+
+    def mocked_rds_secret_put(key, value):
+        return mocked_secret_put(TestData.rds_secret_name, key, value)
 
     mocked_rds_secret_put(RdsSecretKeyName.RDS_HOSTNAME, TestData.rds_host)
     mocked_rds_secret_put(RdsSecretKeyName.RDS_PASSWORD, TestData.rds_password)
@@ -202,7 +208,8 @@ def do_test_setup_remaining_secrets(overwrite_secrets: bool = True,
 
         # Mocking input makes import pdb ; pdb.set_trace wig out. Mock yes_or_no instead (2022-12-16/dmichaels).
         # with mock.patch("builtins.input", mocked_input):
-        with mock.patch("src.auto.utils.aws.yes_or_no", mocked_yes_or_no), mock.patch("src.auto.setup_remaining_secrets.cli.yes_or_no", mocked_yes_or_no):
+        with mock.patch("src.auto.utils.aws.yes_or_no", mocked_yes_or_no), \
+                mock.patch("src.auto.setup_remaining_secrets.cli.yes_or_no", mocked_yes_or_no):
 
             main(["--aws-credentials-dir", aws_credentials_dir, "--custom-dir", custom_dir, "--show"])
 

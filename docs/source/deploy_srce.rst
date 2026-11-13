@@ -78,6 +78,8 @@ Other relevant keys:
   — the state of every existing deployment — retains the HTTP-only listener unchanged. The fixed
   Fourfront ECS stack does not read this setting at all. Verify the certificate covers the
   operator DNS names (the generated ALB DNS name itself is not covered by a custom certificate).
+* ``ecs.bootstrap_closed`` (``srce-ecs-blue-green`` only) — creates the closed bootstrap stage; see
+  "Closed ECS bootstrap stage" below. Unset or ``false`` is the normal stack.
 
 * ``sentieon.ami_id`` — **required** to deploy ``srce-sentieon``. AMI the license server boots
   from; the hardened image is issued per account by the institution's IT/security team, so there
@@ -89,6 +91,38 @@ Other relevant keys:
 * ``sentieon.volume_size`` — size in GiB of the license server's encrypted root volume
   (default 20).
 * ``subnet.pair_count`` — number of subnet pairs the datastore expects (default 2).
+* ``iam.omit_dev_role`` - ``true`` leaves the legacy human-access ``SMaHTDevRole`` (trusted by
+  the account root) and its ``ECSDevUserRole`` output out of the ``iam`` stack. Nothing imports
+  that export; the runtime roles, instance profile and S3 federator user are still created.
+  Default ``false`` (unchanged template).
+* ``rds.retention_policy`` / ``elasticsearch.retention_policy`` - set both ``DeletionPolicy`` and
+  ``UpdateReplacePolicy`` on the RDS instance (``Delete``, ``Retain`` or ``Snapshot``) and on each
+  OpenSearch domain (``Delete`` or ``Retain``; OpenSearch has no snapshot policy). Unset keeps
+  CloudFormation's defaults: an update that replaces RDS or a domain deletes it without a snapshot.
+* ``s3.retention_policy`` - ``Delete`` or ``Retain`` for both attributes of every datastore S3
+  bucket and their S3 encryption key, so the files and the key that decrypts them outlive the stack.
+* ``elasticsearch.private_subnet`` - which ``db.private.subnets`` entry (``A``, ``B``, ...) the
+  OpenSearch domains use; default ``A``. Some Availability Zones offer no OpenSearch (or RDS)
+  instance types - check with ``aws opensearch list-instance-type-details --retrieve-azs`` and
+  pick a subnet in a supported zone; ``rds.az`` must likewise name a supported zone.
+* ``redis.preferred_az`` - Availability Zone for the single-node ``srce-redis`` replication group,
+  so ElastiCache does not place it in an unsupported zone of the Database subnet group. Default unset.
+* ``codebuild.portal_source_type`` - ``GITLAB_SELF_MANAGED`` builds the portal from ``codebuild.repo_url``
+  on the SRCE GitLab at ``codebuild.build_branch``. It needs, in the target account, a CodeConnections
+  ``GitLabSelfManaged`` host (VPC-attached where GitLab is routable) and connection, both completed by a
+  person in the console, plus a CodeBuild ``GITLAB_SELF_MANAGED``/``CODECONNECTIONS`` source credential
+  naming that connection. The portal build role is then granted use of this account's connections.
+  ``codebuild.portal_build_image`` overrides the portal build image (dev SRCE uses
+  ``aws/codebuild/standard:8.0``). ``codebuild.github_builders: false`` leaves out the
+  GitHub-sourced pipeline and Tibanna builders and the GitHub source credential, e.g. until a GitHub
+  credential is supplied; it requires the GitLab portal source.
+* ``codebuild.dhi_credentials_secret`` / ``codebuild.dhi_base_image`` - Docker Hardened Images build
+  inputs for the portal: the Secrets Manager secret (JSON keys ``username``/``token``, dev SRCE name
+  ``dhi-registry-credentials``) mapped to ``DHI_USERNAME``/``DHI_TOKEN``, and the pinned
+  ``DHI_BASE_IMAGE``. The secret is created empty and populated by a person; set both keys or neither.
+* ``foursight.api_source_cidrs`` - restricts the ``foursight-srce`` API to callers from these public
+  CIDRs (for example an institution's VPN egress). See `Restricting the Foursight API by source
+  address`_. Unset leaves the API open as before.
 
 Deploy order
 ------------
@@ -202,6 +236,67 @@ cross-VPC rules that ``C4SRCENetwork`` and ``C4SRCEDBNetwork`` create — RDS ``
 ``6379``, and HTTPS ``443`` for OpenSearch, each scoped to the peer VPC's CIDR rather than to
 ``0.0.0.0/0``. If Foursight checks time out against the datastore, the fault is in that routing or
 in those rules; adding a Database-VPC security group to the Lambdas is not the fix.
+
+Restricting the Foursight API by source address
+-----------------------------------------------
+
+``foursight.api_source_cidrs`` (``foursight-srce`` only) is a list of public IPv4/IPv6 CIDRs, e.g.::
+
+    "foursight.api_source_cidrs": ["192.0.2.10/32", "198.51.100.0/24"]
+
+A comma-separated string works too. When set, ``cli provision foursight-srce`` gives the chalice
+stages an API Gateway resource policy (``.chalice/foursight-api-policy.json``, generated and
+gitignored). It allows ``execute-api:Invoke`` and explicitly denies it to any source address outside
+the list, on ``execute-api:/*``: every stage, method and path. Requests from elsewhere get HTTP 403
+before reaching a Lambda; Okta sign-in, Lambda code, permissions and schedules are unchanged.
+
+* **It is deployed with the template.** Chalice embeds the policy in the API definition, so adding,
+  changing or removing the setting changes the SAM-generated ``AWS::ApiGateway::Deployment``.
+  CloudFormation then creates a new deployment, and both stages (``api`` and SAM's ``Stage``) serve
+  it. A policy set on the API by hand is not in the template; whether a later template update keeps
+  it is not guaranteed. Keep the setting in the environment's ``custom/config.json`` so every
+  build carries it.
+* **Validation.** The value must be non-empty. Each entry must be a valid network with no host bits
+  set. ``0.0.0.0/0`` and ``::/0`` are refused, as are private, CGNAT, loopback, link-local and
+  multicast ranges: ``aws:SourceIp`` sees the caller's public egress address, so those could never
+  match. A stage that already names its own ``api_gateway_policy_file``, or uses a private
+  endpoint, is never overwritten.
+* **Copied, not linked.** If the source of the list (e.g. an IT-managed prefix list) changes,
+  update the setting and reprovision.
+* **Removing it.** Delete the setting and reprovision. Afterwards confirm with
+  ``aws apigateway get-rest-api`` that no policy remains: CloudFormation's overwrite import is not
+  shown here to clear an API-level policy.
+
+Closed ECS bootstrap stage
+--------------------------
+
+The blue/green ALBs get their AWS DNS names only when they exist, but the names are needed before
+then: to request hostnames and the ACM certificate that ``ecs.lb_certificate_arn`` takes. Setting::
+
+    "ecs.bootstrap_closed": true
+
+makes ``srce-ecs-blue-green`` create only the permanent resources: the ALB and container security
+groups, the two internet-facing ALBs, the two target groups, the two clusters, the ten task
+definitions and the four indexer-queue alarms (22 resources).
+
+* **Nothing can connect.** The ALB security group has no ingress rule, and neither ALB has a
+  listener.
+* **Nothing runs.** No ECS service is created. Services are the only thing in this template that
+  starts tasks: it defines no Application Auto Scaling, EventBridge or scheduler resource, and the
+  alarms have no actions.
+* **Task definitions are inert, not locked.** They are registered but never scheduled. Anyone with
+  ``ecs:RunTask`` and ``iam:PassRole`` could still start one by hand. In particular the
+  (initial-)deployment tasks must not be run until the application configuration is complete.
+* **Outputs.** The two ``ECSApplicationURL…`` outputs are the bare ALB DNS names, since nothing is
+  served.
+* **Leaving the stage.** Remove the setting (or set it to ``false``), add ``ecs.lb_certificate_arn``,
+  and update the stack. The change set should show only Add listeners and services, a Modify of the
+  ALB security group's ingress (an in-place update) and the outputs. It should show no replacement
+  of an ALB, target group, cluster or security group: their logical ids and ALB names do not depend
+  on the setting. Check this in the change set before executing it.
+* **Validation.** The value must be a boolean (``true``/``false``, any case). Anything else, for
+  example ``yes`` or ``1``, is an error rather than silently producing the open stack. The shared
+  blue/green class used by the other deployments ignores the setting.
 
 Sentieon license server
 ------------------------

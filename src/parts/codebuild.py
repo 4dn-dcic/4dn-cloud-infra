@@ -73,16 +73,18 @@ class C4CodeBuild(C4Part):
                                               export_name=C4CodeBuildExports.output_project_iam_role(
                                                   project_name=portal_env_name
                                               )))
-        tibanna_iam_role = self.cb_iam_role(project_name=tibanna_project_name)
-        template.add_resource(tibanna_iam_role)
-        template.add_output(self.output_value(resource=tibanna_iam_role,
-                                              export_name=C4CodeBuildExports.output_project_iam_role(
-                                                  project_name=tibanna_project_name
-                                              )))
+        github_builders = self.github_builders_enabled()
+        if github_builders:
+            tibanna_iam_role = self.cb_iam_role(project_name=tibanna_project_name)
+            template.add_resource(tibanna_iam_role)
+            template.add_output(self.output_value(resource=tibanna_iam_role,
+                                                  export_name=C4CodeBuildExports.output_project_iam_role(
+                                                      project_name=tibanna_project_name
+                                                  )))
 
-        # credentials for cb
-        creds = self.cb_source_credential()
-        template.add_resource(creds)
+            # credentials for cb
+            creds = self.cb_source_credential()
+            template.add_resource(creds)
 
         # Build project for portal image in blue/green
         if APP_DEPLOYMENT == DeploymentParadigm.BLUE_GREEN:
@@ -98,7 +100,8 @@ class C4CodeBuild(C4Part):
                     branch=ConfigManager.get_config_setting(Settings.CODEBUILD_DEPLOY_BRANCH,
                                                             default=self.DEFAULT_DEPLOY_BRANCH),
                     environment=self.cb_portal_environment_vars(repo_name=ConfigManager.get_config_setting(
-                        Settings.ENV_NAME), image_tag=env.lstrip('-'))
+                        Settings.ENV_NAME), image_tag=env.lstrip('-')),
+                    source_type=self.portal_source_type(),
                 )
                 template.add_resource(build_project)
                 template.add_output(self.output_value(resource=build_project,
@@ -113,13 +116,16 @@ class C4CodeBuild(C4Part):
                 branch=ConfigManager.get_config_setting(Settings.CODEBUILD_DEPLOY_BRANCH,
                                                         default=self.DEFAULT_DEPLOY_BRANCH),
                 environment=self.cb_portal_environment_vars(repo_name=ConfigManager.get_config_setting(
-                        Settings.ENV_NAME))
+                        Settings.ENV_NAME)),
+                source_type=self.portal_source_type(),
             )
             template.add_resource(build_project)
             template.add_output(self.output_value(resource=build_project,
                                                   export_name=C4CodeBuildExports.output_project_key(
                                                       project_name=portal_env_name
                                                   )))
+        if not github_builders:
+            return template  # pipeline and Tibanna builders build from GitHub; deferred by configuration
         if APP_KIND == 'cgap':
             pipeline_iam_role = self.cb_iam_role(project_name=pipeline_project_name)
             template.add_resource(pipeline_iam_role)
@@ -224,7 +230,39 @@ class C4CodeBuild(C4Part):
             }
         )
 
+    @staticmethod
+    def cb_gitlab_connection_policy() -> Policy:
+        """ Lets the portal build role use this account's CodeConnections connections (the
+            GITLAB_SELF_MANAGED source credential), as the SRCE dev account's role does. """
+        return Policy(
+            PolicyName='CBCodeConnectionsSourcePolicy',
+            PolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Effect": "Allow",
+                    "Action": [
+                        "codeconnections:GetConnection",
+                        "codeconnections:GetConnectionToken",
+                        "codeconnections:UseConnection",
+                        "codestar-connections:GetConnection",
+                        "codestar-connections:GetConnectionToken",
+                        "codestar-connections:UseConnection",
+                    ],
+                    "Resource": [
+                        Join(':', ["arn:aws:codeconnections", Region, AccountId, "connection/*"]),
+                        Join(':', ["arn:aws:codestar-connections", Region, AccountId, "connection/*"]),
+                    ],
+                }]
+            }
+        )
+
     def cb_iam_role(self, *, project_name) -> Role:
+        policies = [self.cb_vpc_policy()]
+        if (self.portal_source_type() == self.GITLAB_SELF_MANAGED
+                and project_name == ConfigManager.get_config_setting(Settings.ENV_NAME)):
+            policies.append(self.cb_gitlab_connection_policy())  # the portal role only
+        if self.dhi_settings() and project_name == ConfigManager.get_config_setting(Settings.ENV_NAME):
+            policies.append(self.cb_dhi_secret_policy())  # the portal role only
         return Role(
             f'CodeBuildRoleFor{camelize(project_name)}',
             AssumeRolePolicyDocument=dict(
@@ -237,9 +275,7 @@ class C4CodeBuild(C4Part):
                     Principal=dict(Service=['codebuild.amazonaws.com']),
                 )],
             ),
-            Policies=[
-                self.cb_vpc_policy()
-            ],
+            Policies=policies,
             ManagedPolicyArns=[
                 'arn:aws:iam::aws:policy/AmazonS3FullAccess',
                 'arn:aws:iam::aws:policy/CloudWatchFullAccess',
@@ -259,7 +295,7 @@ class C4CodeBuild(C4Part):
         """ Environment configuration for the portal build """
         return Environment(
             ComputeType=self.DEFAULT_COMPUTE_TYPE,
-            Image=self.BUILD_IMAGE,
+            Image=ConfigManager.get_config_setting(Settings.CODEBUILD_PORTAL_BUILD_IMAGE, default=self.BUILD_IMAGE),
             EnvironmentVariables=[
                 {'Name': 'AWS_DEFAULT_REGION', 'Value': REGION},
                 {'Name': 'AWS_ACCOUNT_ID', 'Value': AccountId},
@@ -269,6 +305,7 @@ class C4CodeBuild(C4Part):
                  'Value': image_tag if image_tag else ConfigManager.get_config_setting(
                      Settings.ECS_IMAGE_TAG, default='latest'
                  )},
+                *self.dhi_environment_variables(),
             ],
             Type=self.BUILD_TYPE,
             PrivilegedMode=True
@@ -285,7 +322,8 @@ class C4CodeBuild(C4Part):
                 {'Name': 'IMAGE_REPO_NAME', 'Value': 'base'},  # default to base, override by caller
                 {'Name': 'IMAGE_TAG',  # Use standard default version as of now, no locked version to resolve
                  'Value': self.DEFAULT_PIPELINE_DEPLOY_BRANCH},
-                {'Name': 'BUILD_PATH', 'Value': 'cgap-pipeline-base/dockerfiles/base'}  # default to base, override by caller
+                # default to base, override by caller
+                {'Name': 'BUILD_PATH', 'Value': 'cgap-pipeline-base/dockerfiles/base'}
             ],
             Type=self.BUILD_TYPE,
             PrivilegedMode=True
@@ -332,8 +370,70 @@ class C4CodeBuild(C4Part):
             Token=ConfigManager.get_config_secret(Secrets.GITHUB_PERSONAL_ACCESS_TOKEN)
         )
 
-    def cb_source(self, *, github_repo_url) -> Source:
-        """ Defines the source for the code build job, typically Github """
+    GITLAB_SELF_MANAGED = 'GITLAB_SELF_MANAGED'
+    PORTAL_SOURCE_TYPES = ('GITHUB', GITLAB_SELF_MANAGED)
+
+    @staticmethod
+    def dhi_settings():
+        """ (secret name, base image) for Docker Hardened Images builds, or None when not configured. """
+        secret = ConfigManager.get_config_setting(Settings.CODEBUILD_DHI_CREDENTIALS_SECRET, default=None)
+        image = ConfigManager.get_config_setting(Settings.CODEBUILD_DHI_BASE_IMAGE, default=None)
+        if bool(secret) != bool(image):
+            raise ValueError(f'Set both {Settings.CODEBUILD_DHI_CREDENTIALS_SECRET} and'
+                             f' {Settings.CODEBUILD_DHI_BASE_IMAGE}, or neither.')
+        return (secret, image) if secret else None
+
+    def dhi_environment_variables(self) -> list:
+        dhi = self.dhi_settings()
+        if not dhi:
+            return []
+        secret, image = dhi
+        return [
+            {'Name': 'DHI_BASE_IMAGE', 'Value': image},
+            {'Name': 'DHI_USERNAME', 'Type': 'SECRETS_MANAGER', 'Value': f'{secret}:username'},
+            {'Name': 'DHI_TOKEN', 'Type': 'SECRETS_MANAGER', 'Value': f'{secret}:token'},
+        ]
+
+    def cb_dhi_secret_policy(self) -> Policy:
+        """ Read access to exactly the DHI credentials secret (Secrets Manager appends a 6-char suffix). """
+        secret, _ = self.dhi_settings()
+        return Policy(
+            PolicyName='CBDhiCredentialsAccess',
+            PolicyDocument={
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Effect": "Allow",
+                    "Action": ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"],
+                    "Resource": Join(':', ["arn:aws:secretsmanager", Region, AccountId, "secret", f"{secret}-??????"]),
+                }]
+            }
+        )
+
+    @classmethod
+    def github_builders_enabled(cls) -> bool:
+        """ codebuild.github_builders=false omits the GitHub source credential and the GitHub-sourced
+            pipeline/Tibanna builders (e.g. until a GitHub credential is supplied); the portal must then
+            build from GitLab. Default true: unchanged. """
+        enabled = ConfigManager.get_config_setting(Settings.CODEBUILD_GITHUB_BUILDERS, default=True) is not False
+        if not enabled and cls.portal_source_type() != cls.GITLAB_SELF_MANAGED:
+            raise ValueError(f'{Settings.CODEBUILD_GITHUB_BUILDERS}=false requires'
+                             f' {Settings.CODEBUILD_PORTAL_SOURCE_TYPE}={cls.GITLAB_SELF_MANAGED}.')
+        return enabled
+
+    @classmethod
+    def portal_source_type(cls) -> str:
+        source_type = ConfigManager.get_config_setting(Settings.CODEBUILD_PORTAL_SOURCE_TYPE, default='GITHUB')
+        if source_type not in cls.PORTAL_SOURCE_TYPES:
+            raise ValueError(f'{Settings.CODEBUILD_PORTAL_SOURCE_TYPE} must be one of'
+                             f' {", ".join(cls.PORTAL_SOURCE_TYPES)}, not {source_type!r}.')
+        return source_type
+
+    def cb_source(self, *, github_repo_url, source_type='GITHUB') -> Source:
+        """ Defines the source for the code build job, typically Github. A self-managed GitLab source uses
+            the account-level CodeBuild source credential (a CodeConnections connection), like the dev SRCE
+            portal project, so it has no per-project Auth. """
+        if source_type == self.GITLAB_SELF_MANAGED:
+            return Source(Location=github_repo_url, Type=self.GITLAB_SELF_MANAGED, GitCloneDepth=1)
         return Source(
             Auth=SourceAuth(
                 Resource=Ref(self.cb_source_credential()),
@@ -367,7 +467,7 @@ class C4CodeBuild(C4Part):
             VpcId=exports.import_value(exports.VPC)
         )
 
-    def cb_project(self, *, project_name, github_repo_url, branch, environment) -> Project:
+    def cb_project(self, *, project_name, github_repo_url, branch, environment, source_type='GITHUB') -> Project:
         """ Builds a CodeBuild project for project_name """
         return Project(
             camelize(project_name),
@@ -376,7 +476,7 @@ class C4CodeBuild(C4Part):
             Environment=environment,
             Name=project_name,
             ServiceRole=Ref(self.cb_iam_role(project_name=ConfigManager.get_config_setting(Settings.ENV_NAME))),
-            Source=self.cb_source(github_repo_url=github_repo_url),
+            Source=self.cb_source(github_repo_url=github_repo_url, source_type=source_type),
             SourceVersion=branch,
             VpcConfig=self.cb_vpc_config(),
             Tags=self.tags.cost_tag_obj()

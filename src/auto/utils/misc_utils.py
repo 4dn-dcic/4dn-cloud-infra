@@ -280,7 +280,8 @@ def print_dictionary_as_table(header_name: str, header_value: str,
     table.align[header_name] = "l"
     table.align[header_value] = "l"
     if not callable(display_value):
-        display_value = lambda _, value: value
+        def display_value(_, value):
+            return value
     for key_name, key_value in sorted(dictionary.items(), key=lambda item: item[0]) if sort else dictionary.items():
         table.add_row([key_name, display_value(key_name, key_value)])
     PRINT(table)

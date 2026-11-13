@@ -30,7 +30,7 @@ if DEFAULT_ENVIRONMENT is None:
             " 'ENV_NAME' or configure the custom directory."
         )
 DEFAULT_TARGET_FILE = "vendor/check_setup.json"
-#ENV_NAME_MARKER = "<env-name>"
+# ENV_NAME_MARKER = "<env-name>"
 
 
 def resolve_foursight_checks(env_name=None, template_file=None, target_file=None, app_name=None):
@@ -75,7 +75,8 @@ def main(simulated_args=None):
     parser.add_argument("--env_name", default=None,
                         help=f"name of environment to configure (default {DEFAULT_ENVIRONMENT})")
     parser.add_argument("--template_file", default=None,
-                        help=f"template path to use for testing instead of {FOURSIGHT_CGAP_CHECK_TEMPLATE} or {FOURSIGHT_FOURFRONT_CHECK_TEMPLATE}")
+                        help=(f"template path to use for testing instead of {FOURSIGHT_CGAP_CHECK_TEMPLATE}"
+                              f" or {FOURSIGHT_FOURFRONT_CHECK_TEMPLATE}"))
     parser.add_argument("--target_file", default=None,
                         help=f"target path to use for testing instead of {DEFAULT_TARGET_FILE}")
     parser.add_argument("--app", type=str, default=None, required=True,
@@ -89,7 +90,8 @@ def main(simulated_args=None):
         exit(1)
 
     try:
-        resolve_foursight_checks(env_name=args.env_name, template_file=args.template_file, target_file=args.target_file, app_name=args.app)
+        resolve_foursight_checks(env_name=args.env_name, template_file=args.template_file,
+                                 target_file=args.target_file, app_name=args.app)
     except Exception as e:
         print(f"{full_class_name(e)}: {str(e)}")
         exit(1)

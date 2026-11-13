@@ -61,6 +61,12 @@ class Settings:
     # https://. When unset, the ALB keeps the plain HTTP:80 listener (unchanged behavior).
     ECS_LB_CERTIFICATE_ARN = 'ecs.lb_certificate_arn'
 
+    # SRCE blue/green only: create the permanent clusters, ALBs, target groups and (inert) task
+    # definitions with the ALB security group's ingress closed and NO listeners or ECS services, so
+    # the ALB DNS names exist (e.g. to request hostnames/certificates) before anything can serve or
+    # start tasks. Strict boolean; unset/false keeps the normal stack. See docs/source/deploy_srce.rst.
+    ECS_BOOTSTRAP_CLOSED = 'ecs.bootstrap_closed'
+
     # Application VPC (ECS portal + foursight) — used in SRCE deployments
     VPC_ID = 'vpc.id'
     VPC_CIDR = 'vpc.cidr'
@@ -87,6 +93,15 @@ class Settings:
     RDS_AZ = 'rds.az'                        # TODO: Ignored for now. Always defaults to "us-east-1"
     RDS_POSTGRES_VERSION = 'rds.postgres_version'
     RDS_NAME = 'rds.name'  # can be used to configure name of RDS instance, foursight must know it - Will Nov 2 2021
+    # Both DeletionPolicy and UpdateReplacePolicy of the RDS instance (Delete, Retain or Snapshot) and of
+    # every OpenSearch domain (Delete or Retain). Unset leaves the attributes off (CloudFormation defaults).
+    RDS_RETENTION_POLICY = 'rds.retention_policy'
+    ES_RETENTION_POLICY = 'elasticsearch.retention_policy'
+    # Delete or Retain, for every datastore S3 bucket and their S3 encryption key, likewise both attributes.
+    S3_RETENTION_POLICY = 's3.retention_policy'
+    # Private subnet (letter of the network stack's PrivateSubnet<X> exports) for the OpenSearch
+    # domain(s). Default A; for an IT-provided VPC whose first subnet is in an AZ OpenSearch does not offer.
+    ES_PRIVATE_SUBNET = 'elasticsearch.private_subnet'
 
     # ES Configuration Options
     ES_MASTER_COUNT = 'elasticsearch.master_node_count'
@@ -100,6 +115,9 @@ class Settings:
     REDIS_ENGINE_VERSION = 'redis.version'
     REDIS_NODE_COUNT = 'redis.node_count'
     REDIS_NODE_TYPE = 'redis.node_type'
+    # Availability Zone for the (single-node) replication group's primary. Unset lets ElastiCache choose
+    # within the subnet group; set it when one of the subnets is in an AZ that offers no cache node type.
+    REDIS_PREFERRED_AZ = 'redis.preferred_az'
 
     # ECS Configuration Options
     ECS_IMAGE_TAG = 'ecs.image_tag'
@@ -124,6 +142,10 @@ class Settings:
     # on the sidecar completing successfully, has the Falcon CID injected from Secrets Manager, and
     # is wrapped by the CrowdStrike loader entrypoint.
     CROWDSTRIKE_ENABLED = 'crowdstrike.enabled'                    # bool, default false
+    # Omit the legacy human-access <App>DevRole (account-root trust) and its ECSDevUserRole output
+    # from the IAM stack. Off by default so existing IAM stacks are unchanged; nothing imports the
+    # export. The runtime roles, instance profile and S3 federator user are always built.
+    IAM_OMIT_DEV_ROLE = 'iam.omit_dev_role'                        # bool, default false
     # REQUIRED when crowdstrike.enabled is true: the CrowdStrike loader entrypoint the application
     # container must run, as a JSON list or comma-separated string. This is a vendor/image-specific
     # contract (from the falcon-sensor image config / CrowdStrike PDF) and MUST be supplied by the
@@ -147,6 +169,9 @@ class Settings:
     FOURSIGHT_APP_VERSION_BUCKET = 'foursight.application_version_bucket'
     FOURSIGHT_CHECK_RUNNER = 'foursight.check_runner'  # for use with FF
     FOURSIGHT_APP_NAME = 'foursight.app_name'  # so can be different from ENV_NAME
+    # Opt-in (foursight-srce only): public CIDRs allowed to invoke the Foursight API; see
+    # src/foursight_api_policy.py. Unset leaves the API unrestricted, as before.
+    FOURSIGHT_API_SOURCE_CIDRS = 'foursight.api_source_cidrs'
 
     # Sentieon Options
     SENTIEON_SSH_KEY = 'sentieon.ssh_key'
@@ -179,6 +204,17 @@ class Settings:
     CODEBUILD_GITHUB_REPOSITORY_URL = 'codebuild.repo_url'  # url to github source repository
     CODEBUILD_DEPLOY_BRANCH = 'codebuild.build_branch'
     CODEBUILD_REPO_NAME = 'codebuild.repo_name'  # name of ECR repo
+    # Source provider for the portal build project(s) only: GITHUB (default) or GITLAB_SELF_MANAGED. A GitLab
+    # project authenticates through the account's CodeBuild GITLAB_SELF_MANAGED source credential (a
+    # CodeConnections connection), so it carries no per-project auth. Pipeline/Tibanna builders are unchanged.
+    CODEBUILD_PORTAL_SOURCE_TYPE = 'codebuild.portal_source_type'
+    CODEBUILD_PORTAL_BUILD_IMAGE = 'codebuild.portal_build_image'  # default: the shared BUILD_IMAGE
+    CODEBUILD_GITHUB_BUILDERS = 'codebuild.github_builders'  # bool, default true; see C4CodeBuild
+    # Docker Hardened Images (dhi.io) build credentials for the portal image: the Secrets Manager secret
+    # name (JSON keys username/token) mapped to DHI_USERNAME/DHI_TOKEN, and the pinned DHI_BASE_IMAGE.
+    # Set both or neither; unset leaves every CodeBuild template unchanged.
+    CODEBUILD_DHI_CREDENTIALS_SECRET = 'codebuild.dhi_credentials_secret'
+    CODEBUILD_DHI_BASE_IMAGE = 'codebuild.dhi_base_image'
 
 
 # dmichaels/2022-06-06: Factored out from base.py.

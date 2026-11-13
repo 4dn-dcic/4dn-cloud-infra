@@ -948,7 +948,8 @@ class C4ECSApplication(C4Part):
                             causing a different initialization sequence.
         """
         return TaskDefinition(
-            f'{ConfigManager.get_config_setting(Settings.APP_KIND)}InitialDeployment' if initial else f'{ConfigManager.get_config_setting(Settings.APP_KIND)}Deployment',
+            (f'{ConfigManager.get_config_setting(Settings.APP_KIND)}InitialDeployment' if initial
+             else f'{ConfigManager.get_config_setting(Settings.APP_KIND)}Deployment'),
             RequiresCompatibilities=['FARGATE'],
             Cpu=cpu or ConfigManager.get_config_setting(Settings.ECS_INITIAL_DEPLOYMENT_CPU
                                                         if initial else

@@ -1,11 +1,3 @@
-import chalice
-import mock
-import os
-import pytest
-from dcicutils.misc_utils import override_environ
-from dcicutils.qa_utils import MockBoto3, MockBoto3SecretsManager
-from dcicutils import cloudformation_utils
-from dcicutils import secrets_utils
 
 # dmichaels/2022-07-28/C4-826:
 # Since foursight-core now takes IDENTITY and STACK_NAME as environment variable inputs,
