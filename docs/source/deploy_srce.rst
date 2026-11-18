@@ -475,6 +475,11 @@ Inputs for a feature that is off are ignored.
 
   * **Sensor image.** It is resolved from this account's and region's ECR stack. Push the image
     there with ``scanOnPush`` on, and pin that digest.
+  * **Sensor contract.** The sidecar's copy step assumes the image contains
+    ``/entrypoint-ecs.sh``, ``/bin``, ``/etc``, ``/lib64`` and ``/usr``, and that it exits 0 once
+    the copy is done. That was verified on the dev sensor image only. Before pinning a different
+    sensor image, re-check its layout offline, for example by listing the image's files; this
+    needs no task run.
   * **FireLens image.** It is referenced verbatim. A ``public.ecr.aws`` image needs outbound
     access to that registry. Otherwise mirror it into this account's ECR and pin the mirror's
     digest. The shared role's ECR pull grant covers a same-account repository.
