@@ -155,6 +155,23 @@ Optional TLS listener and CrowdStrike Falcon sidecar (both off by default)
   verification and task-memory validation -- see ``docs/source/crowdstrike.rst``. The fixed
   Fourfront ECS stack is not wired for the sidecar.
 
+* ``ecs.backend_tls_secret_arn`` / ``ecs.backend_tls`` (``srce-ecs`` and ``srce-ecs-blue-green``,
+  SMaHT only) -- re-encrypt the ALB-to-portal hop. **On by default** when the secret ARN and
+  ``ecs.lb_certificate_arn`` are both set. When on:
+
+  * the portal container gets ``NGINX_TLS_ENABLED=true``, the two ``NGINX_SSL_CERTIFICATE[_KEY]``
+    JSON-key selectors as ECS secrets, and port 8443;
+  * the portal target groups become new ``<name>Https`` HTTPS groups with HTTPS health checks,
+    bound by the HTTPS listener and the service;
+  * task ingress is only tcp/8443 from the ALB security group;
+  * HTTP:80 only redirects.
+
+  The other containers and stacks are untouched. ``ecs.backend_tls: false`` is the explicit
+  HTTP-backend fallback; it renders exactly like the certificate-only stack. Explicit ``true`` with
+  a missing input, a secret without a certificate, a malformed ARN, a non-boolean value or a
+  non-SMaHT app kind are all errors. In the closed bootstrap stage the secret alone selects
+  backend TLS. With no secret every template is unchanged. See ``deploy_srce.rst``.
+
 * ``iam.omit_dev_role`` -- when ``true``, the IAM stack omits the legacy human-access
   ``<App>DevRole`` (account-root trust) and its ``ECSDevUserRole`` output, which no stack imports.
   The ECS, autoscaling and flow-log roles, the instance profile and the S3 federator user are

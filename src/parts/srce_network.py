@@ -288,21 +288,32 @@ class SRCENetworkMixin:
     NETWORK_EXPORTS = C4SRCENetworkExports()
 
     def ecs_container_security_group(self) -> SecurityGroup:
-        """Security group for the container runtime, using config-provided VPC CIDR."""
-        cidr = ConfigManager.get_config_setting(Settings.VPC_CIDR, default=C4Network.CIDR_BLOCK)
+        """Security group for the container runtime, using config-provided VPC CIDR.
+
+        With backend TLS (SRCEBackendTLSMixin) the only ingress is the portal's TLS port from the ALB
+        security group: no VPC-wide rule and no plaintext port. The group's description (an
+        immutable property) is the same in both modes, so switching updates the rules in place.
+        """
+        if self.backend_tls_enabled():
+            ingress = SecurityGroupRule(
+                IpProtocol='tcp',
+                FromPort=self.BACKEND_TLS_PORT,
+                ToPort=self.BACKEND_TLS_PORT,
+                SourceSecurityGroupId=Ref(self.ecs_lb_security_group()),
+            )
+        else:
+            ingress = SecurityGroupRule(
+                IpProtocol='tcp',
+                FromPort=Ref(self.ecs_web_worker_port()),
+                ToPort=Ref(self.ecs_web_worker_port()),
+                CidrIp=ConfigManager.get_config_setting(Settings.VPC_CIDR, default=C4Network.CIDR_BLOCK),
+            )
         logical_id = self.name.logical_id('ContainerSecurityGroup')
         return SecurityGroup(
             logical_id,
             GroupDescription='Container Security Group.',
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
-            SecurityGroupIngress=[
-                SecurityGroupRule(
-                    IpProtocol='tcp',
-                    FromPort=Ref(self.ecs_web_worker_port()),
-                    ToPort=Ref(self.ecs_web_worker_port()),
-                    CidrIp=cidr,
-                )
-            ],
+            SecurityGroupIngress=[ingress],
             Tags=self.tags.cost_tag_array()
         )
 

@@ -241,7 +241,7 @@ class ECSBlueGreen(C4ECSApplication):
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
             **self._crowdstrike_task_kwargs(
-                ContainerDefinition(
+                self.with_backend_tls(ContainerDefinition(
                     Name=self.PORTAL_CONTAINER_DEFINITION,
                     Essential=True,
                     Image=Join("", [
@@ -269,7 +269,7 @@ class ECSBlueGreen(C4ECSApplication):
                             Value=self.VPC_SQS_URL
                         ),
                     ]
-                ),
+                )),
                 # color-distinct sidecar stream + same blue/green log group as the app container
                 sidecar_stream_prefix=f'{APP_KIND}-portal{image_tag}-falcon',
                 log_group_export=log_group_export,
@@ -300,7 +300,7 @@ class ECSBlueGreen(C4ECSApplication):
                 LoadBalancer(
                     # this must match Name in TaskDefinition (ContainerDefinition)
                     ContainerName=self.PORTAL_CONTAINER_DEFINITION,
-                    ContainerPort=Ref(self.ecs_web_worker_port()),
+                    ContainerPort=self.portal_container_port(),
                     TargetGroupArn=Ref(self.ecs_lbv2_target_group()) if not target_group_ref else target_group_ref)
             ],
             # Run portal service on Fargate Spot

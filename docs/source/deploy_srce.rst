@@ -80,6 +80,9 @@ Other relevant keys:
   operator DNS names (the generated ALB DNS name itself is not covered by a custom certificate).
 * ``ecs.bootstrap_closed`` (``srce-ecs-blue-green`` only) — creates the closed bootstrap stage; see
   "Closed ECS bootstrap stage" below. Unset or ``false`` is the normal stack.
+* ``ecs.backend_tls_secret_arn`` / ``ecs.backend_tls`` (``srce-ecs`` and ``srce-ecs-blue-green``,
+  SMaHT only) — re-encrypt the ALB-to-portal hop. On by default when the secret ARN and
+  ``ecs.lb_certificate_arn`` are both set; see "Backend (ALB to portal) TLS" below.
 
 * ``sentieon.ami_id`` — **required** to deploy ``srce-sentieon``. AMI the license server boots
   from; the hardened image is issued per account by the institution's IT/security team, so there
@@ -297,6 +300,91 @@ definitions and the four indexer-queue alarms (22 resources).
 * **Validation.** The value must be a boolean (``true``/``false``, any case). Anything else, for
   example ``yes`` or ``1``, is an error rather than silently producing the open stack. The shared
   blue/green class used by the other deployments ignores the setting.
+
+Backend (ALB to portal) TLS
+---------------------------
+
+New SMaHT SRCE portal deployments encrypt both hops. Setting::
+
+    "ecs.lb_certificate_arn": "arn:aws:acm:<region>:<account>:certificate/<id>",
+    "ecs.backend_tls_secret_arn": "arn:aws:secretsmanager:<region>:<account>:secret:<name>-<suffix>"
+
+turns backend TLS on in ``srce-ecs`` and ``srce-ecs-blue-green``, for ``app.kind`` ``smaht`` only.
+
+**Per hop.**
+
+#. Browser → ALB: HTTPS:443 with the ACM certificate, which the browser validates. HTTP:80 only
+   returns a 301 to HTTPS and never forwards plaintext.
+#. ALB → portal task: a second TLS session to nginx on **8443**. The target group is ``HTTPS``,
+   its health check is ``HTTPS`` on ``/health?format=json``, and the targets are ``ip``. **The ALB
+   does not validate the target's certificate** (chain, expiry or hostname), so this hop gives
+   encryption in transit, not backend authentication. A healthy target says nothing about the
+   backend certificate's expiry.
+#. nginx → application workers: HTTP inside the task.
+
+**What the template does when it is on.** It does this to the portal application container only;
+the indexer, ingester, deployment and CrowdStrike sidecar containers are unchanged.
+
+* It sets ``NGINX_TLS_ENABLED=true``.
+* It injects ``NGINX_SSL_CERTIFICATE`` and ``NGINX_SSL_CERTIFICATE_KEY`` as ECS ``secrets``,
+  selected by JSON key from the current version of the secret (``<arn>:<KEY>::``). They are never
+  plain environment values. ECS reads them with the task's execution role, at task start only.
+* It maps the single container port 8443. The image closes 8000 when TLS is on.
+
+On the other resources:
+
+* **Target groups.** Each portal target group is replaced by a new one, ``<name>Https`` (for
+  example ``TargetGroupPortalHttps``), with its own logical id. A target group's protocol cannot
+  change in place, and the group has a fixed physical name.
+* **Wiring.** The HTTPS:443 listener and the portal service bind that group, and the service still
+  waits for the forwarding listener.
+* **Task security group.** It allows only tcp/8443 from the ALB security group, not from the VPC
+  CIDR.
+* ``WebWorkerPort`` stays declared, unused, so existing stacks and parameter overrides remain
+  valid.
+
+**Inputs.**
+
+* **The secret.** It must already exist; the templates never create or replace it. It is a
+  SecretString JSON with exactly the two keys ``NGINX_SSL_CERTIFICATE`` (leaf first, then
+  intermediates, with real newlines) and ``NGINX_SSL_CERTIFICATE_KEY`` (the matching unencrypted
+  PEM key).
+* **The ARN.** Give the complete secret ARN, including AWS's 6-character suffix and without a
+  ``:KEY::`` selector. Anything else is an error.
+* **Execution role.** It needs ``secretsmanager:GetSecretValue`` on that ARN. The ``iam`` stack's
+  ``ECSSecretManagerPolicy`` already grants that on ``*`` to the shared ECS role, which is both
+  the task role and the execution role, so every task running as that role can read the key. With
+  a customer-managed key the role also needs ``kms:Decrypt``.
+* **Platform.** Fargate platform 1.4.0 or later is required for JSON-key selection. The services
+  use ``LATEST``.
+
+**Resolution.**
+
+* **Unset, with both the secret and the certificate:** on.
+* **Unset, with no secret:** the legacy render, byte-identical to before.
+* **Unset, with a secret but no certificate:** an error rather than a quiet HTTP backend.
+* ``"ecs.backend_tls": true``: on. A missing secret or certificate is an error.
+* **Values other than true/false:** an error.
+* **Non-SMaHT app kinds:** enabling backend TLS for any other app kind is an error.
+* **The closed bootstrap stage:** it has no listeners, so there the secret alone selects backend
+  TLS. Leaving the stage by adding the certificate then keeps the same HTTPS target groups. Decide
+  on the secret before leaving the stage: changing the mode later swaps the target groups.
+
+**Fallback and rollback.**
+
+* ``"ecs.backend_tls": false`` is the explicit compatibility and rollback switch. The ALB → task
+  hop is HTTP on ``WebWorkerPort``, while browser HTTPS and the :80 redirect stay as they are. The
+  render is identical to the certificate-only stack, and the secret is ignored.
+* Nothing falls back at runtime. If the certificate or key is missing or invalid, the task fails
+  to start and is never served over plaintext.
+* Switching modes on an existing stack swaps the target group and port in one update. The old
+  group is removed as the new one is added, so it is not a zero-downtime migration. For a live
+  environment, migrate with a parallel service and its own target group behind the listener, or
+  schedule the update.
+
+**Rotation.** ECS reads the secret only when a task starts. To rotate, write a new secret version,
+then force a new deployment: running tasks keep their certificate files. Track the backend
+certificate's expiry separately.
 
 Sentieon license server
 ------------------------

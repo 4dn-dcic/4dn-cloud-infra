@@ -67,6 +67,14 @@ class Settings:
     # start tasks. Strict boolean; unset/false keeps the normal stack. See docs/source/deploy_srce.rst.
     ECS_BOOTSTRAP_CLOSED = 'ecs.bootstrap_closed'
 
+    # SRCE + SMaHT portal only: re-encrypt the ALB -> portal hop. ecs.backend_tls_secret_arn is the
+    # complete ARN (with AWS's 6-character suffix) of an existing Secrets Manager JSON secret holding
+    # NGINX_SSL_CERTIFICATE and NGINX_SSL_CERTIFICATE_KEY. Backend TLS is on by default when that
+    # secret and ecs.lb_certificate_arn are both set; ecs.backend_tls (strict boolean) forces it on
+    # (rejecting missing inputs) or off (the HTTP-backend fallback). See docs/source/deploy_srce.rst.
+    ECS_BACKEND_TLS = 'ecs.backend_tls'
+    ECS_BACKEND_TLS_SECRET_ARN = 'ecs.backend_tls_secret_arn'
+
     # Application VPC (ECS portal + foursight) — used in SRCE deployments
     VPC_ID = 'vpc.id'
     VPC_CIDR = 'vpc.cidr'
