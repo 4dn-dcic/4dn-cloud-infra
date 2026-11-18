@@ -351,8 +351,10 @@ On the other resources:
   PEM key).
 * **The ARN.** Give the complete secret ARN, including AWS's 6-character suffix and without a
   ``:KEY::`` selector. Anything else is an error.
-* **Execution role.** It needs ``secretsmanager:GetSecretValue`` on that ARN. With a
-  customer-managed key it also needs ``kms:Decrypt``.
+* **Execution role.** It needs ``secretsmanager:GetSecretValue`` on that ARN. The ``iam`` stack's
+  ``ECSSecretManagerPolicy`` already grants that on ``*`` to the shared ECS role, which is both
+  the task role and the execution role, so every task running as that role can read the key. With
+  a customer-managed key the role also needs ``kms:Decrypt``.
 * **Platform.** Fargate platform 1.4.0 or later is required for JSON-key selection. The services
   use ``LATEST``.
 
