@@ -172,6 +172,28 @@ Optional TLS listener and CrowdStrike Falcon sidecar (both off by default)
   non-SMaHT app kind are all errors. In the closed bootstrap stage the secret alone selects
   backend TLS. With no secret every template is unchanged. See ``deploy_srce.rst``.
 
+* ``crowdstrike.cid_secret_arn`` / ``splunk.enabled`` (``srce-ecs`` and ``srce-ecs-blue-green``) --
+  render the Falcon sensor and Splunk FireLens sidecars that the SMaHT dev deployment runs out of
+  band. By default they cover the portal, indexer, ingester and deployment tasks
+  (``ecs.observability_roles``), not the initial deployment.
+
+  * **Falcon.** It takes its CID from that existing secret, with no AppConfig parameter or import.
+    The sensor image is this account's ``falcon-sensor`` repository pinned by
+    ``crowdstrike.sensor_image_digest``. The sidecar uses dev's copy-and-exit startup contract, and
+    the application container gets ``FALCONCTL_OPT_CID``.
+  * **Splunk.** An essential ``splunk-firelens`` router (pinned ``splunk.firelens_image``) is added,
+    and the application container logs through ``awsfirelens`` to ``splunk.hec_host:443``. TLS is
+    verified, the token comes from ``splunk.hec_token_secret_arn``, and ``splunk.event_index`` is
+    optional.
+  * **What changes.** Only task definitions change, with appends that preserve backend TLS. The
+    closed bootstrap stage stays closed. The AppConfig, IAM, logging and ECR templates are
+    unchanged.
+  * **Indexer sizing.** The blue/green indexer honours ``ecs.indexer.cpu``/``memory`` only once it
+    carries the sidecars.
+  * **Off.** With both features off, every template is byte-identical to before.
+
+  Malformed or missing inputs are errors. See ``deploy_srce.rst``.
+
 * ``iam.omit_dev_role`` -- when ``true``, the IAM stack omits the legacy human-access
   ``<App>DevRole`` (account-root trust) and its ``ECSDevUserRole`` output, which no stack imports.
   The ECS, autoscaling and flow-log roles, the instance profile and the S3 federator user are

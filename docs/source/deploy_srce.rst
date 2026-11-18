@@ -386,6 +386,150 @@ On the other resources:
 then force a new deployment: running tasks keep their certificate files. Track the backend
 certificate's expiry separately.
 
+CrowdStrike Falcon and Splunk (FireLens) sidecars
+-------------------------------------------------
+
+The SMaHT dev SRCE deployment runs the Falcon sensor and a FireLens log router to Splunk HEC on its
+portal, indexer, ingester and deployment tasks. Those task definitions were registered by hand
+outside CloudFormation. ``srce-ecs`` and ``srce-ecs-blue-green`` can now render the same shapes, so a
+deployment carries them in IaC and the next stack update does not drop them. Both features are off
+unless configured. With them off, every template is byte-identical to before. Example values only::
+
+    "crowdstrike.cid_secret_arn": "arn:aws:secretsmanager:us-east-1:111122223333:secret:<falcon-cid>-AbC123",
+    "crowdstrike.sensor_image_digest": "sha256:<64 hex digits of the image in this account's falcon-sensor repo>",
+    "crowdstrike.entrypoint": ["/tmp/CrowdStrike/rootfs/lib64/ld-linux-x86-64.so.2", "--library-path",
+                               "/tmp/CrowdStrike/rootfs/lib64", "/tmp/CrowdStrike/rootfs/bin/bash",
+                               "/tmp/CrowdStrike/rootfs/entrypoint-ecs.sh", "/home/nginx/smaht-portal/entrypoint.sh"],
+    "splunk.enabled": true,
+    "splunk.hec_host": "http-inputs.example.splunkcloud.com",
+    "splunk.hec_token_secret_arn": "arn:aws:secretsmanager:us-east-1:111122223333:secret:<hec-token>-DeF456",
+    "splunk.firelens_image": "<registry>/aws-for-fluent-bit@sha256:<64 hex digits>",
+    "ecs.indexer.cpu": 1024, "ecs.indexer.memory": 2048,
+    "ecs.ingester.cpu": 1024, "ecs.ingester.memory": 2048
+
+**Falcon** (on when ``crowdstrike.cid_secret_arn`` is set):
+
+* **CID source.** The CID comes from that existing secret. The ECS template declares no AppConfig
+  parameter and imports nothing from AppConfig.
+* **Do not set** ``crowdstrike.enabled`` **for this path.** That key only adds the Falcon credential
+  stubs to the AppConfig template and selects the older AppConfig-sourced wiring. Never re-deploy a
+  filled AppConfig stack to toggle Falcon.
+* **Sidecar.** ``falcon-container`` is non-essential and runs as ``0:0``. Its image is this
+  account's ``falcon-sensor`` ECR repository (the ``FalconSensorURL`` export), pinned by digest. Its
+  entrypoint copies the sensor runtime into the shared ``crowdstrike-falcon-volume``, then exits 0.
+* **Environment.** The sidecar gets ``FALCONCTL_OPT_FALCONCTL_CID`` from the secret. It gets
+  ``FALCONCTL_OPT_BACKEND`` only when ``crowdstrike.backend`` is set; dev sets no backend.
+* **Application container.** It mounts the volume read-only and is wrapped by
+  ``crowdstrike.entrypoint``. It receives ``FALCONCTL_OPT_CID`` from the same secret and depends on
+  the sidecar's ``SUCCESS``.
+
+**Splunk** (on when ``"splunk.enabled": true``, a strict boolean):
+
+* **Router sidecar.** ``splunk-firelens`` is essential, runs as ``0`` and reserves 128 CPU units
+  and 256 MiB. It runs ``fluentbit`` with ``enable-ecs-log-metadata`` and the image's default
+  parser, as in dev. As a result, multi-line tracebacks still arrive as one event per line.
+* **Application log driver.** The application container switches to ``awsfirelens``, sending to
+  ``<splunk.hec_host>:443`` with ``tls on``, ``tls.verify on`` and ``compress gzip``. TLS
+  verification cannot be turned off.
+* **Token and events.** The ``splunk_token`` comes from ``splunk.hec_token_secret_arn``. The
+  sourcetype is ``ecs:<app kind>:<role>_v1``, and the application container depends on the router's
+  ``START``.
+* **Index.** ``splunk.event_index`` adds an explicit ``event_index``. Dev sets none, so the token's
+  default index decides where events land.
+
+**Scope and what does not change.**
+
+* **Roles.** Sidecars go on the roles in ``ecs.observability_roles``, which defaults to
+  ``["portal", "indexer", "ingester", "deployment"]``. Add ``"initial-deployment"`` to include it.
+  By default the initial-deployment task is untouched, as in dev.
+* **Container changes are additive.** Changes to containers only append. The portal keeps its
+  backend TLS secrets, environment and single 8443 port mapping alongside the Falcon secret and
+  both dependencies.
+* **Only task definitions change.** The change touches task definitions only. It adds no
+  parameter, output, secret, log group or other resource. The AppConfig, IAM, logging and ECR
+  templates render identically.
+* **The closed stage stays closed.** It keeps 22 resources, no services, no listeners and no ALB
+  ingress. The rendered change is a new revision of the eight in-scope task definitions, which
+  CloudFormation shows as ``Modify`` with replacement.
+
+**Validation.** These are errors at build time:
+
+* a secret ARN that is not a complete ARN (with its 6-character suffix);
+* a digest that is not ``sha256:`` plus 64 hex digits, or a FireLens image that is not pinned by
+  ``@sha256:``;
+* a HEC host with a scheme, port or path;
+* a non-boolean ``splunk.enabled``;
+* an unknown role;
+* ``splunk.enabled`` together with the older AppConfig-sourced Falcon wiring.
+
+Inputs for a feature that is off are ignored.
+
+**Warnings before enabling.**
+
+* **Fargate sizing.** Each task's ``cpu``/``memory`` must be a valid Fargate pair (for example
+  1024/2048), with room for the application, the sensor and FireLens's 256 MiB reservation. The
+  default indexer is 256/512 and the default ingester 512/1024; dev runs both at 1024/2048. The
+  blue/green indexer honours ``ecs.indexer.cpu``/``ecs.indexer.memory`` only once it carries these
+  sidecars. Before that, as before, it stays at 256/512.
+* **Account, region and images.**
+
+  * **Sensor image.** It is resolved from this account's and region's ECR stack. Push the image
+    there with ``scanOnPush`` on, and pin that digest.
+  * **Sensor contract.** The sidecar's copy step assumes the image contains
+    ``/entrypoint-ecs.sh``, ``/bin``, ``/etc``, ``/lib64`` and ``/usr``, and that it exits 0 once
+    the copy is done. That was verified on the dev sensor image only. Before pinning a different
+    sensor image, re-check its layout offline, for example by listing the image's files; this
+    needs no task run.
+  * **FireLens image.** It is referenced verbatim. A ``public.ecr.aws`` image needs outbound
+    access to that registry. Otherwise mirror it into this account's ECR and pin the mirror's
+    digest. The shared role's ECR pull grant covers a same-account repository.
+* **Egress.** From the application VPC's private subnets the tasks must reach these through the
+  institution's inspection path:
+
+  * the HEC host on 443;
+  * the CrowdStrike cloud;
+  * the FireLens image registry, unless it is mirrored.
+
+  Firewall rules can be keyed by source CIDR, so confirm the deployment's own CIDRs with IT; dev
+  working is not evidence for prod.
+* **Log retention.** Application logs go to Splunk only. CloudWatch no longer receives a copy, so
+  retention is Splunk's. The sidecars' own logs go to the stack's existing application log group
+  (per colour), with that group's retention. Dev's separate ``/ecs/falcon-sensor`` and
+  ``/ecs/splunk-firelens`` groups are not used.
+* **Shared execution role.** Both secrets are read by the shared ECS role. That role is both task
+  role and execution role, and its existing ``secretsmanager:GetSecretValue`` grant on ``*``
+  already covers them, so IAM is unchanged. It also means every task can read the HEC token, the
+  CID and the backend TLS key. A customer-managed KMS key needs ``kms:Decrypt``. Narrowing the
+  grant is separate IAM work.
+* **Failure mode.** FireLens is essential. If it cannot start or exits, the task stops. The
+  application waits for the Falcon sidecar's ``SUCCESS``, so a sensor image that fails its copy
+  step keeps the task from starting.
+
+**Rollout prerequisites.** Each is a deployment input or approval outside this repository:
+
+#. **The CID secret and the HEC token secret.** Their owners create them in the deployment account.
+   Use a deployment-specific HEC token, or a shared token with ``splunk.event_index``. Workers
+   never copy either value.
+#. **The sensor image.** The chosen sensor image is in this account's ``falcon-sensor`` repository,
+   and its digest is recorded.
+#. **The FireLens image.** It is mirrored and its digest recorded, or egress to its registry is
+   confirmed.
+#. **IT egress confirmation** for the deployment's private-subnet CIDRs: the HEC host on 443, the
+   CrowdStrike cloud and, if not mirrored, the image registry.
+#. **Config and render.** Add the keys above, keeping ``ecs.bootstrap_closed`` as it is. Render
+   offline (``cli provision srce-ecs-blue-green --stdout``) and confirm that only task definitions
+   differ.
+#. **Change set review.** Upload with ``--no-execute-changeset``. Confirm the change set holds only
+   the task definition modifications, then execute it under its own explicit approval.
+#. **First runtime check.** It belongs to the gated normal-stage rollout that starts the services.
+   Check that the sensor exits 0, the portal reaches ``/health``, a Falcon host appears for the
+   CrowdStrike owner, and events arrive in Splunk with the expected sourcetype and index. Do not
+   run a deployment or initial-deployment task as a smoke test: those tasks migrate data.
+
+**Rollback.** Remove ``crowdstrike.cid_secret_arn`` and/or set ``splunk.enabled`` to ``false``, then
+update the stack. The new revisions match the original task definitions, and the services pick them
+up on their next deployment.
+
 Sentieon license server
 ------------------------
 

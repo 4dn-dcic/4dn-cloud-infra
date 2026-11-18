@@ -111,6 +111,9 @@ class C4ECSApplication(C4Part):
     # runs to completion). If the sensor image ever runs persistently this must revisit COMPLETE,
     # else wrapped tasks would deadlock in PENDING -- see docs/source/crowdstrike.rst.
     FALCON_SIDECAR_DEPENDS_CONDITION = 'SUCCESS'
+    # Role name of the initial-deployment task (its container's application_type is 'deployment'), so
+    # a sidecar hook can scope it separately from the regular deployment task.
+    INITIAL_DEPLOYMENT_ROLE = 'initial-deployment'
 
     AMI = 'ami-0be13a99cd970f6a9'  # latest amazon linux 2 ECS optimized
     LB_NAME = 'AppLB'
@@ -306,7 +309,7 @@ class C4ECSApplication(C4Part):
         )
 
     def _crowdstrike_task_kwargs(self, app_container: ContainerDefinition,
-                                 sidecar_stream_prefix, log_group_export=None) -> dict:
+                                 sidecar_stream_prefix, log_group_export=None, role=None) -> dict:
         """ Return the TaskDefinition ContainerDefinitions/Volumes kwargs for an application task,
             wrapping it with the CrowdStrike sidecar when enabled and otherwise leaving it exactly
             as before (single container, no Volumes key). Mutates app_container in place to add the
@@ -315,6 +318,9 @@ class C4ECSApplication(C4Part):
             :param app_container: the primary application ContainerDefinition (already built)
             :param sidecar_stream_prefix: awslogs stream prefix for the sidecar's own log stream
             :param log_group_export: log-group export to use (threaded through for blue/green)
+            :param role: the task's role (portal, indexer, ingester, deployment or initial-deployment).
+                         Unused here, where every task is wrapped; the SRCE observability path
+                         (SRCEObservabilityMixin) scopes its sidecars by it.
         """
         if not self.crowdstrike_enabled():
             return {'ContainerDefinitions': [app_container]}
@@ -659,6 +665,7 @@ class C4ECSApplication(C4Part):
                     ]
                 )),
                 sidecar_stream_prefix=f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-portal-falcon',
+                role=C4ECSApplicationTypes.PORTAL,
             ),
             Tags=self.tags.cost_tag_obj(),
         )
@@ -757,6 +764,7 @@ class C4ECSApplication(C4Part):
                     ]
                 ),
                 sidecar_stream_prefix=f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-indexer-falcon',
+                role=C4ECSApplicationTypes.INDEXER,
             ),
             Tags=self.tags.cost_tag_obj()
         )
@@ -901,6 +909,7 @@ class C4ECSApplication(C4Part):
                     ]
                 ),
                 sidecar_stream_prefix=f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-ingester-falcon',
+                role=C4ECSApplicationTypes.INGESTER,
             ),
             Tags=self.tags.cost_tag_obj()
         )
@@ -1053,6 +1062,7 @@ class C4ECSApplication(C4Part):
                 sidecar_stream_prefix=(
                     f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-initial-deployment-falcon' if initial
                     else f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-deployment-falcon'),
+                role=self.INITIAL_DEPLOYMENT_ROLE if initial else C4ECSApplicationTypes.DEPLOYMENT,
             ),
             Tags=self.tags.cost_tag_obj()
         )

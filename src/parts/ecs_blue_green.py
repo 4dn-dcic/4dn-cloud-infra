@@ -273,6 +273,7 @@ class ECSBlueGreen(C4ECSApplication):
                 # color-distinct sidecar stream + same blue/green log group as the app container
                 sidecar_stream_prefix=f'{APP_KIND}-portal{image_tag}-falcon',
                 log_group_export=log_group_export,
+                role=ApplicationTypes.PORTAL,
             ),
             Tags=self.tags.cost_tag_obj(),
         )
@@ -381,6 +382,7 @@ class ECSBlueGreen(C4ECSApplication):
                 ),
                 sidecar_stream_prefix=f'{APP_KIND}-indexer{image_tag}-falcon',
                 log_group_export=log_group_export,
+                role=ApplicationTypes.INDEXER,
             ),
             Tags=self.tags.cost_tag_obj()
         )
@@ -475,6 +477,7 @@ class ECSBlueGreen(C4ECSApplication):
                 ),
                 sidecar_stream_prefix=f'{APP_KIND}-ingester{image_tag}-falcon',
                 log_group_export=log_group_export,
+                role=ApplicationTypes.INGESTER,
             ),
             Tags=self.tags.cost_tag_obj()
         )
@@ -590,6 +593,7 @@ class ECSBlueGreen(C4ECSApplication):
                     f'{APP_KIND}-initial-deployment{image_tag}-falcon' if initial
                     else f'{APP_KIND}-deployment{image_tag}-falcon'),
                 log_group_export=log_group_export,
+                role=self.INITIAL_DEPLOYMENT_ROLE if initial else ApplicationTypes.DEPLOYMENT,
             ),
             Tags=self.tags.cost_tag_obj()
         )
