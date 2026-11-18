@@ -4,10 +4,11 @@ from ..base import ConfigManager
 from ..constants import Settings
 from .ecs_blue_green import ECSBlueGreen
 from .network import C4NetworkExports
+from .srce_backend_tls import SRCEBackendTLSMixin
 from .srce_network import SRCENetworkMixin
 
 
-class SRCEECSBlueGreen(SRCENetworkMixin, ECSBlueGreen):
+class SRCEECSBlueGreen(SRCEBackendTLSMixin, SRCENetworkMixin, ECSBlueGreen):
     """
     SRCE variant of ECSBlueGreen. Deploys a blue/green ECS configuration inside an
     IT-provided VPC.
@@ -16,7 +17,7 @@ class SRCEECSBlueGreen(SRCENetworkMixin, ECSBlueGreen):
     config-driven container security group CIDR) lives in SRCENetworkMixin, shared with
     C4SRCEECSApplication. All blue/green cluster, task, service, load balancer, and alarm
     logic is inherited from ECSBlueGreen unchanged, except for the opt-in closed bootstrap
-    stage (ecs.bootstrap_closed) below.
+    stage (ecs.bootstrap_closed) below and the opt-in backend TLS of SRCEBackendTLSMixin.
     """
     STACK_NAME_TOKEN = 'srce-ecs-blue-green'
     STACK_TITLE_TOKEN = 'SRCEEcsBlueGreen'

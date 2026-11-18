@@ -436,6 +436,56 @@ class C4ECSApplication(C4Part):
     # Modern TLS policy (TLS 1.2/1.3) for the HTTPS listener.
     LB_SSL_POLICY = 'ELBSecurityPolicy-TLS13-1-2-2021-06'
 
+    # --- Backend (ALB -> portal) TLS ------------------------------------------------------------
+    # Off here, so every non-SRCE template is unchanged; the SRCE classes resolve it from config
+    # (SRCEBackendTLSMixin). When on, the portal container's nginx serves HTTPS on this fixed port
+    # (the SMaHT image's contract) and the ALB reaches it through an HTTPS target group.
+    BACKEND_TLS_PORT = 8443
+    BACKEND_TLS_ENABLED_ENV_NAME = 'NGINX_TLS_ENABLED'
+    BACKEND_TLS_SECRET_KEYS = ('NGINX_SSL_CERTIFICATE', 'NGINX_SSL_CERTIFICATE_KEY')
+    # Appended to the portal target group's name and logical id in TLS mode: a target group's protocol
+    # cannot change in place, and it has a custom physical name, so the HTTPS group is a new resource.
+    BACKEND_TLS_TARGET_GROUP_SUFFIX = 'Https'
+
+    def bootstrap_closed(self) -> bool:
+        """ Closed bootstrap stage (no listeners or services). Only SRCEECSBlueGreen supports it. """
+        return False
+
+    def backend_tls_enabled(self) -> bool:
+        """ Whether the ALB -> portal hop is HTTPS. Always False here; see SRCEBackendTLSMixin. """
+        return False
+
+    def backend_tls_secret_arn(self):
+        """ The backend certificate/key secret ARN; only consulted when backend TLS is enabled. """
+        return None
+
+    def portal_container_port(self):
+        """ The portal container port the ALB targets: the fixed TLS port, or the WebWorkerPort parameter. """
+        if self.backend_tls_enabled():
+            return self.BACKEND_TLS_PORT
+        return Ref(self.ecs_web_worker_port())
+
+    def with_backend_tls(self, portal_container: ContainerDefinition) -> ContainerDefinition:
+        """ Give the portal application container the backend TLS contract when it is enabled, and leave
+            it untouched otherwise. Called for the portal container only (never indexer, ingester,
+            deployment or a sidecar), before any CrowdStrike wrapping:
+              * NGINX_TLS_ENABLED=true (the image's exact, case-sensitive switch);
+              * NGINX_SSL_CERTIFICATE / NGINX_SSL_CERTIFICATE_KEY injected by ECS from the secret's JSON
+                keys (current version) through the execution role -- never a plain environment value;
+              * a single port mapping on BACKEND_TLS_PORT (the image closes the plaintext port).
+        """
+        if not self.backend_tls_enabled():
+            return portal_container
+        secret_arn = self.backend_tls_secret_arn()
+        portal_container.Environment = list(getattr(portal_container, 'Environment', None) or []) + [
+            Environment(Name=self.BACKEND_TLS_ENABLED_ENV_NAME, Value='true'),
+        ]
+        portal_container.Secrets = list(getattr(portal_container, 'Secrets', None) or []) + [
+            Secret(Name=key, ValueFrom=f'{secret_arn}:{key}::') for key in self.BACKEND_TLS_SECRET_KEYS
+        ]
+        portal_container.PortMappings = [PortMapping(ContainerPort=self.BACKEND_TLS_PORT)]
+        return portal_container
+
     def lb_certificate_arn(self):
         """ ACM certificate ARN for the portal ALB, from config (ecs.lb_certificate_arn). When
             present, HTTPS is enabled on the ALB (SEC-5). """
@@ -529,19 +579,25 @@ class C4ECSApplication(C4Part):
         )
 
     def _lbv2_target_group(self, name):
+        """ Every portal target group (and every Ref to one) is built here, so in backend TLS mode the
+            HTTPS group's distinct name/logical id is used consistently by listeners and services. """
+        protocol = 'HTTP'
+        if self.backend_tls_enabled():
+            name = f'{name}{self.BACKEND_TLS_TARGET_GROUP_SUFFIX}'
+            protocol = 'HTTPS'  # the ALB does not validate the target's certificate
         logical_id = self.name.logical_id(name)
         return elbv2.TargetGroup(
             logical_id,
             HealthCheckIntervalSeconds=60,
             HealthCheckPath='/health?format=json',
-            HealthCheckProtocol='HTTP',
+            HealthCheckProtocol=protocol,
             HealthCheckTimeoutSeconds=10,
             Matcher=elbv2.Matcher(HttpCode='200'),
             Name=name,
-            Port=Ref(self.ecs_web_worker_port()),
+            Port=self.portal_container_port(),
             TargetType='ip',
             TargetGroupAttributes=self.ecs_target_group_stickiness_options(),
-            Protocol='HTTP',
+            Protocol=protocol,
             VpcId=self.NETWORK_EXPORTS.import_value(C4NetworkExports.VPC),
             Tags=self.tags.cost_tag_array()
         )
@@ -569,7 +625,7 @@ class C4ECSApplication(C4Part):
             ExecutionRoleArn=self.IAM_EXPORTS.import_value(C4IAMExports.ECS_ASSUMED_IAM_ROLE),
             NetworkMode='awsvpc',  # required for Fargate
             **self._crowdstrike_task_kwargs(
-                ContainerDefinition(
+                self.with_backend_tls(ContainerDefinition(
                     Name='portal',
                     Essential=True,
                     Image=Join("", [
@@ -601,7 +657,7 @@ class C4ECSApplication(C4Part):
                             Value=C4ECSApplicationTypes.PORTAL
                         ),
                     ]
-                ),
+                )),
                 sidecar_stream_prefix=f'{ConfigManager.get_config_setting(Settings.APP_KIND)}-portal-falcon',
             ),
             Tags=self.tags.cost_tag_obj(),
@@ -624,7 +680,7 @@ class C4ECSApplication(C4Part):
             LoadBalancers=[
                 LoadBalancer(
                     ContainerName='portal',  # this must match Name in TaskDefinition (ContainerDefinition)
-                    ContainerPort=Ref(self.ecs_web_worker_port()),
+                    ContainerPort=self.portal_container_port(),
                     TargetGroupArn=Ref(self.ecs_lbv2_target_group(name=self.TARGET_GROUP_NAME)))
             ],
             # Run portal service on Fargate Spot
