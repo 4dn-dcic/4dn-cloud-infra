@@ -164,6 +164,25 @@ class Settings:
     CROWDSTRIKE_SENSOR_IMAGE_TAG = 'crowdstrike.sensor_image_tag'  # default latest
     CROWDSTRIKE_BACKEND = 'crowdstrike.backend'                    # FALCONCTL_OPT_BACKEND, default bpf
 
+    # SRCE ECS observability parity (SRCEObservabilityMixin; docs/source/crowdstrike.rst). Off unless set,
+    # and read only by the SRCE ECS stacks, so every other template is unchanged.
+    # An existing Secrets Manager secret holding the Falcon CID. Setting it turns on the Falcon sidecar
+    # with the dev-verified startup contract, sourcing the CID from this ARN rather than the AppConfig
+    # export -- so it needs neither crowdstrike.enabled nor the AppConfig stack.
+    CROWDSTRIKE_CID_SECRET_ARN = 'crowdstrike.cid_secret_arn'
+    # Required with crowdstrike.cid_secret_arn: the sensor image digest (sha256:...) in this account's
+    # falcon-sensor ECR repository (the ECR stack's FalconSensorURL export). Replaces the moving tag.
+    CROWDSTRIKE_SENSOR_IMAGE_DIGEST = 'crowdstrike.sensor_image_digest'
+    # FireLens (Fluent Bit) sidecar shipping the application containers' logs to a Splunk HEC endpoint.
+    SPLUNK_ENABLED = 'splunk.enabled'                              # strict bool, default false
+    SPLUNK_HEC_HOST = 'splunk.hec_host'                            # HEC hostname; HTTPS on 443, verified
+    SPLUNK_HEC_TOKEN_SECRET_ARN = 'splunk.hec_token_secret_arn'    # existing secret holding the HEC token
+    SPLUNK_EVENT_INDEX = 'splunk.event_index'                      # optional; unset = the token's default index
+    SPLUNK_FIRELENS_IMAGE = 'splunk.firelens_image'                # aws-for-fluent-bit image, pinned @sha256
+    # Task roles the parity sidecars are added to: a list from portal, indexer, ingester, deployment and
+    # initial-deployment. Default: every role except initial-deployment (dev's active workloads).
+    ECS_OBSERVABILITY_ROLES = 'ecs.observability_roles'
+
     # Fourfront Specific Options
     FOURFRONT_VPC = 'fourfront.vpc'
     FOURFRONT_VPC_CIDR = 'fourfront.vpc.cidr'

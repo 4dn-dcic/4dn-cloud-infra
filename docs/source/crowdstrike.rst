@@ -11,6 +11,19 @@ inherit, and it is **off unless ``crowdstrike.enabled`` is set**, so the existin
 templates do not move. The fixed Fourfront ECS stack (``src/parts/fourfront_ecs.py``) is not wired
 for the sidecar at all and is unchanged from ``origin/master``.
 
+.. note::
+
+   The SRCE ECS stacks (``srce-ecs`` and ``srce-ecs-blue-green``) also have an **explicit-secret
+   path**, on when ``crowdstrike.cid_secret_arn`` is set instead of ``crowdstrike.enabled``:
+
+   * the CID is read from an existing secret, not from AppConfig;
+   * the sensor image is pinned by digest;
+   * the sidecar startup contract is the one the SMaHT dev deployment verified;
+   * an optional Splunk FireLens sidecar can be added.
+
+   See "CrowdStrike Falcon and Splunk (FireLens) sidecars" in :doc:`deploy_srce`. The rest of this
+   page describes the ``crowdstrike.enabled`` path, which is unchanged.
+
 The ECS stacks can optionally attach the **CrowdStrike Falcon container sensor** to every ECS task
 (portal, indexer, ingester, and deployment tasks) as a *sidecar*, following the vendor's
 container-sensor pattern for Fargate. The feature is **off by default**: unless
@@ -90,7 +103,9 @@ flag:
    in particular — the indexer (defaults ``256``/``512``) and ingester — will likely need
    ``ecs.indexer.cpu``/``ecs.indexer.memory`` (and the ingester pair) raised before enabling
    CrowdStrike. The defaults are intentionally left unchanged so non-CrowdStrike deployments are
-   unaffected.
+   unaffected. The blue/green indexer task ignores ``ecs.indexer.cpu``/``ecs.indexer.memory`` and stays
+   at 256/512. The one exception is the SRCE explicit-secret path covering the indexer, where the
+   settings are honoured.
 
 Verification and rollback
 -------------------------
