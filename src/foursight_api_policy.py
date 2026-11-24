@@ -31,7 +31,7 @@ class FoursightApiSourceCidrsError(ValueError):
     pass
 
 
-def _entries(value):
+def _entries(value, key=Settings.FOURSIGHT_API_SOURCE_CIDRS):
     """ Accept a list, its Python repr / JSON form (how config.json lists reach us, see CLN-10 in
         src/base.py), or a comma-separated string. """
     if isinstance(value, (list, tuple)):
@@ -41,13 +41,14 @@ def _entries(value):
         try:
             return [str(v).strip() for v in json.loads(text.replace("'", '"'))]
         except json.JSONDecodeError:
-            raise FoursightApiSourceCidrsError(
-                f"{Settings.FOURSIGHT_API_SOURCE_CIDRS} is not a valid list of CIDRs: {text!r}")
+            raise FoursightApiSourceCidrsError(f"{key} is not a valid list of CIDRs: {text!r}")
     return [s.strip() for s in text.split(',')]
 
 
-def parse_source_cidrs(value):
-    """ Validate a configured ``foursight.api_source_cidrs`` value.
+def parse_source_cidrs(value, key=Settings.FOURSIGHT_API_SOURCE_CIDRS):
+    """ Validate a configured ``foursight.api_source_cidrs`` value (or, with ``key``, another setting
+        holding public source CIDRs -- e.g. ``ecs.staging_canary_source_cidrs``, where an internet-facing
+        ALB's security group likewise sees the caller's public egress address).
 
         Returns ``None`` when the setting is absent (no restriction, unchanged behavior), otherwise a
         de-duplicated list of normalized IPv4/IPv6 CIDRs. Raises on anything that is empty, malformed,
@@ -55,12 +56,12 @@ def parse_source_cidrs(value):
     """
     if value is None:
         return None
-    key = Settings.FOURSIGHT_API_SOURCE_CIDRS
-    entries = _entries(value)
+    entries = _entries(value, key)
     if not entries or any(not e for e in entries):
+        hint = (' to leave the Foursight API unrestricted' if key == Settings.FOURSIGHT_API_SOURCE_CIDRS else '')
         raise FoursightApiSourceCidrsError(
             f"{key} is set but has an empty entry: {value!r}. List at least one CIDR, or remove the"
-            f" setting to leave the Foursight API unrestricted.")
+            f" setting{hint}.")
     cidrs = []
     for entry in entries:
         try:
@@ -73,8 +74,8 @@ def parse_source_cidrs(value):
         if (network.is_multicast or network.is_unspecified
                 or any(network.version == n.version and network.overlaps(n) for n in _NON_PUBLIC_NETWORKS)):
             raise FoursightApiSourceCidrsError(
-                f"{key} entry {entry!r} is not a public address range; API Gateway compares"
-                f" aws:SourceIp with the caller's public egress address, so it could never match.")
+                f"{key} entry {entry!r} is not a public address range; the caller's public egress"
+                f" address is what is compared, so it could never match.")
         if str(network) not in cidrs:
             cidrs.append(str(network))
     return cidrs

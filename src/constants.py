@@ -67,6 +67,14 @@ class Settings:
     # start tasks. Strict boolean; unset/false keeps the normal stack. See docs/source/deploy_srce.rst.
     ECS_BOOTSTRAP_CLOSED = 'ecs.bootstrap_closed'
 
+    # SRCE blue/green only: the staging-first canary. Strict boolean; true opens blue (staging) alone,
+    # with explicit minimal service counts, while green (data) stays closed, and admits the ALB only
+    # from exactly one source: a managed prefix list id (e.g. the institution's VPN egress list) or a
+    # list of public CIDRs. Unset/false keeps the closed or normal stack. See docs/source/deploy_srce.rst.
+    ECS_STAGING_CANARY = 'ecs.staging_canary'
+    ECS_STAGING_CANARY_SOURCE_PREFIX_LIST = 'ecs.staging_canary_source_prefix_list'
+    ECS_STAGING_CANARY_SOURCE_CIDRS = 'ecs.staging_canary_source_cidrs'
+
     # SRCE + SMaHT portal only: re-encrypt the ALB -> portal hop. ecs.backend_tls_secret_arn is the
     # complete ARN (with AWS's 6-character suffix) of an existing Secrets Manager JSON secret holding
     # NGINX_SSL_CERTIFICATE and NGINX_SSL_CERTIFICATE_KEY. Backend TLS is on by default when that

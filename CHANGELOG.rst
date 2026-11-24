@@ -194,6 +194,17 @@ Optional TLS listener and CrowdStrike Falcon sidecar (both off by default)
 
   Malformed or missing inputs are errors. See ``deploy_srce.rst``.
 
+* ``ecs.staging_canary`` (``srce-ecs-blue-green`` only) -- a staging-first, source-restricted opening.
+  Blue (staging) gets its HTTPS:443 and HTTP:80-redirect listeners and its portal, indexer and
+  ingester services at an explicit count of 1 each. Green (data) keeps no service and no listener.
+  The shared ALB security group admits 443/80 only from exactly one source:
+  ``ecs.staging_canary_source_prefix_list`` (a managed prefix list id, for example the institution's
+  VPN egress list) or ``ecs.staging_canary_source_cidrs`` (public CIDRs, validated like
+  ``foursight.api_source_cidrs``). Task definitions, backend TLS and the sidecars are unchanged, and
+  entering it from the closed stage replaces nothing. Combining it with ``ecs.bootstrap_closed:
+  true``, a missing certificate or source, an invalid source, count overrides, or a source left set
+  while the canary is off are all errors. Unset or ``false`` renders every template unchanged.
+
 * ``iam.omit_dev_role`` -- when ``true``, the IAM stack omits the legacy human-access
   ``<App>DevRole`` (account-root trust) and its ``ECSDevUserRole`` output, which no stack imports.
   The ECS, autoscaling and flow-log roles, the instance profile and the S3 federator user are

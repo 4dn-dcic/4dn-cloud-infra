@@ -80,6 +80,9 @@ Other relevant keys:
   operator DNS names (the generated ALB DNS name itself is not covered by a custom certificate).
 * ``ecs.bootstrap_closed`` (``srce-ecs-blue-green`` only) — creates the closed bootstrap stage; see
   "Closed ECS bootstrap stage" below. Unset or ``false`` is the normal stack.
+* ``ecs.staging_canary`` with ``ecs.staging_canary_source_prefix_list`` or
+  ``ecs.staging_canary_source_cidrs`` (``srce-ecs-blue-green`` only) — opens blue (staging) alone, to
+  one restricted source; see "Staging canary" below. Unset or ``false`` changes nothing.
 * ``ecs.backend_tls_secret_arn`` / ``ecs.backend_tls`` (``srce-ecs`` and ``srce-ecs-blue-green``,
   SMaHT only) — re-encrypt the ALB-to-portal hop. On by default when the secret ARN and
   ``ecs.lb_certificate_arn`` are both set; see "Backend (ALB to portal) TLS" below.
@@ -300,6 +303,44 @@ definitions and the four indexer-queue alarms (22 resources).
 * **Validation.** The value must be a boolean (``true``/``false``, any case). Anything else, for
   example ``yes`` or ``1``, is an error rather than silently producing the open stack. The shared
   blue/green class used by the other deployments ignores the setting.
+
+Staging canary
+--------------
+
+Between the closed stage and the normal stack, ``srce-ecs-blue-green`` can open the staging colour
+alone, reachable only from a named source::
+
+    "ecs.bootstrap_closed": false,
+    "ecs.staging_canary": true,
+    "ecs.staging_canary_source_prefix_list": "pl-0123456789abcdef0"
+
+* **Blue (staging) only.** Blue gets its HTTPS:443 listener (``ecs.lb_certificate_arn`` is required)
+  and HTTP:80 redirect, and its portal, indexer and ingester services. Each runs an explicit
+  ``DesiredCount`` of 1, with the capacity-provider base following it. These counts are fixed:
+  ``ecs.wsgi.count``, ``ecs.indexer.count`` and ``ecs.ingester.count`` are rejected while the canary is
+  on.
+* **Green (data) stays closed.** It has no service and no listener, so its ALB accepts no connection
+  even though it shares the ALB security group.
+* **No public ingress.** The ALB security group admits 443 and 80 only from exactly one source:
+
+  * ``ecs.staging_canary_source_prefix_list``: a managed prefix list id, for example the VPN egress
+    list an institution's network team shares into the account. Its owner maintains the entries.
+    Check that the list is visible in the account and holds the expected ranges before you use it.
+  * ``ecs.staging_canary_source_cidrs``: public CIDRs, validated exactly like
+    ``foursight.api_source_cidrs``. An internet-facing ALB sees the caller's public egress address,
+    so private ranges are rejected.
+
+  Both set, neither set, a malformed id or an invalid CIDR (including ``0.0.0.0/0``) is an error.
+* **Nothing else changes.** Task definitions, backend TLS and the Falcon/Splunk sidecars are
+  unchanged. From the closed stage, the change set should show exactly the two blue listeners and
+  the three blue services as Add, and the ALB security group's ingress as an in-place Modify. It
+  should show no replacement.
+* **Guard rails.** The canary needs ``ecs.bootstrap_closed`` to be false, because it is a partial
+  opening. A canary source left configured while the canary is off is an error: otherwise the
+  normal stack would admit ``0.0.0.0/0`` while the config reads as restricted. Move on to the normal
+  stack by removing all three keys.
+* **Outputs.** Both ``ECSApplicationURL…`` outputs carry ``https://``, as in the normal stack.
+  Green's URL serves nothing until it is opened.
 
 Backend (ALB to portal) TLS
 ---------------------------
