@@ -205,6 +205,15 @@ Optional TLS listener and CrowdStrike Falcon sidecar (both off by default)
   true``, a missing certificate or source, an invalid source, count overrides, or a source left set
   while the canary is off are all errors. Unset or ``false`` renders every template unchanged.
 
+* ``datastore.tibanna_tiger_env`` (``srce-datastore`` only) -- grants the seven roles that
+  ``tibanna_smaht deploy_tiger -e <env>`` creates (``tibanna_tiger_<env>_{for_ec2, states, run_task,
+  check_task, start_run, update_ffmeta, update_cost}``) use of the S3 encryption key, as one appended key-policy
+  statement with ``aws:PrincipalArn`` ``ArnEquals`` on their exact ARNs and the actions of
+  ``Allow use of the key``. This replaces deploy_tiger's own ``PutKeyPolicy`` rewrite of the
+  CloudFormation-managed key, which is out-of-band drift. Existing statements are unchanged and nothing else in
+  the stack changes. An invalid env, or one whose role names would exceed 64 characters, is an error. Unset keeps
+  the template byte-identical.
+
 * ``iam.omit_dev_role`` -- when ``true``, the IAM stack omits the legacy human-access
   ``<App>DevRole`` (account-root trust) and its ``ECSDevUserRole`` output, which no stack imports.
   The ECS, autoscaling and flow-log roles, the instance profile and the S3 federator user are

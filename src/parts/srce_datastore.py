@@ -1,3 +1,5 @@
+import re
+
 from awacs.aws import Action, PolicyDocument, Principal, Statement
 from troposphere import AccountId, GetAtt, Join, Output, Template
 from troposphere.iam import Policy, Role
@@ -78,7 +80,42 @@ class C4SRCEDatastore(C4SRCEDatastoreBase, C4Datastore):
             'Resource': '*',
             'Condition': {'ArnEquals': {'aws:PrincipalArn': self.s3_upload_role_arn()}},
         })
+        tibanna_roles = self.tibanna_tiger_role_arns()
+        if tibanna_roles:
+            # Appended last, so every existing statement keeps its position and content.
+            key.KeyPolicy['Statement'].append({
+                'Sid': 'Allow Tibanna tiger roles to use the key',
+                'Effect': 'Allow',
+                'Principal': {'AWS': '*'},
+                'Action': list(self.TIBANNA_KEY_ACTIONS),
+                'Resource': '*',
+                'Condition': {'ArnEquals': {'aws:PrincipalArn': tibanna_roles}},
+            })
         return key
+
+    #: The roles tibanna_smaht's deploy_tiger creates for env E (tibanna/iam_utils.py role_types/role_suffix with
+    #: tibanna_smaht's tiger lambda names): tibanna_tiger_E_<suffix>. These are exactly the role ARNs deploy_tiger
+    #: would otherwise append to the 'Allow use of the key' statement with PutKeyPolicy.
+    TIBANNA_TIGER_ROLE_SUFFIXES = ('for_ec2', 'states', 'run_task', 'check_task', 'start_run', 'update_ffmeta',
+                                   'update_cost')
+    #: The actions of the 'Allow use of the key' statement those roles would have joined.
+    TIBANNA_KEY_ACTIONS = ('kms:Encrypt', 'kms:Decrypt', 'kms:ReEncrypt*', 'kms:GenerateDataKey*', 'kms:DescribeKey')
+    _TIBANNA_ENV = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_+=,.@-]*$')
+
+    def tibanna_tiger_role_arns(self):
+        """ datastore.tibanna_tiger_env -> the exact ARNs of that env's seven tibanna_tiger roles, or None when unset.
+            Exact ARNs (ArnEquals), not a wildcard, so no other role -- including another Tibanna env's -- matches;
+            the roles need not exist yet (aws:PrincipalArn is a condition, not a principal KMS must resolve). """
+        env = ConfigManager.get_config_setting(Settings.DATASTORE_TIBANNA_TIGER_ENV, default=None)
+        if env is None:
+            return None
+        env = str(env).strip()
+        longest = f'tibanna_tiger_{env}_update_ffmeta'
+        if not self._TIBANNA_ENV.match(env) or len(longest) > 64:
+            raise ValueError(f'{Settings.DATASTORE_TIBANNA_TIGER_ENV} must be an IAM-name-safe env such that'
+                             f' {longest!r} fits the 64-character role name limit, not {env!r}')
+        return [Join('', ['arn:aws:iam::', AccountId, f':role/tibanna_tiger_{env}_{suffix}'])
+                for suffix in self.TIBANNA_TIGER_ROLE_SUFFIXES]
 
     def s3_upload_role(self) -> Role:
         env_name = ConfigManager.get_config_setting(Settings.ENV_NAME)
