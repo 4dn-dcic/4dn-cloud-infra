@@ -42,6 +42,12 @@ class ECSBlueGreen(C4ECSApplication):
             ecs.bootstrap_closed. """
         return False
 
+    def colour_closed(self, colour: str) -> bool:
+        """ Whether one colour (DeploymentParadigm.BLUE/GREEN) gets no services and no listeners. Here
+            simply bootstrap_closed() for both colours, so every non-SRCE template is unchanged;
+            SRCEECSBlueGreen's staging canary opens blue alone. """
+        return self.bootstrap_closed()
+
     def build_template(self, template: Template) -> Template:
         """ Builds the template containing two ECS environments. """
         if APP_DEPLOYMENT != DeploymentParadigm.BLUE_GREEN:
@@ -114,8 +120,8 @@ class ECSBlueGreen(C4ECSApplication):
         }
         # Closed bootstrap stage: task definitions are still registered (inert; nothing schedules them),
         # but no ECS service -- the only thing in this template that starts tasks -- and no listener.
-        closed = self.bootstrap_closed()
         for tag, (cluster, target_group, identity, log_export) in tags.items():
+            closed = self.colour_closed(tag)
             # Portal task/service
             portal_task = self.ecs_portal_task(image_tag=tag, log_group_export=log_export, identity=identity)
             template.add_resource(portal_task)
@@ -156,7 +162,7 @@ class ECSBlueGreen(C4ECSApplication):
         template.add_resource(green_lb)
         for color, target_group, lb in [(DeploymentParadigm.BLUE, target_group_blue, blue_lb),
                                         (DeploymentParadigm.GREEN, target_group_green, green_lb)]:
-            if closed:
+            if self.colour_closed(color):
                 continue  # no listener: the ALB accepts no connection at all
             for listener in self.ecs_lb_listeners(target_group, deployment_type=color, lb_ref=Ref(lb)):
                 template.add_resource(listener)
