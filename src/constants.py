@@ -115,6 +115,10 @@ class Settings:
     ES_RETENTION_POLICY = 'elasticsearch.retention_policy'
     # Delete or Retain, for every datastore S3 bucket and their S3 encryption key, likewise both attributes.
     S3_RETENTION_POLICY = 's3.retention_policy'
+    # SRCE datastore only: the tibanna_smaht deploy_tiger env (its -e value) whose seven tibanna_tiger_<env>_* roles
+    # may use the S3 encryption key, granted declaratively in the key policy so deploy_tiger's own PutKeyPolicy
+    # rewrite is not needed. Unset leaves the key policy unchanged. See docs/source/deploy_srce.rst.
+    DATASTORE_TIBANNA_TIGER_ENV = 'datastore.tibanna_tiger_env'
     # Private subnet (letter of the network stack's PrivateSubnet<X> exports) for the OpenSearch
     # domain(s). Default A; for an IT-provided VPC whose first subnet is in an AZ OpenSearch does not offer.
     ES_PRIVATE_SUBNET = 'elasticsearch.private_subnet'

@@ -107,6 +107,13 @@ Other relevant keys:
   CloudFormation's defaults: an update that replaces RDS or a domain deletes it without a snapshot.
 * ``s3.retention_policy`` - ``Delete`` or ``Retain`` for both attributes of every datastore S3
   bucket and their S3 encryption key, so the files and the key that decrypts them outlive the stack.
+* ``datastore.tibanna_tiger_env`` - the ``-e`` env of ``tibanna_smaht deploy_tiger``. It grants that env's seven
+  ``tibanna_tiger_<env>_*`` roles, by exact ARN, use of the datastore's S3 encryption key. The grant is one appended
+  key-policy statement, so the existing statements are unchanged. Without it, deploy_tiger grants access itself
+  by rewriting the CloudFormation-managed key policy with ``PutKeyPolicy``, whenever ``S3_ENCRYPT_KEY_ID`` is set:
+  that is out-of-band drift the next datastore update reverts. The roles need not exist when the stack updates.
+  This setting does not stop deploy_tiger's own ``PutKeyPolicy`` calls; deploy Tibanna without them, or the
+  out-of-band edits still happen. Unset changes nothing.
 * ``elasticsearch.private_subnet`` - which ``db.private.subnets`` entry (``A``, ``B``, ...) the
   OpenSearch domains use; default ``A``. Some Availability Zones offer no OpenSearch (or RDS)
   instance types - check with ``aws opensearch list-instance-type-details --retrieve-azs`` and
